@@ -118,5 +118,6 @@ ersetzt.
 
 ## Lizenz
 
-Noch nicht entschieden. Sie ist eine der vier Freigabebedingungen und wird geklärt, bevor dieses
-Repository sich öffnet.
+MIT, am 2026-08-08 vom Eigentümer gewählt und als [`LICENSE`](LICENSE) committet. Damit ist der
+Lizenzteil von Freigabebedingung 4 erledigt; deren Rechts- und Privacy-Teil bleibt offen, bis die
+Publikationsprüfung gelaufen ist.

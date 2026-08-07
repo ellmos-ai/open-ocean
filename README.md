@@ -113,5 +113,6 @@ the water actually arrives is the test that no amount of correct manifests can s
 
 ## Licence
 
-Not yet settled. It is one of the four release conditions and will be fixed before this
-repository opens.
+MIT, chosen by the owner on 2026-08-08 and committed as [`LICENSE`](LICENSE). That settles the
+licence part of release condition 4; its law and privacy parts stay open until the publication
+check has been run.

@@ -1,0 +1,97 @@
+{
+  "schema": "ellmos.bundle.v1",
+  "id": "ellmos-voice-media-assist-bundle",
+  "version": "1.0.0",
+  "status": "registered",
+  "lifecycle": "draft",
+  "authority": {
+    "kind": "declarative-shadow",
+    "runtime_authority": false
+  },
+  "provenance": {
+    "source_plan": "plan:v4-master",
+    "repository": "private composition repository",
+    "derived_from": "BUNDLE-VORSCHLAG-ABGLEICH_2026-08-07.md (normalised user proposal, section 2)"
+  },
+  "display_name": "Voice and Media Assist Bundle",
+  "user_proposal_alias": "VOICE & MEDIA ASSIST",
+  "purpose": [
+    "Speaking and listening instead of typing, plus the personal media shelf.",
+    "The assisting counterpart to the producing media hub."
+  ],
+  "visibility": "private",
+  "pillar": "uas",
+  "assurance_contract": {
+    "ref": "contract:mandatory-assurance-v1",
+    "version": "1.0.0"
+  },
+  "functional_contracts": [
+    {
+      "path": "contracts/bundle-family-contract.v1.json",
+      "content_hash": "2b225912b21e42afda11a086355dbf50ba63ad2876021c7a84008b5f3734d948"
+    }
+  ],
+  "components": [
+    {
+      "type": "skill",
+      "ref": {
+        "ref": "skill:voice",
+        "version": "registry-current"
+      },
+      "role": "voice-io-planning",
+      "requirement": "recommended",
+      "provides": [
+        "voice-interaction-plan"
+      ],
+      "consumes": [
+        "approved-audio-scope"
+      ]
+    },
+    {
+      "type": "skill",
+      "ref": {
+        "ref": "skill:transkription",
+        "version": "registry-current"
+      },
+      "role": "transcription",
+      "requirement": "recommended",
+      "provides": [
+        "source-backed-transcript"
+      ],
+      "consumes": [
+        "approved-audio-source"
+      ]
+    },
+    {
+      "type": "skill",
+      "ref": {
+        "ref": "skill:mediabrain-reader",
+        "version": "registry-current"
+      },
+      "role": "media-list-review",
+      "requirement": "optional",
+      "provides": [
+        "media-list-review"
+      ],
+      "consumes": [
+        "approved-media-source"
+      ]
+    }
+  ],
+  "composition_notes": {
+    "boundary": "Assistance, not production. ellmos-media-production-bundle carries the producing side; this hub only helps the person consume and dictate."
+  },
+  "profiles": {
+    "full": {
+      "include": [],
+      "exclude": [],
+      "overrides": {}
+    },
+    "operator": {
+      "include": [],
+      "exclude": [],
+      "overrides": {}
+    }
+  },
+  "content_hash": "520f794c4bc77ffaee7b05efe90b2ec90dae18c76074941b40f11a7ca169558e"
+}

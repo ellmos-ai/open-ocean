@@ -1,0 +1,139 @@
+{
+  "schema": "ellmos.bundle.v1",
+  "id": "ellmos-knowledge-bundle",
+  "version": "1.0.0",
+  "status": "registered",
+  "lifecycle": "draft",
+  "authority": {
+    "kind": "declarative-shadow",
+    "runtime_authority": false
+  },
+  "provenance": {
+    "source_plan": "plan:v4-master",
+    "repository": "private composition repository"
+  },
+  "display_name": "Knowledge Bundle",
+  "purpose": [
+    "Document knowledge, retrieval, reporting, and neutral research."
+  ],
+  "visibility": "private",
+  "assurance_contract": {
+    "ref": "contract:mandatory-assurance-v1",
+    "version": "1.0.0"
+  },
+  "components": [
+    {
+      "type": "module",
+      "ref": {
+        "ref": "module:KnowledgeDigest",
+        "version": "v4-shadow"
+      },
+      "role": "declared-component",
+      "requirement": "required",
+      "provides": [],
+      "consumes": []
+    },
+    {
+      "type": "module",
+      "ref": {
+        "ref": "module:WikiStub-Seed",
+        "version": "v4-shadow"
+      },
+      "role": "declared-component",
+      "requirement": "recommended",
+      "provides": [],
+      "consumes": []
+    },
+    {
+      "type": "module",
+      "ref": {
+        "ref": "module:report-forge",
+        "version": "v4-shadow"
+      },
+      "role": "declared-component",
+      "requirement": "recommended",
+      "provides": [],
+      "consumes": []
+    },
+    {
+      "type": "module",
+      "ref": {
+        "ref": "module:web-scraper",
+        "version": "v4-shadow"
+      },
+      "role": "declared-component",
+      "requirement": "recommended",
+      "provides": [],
+      "consumes": []
+    },
+    {
+      "type": "module",
+      "ref": {
+        "ref": "module:project-docs-template",
+        "version": "v4-shadow"
+      },
+      "role": "declared-component",
+      "requirement": "recommended",
+      "provides": [],
+      "consumes": []
+    },
+    {
+      "type": "skill",
+      "ref": {
+        "ref": "skill:docs-analysis",
+        "version": "registry-current"
+      },
+      "role": "requirements-analysis",
+      "requirement": "recommended",
+      "provides": [
+        "document-gap-analysis"
+      ],
+      "consumes": [
+        "document-sources"
+      ]
+    },
+    {
+      "type": "skill",
+      "ref": {
+        "ref": "skill:document-chunker",
+        "version": "registry-current"
+      },
+      "role": "retrieval-preparation",
+      "requirement": "recommended",
+      "provides": [
+        "retrieval-chunks"
+      ],
+      "consumes": [
+        "approved-document-input"
+      ]
+    },
+    {
+      "type": "skill",
+      "ref": {
+        "ref": "skill:bilingual-doc-sync",
+        "version": "registry-current"
+      },
+      "role": "language-parity",
+      "requirement": "optional",
+      "provides": [
+        "semantic-drift-report"
+      ],
+      "consumes": [
+        "stable-canonical-text"
+      ]
+    }
+  ],
+  "profiles": {
+    "full": {
+      "include": [],
+      "exclude": [],
+      "overrides": {}
+    },
+    "operator": {
+      "include": [],
+      "exclude": [],
+      "overrides": {}
+    }
+  },
+  "content_hash": "4e3dbf2b2e8adfb7dcd2ffbdc36fc7af98d815f9bfd40686e796e639b43e8ad9"
+}

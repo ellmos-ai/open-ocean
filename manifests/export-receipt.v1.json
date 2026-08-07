@@ -1,0 +1,104 @@
+{
+  "schema": "ellmos.open-ocean-export-receipt.v1",
+  "id": "open-ocean-export-receipt",
+  "source_repository": "private composition repository",
+  "source_commit": "4d4856da1154c1b8f96d124e713ae66b7b8df11a",
+  "export_contract": "contracts/github-export-projection.v1.json",
+  "export_contract_sha256": "ec2db1a5e9ea7e5bb49ab8724a1407c1071ecbc2b206d16e11617cd855e8ca66",
+  "rules_applied": [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "S5",
+    "S6",
+    "S7",
+    "S8",
+    "S9"
+  ],
+  "bundle_count": 13,
+  "files": [
+    {
+      "exported_path": "contracts/bundle-family-contract.v1.json",
+      "source_path": "contracts/bundle-family-contract.v1.json",
+      "source_sha256": "b9825f9d2b3aad74359f3812e1749ba31d175b6d604599017c81675bc6e64bb5"
+    },
+    {
+      "exported_path": "contracts/choice-bundle-contract.v1.json",
+      "source_path": "contracts/choice-bundle-contract.v1.json",
+      "source_sha256": "4f06c86e51703e49b66ee6fa9125203545d2150c3f100fa234abeefe010de74c"
+    },
+    {
+      "exported_path": "manifests/bundles.catalog.v1.json",
+      "source_path": "manifests/bundles.catalog.v1.json",
+      "source_sha256": "dd5016b7e12979d7130b671098912c4522a3fe6a1e0e280e2e2ee4535f821738"
+    },
+    {
+      "exported_path": "manifests/bundles/ellmos-agents-bundle/bundle.v1.json",
+      "source_path": "manifests/bundles/ellmos-agents-bundle/bundle.v1.json",
+      "source_sha256": "de7cab51491108581dd7a584d1559b33be39896bafc89cbde0f8221d914c3cb6"
+    },
+    {
+      "exported_path": "manifests/bundles/ellmos-briefing-bundle/bundle.v1.json",
+      "source_path": "manifests/bundles/ellmos-briefing-bundle/bundle.v1.json",
+      "source_sha256": "97f67c5a4327c04277766ff3fff7e1a3aa390e331081b650d057321c9086ac90"
+    },
+    {
+      "exported_path": "manifests/bundles/ellmos-coordination-choice-bundle/bundle.v1.json",
+      "source_path": "manifests/bundles/ellmos-coordination-choice-bundle/bundle.v1.json",
+      "source_sha256": "be902d1e8a1aa15c76f4f59d101cc2ec22a74bfcc289356c3d9d75de8053199d"
+    },
+    {
+      "exported_path": "manifests/bundles/ellmos-daily-life-bundle/bundle.v1.json",
+      "source_path": "manifests/bundles/ellmos-daily-life-bundle/bundle.v1.json",
+      "source_sha256": "6a039703dd5897c49e6f5711513f85108e683d920c4351bc87085a92e84700d1"
+    },
+    {
+      "exported_path": "manifests/bundles/ellmos-doc-handler-bundle/bundle.v1.json",
+      "source_path": "manifests/bundles/ellmos-doc-handler-bundle/bundle.v1.json",
+      "source_sha256": "1ff011990fbba7002c78a10191f4163d62e0756c09add5b78637ce4e1aba1d41"
+    },
+    {
+      "exported_path": "manifests/bundles/ellmos-finance-assist-bundle/bundle.v1.json",
+      "source_path": "manifests/bundles/ellmos-finance-assist-bundle/bundle.v1.json",
+      "source_sha256": "e24e757abb9f83f5f3cc50098e06e4b68a60c3775f197063015b44e18bcfcac6"
+    },
+    {
+      "exported_path": "manifests/bundles/ellmos-health-assist-bundle/bundle.v1.json",
+      "source_path": "manifests/bundles/ellmos-health-assist-bundle/bundle.v1.json",
+      "source_sha256": "03b8aeea6918cbb4d967f6ee91e6eb0f08f1e50fee5f4d846aebfe6f889e9126"
+    },
+    {
+      "exported_path": "manifests/bundles/ellmos-knowledge-bundle/bundle.v1.json",
+      "source_path": "manifests/bundles/ellmos-knowledge-bundle/bundle.v1.json",
+      "source_sha256": "c1cd08561c8bcda6fe44bbb8a900b11a5550623b9a94bae42ae6fe1ff38d43b2"
+    },
+    {
+      "exported_path": "manifests/bundles/ellmos-knowledge-search-choice-bundle/bundle.v1.json",
+      "source_path": "manifests/bundles/ellmos-knowledge-search-choice-bundle/bundle.v1.json",
+      "source_sha256": "c725420d6e96521a5cd89ba1dfc0f4a828b69325d808838feef79e9a0a1ad033"
+    },
+    {
+      "exported_path": "manifests/bundles/ellmos-media-production-bundle/bundle.v1.json",
+      "source_path": "manifests/bundles/ellmos-media-production-bundle/bundle.v1.json",
+      "source_sha256": "8a681f6c44c3c080f52cbd2361d0d9a73006301b08d4127742eadf4751a07fb8"
+    },
+    {
+      "exported_path": "manifests/bundles/ellmos-memory-human-context-bundle/bundle.v1.json",
+      "source_path": "manifests/bundles/ellmos-memory-human-context-bundle/bundle.v1.json",
+      "source_sha256": "6c83779e2affd9c64db29cc1e5478a3f21fc3b15c6376584ebfd82c765fb3cd5"
+    },
+    {
+      "exported_path": "manifests/bundles/ellmos-voice-media-assist-bundle/bundle.v1.json",
+      "source_path": "manifests/bundles/ellmos-voice-media-assist-bundle/bundle.v1.json",
+      "source_sha256": "216ac6da57b1dea1bf4637b865f2e3cfa448109deb34e7b579e322e4691960e6"
+    },
+    {
+      "exported_path": "manifests/bundles/ellmos-working-memory-bundle/bundle.v1.json",
+      "source_path": "manifests/bundles/ellmos-working-memory-bundle/bundle.v1.json",
+      "source_sha256": "b049b5b51d65413c928c5c37340d41593aa3de37a82f80d8ba3fb97dc48fdccb"
+    }
+  ],
+  "reproducibility": "Deliberately free of timestamps: re-running the export against the same source commit must produce a byte-identical result, so drift is visible.",
+  "content_hash": "cc0564d441fb6ea670812254f3386ff713058731339311b1772922aff2111278"
+}

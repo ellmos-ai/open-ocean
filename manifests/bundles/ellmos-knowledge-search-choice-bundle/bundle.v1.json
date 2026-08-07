@@ -1,0 +1,137 @@
+{
+  "schema": "ellmos.bundle.v1",
+  "id": "ellmos-knowledge-search-choice-bundle",
+  "version": "1.0.0",
+  "status": "registered",
+  "lifecycle": "draft",
+  "authority": {
+    "kind": "declarative-shadow",
+    "runtime_authority": false
+  },
+  "provenance": {
+    "source_plan": "plan:v4-master",
+    "repository": "private composition repository"
+  },
+  "display_name": "Knowledge Search Choice Bundle",
+  "purpose": [
+    "Selection register for the mutually exclusive knowledge search default.",
+    "Kept separate because its candidates live in two different functional bundles."
+  ],
+  "visibility": "private",
+  "assurance_contract": {
+    "ref": "contract:mandatory-assurance-v1",
+    "version": "1.0.0"
+  },
+  "functional_contracts": [
+    {
+      "path": "contracts/choice-bundle-contract.v1.json",
+      "content_hash": "b386cb8c9118a7e7d531a67e46c82f41b6ff9784a89ca681aecd377f85ad45ea"
+    }
+  ],
+  "components": [
+    {
+      "type": "skill",
+      "ref": {
+        "ref": "skill:decide",
+        "version": "registry-current"
+      },
+      "role": "selection-analysis",
+      "requirement": "recommended",
+      "provides": [
+        "candidate-comparison"
+      ],
+      "consumes": [
+        "choice-group-criteria"
+      ]
+    }
+  ],
+  "choice_groups": [
+    {
+      "id": "choice:knowledge.search.default",
+      "role_ref": "knowledge.search.default",
+      "cardinality_authority": "composition.rules.json",
+      "pick": "exactly-one",
+      "default_selection": [
+        "KnowledgeDigest"
+      ],
+      "candidates": [
+        {
+          "ref": "GARDENER",
+          "type": "module",
+          "identity": "module:GARDENER",
+          "default": false,
+          "registered_in_bundle": "ellmos-memory-human-context-bundle",
+          "when": [
+            "Search should cover what already exists instead of what someone remembered to feed in.",
+            "Memory and index are wanted in one component, because GARDENER also carries memory.organic.",
+            "The index must not be able to reach the network at all."
+          ],
+          "strengths": [
+            "The only candidate with network boundary local instead of optional; nothing can leave the machine.",
+            "Status active against the alternative's alpha.",
+            "Carries knowledge.index in addition to knowledge.search."
+          ],
+          "tradeoffs": [
+            "No ui surface; library, cli and service only.",
+            "Does not provide knowledge.ingest, so document intake is not its job.",
+            "Its provides list names knowledge.search, not knowledge.search.default (see selection_notes)."
+          ],
+          "evidence": [
+            "registry:modules#GARDENER (provides memory.organic, knowledge.index, knowledge.search; boundaries.network local; status active; surfaces library, cli, service)"
+          ]
+        },
+        {
+          "ref": "KnowledgeDigest",
+          "type": "module",
+          "identity": "module:KnowledgeDigest",
+          "default": true,
+          "registered_in_bundle": "ellmos-knowledge-bundle",
+          "when": [
+            "Documents have to be ingested and chunked first; search is the second step, not the first.",
+            "A graphical surface is expected, not only a library and a command line.",
+            "Optional LLM summarization is acceptable, including the network access it implies."
+          ],
+          "strengths": [
+            "The only candidate that declares knowledge.search.default literally, and the only one with knowledge.ingest.",
+            "Full surface set including ui."
+          ],
+          "tradeoffs": [
+            "Status alpha against GARDENER's active.",
+            "Network boundary optional rather than local, because summarization may call out."
+          ],
+          "evidence": [
+            "registry:modules#KnowledgeDigest (provides knowledge.ingest, knowledge.search, knowledge.search.default; boundaries.network optional; status alpha; surfaces library, cli, service, ui)"
+          ]
+        }
+      ],
+      "relationship_note": "The two candidates are not interchangeable in scope: GARDENER indexes what already exists and also serves memory.organic, while KnowledgeDigest owns document intake. Selecting one as the search default does not remove the other from a stack.",
+      "selection_notes": "Both may exist; only the default is exclusive, and the documented reason is addressability rather than quality: a router needs one unambiguous target. Source: .MODULES/ARCHITECTURE.md, 'Suche braucht einen Owner: knowledge.search.default = GARDENER oder KnowledgeDigest, nie beide zugleich als Standard'. The default flag follows the only candidate that declares the capability literally, not a quality verdict. TODO: no document states a situation or threshold at which GARDENER should be preferred, and GARDENER's catalog entry does not declare knowledge.search.default although composition.rules lists it as a provider. Both gaps need the repository owner."
+    }
+  ],
+  "profiles": {
+    "full": {
+      "include": [],
+      "exclude": [],
+      "overrides": {}
+    },
+    "local-only-search": {
+      "include": [],
+      "exclude": [],
+      "overrides": {
+        "knowledge.search.default": {
+          "value": "GARDENER"
+        }
+      }
+    },
+    "document-ingest-search": {
+      "include": [],
+      "exclude": [],
+      "overrides": {
+        "knowledge.search.default": {
+          "value": "KnowledgeDigest"
+        }
+      }
+    }
+  },
+  "content_hash": "12b5181f1320404b781f73188e353ec32df748fc07d822f3509aa95a85290d8d"
+}

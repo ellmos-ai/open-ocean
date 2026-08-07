@@ -1,0 +1,198 @@
+{
+  "schema": "ellmos.bundle.v1",
+  "id": "ellmos-doc-handler-bundle",
+  "version": "1.0.0",
+  "status": "registered",
+  "lifecycle": "draft",
+  "authority": {
+    "kind": "declarative-shadow",
+    "runtime_authority": false
+  },
+  "provenance": {
+    "source_plan": "plan:v4-master",
+    "repository": "private composition repository",
+    "derived_from": "BUNDLE-VORSCHLAG-ABGLEICH_2026-08-07.md (normalised user proposal, section 2)"
+  },
+  "display_name": "Document Handler Bundle",
+  "user_proposal_alias": "DOC HANDLER",
+  "purpose": [
+    "Document work as a craft: producing, cleaning, anonymising and filing documents.",
+    "Deliberately cut differently from knowledge search, which stays in ellmos-knowledge-bundle."
+  ],
+  "visibility": "private",
+  "pillar": "domain",
+  "assurance_contract": {
+    "ref": "contract:mandatory-assurance-v1",
+    "version": "1.0.0"
+  },
+  "functional_contracts": [
+    {
+      "path": "contracts/bundle-family-contract.v1.json",
+      "content_hash": "2b225912b21e42afda11a086355dbf50ba63ad2876021c7a84008b5f3734d948"
+    }
+  ],
+  "components": [
+    {
+      "type": "module",
+      "ref": {
+        "ref": "module:report-forge",
+        "version": "v4-shadow"
+      },
+      "role": "declared-component",
+      "requirement": "recommended",
+      "provides": [],
+      "consumes": []
+    },
+    {
+      "type": "module",
+      "ref": {
+        "ref": "module:worksheet-generator",
+        "version": "v4-shadow"
+      },
+      "role": "declared-component",
+      "requirement": "recommended",
+      "provides": [],
+      "consumes": []
+    },
+    {
+      "type": "module",
+      "ref": {
+        "ref": "module:anonymizer",
+        "version": "v4-shadow"
+      },
+      "role": "declared-component",
+      "requirement": "recommended",
+      "provides": [],
+      "consumes": []
+    },
+    {
+      "type": "module",
+      "ref": {
+        "ref": "module:KnowledgeDigest",
+        "version": "v4-shadow"
+      },
+      "role": "declared-component",
+      "requirement": "optional",
+      "provides": [],
+      "consumes": []
+    },
+    {
+      "type": "module",
+      "ref": {
+        "ref": "module:llm-note",
+        "version": "v4-shadow"
+      },
+      "role": "declared-component",
+      "requirement": "optional",
+      "provides": [],
+      "consumes": []
+    },
+    {
+      "type": "skill",
+      "ref": {
+        "ref": "skill:docs-analysis",
+        "version": "registry-current"
+      },
+      "role": "requirements-analysis",
+      "requirement": "recommended",
+      "provides": [
+        "document-gap-analysis"
+      ],
+      "consumes": [
+        "document-sources"
+      ]
+    },
+    {
+      "type": "skill",
+      "ref": {
+        "ref": "skill:document-chunker",
+        "version": "registry-current"
+      },
+      "role": "retrieval-preparation",
+      "requirement": "recommended",
+      "provides": [
+        "retrieval-chunks"
+      ],
+      "consumes": [
+        "approved-document-input"
+      ]
+    },
+    {
+      "type": "skill",
+      "ref": {
+        "ref": "skill:bilingual-doc-sync",
+        "version": "registry-current"
+      },
+      "role": "language-parity",
+      "requirement": "recommended",
+      "provides": [
+        "semantic-drift-report"
+      ],
+      "consumes": [
+        "stable-canonical-text"
+      ]
+    },
+    {
+      "type": "skill",
+      "ref": {
+        "ref": "skill:llm-text-hygiene",
+        "version": "registry-current"
+      },
+      "role": "text-hygiene",
+      "requirement": "recommended",
+      "provides": [
+        "text-hygiene-report"
+      ],
+      "consumes": [
+        "finished-text"
+      ]
+    },
+    {
+      "type": "skill",
+      "ref": {
+        "ref": "skill:notizblock",
+        "version": "registry-current"
+      },
+      "role": "notes-workflow",
+      "requirement": "optional",
+      "provides": [
+        "captured-note"
+      ],
+      "consumes": [
+        "approved-personal-context"
+      ]
+    },
+    {
+      "type": "skill",
+      "ref": {
+        "ref": "skill:encoding-fix",
+        "version": "registry-current"
+      },
+      "role": "encoding-repair",
+      "requirement": "optional",
+      "provides": [
+        "encoding-repair-plan"
+      ],
+      "consumes": [
+        "narrow-verified-file-set"
+      ]
+    }
+  ],
+  "composition_notes": {
+    "why_own_bundle": "ellmos-knowledge-bundle is the nearest home but its manifest hash is pinned by a live approval with default_action deny, so it must not be extended. Its cut is also a different one: it answers knowledge retrieval, this hub answers document handling.",
+    "not_taken_over": "WikiStub-Seed stays in ellmos-knowledge-bundle. It is the very component the live approval was granted for, so moving or duplicating it would touch the pinned decision."
+  },
+  "profiles": {
+    "full": {
+      "include": [],
+      "exclude": [],
+      "overrides": {}
+    },
+    "operator": {
+      "include": [],
+      "exclude": [],
+      "overrides": {}
+    }
+  },
+  "content_hash": "e277ed61862c627687a275150ff23393e95b08cf1d14c949dea79773081f4005"
+}

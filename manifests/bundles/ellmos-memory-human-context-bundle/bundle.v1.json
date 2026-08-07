@@ -1,0 +1,133 @@
+{
+  "schema": "ellmos.bundle.v1",
+  "id": "ellmos-memory-human-context-bundle",
+  "version": "1.0.0",
+  "status": "registered",
+  "lifecycle": "draft",
+  "authority": {
+    "kind": "declarative-shadow",
+    "runtime_authority": false
+  },
+  "provenance": {
+    "source_plan": "plan:v4-master",
+    "repository": "private composition repository"
+  },
+  "display_name": "Memory Human Context Bundle",
+  "user_proposal_alias": "MEMORY-PROVIDER",
+  "purpose": [
+    "Session state, memory search, and derived human context."
+  ],
+  "visibility": "private",
+  "pillar": "memory",
+  "assurance_contract": {
+    "ref": "contract:mandatory-assurance-v1",
+    "version": "1.0.0"
+  },
+  "choice_bundle_refs": [
+    {
+      "ref": "ellmos-knowledge-search-choice-bundle",
+      "path": "manifests/bundles/ellmos-knowledge-search-choice-bundle/bundle.v1.json",
+      "content_hash": "12b5181f1320404b781f73188e353ec32df748fc07d822f3509aa95a85290d8d",
+      "reason": "module:GARDENER is a declared component here and is one of the two candidates for knowledge.search.default. The mirror pointer from ellmos-knowledge-bundle is deliberately omitted: that manifest is hash-pinned by manifests/module-readme-discovery.approvals.v1.json, and a selection register must not force a re-approval."
+    }
+  ],
+  "components": [
+    {
+      "type": "module",
+      "ref": {
+        "ref": "module:USMC",
+        "version": "v4-shadow"
+      },
+      "role": "declared-component",
+      "requirement": "required",
+      "provides": [],
+      "consumes": []
+    },
+    {
+      "type": "module",
+      "ref": {
+        "ref": "module:GARDENER",
+        "version": "v4-shadow"
+      },
+      "role": "declared-component",
+      "requirement": "recommended",
+      "provides": [],
+      "consumes": []
+    },
+    {
+      "type": "module",
+      "ref": {
+        "ref": "module:memory-hooker",
+        "version": "v4-shadow"
+      },
+      "role": "declared-component",
+      "requirement": "recommended",
+      "provides": [],
+      "consumes": []
+    },
+    {
+      "type": "module",
+      "ref": {
+        "ref": "module:build-your-users-mind",
+        "version": "v4-shadow"
+      },
+      "role": "declared-component",
+      "requirement": "recommended",
+      "provides": [],
+      "consumes": []
+    },
+    {
+      "type": "access_surface",
+      "ref": {
+        "ref": "access_surface:Homebase-memory",
+        "version": "v4-shadow"
+      },
+      "role": "declared-component",
+      "requirement": "optional",
+      "provides": [],
+      "consumes": []
+    },
+    {
+      "type": "skill",
+      "ref": {
+        "ref": "skill:decision-briefing",
+        "version": "registry-current"
+      },
+      "role": "human-context-synthesis",
+      "requirement": "optional",
+      "provides": [
+        "decision-context-brief"
+      ],
+      "consumes": [
+        "explicit-user-scope"
+      ]
+    }
+  ],
+  "profiles": {
+    "full": {
+      "include": [],
+      "exclude": [],
+      "overrides": {}
+    },
+    "operator": {
+      "include": [],
+      "exclude": [],
+      "overrides": {}
+    }
+  },
+  "content_hash": "a61c9efe8f456c6ed037ee339293ae80705101583dc7f9d174940b788f0aba06",
+  "composition_notes": {
+    "pair_knowledge": {
+      "kind": "complementary role pair, not a selection",
+      "roles": [
+        "memory.curated (USMC)",
+        "memory.organic (GARDENER)"
+      ],
+      "full_system_default": "both roles filled",
+      "statement": "USMC is the curated memory facade, GARDENER the organic cross-source index that feeds it. Choosing one does not replace the other; they answer different questions.",
+      "why_not_a_choice_group": "The two already sit in two separate roles, each with maximum 1. A single choice group binds exactly one role, so a group spanning both is not expressible, and merging the roles would destroy the distinction that makes the pair useful.",
+      "where_the_selection_lives": "deployment.profile and the stack component role assignment.",
+      "decision": "Operator decision 2026-08-07: role-pair model, no cross-role group."
+    }
+  }
+}

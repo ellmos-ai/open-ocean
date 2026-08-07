@@ -1,0 +1,163 @@
+{
+  "schema": "ellmos.bundle.v1",
+  "id": "ellmos-coordination-choice-bundle",
+  "version": "1.0.0",
+  "status": "registered",
+  "lifecycle": "draft",
+  "authority": {
+    "kind": "declarative-shadow",
+    "runtime_authority": false
+  },
+  "provenance": {
+    "source_plan": "plan:v4-master",
+    "repository": "private composition repository"
+  },
+  "display_name": "Coordination Choice Bundle",
+  "purpose": [
+    "Selection register for mutually exclusive coordination and locking providers.",
+    "Records why one candidate is chosen over the other; it does not deploy either."
+  ],
+  "visibility": "private",
+  "pillar": "control",
+  "assurance_contract": {
+    "ref": "contract:mandatory-assurance-v1",
+    "version": "1.0.0"
+  },
+  "functional_contracts": [
+    {
+      "path": "contracts/choice-bundle-contract.v1.json",
+      "content_hash": "b386cb8c9118a7e7d531a67e46c82f41b6ff9784a89ca681aecd377f85ad45ea"
+    }
+  ],
+  "components": [
+    {
+      "type": "skill",
+      "ref": {
+        "ref": "skill:decide",
+        "version": "registry-current"
+      },
+      "role": "selection-analysis",
+      "requirement": "recommended",
+      "provides": [
+        "candidate-comparison"
+      ],
+      "consumes": [
+        "choice-group-criteria"
+      ]
+    },
+    {
+      "type": "skill",
+      "ref": {
+        "ref": "skill:decision-briefing",
+        "version": "registry-current"
+      },
+      "role": "selection-briefing",
+      "requirement": "optional",
+      "provides": [
+        "decision-options"
+      ],
+      "consumes": [
+        "choice-group-criteria"
+      ]
+    }
+  ],
+  "choice_groups": [
+    {
+      "id": "choice:coordination.locking",
+      "role_ref": "coordination.locking",
+      "cardinality_authority": "composition.rules.json",
+      "pick": "exactly-one",
+      "default_selection": [
+        "lock-master"
+      ],
+      "candidates": [
+        {
+          "ref": "lock-master",
+          "type": "module",
+          "identity": "module:lock-master",
+          "default": true,
+          "registered_in_bundle": "ellmos-governance-assurance-bundle",
+          "when": [
+            "Coordination stays on one host or on hosts that already share a synchronized folder.",
+            "No external service may be introduced; the coordination layer must work offline.",
+            "The claim only has to be visible to agents and humans reading the project folder.",
+            "A lock has to be readable and removable without any tooling, including by hand."
+          ],
+          "strengths": [
+            "File-based: LOCK*.txt in the project folder is the sole authority; cache, SQLite and web UI are derived views.",
+            "Zero infrastructure: network boundary 'none', data boundary 'user-local', runs on windows, macos and linux.",
+            "Agent-neutral permission model LOCK.permissions.json with precedence deny > ask > allow.",
+            "Operationally proven and public: status active, visibility public, surfaces library, cli and workflow."
+          ],
+          "tradeoffs": [
+            "No transactional guarantee: two agents starting at the same moment can both observe an empty folder.",
+            "Coordination stops at the folder boundary; hosts without the shared folder cannot participate.",
+            "No memory of outcomes; a lock records a claim, not how the attempt ended.",
+            "Stale locks need the 24h expiry net or prune_stale_locks.py; user locks never expire by design."
+          ],
+          "evidence": [
+            "registry:modules#lock-master (boundaries.network none, boundaries.data user-local, kind protocol, status active, visibility public, provides control.locks and control.permissions)",
+            "_scripts/LOCK-SYSTEM.md (lock types, precedence deny > ask > allow, expiry, authority of the LOCK*.txt files)"
+          ]
+        },
+        {
+          "ref": "roshambo",
+          "type": "stack",
+          "identity": "stack:roshambo-stack",
+          "default": false,
+          "registered_in_bundle": null,
+          "when": [
+            "Agents that do not know each other must be coordinated across vendors, machines and sessions.",
+            "Double work has to be prevented by a transaction, not by an observation of the file system.",
+            "The question 'has this been attempted before, and how did it end?' has to be answerable.",
+            "An external managed database is acceptable as the system of record."
+          ],
+          "strengths": [
+            "CockroachDB is the system of record: serializable leases instead of best-effort file claims.",
+            "Outcome memory through a distributed vector index, failures included.",
+            "Explicitly vendor-neutral; the gap no vendor has an interest in closing.",
+            "Narrow agent-facing write path through roshambo-mcp with enforced invariants instead of free SQL."
+          ],
+          "tradeoffs": [
+            "Requires external infrastructure: CockroachDB Cloud plus Bedrock, Lambda and S3, all declared status planned.",
+            "Not local-first: stack policy local_first is false, network policy declared, platforms limited to windows and linux.",
+            "Maturity: stack status development, visibility public-candidate, created for a competition deadline.",
+            "Data boundary rises to sensitive, so an anonymizer has to run before anything becomes swarm-visible."
+          ],
+          "evidence": [
+            ".STACKS/NEW-STACK_ROSHAMBO.md (purpose, system of record, positioning, size class mix-stack, deliberate gaps)",
+            ".STACKS/roshambo-stack/stack.v2.json (policies.local_first false, policies.network declared, external_components status planned, visibility public-candidate)"
+          ]
+        }
+      ],
+      "relationship_note": "The two candidates are an alternative pair and a dependency at the same time: roshambo adopts lock-master's lease semantics (claim, expiry, rights with precedence deny > ask > allow) and only moves the storage from LOCK*.txt to a database table. Choosing roshambo therefore does not discard lock-master's model, it relocates it. Source: .STACKS/NEW-STACK_ROSHAMBO.md, packing list row 'lock-master | Lease-Semantik'.",
+      "selection_notes": "Decide by reach, not by feature count: within one host or one synchronized folder lock-master is sufficient and cheaper by an order of magnitude; across vendors, machines and sessions a file cannot carry the guarantee and roshambo becomes the honest answer. TODO: neither candidate is currently assigned to the role in any registered stack, so this group records the intended choice space rather than an observed deployment."
+    }
+  ],
+  "profiles": {
+    "full": {
+      "include": [],
+      "exclude": [],
+      "overrides": {}
+    },
+    "file-based-coordination": {
+      "include": [],
+      "exclude": [],
+      "overrides": {
+        "coordination.locking": {
+          "value": "lock-master"
+        }
+      }
+    },
+    "database-backed-coordination": {
+      "include": [],
+      "exclude": [],
+      "overrides": {
+        "coordination.locking": {
+          "value": "roshambo"
+        }
+      }
+    }
+  },
+  "content_hash": "4323952a7c04b8e4f4a935bf5f36c4cfec9a5220be0708a4c1549698489a8ed4"
+}

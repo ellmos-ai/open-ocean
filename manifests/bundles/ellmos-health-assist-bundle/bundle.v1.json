@@ -1,0 +1,82 @@
+{
+  "schema": "ellmos.bundle.v1",
+  "id": "ellmos-health-assist-bundle",
+  "version": "1.0.0",
+  "status": "registered",
+  "lifecycle": "draft",
+  "authority": {
+    "kind": "declarative-shadow",
+    "runtime_authority": false
+  },
+  "provenance": {
+    "source_plan": "plan:v4-master",
+    "repository": "private composition repository",
+    "derived_from": "BUNDLE-VORSCHLAG-ABGLEICH_2026-08-07.md (normalised user proposal, section 2)"
+  },
+  "display_name": "Health Assist Bundle",
+  "user_proposal_alias": "HEALTH ASSIST",
+  "purpose": [
+    "Organising health matters: appointments, documents, medication and records.",
+    "Deliberately separate from the clinical subject matter, which belongs to a domain hub."
+  ],
+  "visibility": "private",
+  "pillar": "uas",
+  "assurance_contract": {
+    "ref": "contract:mandatory-assurance-v1",
+    "version": "1.0.0"
+  },
+  "functional_contracts": [
+    {
+      "path": "contracts/bundle-family-contract.v1.json",
+      "content_hash": "2b225912b21e42afda11a086355dbf50ba63ad2876021c7a84008b5f3734d948"
+    }
+  ],
+  "components": [
+    {
+      "type": "skill",
+      "ref": {
+        "ref": "skill:gesundheit",
+        "version": "registry-current"
+      },
+      "role": "health-organisation",
+      "requirement": "recommended",
+      "provides": [
+        "health-organisation-plan"
+      ],
+      "consumes": [
+        "explicit-user-scope"
+      ]
+    },
+    {
+      "type": "skill",
+      "ref": {
+        "ref": "skill:medizin-daten",
+        "version": "registry-current"
+      },
+      "role": "medical-data-capture",
+      "requirement": "recommended",
+      "provides": [
+        "private-health-record-plan"
+      ],
+      "consumes": [
+        "explicit-user-scope"
+      ]
+    }
+  ],
+  "composition_notes": {
+    "boundary": "Organisation only. Therapeutic and diagnostic subject matter is a domain question and is not covered here."
+  },
+  "profiles": {
+    "full": {
+      "include": [],
+      "exclude": [],
+      "overrides": {}
+    },
+    "operator": {
+      "include": [],
+      "exclude": [],
+      "overrides": {}
+    }
+  },
+  "content_hash": "beadd9e51896bbe078d61adc8c3c1b8d0dbef415592c5ac2c47989fe25f43f21"
+}

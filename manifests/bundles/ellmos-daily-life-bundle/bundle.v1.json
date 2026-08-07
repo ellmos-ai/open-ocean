@@ -1,0 +1,138 @@
+{
+  "schema": "ellmos.bundle.v1",
+  "id": "ellmos-daily-life-bundle",
+  "version": "1.0.0",
+  "status": "registered",
+  "lifecycle": "draft",
+  "authority": {
+    "kind": "declarative-shadow",
+    "runtime_authority": false
+  },
+  "provenance": {
+    "source_plan": "plan:v4-master",
+    "repository": "private composition repository",
+    "derived_from": "BUNDLE-VORSCHLAG-ABGLEICH_2026-08-07.md (normalised user proposal, section 2)"
+  },
+  "display_name": "Daily Life Bundle",
+  "user_proposal_alias": "DAILY LIFE",
+  "purpose": [
+    "Everyday household and orientation services close to the person."
+  ],
+  "visibility": "private",
+  "pillar": "uas",
+  "assurance_contract": {
+    "ref": "contract:mandatory-assurance-v1",
+    "version": "1.0.0"
+  },
+  "functional_contracts": [
+    {
+      "path": "contracts/bundle-family-contract.v1.json",
+      "content_hash": "2b225912b21e42afda11a086355dbf50ba63ad2876021c7a84008b5f3734d948"
+    }
+  ],
+  "components": [
+    {
+      "type": "skill",
+      "ref": {
+        "ref": "skill:haushalt-manager",
+        "version": "registry-current"
+      },
+      "role": "household-routines",
+      "requirement": "recommended",
+      "provides": [
+        "household-plan"
+      ],
+      "consumes": [
+        "approved-personal-context"
+      ]
+    },
+    {
+      "type": "skill",
+      "ref": {
+        "ref": "skill:hauslagerist-reader",
+        "version": "registry-current"
+      },
+      "role": "inventory-review",
+      "requirement": "optional",
+      "provides": [
+        "inventory-review"
+      ],
+      "consumes": [
+        "approved-personal-context"
+      ]
+    },
+    {
+      "type": "skill",
+      "ref": {
+        "ref": "skill:wetter",
+        "version": "registry-current"
+      },
+      "role": "weather-lookup",
+      "requirement": "optional",
+      "provides": [
+        "weather-report"
+      ],
+      "consumes": [
+        "approved-location"
+      ]
+    },
+    {
+      "type": "skill",
+      "ref": {
+        "ref": "skill:reiseroute",
+        "version": "registry-current"
+      },
+      "role": "route-planning",
+      "requirement": "optional",
+      "provides": [
+        "route-plan"
+      ],
+      "consumes": [
+        "approved-location"
+      ]
+    },
+    {
+      "type": "skill",
+      "ref": {
+        "ref": "skill:location-suche",
+        "version": "registry-current"
+      },
+      "role": "location-search",
+      "requirement": "optional",
+      "provides": [
+        "location-candidates"
+      ],
+      "consumes": [
+        "approved-location"
+      ]
+    },
+    {
+      "type": "skill",
+      "ref": {
+        "ref": "skill:tageszeitung",
+        "version": "registry-current"
+      },
+      "role": "daily-briefing",
+      "requirement": "optional",
+      "provides": [
+        "daily-digest"
+      ],
+      "consumes": [
+        "approved-source-set"
+      ]
+    }
+  ],
+  "profiles": {
+    "full": {
+      "include": [],
+      "exclude": [],
+      "overrides": {}
+    },
+    "operator": {
+      "include": [],
+      "exclude": [],
+      "overrides": {}
+    }
+  },
+  "content_hash": "2a1e29fdd6a2befa01beee24efbcbfc23c141fbad906c04613c1b9399209cf9c"
+}

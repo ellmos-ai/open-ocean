@@ -1,0 +1,63 @@
+{
+  "schema": "ellmos.bundle.v1",
+  "id": "ellmos-briefing-bundle",
+  "version": "1.0.0",
+  "status": "registered",
+  "lifecycle": "draft",
+  "authority": {
+    "kind": "declarative-shadow",
+    "runtime_authority": false
+  },
+  "provenance": {
+    "source_plan": "plan:v4-master",
+    "repository": "private composition repository",
+    "derived_from": "BUNDLE-VORSCHLAG-ABGLEICH_2026-08-07.md (normalised user proposal, section 2)"
+  },
+  "display_name": "Briefing Bundle",
+  "user_proposal_alias": "BRIEFING",
+  "purpose": [
+    "Preparing a person for a conversation, an appointment or a decision."
+  ],
+  "visibility": "private",
+  "pillar": "uas",
+  "assurance_contract": {
+    "ref": "contract:mandatory-assurance-v1",
+    "version": "1.0.0"
+  },
+  "functional_contracts": [
+    {
+      "path": "contracts/bundle-family-contract.v1.json",
+      "content_hash": "2b225912b21e42afda11a086355dbf50ba63ad2876021c7a84008b5f3734d948"
+    }
+  ],
+  "components": [
+    {
+      "type": "skill",
+      "ref": {
+        "ref": "skill:dossier-briefing",
+        "version": "registry-current"
+      },
+      "role": "research-briefing",
+      "requirement": "recommended",
+      "provides": [
+        "research-dossier"
+      ],
+      "consumes": [
+        "approved-source-set"
+      ]
+    }
+  ],
+  "profiles": {
+    "full": {
+      "include": [],
+      "exclude": [],
+      "overrides": {}
+    },
+    "operator": {
+      "include": [],
+      "exclude": [],
+      "overrides": {}
+    }
+  },
+  "content_hash": "f7d3aee4c4c18b35a38976fd34de4a7bd10efeb93b5a34ce28a6097dd03ba518"
+}

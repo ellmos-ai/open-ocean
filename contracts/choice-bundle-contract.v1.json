@@ -1,0 +1,121 @@
+{
+  "schema": "ellmos.choice-bundle-contract.v1",
+  "id": "contract:choice-bundle-v1",
+  "version": "1.0.0",
+  "status": "registered-shadow",
+  "authority": {
+    "kind": "declarative-contract",
+    "runtime_authority": false
+  },
+  "purpose": "Give mutually exclusive alternatives for one composition role a named, discoverable home with recorded selection knowledge, without creating a second cardinality authority beside composition.rules.json.",
+  "distinction": {
+    "functional_bundle": "Components that join into one capability unit; all declared members are meant to coexist.",
+    "choice_bundle": "A register of alternatives for one role; a bounded number of candidates is meant to be selected, usually exactly one or at most one.",
+    "chosen_selection_lives_in": "deployment.profile (ontology term) and the stack component role assignment, not in the choice bundle."
+  },
+  "cardinality_authority": {
+    "owner": "composition.rules.json",
+    "rule": "choice_groups[].role_ref MUST name an existing composition.rules role; every candidate ref MUST be listed in that role's providers.",
+    "choice_groups_may_narrow_within_the_role": true,
+    "choice_groups_may_never_widen_beyond_the_role": true,
+    "narrowing_example": "A role with minimum 0 and maximum 1 permits a group with pick exactly-one: the role says 'at most one may exist', the group says 'in this context you need one'."
+  },
+  "schema_extension": {
+    "base_schema": "ellmos.bundle.v1",
+    "version_bump": false,
+    "version_bump_reason": "The pinned canonical resolver rejects any bundle manifest whose schema string is not exactly 'ellmos.bundle.v1' (system-explorer@b3e1986b24085d4b0083facbdc38c06cb633ba05, component_registry._load_bundle). The extension is therefore additive and optional; every pre-existing v1 manifest stays valid unchanged.",
+    "optional_fields": {
+      "choice_groups": {
+        "location": "bundle manifest top level",
+        "type": "array",
+        "entry_fields": {
+          "id": "stable id, convention 'choice:<role_ref>'",
+          "role_ref": "composition.rules role id",
+          "pick": "exactly-one | at-most-one | range",
+          "min": "optional integer; derived from pick when absent, mandatory for pick range",
+          "max": "optional integer; derived from pick when absent, mandatory for pick range",
+          "default_selection": "optional candidate ref or list of refs; the group-level view of the preselection",
+          "candidates": "array, see candidate_fields",
+          "selection_notes": "free text; MUST state open questions instead of inventing criteria"
+        },
+        "cardinality_fields": {
+          "purpose": "pick is the readable short form for the two common cases; min/max express the general case, so a group is not limited to XOR.",
+          "derivation": "exactly-one implies min 1 max 1; at-most-one implies min 0 max 1; range derives nothing and requires both.",
+          "role_bound": "min/max must stay inside the role's own minimum/maximum. A group may narrow within the role; it may never widen beyond it.",
+          "current_reach": "Every role in composition.rules currently has maximum 1, so today no group can legitimately declare max > 1. The fields are validated and ready; the first genuine multi-pick needs a role with maximum > 1, which is a change to the cardinality authority and belongs to its owner.",
+          "default_selection_rule": "Must name candidates of the same group and must agree with the candidates carrying default: true. For groups with more than one preselected candidate it is the only correct form."
+        },
+        "candidate_fields": {
+          "ref": "composition.rules provider id (the set-membership key)",
+          "type": "module | stack | skill | software_app | access_surface | external",
+          "identity": "optional ontological reference where it differs from ref, e.g. 'stack:roshambo-stack'",
+          "when": "2-4 lines of situational selection criteria",
+          "strengths": "recorded strengths",
+          "tradeoffs": "recorded costs and limits",
+          "default": "boolean, at most one true per group",
+          "registered_in_bundle": "optional bundle id, or null when the candidate is not a member of any bundle yet",
+          "evidence": "source references for the recorded criteria"
+        }
+      },
+      "choice_bundle_refs": {
+        "location": "bundle manifest top level",
+        "type": "array",
+        "purpose": "Nesting: a functional bundle points at a choice bundle whose role affects it.",
+        "entry_fields": {
+          "ref": "choice bundle id",
+          "path": "manifest path",
+          "content_hash": "pinned hash of the referenced manifest"
+        }
+      }
+    },
+    "rejected_alternative": {
+      "option": "component entry with type 'bundle' inside components[]",
+      "rejected_because": "COMPONENT_TYPES in the pinned canonical resolver is a closed enum without 'bundle' (system-explorer@b3e1986b24085d4b0083facbdc38c06cb633ba05, contracts.COMPONENT_TYPES). A bundle-typed component would make every affected manifest fail contract validation.",
+      "upstream_step_required_before_reconsidering": "extend COMPONENT_TYPES and COMPONENT_REF_PREFIXES in ellmos-ai/system-explorer, then repin contracts/component-registry-resolution-contract.v1.json",
+      "current_substitute": "choice_bundle_refs"
+    }
+  },
+  "catalog_class": {
+    "value": "choice",
+    "meaning": "Pure selection register. Not a deployment unit.",
+    "not_counted_as_functional_bundle": true,
+    "resolution_rule": "A choice bundle is not required to be referenced by any stack or system; deployment resolution counts functional classes only.",
+    "enum_check": "The pinned catalog validator does not constrain class values, so this class needs no upstream change."
+  },
+  "placement_rule": {
+    "question": "Does a choice group live inside the functional bundle, or does it get its own choice bundle?",
+    "inside_the_functional_bundle_when": [
+      "at least one candidate is a declared component of that bundle, and",
+      "no candidate is a declared component of a different bundle, and",
+      "that bundle is not hash-pinned by an approval gate"
+    ],
+    "own_choice_bundle_when": [
+      "the candidates live in different bundles, so there is no single home",
+      "a candidate is not a bundle member at all, for example a stack or an external service",
+      "the only thematically fitting bundle is hash-pinned by an approval gate"
+    ],
+    "approval_gate_reason": "manifests/module-readme-discovery.approvals.v1.json pins exact bundle content hashes with default_action deny. Adding a selection register to such a manifest would silently invalidate a granted approval, so the register is placed elsewhere and the omission is recorded at the pointer.",
+    "rationale": "The sparse variant is preferred: a choice group inside an existing bundle costs no catalog entry. A separate choice bundle is spent only where a single home does not exist or must not be touched."
+  },
+  "selection_knowledge_rule": {
+    "mandatory": "Every candidate carries when/strengths/tradeoffs.",
+    "no_invention": "Criteria must be traceable to module manifests, READMEs, catalogs or architecture documents. Where a difference is not documented, selection_notes records an explicit TODO instead of a plausible-sounding claim.",
+    "contradictions_are_recorded_not_resolved": true
+  },
+  "acceptance": {
+    "existing_manifests_unchanged_semantically": true,
+    "runtime_authority": false,
+    "validator": "_scripts/validate_composition.py --choice-manifest",
+    "checks": [
+      "role_ref exists in composition.rules",
+      "candidates are a subset of the role providers",
+      "at most one default per group unless default_selection lists them explicitly",
+      "pick value is valid, and pick range carries explicit min and max",
+      "min/max are non-negative, min does not exceed max, max does not exceed the candidate count",
+      "min/max stay inside the role's minimum/maximum",
+      "default_selection names candidates of the same group and agrees with the default flags",
+      "choice_bundle_refs resolve to an existing manifest of catalog class choice"
+    ]
+  },
+  "content_hash": "b386cb8c9118a7e7d531a67e46c82f41b6ff9784a89ca681aecd377f85ad45ea"
+}

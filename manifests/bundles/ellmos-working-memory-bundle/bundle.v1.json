@@ -1,0 +1,124 @@
+{
+  "schema": "ellmos.bundle.v1",
+  "id": "ellmos-working-memory-bundle",
+  "version": "1.0.0",
+  "status": "registered",
+  "lifecycle": "draft",
+  "authority": {
+    "kind": "declarative-shadow",
+    "runtime_authority": false
+  },
+  "provenance": {
+    "source_plan": "plan:v4-master",
+    "repository": "private composition repository",
+    "derived_from": "BUNDLE-VORSCHLAG-ABGLEICH_2026-08-07.md (normalised user proposal, section 2)"
+  },
+  "display_name": "Working Memory Bundle",
+  "user_proposal_alias": "WORKING MEMORY",
+  "purpose": [
+    "The short-lived working state of an agent session: what was captured, what is open, and what still has to be answered.",
+    "Groups the two hook carriers with the two task carriers, which today live in three different bundles and had no shared home."
+  ],
+  "visibility": "private",
+  "pillar": "memory",
+  "assurance_contract": {
+    "ref": "contract:mandatory-assurance-v1",
+    "version": "1.0.0"
+  },
+  "functional_contracts": [
+    {
+      "path": "contracts/bundle-family-contract.v1.json",
+      "content_hash": "2b225912b21e42afda11a086355dbf50ba63ad2876021c7a84008b5f3734d948"
+    }
+  ],
+  "components": [
+    {
+      "type": "module",
+      "ref": {
+        "ref": "module:memory-hooker",
+        "version": "v4-shadow"
+      },
+      "role": "declared-component",
+      "requirement": "required",
+      "provides": [],
+      "consumes": []
+    },
+    {
+      "type": "module",
+      "ref": {
+        "ref": "module:WORKFLOWHOOKER",
+        "version": "v4-shadow"
+      },
+      "role": "declared-component",
+      "requirement": "required",
+      "provides": [],
+      "consumes": []
+    },
+    {
+      "type": "module",
+      "ref": {
+        "ref": "module:task-master",
+        "version": "v4-shadow"
+      },
+      "role": "declared-component",
+      "requirement": "recommended",
+      "provides": [],
+      "consumes": []
+    },
+    {
+      "type": "module",
+      "ref": {
+        "ref": "module:ticket-master",
+        "version": "v4-shadow"
+      },
+      "role": "declared-component",
+      "requirement": "recommended",
+      "provides": [],
+      "consumes": []
+    },
+    {
+      "type": "skill",
+      "ref": {
+        "ref": "skill:condition",
+        "version": "registry-current"
+      },
+      "role": "task-gating",
+      "requirement": "recommended",
+      "provides": [
+        "checkable-gate"
+      ],
+      "consumes": [
+        "stated-condition"
+      ]
+    }
+  ],
+  "composition_notes": {
+    "overlap_is_intended": "memory-hooker is also declared in ellmos-memory-human-context-bundle and ellmos-prompt-workflow-bundle, WORKFLOWHOOKER in ellmos-prompt-workflow-bundle, task-master and ticket-master in ellmos-governance-assurance-bundle. R2 of the sovereign requirements permits overlap: a bundle is a reference list, not an exclusive assignment.",
+    "task_ticket_relationship": "task-master and ticket-master are complementary, not alternatives. CLAUDE.md states it explicitly for ticket-master: 'Keine Konkurrenz zum Taskmanagement'. ticket-master captures live input at the moment it appears, task-master carries the lasting task.",
+    "pair_knowledge": {
+      "kind": "complementary role pair, not a selection",
+      "roles": [
+        "tasks.default (task-master)",
+        "tickets.capture (ticket-master)"
+      ],
+      "full_system_default": "both roles filled",
+      "statement": "task-master and ticket-master are complementary, not alternatives. CLAUDE.md says so explicitly for ticket-master: 'Keine Konkurrenz zum Taskmanagement'. ticket-master captures live input at the moment it appears; task-master carries the lasting task.",
+      "why_not_a_choice_group": "A choice group is a register of alternatives bound to exactly one role, and its candidates must all be providers of that role. These two are not alternatives and do not share a role, so a group would misstate them. Modelled as two roles instead, each with minimum 0 and maximum 1: the user's 'both, one, or neither' then follows from filling both roles, one, or none.",
+      "where_the_selection_lives": "deployment.profile and the stack component role assignment, exactly as the choice contract already prescribes for chosen selections.",
+      "decision": "Operator decision 2026-08-07: role-pair model, no cross-role group."
+    }
+  },
+  "profiles": {
+    "full": {
+      "include": [],
+      "exclude": [],
+      "overrides": {}
+    },
+    "operator": {
+      "include": [],
+      "exclude": [],
+      "overrides": {}
+    }
+  },
+  "content_hash": "7c6ffa90eb20dad72bf72ad254102b6fa9206751962cc0b0d8774af8cb1fc7e2"
+}

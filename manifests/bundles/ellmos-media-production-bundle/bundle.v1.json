@@ -1,0 +1,124 @@
+{
+  "schema": "ellmos.bundle.v1",
+  "id": "ellmos-media-production-bundle",
+  "version": "1.0.0",
+  "status": "registered",
+  "lifecycle": "draft",
+  "authority": {
+    "kind": "declarative-shadow",
+    "runtime_authority": false
+  },
+  "provenance": {
+    "source_plan": "plan:v4-master",
+    "repository": "private composition repository"
+  },
+  "display_name": "Media Production Bundle",
+  "purpose": [
+    "Media editing, compute, web retrieval, and reporting compositions."
+  ],
+  "visibility": "private",
+  "assurance_contract": {
+    "ref": "contract:mandatory-assurance-v1",
+    "version": "1.0.0"
+  },
+  "components": [
+    {
+      "type": "module",
+      "ref": {
+        "ref": "module:ai-media-editor",
+        "version": "v4-shadow"
+      },
+      "role": "declared-component",
+      "requirement": "required",
+      "provides": [],
+      "consumes": []
+    },
+    {
+      "type": "module",
+      "ref": {
+        "ref": "module:open-compute",
+        "version": "v4-shadow"
+      },
+      "role": "declared-component",
+      "requirement": "recommended",
+      "provides": [],
+      "consumes": []
+    },
+    {
+      "type": "module",
+      "ref": {
+        "ref": "module:web-scraper",
+        "version": "v4-shadow"
+      },
+      "role": "declared-component",
+      "requirement": "recommended",
+      "provides": [],
+      "consumes": []
+    },
+    {
+      "type": "module",
+      "ref": {
+        "ref": "module:report-forge",
+        "version": "v4-shadow"
+      },
+      "role": "declared-component",
+      "requirement": "recommended",
+      "provides": [],
+      "consumes": []
+    },
+    {
+      "type": "software_app",
+      "ref": {
+        "ref": "software:MediaBrain",
+        "version": "v4-shadow"
+      },
+      "role": "declared-component",
+      "requirement": "optional",
+      "provides": [],
+      "consumes": []
+    },
+    {
+      "type": "skill",
+      "ref": {
+        "ref": "skill:textproduction",
+        "version": "registry-current"
+      },
+      "role": "text-production",
+      "requirement": "optional",
+      "provides": [
+        "text-production-workflow"
+      ],
+      "consumes": [
+        "approved-content-brief"
+      ]
+    },
+    {
+      "type": "skill",
+      "ref": {
+        "ref": "skill:video-transcriber",
+        "version": "registry-current"
+      },
+      "role": "video-transcription",
+      "requirement": "optional",
+      "provides": [
+        "source-backed-transcript"
+      ],
+      "consumes": [
+        "approved-media-source"
+      ]
+    }
+  ],
+  "profiles": {
+    "full": {
+      "include": [],
+      "exclude": [],
+      "overrides": {}
+    },
+    "operator": {
+      "include": [],
+      "exclude": [],
+      "overrides": {}
+    }
+  },
+  "content_hash": "c9800be34d713f4b24e53ce392599d714f2e651972f9fcacefd66d01677d6dd8"
+}

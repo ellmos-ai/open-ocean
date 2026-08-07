@@ -1,0 +1,71 @@
+{
+  "schema": "ellmos.bundle-family-contract.v1",
+  "id": "contract:bundle-family-v1",
+  "version": "1.0.0",
+  "status": "registered-shadow",
+  "authority": {
+    "kind": "declarative-contract",
+    "runtime_authority": false
+  },
+  "purpose": "Give the four-pillar reading of the system a declared home on the bundle manifest, and give a bundle a way to be composed of other bundles without inventing a component type the pinned resolver would reject.",
+  "schema_extension": {
+    "base_schema": "ellmos.bundle.v1",
+    "version_bump": false,
+    "version_bump_reason": "The pinned canonical resolver rejects any bundle manifest whose schema string is not exactly 'ellmos.bundle.v1' (system-explorer@b3e1986b24085d4b0083facbdc38c06cb633ba05, component_registry._load_bundle). Both fields are therefore additive and optional; every pre-existing v1 manifest stays valid unchanged.",
+    "optional_fields": {
+      "pillar": {
+        "location": "bundle manifest top level",
+        "type": "string",
+        "values": [
+          "memory",
+          "control",
+          "uas",
+          "domain"
+        ],
+        "meaning": "Bundle family. memory keeps and finds state, control steers it, uas serves the person directly, domain carries subject matter.",
+        "optional_by_design": "A bundle may legitimately carry no pillar: the hosted-private class is orthogonal to the four pillars, and a selection register whose role spans two pillars would be misstated by a single value. Absence is recorded in the catalog with its reason, never left silent.",
+        "not_a_second_class": "class stays the deployment-relevant kind; pillar only groups. Deployment resolution continues to count functional classes and ignores the pillar."
+      },
+      "bundle_refs": {
+        "location": "bundle manifest top level",
+        "type": "array",
+        "purpose": "Composition of a higher order: a synthetic bundle names the bundles it is made of. Same field name and shape that stacks and systems already use to reference bundles, so the reading stays one mechanism, not two.",
+        "entry_fields": {
+          "ref": "bundle id",
+          "path": "manifest path",
+          "content_hash": "pinned hash of the referenced manifest"
+        },
+        "rejected_alternative": {
+          "option": "component entry with type 'bundle' inside components[]",
+          "rejected_because": "COMPONENT_TYPES in the pinned canonical resolver is a closed enum without 'bundle' (system-explorer@b3e1986b24085d4b0083facbdc38c06cb633ba05, contracts.COMPONENT_TYPES). A bundle-typed component would make the manifest fail contract validation.",
+          "upstream_step_required_before_reconsidering": "extend COMPONENT_TYPES and COMPONENT_REF_PREFIXES in ellmos-ai/system-explorer, then repin contracts/component-registry-resolution-contract.v1.json"
+        },
+        "flat_resolution_rule": "A synthetic bundle must stay resolvable to a flat component list: expand each bundle_ref, apply the choices, merge duplicates. The reference never blocks the fallback to smaller build units."
+      }
+    }
+  },
+  "approval_gate_rule": {
+    "statement": "A manifest whose content hash is pinned by a live approval receives neither field.",
+    "reason": "manifests/module-readme-discovery.approvals.v1.json pins exact bundle content hashes with default_action deny. Writing an additive field would change the hash and silently invalidate a granted approval.",
+    "remedy": "The intended value is recorded in the catalog under pillars.omissions instead.",
+    "affected_at_authoring_time": [
+      "ellmos-dev-lifecycle-bundle",
+      "ellmos-knowledge-bundle",
+      "ellmos-media-production-bundle",
+      "ellmos-software-resource-tools-bundle",
+      "ellmos-sync-federation-bundle"
+    ]
+  },
+  "acceptance": {
+    "existing_manifests_unchanged_semantically": true,
+    "runtime_authority": false,
+    "checks": [
+      "pillar, where present, is one of the four declared values",
+      "no approval-pinned manifest carries pillar or bundle_refs",
+      "every bundle_refs entry resolves to an existing manifest registered in the catalog",
+      "bundle_refs content_hash matches the referenced manifest",
+      "a bundle does not reference itself, directly or through a cycle"
+    ]
+  },
+  "content_hash": "2b225912b21e42afda11a086355dbf50ba63ad2876021c7a84008b5f3734d948"
+}

@@ -1,0 +1,64 @@
+{
+  "schema": "ellmos.bundle.v1",
+  "id": "ellmos-finance-assist-bundle",
+  "version": "1.0.0",
+  "status": "registered",
+  "lifecycle": "draft",
+  "authority": {
+    "kind": "declarative-shadow",
+    "runtime_authority": false
+  },
+  "provenance": {
+    "source_plan": "plan:v4-master",
+    "repository": "private composition repository",
+    "derived_from": "BUNDLE-VORSCHLAG-ABGLEICH_2026-08-07.md (normalised user proposal, section 2)"
+  },
+  "display_name": "Finance Assist Bundle",
+  "user_proposal_alias": "FINANCE ASSIST",
+  "purpose": [
+    "Personal overview of money and insurance.",
+    "Separate from the professional legal and tax tooling in ellmos-private-office-bundle: this hub gives the person an overview, that one gives the practitioner an instrument."
+  ],
+  "visibility": "private",
+  "pillar": "uas",
+  "assurance_contract": {
+    "ref": "contract:mandatory-assurance-v1",
+    "version": "1.0.0"
+  },
+  "functional_contracts": [
+    {
+      "path": "contracts/bundle-family-contract.v1.json",
+      "content_hash": "2b225912b21e42afda11a086355dbf50ba63ad2876021c7a84008b5f3734d948"
+    }
+  ],
+  "components": [
+    {
+      "type": "skill",
+      "ref": {
+        "ref": "skill:finanz-versicherung",
+        "version": "registry-current"
+      },
+      "role": "finance-insurance-overview",
+      "requirement": "recommended",
+      "provides": [
+        "insurance-overview"
+      ],
+      "consumes": [
+        "approved-private-context"
+      ]
+    }
+  ],
+  "profiles": {
+    "full": {
+      "include": [],
+      "exclude": [],
+      "overrides": {}
+    },
+    "operator": {
+      "include": [],
+      "exclude": [],
+      "overrides": {}
+    }
+  },
+  "content_hash": "a7981f30dec611f1cf7fcb17ba0b2eefa239f954603bf75ea51156fa414d79c4"
+}

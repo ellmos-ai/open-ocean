@@ -1,0 +1,158 @@
+{
+  "schema": "ellmos.bundle.v1",
+  "id": "ellmos-agents-bundle",
+  "version": "1.0.0",
+  "status": "registered",
+  "lifecycle": "draft",
+  "authority": {
+    "kind": "declarative-shadow",
+    "runtime_authority": false
+  },
+  "provenance": {
+    "source_plan": "plan:v4-master",
+    "repository": "private composition repository",
+    "derived_from": "BUNDLE-VORSCHLAG-ABGLEICH_2026-08-07.md (normalised user proposal, section 2)"
+  },
+  "display_name": "Agents Bundle",
+  "user_proposal_alias": "AGENTS",
+  "purpose": [
+    "The agents themselves and what it takes to reach them: local companions, commercial providers, subscriptions and API access.",
+    "The only hub whose members are largely not repositories."
+  ],
+  "visibility": "private",
+  "pillar": "control",
+  "assurance_contract": {
+    "ref": "contract:mandatory-assurance-v1",
+    "version": "1.0.0"
+  },
+  "functional_contracts": [
+    {
+      "path": "contracts/bundle-family-contract.v1.json",
+      "content_hash": "2b225912b21e42afda11a086355dbf50ba63ad2876021c7a84008b5f3734d948"
+    }
+  ],
+  "components": [
+    {
+      "type": "module",
+      "ref": {
+        "ref": "module:companion-for-agy",
+        "version": "v4-shadow"
+      },
+      "role": "declared-component",
+      "requirement": "recommended",
+      "provides": [],
+      "consumes": []
+    },
+    {
+      "type": "access_surface",
+      "ref": {
+        "ref": "access_surface:agent-providers",
+        "version": "v4-shadow"
+      },
+      "role": "declared-component",
+      "requirement": "recommended",
+      "provides": [
+        "agent-runtime-access"
+      ],
+      "consumes": [
+        "provider-credentials"
+      ],
+      "notes": "Commercial agent providers reached through their own CLI or app, not through a repository of ours. Credentials are referenced by location only: the location is deployment-specific and is deliberately not carried in the manifest, and no credential value is ever written into one."
+    },
+    {
+      "type": "access_surface",
+      "ref": {
+        "ref": "access_surface:agent-subscriptions",
+        "version": "v4-shadow"
+      },
+      "role": "declared-component",
+      "requirement": "optional",
+      "provides": [
+        "provider-quota"
+      ],
+      "consumes": [
+        "provider-credentials"
+      ],
+      "notes": "Subscriptions and quotas per provider. Worth declaring because an exhausted quota is indistinguishable from an incapable agent at the call site: on 2026-08-03 an agy run with an exhausted model quota returned exit 0 and did nothing, which was repeatedly misdiagnosed as a capability or permission fault."
+    },
+    {
+      "type": "access_surface",
+      "ref": {
+        "ref": "access_surface:agent-apis",
+        "version": "v4-shadow"
+      },
+      "role": "declared-component",
+      "requirement": "optional",
+      "provides": [
+        "programmatic-agent-access"
+      ],
+      "consumes": [
+        "provider-credentials"
+      ],
+      "notes": "Direct API access to provider models, as opposed to their CLI surface."
+    },
+    {
+      "type": "skill",
+      "ref": {
+        "ref": "skill:model-strategy",
+        "version": "registry-current"
+      },
+      "role": "provider-model-selection",
+      "requirement": "recommended",
+      "provides": [
+        "model-routing-decision"
+      ],
+      "consumes": [
+        "provider-capabilities"
+      ]
+    },
+    {
+      "type": "skill",
+      "ref": {
+        "ref": "skill:agents-bridge",
+        "version": "registry-current"
+      },
+      "role": "provider-boot-rules",
+      "requirement": "recommended",
+      "provides": [
+        "multi-agent-boot-pointer"
+      ],
+      "consumes": [
+        "canonical-authorities"
+      ]
+    },
+    {
+      "type": "skill",
+      "ref": {
+        "ref": "skill:headless",
+        "version": "registry-current"
+      },
+      "role": "unattended-provider-runs",
+      "requirement": "optional",
+      "provides": [
+        "unattended-run-mode"
+      ],
+      "consumes": [
+        "approved-autonomy-scope"
+      ]
+    }
+  ],
+  "composition_notes": {
+    "external_pattern": "stack.v2.json in sovereign-private already carries external_components with kind and source for exactly this case. Here the proven component type access_surface is used instead, because it is the type the pinned resolver already accepts in a bundle manifest.",
+    "credentials_rule": "Never a secret, only a location. Values stay in the credentials folder outside OneDrive and outside every repository.",
+    "skill_gap": "TODO: no skill covers provider, subscription and quota inventory. Candidate name recorded in the proposal document: provider-subscription-inventory."
+  },
+  "profiles": {
+    "full": {
+      "include": [],
+      "exclude": [],
+      "overrides": {}
+    },
+    "operator": {
+      "include": [],
+      "exclude": [],
+      "overrides": {}
+    }
+  },
+  "content_hash": "ac6c116860bdadc0df52d0e1f270117808d32071cf3b6cef3f1be4dabf1d3808"
+}

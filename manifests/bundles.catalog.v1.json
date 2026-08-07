@@ -1,0 +1,214 @@
+{
+  "schema": "ellmos.bundles.catalog.v1",
+  "id": "catalog:v4-bundles",
+  "version": "1.0.0",
+  "status": "registered",
+  "lifecycle": "draft",
+  "authority": {
+    "kind": "declarative-shadow",
+    "runtime_authority": false
+  },
+  "provenance": {
+    "source_plan": "plan:v4-master",
+    "repository": "private composition repository"
+  },
+  "skill_identity_source": {
+    "registry": "ellmos-ai/skills:registry/components.json",
+    "crosswalk_path": "manifests/skills.registry.crosswalk.v1.json",
+    "crosswalk_sha256": "63987b00e18de76982816adf1fe5730c4ca589e12bff0d705950ab85602a4aae",
+    "binding_manifest": "manifests/component.registry.bindings.v1.json",
+    "authority": "external-registry-reference"
+  },
+  "bundles": [
+    {
+      "id": "ellmos-memory-human-context-bundle",
+      "path": "manifests/bundles/ellmos-memory-human-context-bundle/bundle.v1.json",
+      "manifest": "bundle.v1.json",
+      "visibility": "private",
+      "status": "registered",
+      "class": "platform",
+      "content_hash": "a61c9efe8f456c6ed037ee339293ae80705101583dc7f9d174940b788f0aba06",
+      "pillar": "memory"
+    },
+    {
+      "id": "ellmos-knowledge-bundle",
+      "path": "manifests/bundles/ellmos-knowledge-bundle/bundle.v1.json",
+      "manifest": "bundle.v1.json",
+      "visibility": "private",
+      "status": "registered",
+      "class": "platform",
+      "content_hash": "4e3dbf2b2e8adfb7dcd2ffbdc36fc7af98d815f9bfd40686e796e639b43e8ad9"
+    },
+    {
+      "id": "ellmos-media-production-bundle",
+      "path": "manifests/bundles/ellmos-media-production-bundle/bundle.v1.json",
+      "manifest": "bundle.v1.json",
+      "visibility": "private",
+      "status": "registered",
+      "class": "domain",
+      "content_hash": "c9800be34d713f4b24e53ce392599d714f2e651972f9fcacefd66d01677d6dd8"
+    },
+    {
+      "id": "ellmos-coordination-choice-bundle",
+      "path": "manifests/bundles/ellmos-coordination-choice-bundle/bundle.v1.json",
+      "manifest": "bundle.v1.json",
+      "visibility": "private",
+      "status": "registered",
+      "class": "choice",
+      "content_hash": "4323952a7c04b8e4f4a935bf5f36c4cfec9a5220be0708a4c1549698489a8ed4",
+      "pillar": "control"
+    },
+    {
+      "id": "ellmos-knowledge-search-choice-bundle",
+      "path": "manifests/bundles/ellmos-knowledge-search-choice-bundle/bundle.v1.json",
+      "manifest": "bundle.v1.json",
+      "visibility": "private",
+      "status": "registered",
+      "class": "choice",
+      "content_hash": "12b5181f1320404b781f73188e353ec32df748fc07d822f3509aa95a85290d8d"
+    },
+    {
+      "id": "ellmos-working-memory-bundle",
+      "path": "manifests/bundles/ellmos-working-memory-bundle/bundle.v1.json",
+      "manifest": "bundle.v1.json",
+      "visibility": "private",
+      "status": "registered",
+      "class": "platform",
+      "content_hash": "7c6ffa90eb20dad72bf72ad254102b6fa9206751962cc0b0d8774af8cb1fc7e2",
+      "pillar": "memory"
+    },
+    {
+      "id": "ellmos-agents-bundle",
+      "path": "manifests/bundles/ellmos-agents-bundle/bundle.v1.json",
+      "manifest": "bundle.v1.json",
+      "visibility": "private",
+      "status": "registered",
+      "class": "platform",
+      "content_hash": "ac6c116860bdadc0df52d0e1f270117808d32071cf3b6cef3f1be4dabf1d3808",
+      "pillar": "control"
+    },
+    {
+      "id": "ellmos-doc-handler-bundle",
+      "path": "manifests/bundles/ellmos-doc-handler-bundle/bundle.v1.json",
+      "manifest": "bundle.v1.json",
+      "visibility": "private",
+      "status": "registered",
+      "class": "domain",
+      "content_hash": "e277ed61862c627687a275150ff23393e95b08cf1d14c949dea79773081f4005",
+      "pillar": "domain"
+    },
+    {
+      "id": "ellmos-daily-life-bundle",
+      "path": "manifests/bundles/ellmos-daily-life-bundle/bundle.v1.json",
+      "manifest": "bundle.v1.json",
+      "visibility": "private",
+      "status": "registered",
+      "class": "domain",
+      "content_hash": "2a1e29fdd6a2befa01beee24efbcbfc23c141fbad906c04613c1b9399209cf9c",
+      "pillar": "uas"
+    },
+    {
+      "id": "ellmos-health-assist-bundle",
+      "path": "manifests/bundles/ellmos-health-assist-bundle/bundle.v1.json",
+      "manifest": "bundle.v1.json",
+      "visibility": "private",
+      "status": "registered",
+      "class": "domain",
+      "content_hash": "beadd9e51896bbe078d61adc8c3c1b8d0dbef415592c5ac2c47989fe25f43f21",
+      "pillar": "uas"
+    },
+    {
+      "id": "ellmos-finance-assist-bundle",
+      "path": "manifests/bundles/ellmos-finance-assist-bundle/bundle.v1.json",
+      "manifest": "bundle.v1.json",
+      "visibility": "private",
+      "status": "registered",
+      "class": "domain",
+      "content_hash": "a7981f30dec611f1cf7fcb17ba0b2eefa239f954603bf75ea51156fa414d79c4",
+      "pillar": "uas"
+    },
+    {
+      "id": "ellmos-briefing-bundle",
+      "path": "manifests/bundles/ellmos-briefing-bundle/bundle.v1.json",
+      "manifest": "bundle.v1.json",
+      "visibility": "private",
+      "status": "registered",
+      "class": "domain",
+      "content_hash": "f7d3aee4c4c18b35a38976fd34de4a7bd10efeb93b5a34ce28a6097dd03ba518",
+      "pillar": "uas"
+    },
+    {
+      "id": "ellmos-voice-media-assist-bundle",
+      "path": "manifests/bundles/ellmos-voice-media-assist-bundle/bundle.v1.json",
+      "manifest": "bundle.v1.json",
+      "visibility": "private",
+      "status": "registered",
+      "class": "domain",
+      "content_hash": "520f794c4bc77ffaee7b05efe90b2ec90dae18c76074941b40f11a7ca169558e",
+      "pillar": "uas"
+    }
+  ],
+  "bundle_classes": {
+    "functional": [
+      "platform",
+      "domain",
+      "hosted-private"
+    ],
+    "selection_register": [
+      "choice"
+    ],
+    "deployment_resolution_counts": "functional",
+    "contract": "contracts/choice-bundle-contract.v1.json",
+    "synthetic": [
+      "synthetic"
+    ],
+    "synthetic_meaning": "A bundle whose members are bundles. It is not a deployment unit of its own: deployment resolution expands it to its members and continues to count functional classes."
+  },
+  "content_hash": "3f8ba895c381b35d2b4262527d4b00a3cc055ee358e19386240d0082285764eb",
+  "pillars": {
+    "values": [
+      "memory",
+      "control",
+      "uas",
+      "domain"
+    ],
+    "meaning": "Bundle family in the four-pillar reading of the system: memory keeps and finds state, control steers it, uas serves the person directly, domain carries subject matter. The pillar groups bundles for reading and composing; it is not a second class and takes no part in deployment resolution.",
+    "field": "optional top-level 'pillar' on a bundle manifest",
+    "class_relation": "class says what kind of unit a bundle is (functional or selection register); pillar says which family it belongs to. Both are independent.",
+    "omissions": {
+      "hosted_and_cross_pillar": {
+        "ellmos-multitenancy-bundle": "hosted-private class is orthogonal to the four pillars",
+        "ellmos-saas-operations-bundle": "hosted-private class is orthogonal to the four pillars",
+        "ellmos-knowledge-search-choice-bundle": "its role knowledge.search.default spans two pillars: GARDENER sits in memory, KnowledgeDigest in domain. A single pillar would misstate the reach."
+      },
+      "approval_pinned": {
+        "ellmos-knowledge-bundle": "intended pillar domain, not written: manifests/module-readme-discovery.approvals.v1.json pins this manifest's content hash with default_action deny and the pin is live, so adding a field would silently invalidate a granted approval",
+        "ellmos-media-production-bundle": "intended pillar domain, not written: manifests/module-readme-discovery.approvals.v1.json pins this manifest's content hash with default_action deny and the pin is live, so adding a field would silently invalidate a granted approval",
+        "ellmos-software-resource-tools-bundle": "intended pillar control, not written: manifests/module-readme-discovery.approvals.v1.json pins this manifest's content hash with default_action deny and the pin is live, so adding a field would silently invalidate a granted approval",
+        "ellmos-dev-lifecycle-bundle": "intended pillar control, not written: manifests/module-readme-discovery.approvals.v1.json pins this manifest's content hash with default_action deny and the pin is live, so adding a field would silently invalidate a granted approval",
+        "ellmos-sync-federation-bundle": "intended pillar memory, not written: manifests/module-readme-discovery.approvals.v1.json pins this manifest's content hash with default_action deny and the pin is live, so adding a field would silently invalidate a granted approval"
+      },
+      "synthetic": {
+        "ellmos-controlroom-bundle": "spans the memory and control pillars, so no single value would be truthful"
+      },
+      "pinned_content_not_written": {
+        "ellmos-sync-federation-bundle": "SYSTEM-SYNC-HUB would additionally carry module:mac-backup as its BACKUP OPTIONS member. Not written: the manifest hash is pinned by a live approval with default_action deny. mac-backup exists as catalog module in .MODULES/.SYNC."
+      }
+    },
+    "contract": "contracts/bundle-family-contract.v1.json",
+    "aliases_on_pinned_manifests": {
+      "ellmos-sync-federation-bundle": "user proposal name SYSTEM-SYNC-HUB, recorded here because the manifest hash is pinned by a live approval and must not be written to",
+      "ellmos-media-production-bundle": "user proposal name MEDIA HUB, recorded here because the manifest hash is pinned by a live approval and must not be written to"
+    },
+    "role_pair_model": {
+      "decision": "Operator decision 2026-08-07",
+      "statement": "Two component pairs the user described as one multi-select are modelled as complementary role pairs, not as choice groups: task-master with ticket-master (tasks.default and the new tickets.capture) and USMC with GARDENER (memory.curated and memory.organic). Each role keeps minimum 0 and maximum 1, so 'both, one or neither' follows from how many roles a deployment fills.",
+      "not_done": "No cross-role choice group, no role merge, no change to an existing role's cardinality. The range pick value stays available and unused until a role genuinely needs maximum above one.",
+      "recorded_in": [
+        "ellmos-working-memory-bundle",
+        "ellmos-memory-human-context-bundle"
+      ]
+    }
+  },
+  "export_note": "Excerpt. The source catalogue carries every bundle; this one carries the exported subset, so a reader is not pointed at recipes that are not here."
+}

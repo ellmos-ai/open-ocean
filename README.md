@@ -83,11 +83,17 @@ meaning each of its components is public and checked:
 |---|---|
 | Bundles green-capable | **13** — the ones this skeleton references |
 | Blocked by components that are not public | 17 further bundles |
-| Largest single lever | four private repositories block seven bundles between them |
+| Largest single lever | largely resolved on 2026-08-08 — three of the four repositories are public; `ellmos-core` alone still blocks three bundles |
 
-Whether those four become public is a decision for the owner of the ecosystem, and no automated
-process anticipates it. Until they are resolved, this repository cannot reach the scope its name
-implies — which is the honest reason it is still private rather than merely unfinished.
+Three of those four became public on 2026-08-08 by the owner's decision — `ellmos-scheduler`,
+`system-explorer` and `policy-registry` — which lifted the private-repository block from
+`system-knowledge` and `personal-ops` at the required-component level. The fourth, `ellmos-core`,
+stays private: its own `RELEASE_GATE.md` bars any visibility change until the licence choice and
+several security items are settled, and that gate is the owner's to lift, not an agent's. It still
+blocks `core-discovery`, `prompt-workflow` and `runtime-options`; `governance-assurance` and
+`automation-control` remain blocked by components that were never private but simply do not exist
+publicly yet. Until those are resolved, this repository cannot reach the scope its name implies —
+which is the honest reason it is still private rather than merely unfinished.
 
 ## Release conditions
 

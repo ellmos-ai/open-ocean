@@ -42,8 +42,10 @@ RELEASE CONDITIONS (all four must be demonstrably met)
 
 4. /repo-publish-check PASSED
    The publication gate skill has been run over this repository (law, privacy,
-   licence) and reports no blockers. The licence question is open at creation
-   time and is settled here.
+   licence) and reports no blockers.
+   LICENCE SUB-CONDITION: MET on 2026-08-08 - the user chose MIT, and LICENSE
+   (MIT, Copyright 2026 Lukas Geiger) is committed here. The law and privacy
+   parts of this condition are still OPEN: the check itself has not been run.
 
 WHO MAY LIFT THIS GATE
 ----------------------
@@ -70,6 +72,13 @@ HISTORY
 2026-08-08  created together with the repository, before the first content
             commit, so the repository never existed for a moment without its
             gate. Kept local at first, per the rule then in force. [C]
+2026-08-08  licence chosen by the user: MIT. LICENSE added; condition 4's
+            licence part marked met, the rest of condition 4 left open. In the
+            same decision three of the four repositories named in condition 1
+            went public (ellmos-scheduler, system-explorer, policy-registry);
+            ellmos-core stays private on its own RELEASE_GATE.md. The status
+            line in condition 1 is deliberately left as the creation snapshot;
+            the current figures live in README.md. [C]
 2026-08-08  committed instead of ignored, after the rule changed [U]: the gate
             belongs at the remote, where visibility is switched. Host name
             removed in the same step, because the file now ships. [C]

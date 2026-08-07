@@ -84,12 +84,18 @@ seiner Komponenten öffentlich und geprüft:
 |---|---|
 | Bundles grün-fähig | **13** — die, die dieses Gerüst referenziert |
 | Blockiert durch nicht-öffentliche Komponenten | 17 weitere Bundles |
-| Größter Einzelhebel | vier private Repositories blockieren zusammen sieben Bundles |
+| Größter Einzelhebel | am 2026-08-08 weitgehend aufgelöst — drei der vier Repositories sind öffentlich; allein `ellmos-core` blockiert noch drei Bundles |
 
-Ob diese vier öffentlich werden, entscheidet der Eigentümer des Ökosystems; kein automatischer
-Prozess nimmt das vorweg. Solange sie offen sind, kann dieses Repository den Umfang, den sein Name
-verspricht, nicht erreichen — das ist der ehrliche Grund, warum es privat ist und nicht bloß
-unfertig.
+Drei dieser vier wurden am 2026-08-08 durch Entscheidung des Eigentümers öffentlich —
+`ellmos-scheduler`, `system-explorer` und `policy-registry`. Damit entfällt die Repo-Sperre für
+`system-knowledge` und `personal-ops` auf der Ebene der erforderlichen Komponenten. Das vierte,
+`ellmos-core`, bleibt privat: seine eigene `RELEASE_GATE.md` untersagt jede Sichtbarkeitsänderung,
+bis die Lizenzwahl und mehrere Sicherheitspunkte geklärt sind — dieses Gate hebt der Eigentümer,
+kein Agent. Es blockiert weiterhin `core-discovery`, `prompt-workflow` und `runtime-options`;
+`governance-assurance` und `automation-control` hängen an Komponenten, die nie privat waren,
+sondern öffentlich schlicht noch nicht existieren. Solange das offen ist, kann dieses Repository
+den Umfang, den sein Name verspricht, nicht erreichen — das ist der ehrliche Grund, warum es privat
+ist und nicht bloß unfertig.
 
 ## Freigabebedingungen
 

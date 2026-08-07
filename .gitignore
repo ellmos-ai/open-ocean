@@ -1,7 +1,6 @@
 # Publication gate markers are LOCAL control files and must never be committed.
-# See ~/OneDrive/_scripts/LOCK-SYSTEM.md, sections "PRIVATE.txt" and "PUBLIC.txt":
-# they live in the local working copy so that a bot which only sees the remote
-# still has to consult the local mirror before changing visibility.
+# The lock system specifies them as local: a bot that only sees the remote still
+# has to consult the working copy before changing visibility.
 PRIVATE.txt
 PUBLIC.txt
 
@@ -19,8 +18,3 @@ venv/
 .DS_Store
 Thumbs.db
 *.swp
-
-# Host-suffixed working copies (OneDrive conflict artefacts)
-*-WORKSTATION-LG.*
-*-ASUS-GEI.*
-*-MAC-STUDIO.*

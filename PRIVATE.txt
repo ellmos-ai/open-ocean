@@ -1,0 +1,75 @@
+GATE: conditional
+SCOPE: not-yet-public
+CREATED: 2026-08-08T00:20 Europe/Berlin
+CREATED_BY: claude-code (OP-PUBFIX), on the user's instruction of 2026-08-08
+                (SYSTEM-PRODUKTLINIE.md section 7, release strategy item 5)
+
+NOTE: no host name is recorded here. Since 2026-08-08 this marker is committed
+rather than kept local, so it travels to the remote - and a host name in a file
+that ships is instance data, the very thing the export rules strip elsewhere.
+
+WHY THIS FILE EXISTS
+--------------------
+open-ocean is built as a PRIVATE repository on purpose. It ripens here -
+manifests, installer wiring, branding, README - and goes public only at the
+moment the sluice is opened. Until then every form of publication is barred:
+GitHub visibility public, public forks or mirrors, registry and marketplace
+entries, package publishes, public websites carrying this content.
+
+Editing the repository is explicitly allowed. This is a publication lock, not
+a work lock.
+
+RELEASE CONDITIONS (all four must be demonstrably met)
+------------------------------------------------------
+1. GREEN COMPONENTS
+   Every bundle referenced by this repository is green, meaning each of its
+   components is public and checked. The traffic-light register is the reife
+   matrix of PUBLIZIERUNGS-GAP-ANALYSE_2026-08-08.md and its successors.
+   Status at creation: 13 of 30 bundles green-capable; four private repos
+   (ellmos-core, ellmos-scheduler, system-explorer, policy-registry) block
+   seven further bundles. Their visibility is the user's decision alone.
+
+2. SLUICE TEST PASSED
+   The whole line has been tried end to end, not just the individual pipes:
+   the sluices are opened and the water actually arrives in the ocean. In
+   plain terms - a fresh installation from these recipes reaches a working
+   state on a machine that is not the development host.
+
+3. BACH PARITY FOR THE RELEASE SCOPE
+   open-ocean appears at BACH level for what it claims to cover. The critical
+   path is the extraction roadmap (113 BACH handlers covered functionally).
+   A smaller installable core is a build stage, not a release.
+
+4. /repo-publish-check PASSED
+   The publication gate skill has been run over this repository (law, privacy,
+   licence) and reports no blockers. The licence question is open at creation
+   time and is settled here.
+
+WHO MAY LIFT THIS GATE
+----------------------
+This file carries explicit release conditions, so under LOCK-SYSTEM.md an
+agent may delete it once ALL FOUR are demonstrably met - with a documented
+record of which condition was met how (log or commit note). Conditions 1 and 3
+depend on user decisions that no agent may anticipate; in practice the user
+will therefore be involved regardless.
+
+What an agent must never do: change the repository visibility because the
+work looks finished. Visibility is changed by the user
+(VISIBILITY-POLICY.md, closing line).
+
+RELATED
+-------
+The recipes this repository references live in a separate repository (bundles)
+with its own, lighter gate: it releases wave by wave, because recipes are ready
+months before the system that consumes them. The two gates are deliberately not
+coupled - a released recipe wave says nothing about this repository, and this
+gate must never be lifted on the strength of the other one.
+
+HISTORY
+-------
+2026-08-08  created together with the repository, before the first content
+            commit, so the repository never existed for a moment without its
+            gate. Kept local at first, per the rule then in force. [C]
+2026-08-08  committed instead of ignored, after the rule changed [U]: the gate
+            belongs at the remote, where visibility is switched. Host name
+            removed in the same step, because the file now ships. [C]

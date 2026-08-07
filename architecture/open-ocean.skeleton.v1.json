@@ -1,0 +1,116 @@
+{
+  "schema": "ellmos.open-ocean-architecture-skeleton.v1",
+  "id": "open-ocean",
+  "version": "0.1.0",
+  "status": "skeleton",
+  "authority": {
+    "kind": "documentation",
+    "runtime_authority": false,
+    "note": "A skeleton, not a system manifest. It records which recipes open-ocean intends to consume and where they live. It resolves nothing and installs nothing."
+  },
+  "recipe_source": {
+    "repository": "ellmos-ai/bundles",
+    "role": "the recipe layer; manifests are maintained and released there, wave by wave",
+    "why_separate": "Recipes are ready months before the system that consumes them. Carrying copies here would make this repository look finished while the system is not, and would fork the manifests the moment the recipe repo moves on."
+  },
+  "bundle_refs": [
+    {
+      "ref": "ellmos-agents-bundle",
+      "version": "1.0.0",
+      "content_hash": "ac6c116860bdadc0df52d0e1f270117808d32071cf3b6cef3f1be4dabf1d3808"
+    },
+    {
+      "ref": "ellmos-coordination-choice-bundle",
+      "version": "1.0.0",
+      "content_hash": "4323952a7c04b8e4f4a935bf5f36c4cfec9a5220be0708a4c1549698489a8ed4"
+    },
+    {
+      "ref": "ellmos-knowledge-bundle",
+      "version": "1.0.0",
+      "content_hash": "4e3dbf2b2e8adfb7dcd2ffbdc36fc7af98d815f9bfd40686e796e639b43e8ad9"
+    },
+    {
+      "ref": "ellmos-memory-human-context-bundle",
+      "version": "1.0.0",
+      "content_hash": "a61c9efe8f456c6ed037ee339293ae80705101583dc7f9d174940b788f0aba06"
+    },
+    {
+      "ref": "ellmos-working-memory-bundle",
+      "version": "1.0.0",
+      "content_hash": "7c6ffa90eb20dad72bf72ad254102b6fa9206751962cc0b0d8774af8cb1fc7e2"
+    },
+    {
+      "ref": "ellmos-briefing-bundle",
+      "version": "1.0.0",
+      "content_hash": "f7d3aee4c4c18b35a38976fd34de4a7bd10efeb93b5a34ce28a6097dd03ba518"
+    },
+    {
+      "ref": "ellmos-daily-life-bundle",
+      "version": "1.0.0",
+      "content_hash": "2a1e29fdd6a2befa01beee24efbcbfc23c141fbad906c04613c1b9399209cf9c"
+    },
+    {
+      "ref": "ellmos-doc-handler-bundle",
+      "version": "1.0.0",
+      "content_hash": "e277ed61862c627687a275150ff23393e95b08cf1d14c949dea79773081f4005"
+    },
+    {
+      "ref": "ellmos-finance-assist-bundle",
+      "version": "1.0.0",
+      "content_hash": "a7981f30dec611f1cf7fcb17ba0b2eefa239f954603bf75ea51156fa414d79c4"
+    },
+    {
+      "ref": "ellmos-health-assist-bundle",
+      "version": "1.0.0",
+      "content_hash": "beadd9e51896bbe078d61adc8c3c1b8d0dbef415592c5ac2c47989fe25f43f21"
+    },
+    {
+      "ref": "ellmos-knowledge-search-choice-bundle",
+      "version": "1.0.0",
+      "content_hash": "12b5181f1320404b781f73188e353ec32df748fc07d822f3509aa95a85290d8d"
+    },
+    {
+      "ref": "ellmos-media-production-bundle",
+      "version": "1.0.0",
+      "content_hash": "c9800be34d713f4b24e53ce392599d714f2e651972f9fcacefd66d01677d6dd8"
+    },
+    {
+      "ref": "ellmos-voice-media-assist-bundle",
+      "version": "1.0.0",
+      "content_hash": "520f794c4bc77ffaee7b05efe90b2ec90dae18c76074941b40f11a7ca169558e"
+    }
+  ],
+  "rings": {
+    "1": {
+      "name": "functional core",
+      "members": [
+        "ellmos-agents-bundle",
+        "ellmos-coordination-choice-bundle",
+        "ellmos-knowledge-bundle",
+        "ellmos-memory-human-context-bundle",
+        "ellmos-working-memory-bundle"
+      ],
+      "meaning": "the smallest set that adds up to a working system: memory short and long, access to an agent, selection knowledge, knowledge acquisition"
+    },
+    "2": {
+      "name": "breadth",
+      "members": [
+        "ellmos-briefing-bundle",
+        "ellmos-daily-life-bundle",
+        "ellmos-doc-handler-bundle",
+        "ellmos-finance-assist-bundle",
+        "ellmos-health-assist-bundle",
+        "ellmos-knowledge-search-choice-bundle",
+        "ellmos-media-production-bundle",
+        "ellmos-voice-media-assist-bundle"
+      ],
+      "meaning": "equally clean, useful from day one, no additional risk"
+    }
+  },
+  "not_yet_present": [
+    "an installer: the component that turns a described system into an installed one",
+    "a runtime of our own: every candidate is private or only declared",
+    "any copy of the manifests: they live in the recipe repository and are referenced, not duplicated"
+  ],
+  "pins_note": "content_hash values pin the recipes as exported at the time of writing. They are a checkable statement about what was referenced, not a lockfile: the recipe repository releases wave by wave and the pins are refreshed when a wave lands."
+}

@@ -68,12 +68,28 @@ erscheinen, als es ist.
 
 ## Status
 
+**Dieses Repository:**
+
 | | |
 |---|---|
 | Architektur-Gerüst | vorhanden, 13 Bundles referenziert |
 | Installer | **nicht gebaut** — im Grundsatz entschieden, zurückgestellt, jetzt wieder fällig |
 | Eigene Laufzeit | **nicht verfügbar** — jeder Kandidat ist privat oder nur deklariert |
 | Rezepte | im Rezept-Repository gepflegt, nicht hier |
+
+**Die Ampel** — Freigabebedingung 1 geht grün, wenn jedes referenzierte Bundle grün ist, also jede
+seiner Komponenten öffentlich und geprüft:
+
+| | |
+|---|---|
+| Bundles grün-fähig | **13** — die, die dieses Gerüst referenziert |
+| Blockiert durch nicht-öffentliche Komponenten | 17 weitere Bundles |
+| Größter Einzelhebel | vier private Repositories blockieren zusammen sieben Bundles |
+
+Ob diese vier öffentlich werden, entscheidet der Eigentümer des Ökosystems; kein automatischer
+Prozess nimmt das vorweg. Solange sie offen sind, kann dieses Repository den Umfang, den sein Name
+verspricht, nicht erreichen — das ist der ehrliche Grund, warum es privat ist und nicht bloß
+unfertig.
 
 ## Freigabebedingungen
 

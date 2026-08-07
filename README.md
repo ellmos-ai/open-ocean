@@ -67,12 +67,27 @@ repository moves on, and would make this repository look further along than it i
 
 ## Status
 
+**This repository:**
+
 | | |
 |---|---|
 | Architecture skeleton | present, 13 bundles referenced |
 | Installer | **not built** — decided in principle, deferred, now due again |
 | Runtime of our own | **not available** — every candidate is private or only declared |
 | Recipes | maintained in the recipe repository, not here |
+
+**The traffic light** — release condition 1 turns green when every referenced bundle is green,
+meaning each of its components is public and checked:
+
+| | |
+|---|---|
+| Bundles green-capable | **13** — the ones this skeleton references |
+| Blocked by components that are not public | 17 further bundles |
+| Largest single lever | four private repositories block seven bundles between them |
+
+Whether those four become public is a decision for the owner of the ecosystem, and no automated
+process anticipates it. Until they are resolved, this repository cannot reach the scope its name
+implies — which is the honest reason it is still private rather than merely unfinished.
 
 ## Release conditions
 

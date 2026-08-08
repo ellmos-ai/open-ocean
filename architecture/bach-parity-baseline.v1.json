@@ -149,6 +149,20 @@
     "module_count": 51,
     "sha256": "99e520573dc334381514c71565e2c2438513e2c621b09bcd5302cb1564ac5424"
   },
+  "k9_1_evidence": {
+    "status": "contract-and-carrier-fixture-green-not-equivalence",
+    "contract": "architecture/bach-k9-data-contract.v1.json",
+    "checker": "tools/check_k9_data_contract.py",
+    "carrier": {
+      "id": "sqlite-transit-sync",
+      "commit": "cb221ee3535b73b8ca0d1d4dbe481222694c63f8",
+      "capability_added": "verified conservative cleanup for direct snapshots"
+    },
+    "findings": {
+      "dbsync": "candidate-partial; generic backup, merge, status and cleanup mechanics exist, but adapter and runtime equivalence remain open",
+      "snapshot": "gap; BACH session checkpoint semantics do not fit the database-transit carrier"
+    }
+  },
   "coverage_states": {
     "accepted": "Operation-level equivalence, state migration, BACH delegation, rollback and tests are evidenced.",
     "candidate-partial": "A current carrier provides related capabilities, but BACH equivalence is not evidenced.",
@@ -197,16 +211,24 @@
         "command_names": 30,
         "canonical_profiles": 29,
         "accepted": 0,
-        "candidate-partial": 20,
-        "gap": 9,
+        "candidate-partial": 19,
+        "gap": 10,
         "alias": 1
       },
       "work_packages": [
         {
           "id": "K9-DATA",
-          "profiles": ["db", "dbsync", "sync", "backup", "restore", "snapshot"],
+          "profiles": ["db", "dbsync", "sync", "backup", "restore"],
           "state": "candidate-partial",
           "candidate_carriers": ["sqlite-transit-sync", "system-gap-master", "system-explorer", "mac-backup"]
+        },
+        {
+          "id": "K9-SESSION-CHECKPOINT",
+          "profiles": ["snapshot"],
+          "state": "gap",
+          "candidate_carriers": [],
+          "evidence": "architecture/bach-k9-data-contract.v1.json",
+          "finding": "BACH snapshot is a session-context row checkpoint, not a database transit snapshot."
         },
         {
           "id": "K9-OBSERVE",

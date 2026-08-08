@@ -1,0 +1,197 @@
+{
+  "schema": "ellmos.open-ocean-bach-k9-data-contract.v1",
+  "status": "contract-captured-carrier-fixture-green-not-equivalence",
+  "recorded_at": "2026-08-08",
+  "claim_boundary": "This contract and its synthetic carrier fixture are not BACH runtime equivalence, BACH-IN, migration, rollback, bundle, installer, or foreign-system evidence.",
+  "hold": {
+    "bach_mode": "read-only",
+    "rule": "Do not modify, push, or boot BACH during the active judging hold. Source inspection is static only."
+  },
+  "sources": {
+    "bach": {
+      "commit": "5e8fe80607091378477523b2b6dc99e8c17d7d18",
+      "inspection": "AST plus SHA-256; no import or runtime boot",
+      "handler_files": {
+        "dbsync": {
+          "path": "system/hub/db_sync.py",
+          "sha256": "bd14fc108bd8c88b70df1f5babbfcc160c7a0c13aa6a744c52c469ef8e367d08"
+        },
+        "snapshot": {
+          "path": "system/hub/snapshot.py",
+          "sha256": "58354a45c825ab1c032366fc82db520d5de79cedf002d9489f3999873d35a27d"
+        }
+      }
+    },
+    "carrier": {
+      "id": "sqlite-transit-sync",
+      "repository": "https://github.com/ellmos-ai/sqlite-transit-sync",
+      "commit": "cb221ee3535b73b8ca0d1d4dbe481222694c63f8",
+      "fixture_mode": "temporary anonymized SQLite databases only"
+    }
+  },
+  "fixtures": {
+    "source_sql": "tests/fixtures/k9_data/source.sql",
+    "target_sql": "tests/fixtures/k9_data/target.sql",
+    "expected": "tests/fixtures/k9_data/expected.json",
+    "privacy": "Synthetic node ids, timestamps, values, and placeholder secret rows; no BACH database, paths, logs, tokens, or personal records."
+  },
+  "classification": {
+    "carrier-direct": "The neutral carrier exposes the generic mechanism, but BACH output and integration parity are not yet accepted.",
+    "adapter-required": "The carrier supplies related mechanics; BACH-specific policy, state, output, or lifecycle behavior remains in a future thin adapter.",
+    "source-defect-blocked": "The current BACH behavior is known to use the wrong source and cannot be made a golden target without resolving that defect.",
+    "wrong-carrier-gap": "The operation belongs to another semantic domain and must not be forced into sqlite-transit-sync."
+  },
+  "profiles": {
+    "dbsync": {
+      "semantic_domain": "verified SQLite snapshot transit and row merge",
+      "source_return": "tuple[bool, str]",
+      "source_dry_run": "The current handler receives dry_run but does not honor it for any dbsync operation.",
+      "state_owners": [
+        "local BACH SQLite database",
+        "transit .bachdb files",
+        "local sync_state.json",
+        "shared heartbeat.json",
+        "BACH db_sync_enabled marker"
+      ],
+      "operations": [
+        {
+          "name": "backup",
+          "input": "no arguments",
+          "source_effect": "Create a consistent, redacted .bachdb file and update heartbeat.",
+          "carrier_surface": "TransitSync.push",
+          "classification": "carrier-direct",
+          "remaining_difference": "Filename, tuple message, and BACH-specific secrets-table policy need adapter translation.",
+          "parity": "not-accepted"
+        },
+        {
+          "name": "cleanup",
+          "input": "no arguments; source defaults keep_days=7 and keep_per_host=10",
+          "source_effect": "Delete old transit backups across hosts.",
+          "carrier_surface": "TransitSync.cleanup / CLI cleanup",
+          "classification": "adapter-required",
+          "remaining_difference": "Carrier verifies pairs, defaults to dry-run and local-node scope; a BACH adapter must explicitly grant apply/all-node authority and translate per-host policy.",
+          "parity": "not-accepted"
+        },
+        {
+          "name": "disable",
+          "input": "no arguments",
+          "source_effect": "Delete BACH data/config/db_sync_enabled marker.",
+          "carrier_surface": null,
+          "classification": "adapter-required",
+          "remaining_difference": "Startup/exit activation is host integration state, not neutral database-transit state.",
+          "parity": "not-accepted"
+        },
+        {
+          "name": "enable",
+          "input": "no arguments",
+          "source_effect": "Write BACH data/config/db_sync_enabled marker.",
+          "carrier_surface": null,
+          "classification": "adapter-required",
+          "remaining_difference": "Startup/exit activation is host integration state, not neutral database-transit state.",
+          "parity": "not-accepted"
+        },
+        {
+          "name": "init",
+          "input": "no arguments",
+          "source_effect": "If no local database exists, copy system/data/bach.db into the local BACH directory.",
+          "carrier_surface": "CLI init writes configuration only; pull requires an application-created schema",
+          "classification": "source-defect-blocked",
+          "remaining_difference": "BACH source documents that its first-copy source is stale and tracks replacement as task 1168; carrier ADR-002 intentionally refuses schema guessing or foreign first-copy.",
+          "parity": "not-accepted"
+        },
+        {
+          "name": "pull",
+          "input": "no arguments",
+          "source_effect": "Merge the newest eligible foreign backup, defer known transient failures, advance per-host state, update heartbeat.",
+          "carrier_surface": "TransitSync.pull",
+          "classification": "adapter-required",
+          "remaining_difference": "Carrier processes all pending verified snapshots transactionally; BACH newest-only selection, transient cooldown, heartbeat, and first-copy behavior remain unmatched.",
+          "parity": "not-accepted"
+        },
+        {
+          "name": "push",
+          "input": "no arguments",
+          "source_effect": "Create at most one backup per local day and run retention cleanup.",
+          "carrier_surface": "TransitSync.push plus TransitSync.cleanup",
+          "classification": "adapter-required",
+          "remaining_difference": "Daily guard and retention trigger belong in the BACH lifecycle adapter; carrier push always publishes when called.",
+          "parity": "not-accepted"
+        },
+        {
+          "name": "status",
+          "input": "no arguments",
+          "source_effect": "Format local path, backup list, sizes, ages, and heartbeat activity as text.",
+          "carrier_surface": "TransitSync.status",
+          "classification": "adapter-required",
+          "remaining_difference": "Carrier returns structured JSON state and has no BACH heartbeat display.",
+          "parity": "not-accepted"
+        },
+        {
+          "name": "sync",
+          "input": "optional --auto or -y",
+          "source_effect": "Check active-host heartbeat conflicts, merge newest foreign backup, then create a local backup.",
+          "carrier_surface": "TransitSync.sync",
+          "classification": "adapter-required",
+          "remaining_difference": "Heartbeat confirmation, newest-only policy, tuple text, and BACH state translation remain in the adapter.",
+          "parity": "not-accepted"
+        }
+      ]
+    },
+    "snapshot": {
+      "semantic_domain": "BACH session checkpoint stored as JSON rows inside the application database",
+      "carrier_fit": "wrong-carrier",
+      "boundary_finding": "The BACH handler captures current_session, pending tasks, and recent working memory in session_snapshots. sqlite-transit-sync snapshots are immutable database transport artifacts. Shared wording does not imply shared state or restore semantics.",
+      "state_owners": [
+        "BACH session_snapshots table",
+        "BACH system_config current_session",
+        "BACH tasks",
+        "BACH memory_working"
+      ],
+      "operations": [
+        {
+          "name": "create",
+          "input": "optional checkpoint name",
+          "source_effect": "Insert JSON session context into session_snapshots; dry-run supported.",
+          "carrier_surface": null,
+          "classification": "wrong-carrier-gap",
+          "remaining_difference": "Requires a session-state/checkpoint capability, not a database file carrier.",
+          "parity": "not-accepted"
+        },
+        {
+          "name": "delete",
+          "input": "snapshot row id",
+          "source_effect": "Delete one session_snapshots row; dry-run supported.",
+          "carrier_surface": null,
+          "classification": "wrong-carrier-gap",
+          "remaining_difference": "Row-level checkpoint lifecycle is unrelated to transit retention.",
+          "parity": "not-accepted"
+        },
+        {
+          "name": "list",
+          "input": "no arguments",
+          "source_effect": "List the newest twenty session checkpoint rows.",
+          "carrier_surface": null,
+          "classification": "wrong-carrier-gap",
+          "remaining_difference": "Needs a checkpoint query API over application state.",
+          "parity": "not-accepted"
+        },
+        {
+          "name": "load",
+          "input": "optional snapshot row id; otherwise latest",
+          "source_effect": "Read and format saved session context; it does not restore a database file.",
+          "carrier_surface": null,
+          "classification": "wrong-carrier-gap",
+          "remaining_difference": "Needs session-context materialization and output compatibility, not SQLite merge or file restore.",
+          "parity": "not-accepted"
+        }
+      ]
+    }
+  },
+  "next_gates": [
+    "Keep tools/check_k9_data_contract.py as a required regression gate and stop on source or carrier pin drift.",
+    "Specify the thin dbsync adapter for lifecycle state, daily push guard, heartbeat, cooldown, output translation, and explicit cleanup authority.",
+    "Select or define a session-checkpoint carrier before extracting snapshot.",
+    "After the BACH hold, run old and new implementations against the same anonymized fixture and compare allowed state changes.",
+    "Only then implement BACH-IN adapters and rollback guards."
+  ]
+}

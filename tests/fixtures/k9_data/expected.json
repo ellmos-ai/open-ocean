@@ -1,0 +1,24 @@
+{
+  "schema": "ellmos.open-ocean-k9-data-fixture-expected.v1",
+  "source_snapshot_secret_rows": 0,
+  "target_secret_rows": 1,
+  "target_items": [
+    [
+      "shared",
+      "source-newer"
+    ],
+    [
+      "source-only",
+      "source-value"
+    ],
+    [
+      "target-only",
+      "target-value"
+    ]
+  ],
+  "merge_inserted": 1,
+  "merge_updated": 1,
+  "cleanup_dry_run": true,
+  "cleanup_scope": "local-node",
+  "cleanup_eligible": 1
+}

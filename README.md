@@ -58,6 +58,10 @@ and still supplied.
 architecture/
   open-ocean.skeleton.v1.json   which recipes the system intends to consume, pinned by hash
   INSTALLER-TARGET.md           what the installer has to become, and what it must not do
+  BACH-EXTRACTION-ROADMAP.md    extraction order, parity gates and Cluster 9 kernel map
+  bach-parity-baseline.v1.json  machine-readable registry and Cluster 9 coverage baseline
+tools/
+  audit_bach_handlers.py        side-effect-free source audit against that baseline
 PRIVATE.txt                     the publication gate, committed on purpose
 ```
 
@@ -72,6 +76,7 @@ repository moves on, and would make this repository look further along than it i
 | | |
 |---|---|
 | Architecture skeleton | present, 13 bundles referenced |
+| BACH extraction baseline | present — 114 source-declared names; historic 113-name runtime bar retained |
 | Installer | **not built** — decided in principle, deferred, now due again |
 | Runtime of our own | **not available** — every candidate is private or only declared |
 | Recipes | maintained in the recipe repository, not here |
@@ -105,7 +110,9 @@ the gate is visible where visibility is switched). It opens when all four are de
 2. **Sluice test passed** — the whole line works end to end: a fresh install from these recipes
    reaches a working state on a machine that is not the development host.
 3. **Parity for the release scope** — the system performs at the level it claims to cover. A
-   smaller installable core is a build stage, not a release.
+   smaller installable core is a build stage, not a release. The current source audit records
+   114 reachable names while retaining the historic 113-name runtime snapshot as the minimum
+   commitment; see the [extraction roadmap](architecture/BACH-EXTRACTION-ROADMAP.md).
 4. **Publication check passed** — law, privacy and licensing reviewed with no blockers.
 
 Condition 2 is the one this repository is named after. Opening the sluices and watching whether

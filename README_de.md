@@ -58,6 +58,10 @@ aber ans Wasser angeschlossen und weiter versorgt.
 architecture/
   open-ocean.skeleton.v1.json   welche Rezepte das System konsumieren soll, per Hash gepinnt
   INSTALLER-TARGET.md           was der Installer werden muss — und was er nicht tun darf
+  BACH-EXTRAKTIONSROADMAP.md    Reihenfolge, Paritäts-Gates und Cluster-9-Kernelkarte
+  bach-parity-baseline.v1.json  maschinenlesbare Registry- und Cluster-9-Basis
+tools/
+  audit_bach_handlers.py        nebenwirkungsfreier Quell-Audit gegen diese Basis
 PRIVATE.txt                     das Publikations-Gate, bewusst committet
 ```
 
@@ -73,6 +77,7 @@ erscheinen, als es ist.
 | | |
 |---|---|
 | Architektur-Gerüst | vorhanden, 13 Bundles referenziert |
+| BACH-Extraktionsbasis | vorhanden — 114 quellseitige Namen; historische 113er Runtime-Messlatte bleibt erhalten |
 | Installer | **nicht gebaut** — im Grundsatz entschieden, zurückgestellt, jetzt wieder fällig |
 | Eigene Laufzeit | **nicht verfügbar** — jeder Kandidat ist privat oder nur deklariert |
 | Rezepte | im Rezept-Repository gepflegt, nicht hier |
@@ -109,7 +114,9 @@ Bedingungen nachweislich erfüllt sind:
    Rezepten erreicht auf einer Maschine, die nicht der Entwicklungsrechner ist, einen
    arbeitsfähigen Zustand.
 3. **Parität für den Release-Umfang** — das System leistet, was es zu decken beansprucht. Ein
-   kleinerer installierbarer Kern ist eine Bau-Etappe, kein Release.
+   kleinerer installierbarer Kern ist eine Bau-Etappe, kein Release. Der aktuelle Quell-Audit
+   erfasst 114 erreichbare Namen und erhält zugleich den historischen 113er Runtime-Snapshot als
+   Mindestzusage; siehe [Extraktionsroadmap](architecture/BACH-EXTRAKTIONSROADMAP.md).
 4. **Publikationsprüfung bestanden** — Recht, Privacy und Lizenz geprüft, keine Blocker.
 
 Bedingung 2 ist die, nach der dieses Repository benannt ist. Die Schleusen zu öffnen und

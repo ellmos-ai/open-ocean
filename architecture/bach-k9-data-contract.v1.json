@@ -1,8 +1,8 @@
 {
   "schema": "ellmos.open-ocean-bach-k9-data-contract.v1",
-  "status": "contract-captured-carrier-fixture-green-not-equivalence",
-  "recorded_at": "2026-08-08",
-  "claim_boundary": "This contract and its synthetic carrier fixture are not BACH runtime equivalence, BACH-IN, migration, rollback, bundle, installer, or foreign-system evidence.",
+  "status": "adapter-specified-two-carrier-fixtures-green-not-equivalence",
+  "recorded_at": "2026-08-09",
+  "claim_boundary": "This contract, adapter specification and synthetic carrier fixtures are not BACH runtime equivalence, BACH-IN, migration, rollback, bundle, installer, or foreign-system evidence.",
   "hold": {
     "bach_mode": "read-only",
     "rule": "Do not modify, push, or boot BACH during the active judging hold. Source inspection is static only."
@@ -25,15 +25,24 @@
     "carrier": {
       "id": "sqlite-transit-sync",
       "repository": "https://github.com/ellmos-ai/sqlite-transit-sync",
-      "commit": "cb221ee3535b73b8ca0d1d4dbe481222694c63f8",
+      "commit": "7648a20b11ca958e9622d2b5d8a13fd02613e92a",
       "fixture_mode": "temporary anonymized SQLite databases only"
+    },
+    "session_checkpoint_carrier": {
+      "id": "session-checkpoint",
+      "repository": "https://github.com/ellmos-ai/session-checkpoint",
+      "commit": "a795e67b3d9e2966ff5afc4c2078210049f56687",
+      "version": "0.1.0",
+      "fixture_mode": "temporary module-owned checkpoint stores only"
     }
   },
   "fixtures": {
     "source_sql": "tests/fixtures/k9_data/source.sql",
     "target_sql": "tests/fixtures/k9_data/target.sql",
     "expected": "tests/fixtures/k9_data/expected.json",
-    "privacy": "Synthetic node ids, timestamps, values, and placeholder secret rows; no BACH database, paths, logs, tokens, or personal records."
+    "session_checkpoint_input": "tests/fixtures/k9_session_checkpoint/checkpoint.json",
+    "session_checkpoint_expected": "tests/fixtures/k9_session_checkpoint/expected.json",
+    "privacy": "Synthetic node ids, session ids, timestamps, values, tasks, notes, and placeholder secret rows; no BACH database, paths, logs, tokens, or personal records."
   },
   "classification": {
     "carrier-direct": "The neutral carrier exposes the generic mechanism, but BACH output and integration parity are not yet accepted.",
@@ -44,6 +53,7 @@
   "profiles": {
     "dbsync": {
       "semantic_domain": "verified SQLite snapshot transit and row merge",
+      "adapter_spec": "architecture/bach-k9-dbsync-adapter.v1.json",
       "source_return": "tuple[bool, str]",
       "source_dry_run": "The current handler receives dry_run but does not honor it for any dbsync operation.",
       "state_owners": [
@@ -105,7 +115,7 @@
           "source_effect": "Merge the newest eligible foreign backup, defer known transient failures, advance per-host state, update heartbeat.",
           "carrier_surface": "TransitSync.pull",
           "classification": "adapter-required",
-          "remaining_difference": "Carrier processes all pending verified snapshots transactionally; BACH newest-only selection, transient cooldown, heartbeat, and first-copy behavior remain unmatched.",
+          "remaining_difference": "Carrier now exposes verified pull_selected; BACH newest-only selection, transient cooldown, heartbeat, and first-copy behavior remain adapter concerns.",
           "parity": "not-accepted"
         },
         {
@@ -139,8 +149,11 @@
     },
     "snapshot": {
       "semantic_domain": "BACH session checkpoint stored as JSON rows inside the application database",
-      "carrier_fit": "wrong-carrier",
-      "boundary_finding": "The BACH handler captures current_session, pending tasks, and recent working memory in session_snapshots. sqlite-transit-sync snapshots are immutable database transport artifacts. Shared wording does not imply shared state or restore semantics.",
+      "carrier_fit": "correct-carrier-selected",
+      "database_transit_fit": "wrong-carrier",
+      "carrier": "session-checkpoint",
+      "capability_spec": "architecture/session-checkpoint-capability.v1.json",
+      "boundary_finding": "The BACH handler captures current_session, pending tasks, and recent working memory as a JSON checkpoint. The selected session-checkpoint carrier stores that application-provided object in module-owned local state; sqlite-transit-sync remains the wrong carrier.",
       "state_owners": [
         "BACH session_snapshots table",
         "BACH system_config current_session",
@@ -152,36 +165,36 @@
           "name": "create",
           "input": "optional checkpoint name",
           "source_effect": "Insert JSON session context into session_snapshots; dry-run supported.",
-          "carrier_surface": null,
-          "classification": "wrong-carrier-gap",
-          "remaining_difference": "Requires a session-state/checkpoint capability, not a database file carrier.",
+          "carrier_surface": "CheckpointStore.create",
+          "classification": "adapter-required",
+          "remaining_difference": "BACH collection, dry-run and tuple output remain in the future adapter.",
           "parity": "not-accepted"
         },
         {
           "name": "delete",
           "input": "snapshot row id",
           "source_effect": "Delete one session_snapshots row; dry-run supported.",
-          "carrier_surface": null,
-          "classification": "wrong-carrier-gap",
-          "remaining_difference": "Row-level checkpoint lifecycle is unrelated to transit retention.",
+          "carrier_surface": "CheckpointStore.delete",
+          "classification": "adapter-required",
+          "remaining_difference": "Namespace-scoped id mapping, dry-run and tuple output remain in the future adapter.",
           "parity": "not-accepted"
         },
         {
           "name": "list",
           "input": "no arguments",
           "source_effect": "List the newest twenty session checkpoint rows.",
-          "carrier_surface": null,
-          "classification": "wrong-carrier-gap",
-          "remaining_difference": "Needs a checkpoint query API over application state.",
+          "carrier_surface": "CheckpointStore.list",
+          "classification": "adapter-required",
+          "remaining_difference": "The adapter must request namespace bach, limit 20 and format legacy text.",
           "parity": "not-accepted"
         },
         {
           "name": "load",
           "input": "optional snapshot row id; otherwise latest",
           "source_effect": "Read and format saved session context; it does not restore a database file.",
-          "carrier_surface": null,
-          "classification": "wrong-carrier-gap",
-          "remaining_difference": "Needs session-context materialization and output compatibility, not SQLite merge or file restore.",
+          "carrier_surface": "CheckpointStore.get",
+          "classification": "adapter-required",
+          "remaining_difference": "The adapter must select latest when no id is supplied and format materialized context without claiming restoration.",
           "parity": "not-accepted"
         }
       ]
@@ -189,8 +202,8 @@
   },
   "next_gates": [
     "Keep tools/check_k9_data_contract.py as a required regression gate and stop on source or carrier pin drift.",
-    "Specify the thin dbsync adapter for lifecycle state, daily push guard, heartbeat, cooldown, output translation, and explicit cleanup authority.",
-    "Select or define a session-checkpoint carrier before extracting snapshot.",
+    "Keep the thin dbsync adapter specification pinned while implementing lifecycle state, daily push guard, heartbeat, cooldown, output translation, and explicit cleanup authority after the hold.",
+    "Keep the session-checkpoint capability and anonymized carrier fixture pinned; do not move collection or restoration into the carrier.",
     "After the BACH hold, run old and new implementations against the same anonymized fixture and compare allowed state changes.",
     "Only then implement BACH-IN adapters and rollback guards."
   ]

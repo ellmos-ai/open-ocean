@@ -56,15 +56,17 @@ noch keinen einzigen akzeptierten Ende-zu-Ende-Paritätsnachweis:
 | Zustand | Anzahl | Bedeutung |
 |---|---:|---|
 | akzeptiert | 0 | vollständige Funktions- und Reintegrationsbelege vorhanden |
-| Kandidat/teilweise | 19 | verwandte Fähigkeit vorhanden, Äquivalenz noch nicht belegt |
-| Lücke | 10 | kein plausibler aktueller Katalogträger |
+| Kandidat/teilweise | 20 | verwandte Fähigkeit vorhanden, Äquivalenz noch nicht belegt |
+| Lücke | 9 | kein plausibler aktueller Katalogträger |
 | Alias | 1 | `health` folgt `healthcheck` und ist keine eigene Funktion |
 
 „Kandidat/teilweise" ist bewusst keine grüne Ampel. Beispielsweise deckt
 `sqlite-transit-sync` verifizierte SQLite-Übertragung und Datenbank-Snapshots, aber nicht
 automatisch die gesamten BACH-Verträge für Abfrage, Export, Sicherung und Wiederherstellung.
-Der gleichnamige BACH-Handler `snapshot` ist inzwischen ausdrücklich als andere Domäne belegt:
-Er speichert Session-ID, offene Aufgaben und Working Memory als JSON-Zeile.
+Der gleichnamige BACH-Handler `snapshot` ist ausdrücklich als andere Domäne belegt: Er speichert
+Session-ID, offene Aufgaben und Working Memory als JSON-Zeile. Der neue private Träger
+`session-checkpoint` passt zu dieser Domäne, bleibt aber Kandidat/teilweise, bis BACH-Sammler,
+Ausgabeübersetzung und Alt/Neu-Äquivalenz vorhanden sind.
 
 ## Leitplanken der Extraktion
 
@@ -88,7 +90,7 @@ Er speichert Session-ID, offene Aufgaben und Working Memory als JSON-Zeile.
 | Paket | Umfang | Vorhandene Kandidaten | Ergebnis |
 |---|---|---|---|
 | **K9-0 Vertrag und Inventur** | Registry, Aliasdrift, Operationsflächen, Katalog-Fingerprint | `system-explorer` als späterer Importträger | Baseline und reproduzierbarer Audit; **in diesem Stand angelegt** |
-| **K9-1 Daten und Kontinuität** | `db`, `dbsync`, `sync`, `backup`, `restore`; `snapshot` als getrennte Session-Checkpoint-Lücke | `sqlite-transit-sync`, `system-gap-master`, `system-explorer`, geplantes `mac-backup` | portable Daten-API, Sicherungsformat, Restore-Probe, Session-Checkpoint-Träger und BACH-Adapter |
+| **K9-1 Daten und Kontinuität** | `db`, `dbsync`, `sync`, `backup`, `restore`; `snapshot` als getrennte Session-Checkpoint-Naht | `sqlite-transit-sync`, `session-checkpoint`, `system-gap-master`, `system-explorer`, geplantes `mac-backup` | portable Daten-API, Sicherungsformat, Restore-Probe, Session-Checkpoint-Träger und BACH-Adapter |
 | **K9-2 Beobachtung und Qualität** | `status`, `healthcheck`, `logs`, `tokens`, `maintain`, `tuev`, `scan`, `watcher` | `system-explorer`, `ellmos-tests`, `project-docs-template`, `ellmos-unified-gui` | einheitliches Zustands-/Ereignismodell, Health-Probes und wartbare Prüfläufe |
 | **K9-3 Lebenszyklus und Distribution** | `update`, `upgrade`, `setup`, `settings`, `session`, `shutdown`, `path`, `mount`, `dist` | `policy-registry`, privates `ellmos-core`, Repository `bundles`; Installer bisher nur Zielbild | Installer-Kern mit Transaktion, Migration, Rollback und hostneutralen Pfaden |
 | **K9-4 Grenzen und Bedienung** | `fs`, `trash`, `sandbox`, `lang`, `gui`, `help` | `system-explorer`, `lock-master`, `ellmos-unified-gui`, `project-docs-template` | Dateisystem-Policy, Quarantäne/Papierkorb, echte Isolation, i18n- und Hilfeschnittstelle |
@@ -111,7 +113,7 @@ Handler gelesen. Sie sind der Startpunkt für Verträge, nicht bereits deren vol
 | `sync` | `status`, `all`, `skills`, `tools` | teilweise: `system-gap-master`, `sqlite-transit-sync` |
 | `backup` | `create`, `list`, `info`, `status` | teilweise: `sqlite-transit-sync`; `mac-backup` nur geplant |
 | `restore` | `list`, `info`, `file`, `category` | teilweise: Snapshot-Träger vorhanden, Restore-Parität offen |
-| `snapshot` | `create`, `load`, `list`, `delete` | **Lücke**: fachlicher Session-Checkpoint; `sqlite-transit-sync` ist der falsche Träger |
+| `snapshot` | `create`, `load`, `list`, `delete` | teilweise: korrekter privater Träger `session-checkpoint` vorhanden; BACH-Adapter und Äquivalenz offen |
 | `status` | Systemzusammenfassung | teilweise: `system-explorer`, `ellmos-unified-gui` |
 | `healthcheck` | `status`, `all`, `disk`, `network`, `nas`, `dns`, `ping` | **Lücke**; `health` ist nur Alias |
 | `logs` | `status`, `show`, `tail`, `clear` | teilweise: Run-/Trace-Verläufe, kein einheitlicher Systemlog-Vertrag |
@@ -147,19 +149,29 @@ Knoten, Werte und Platzhalter. Der Prüfer
 BACH nicht; er prüft BACH per AST und Hash und führt nur den Träger gegen temporäre
 Fixture-Datenbanken aus.
 
-Der gepinnte Trägercommit `cb221ee3535b73b8ca0d1d4dbe481222694c63f8` ergänzt
-`sqlite-transit-sync` um ein konservatives `cleanup`: Manifest,
+Der gepinnte Trägercommit `7648a20b11ca958e9622d2b5d8a13fd02613e92a` stellt in
+`sqlite-transit-sync` konservatives `cleanup` und verifiziertes `pull_selected` bereit: Manifest,
 Größe, SHA-256 und SQLite-Integrität werden vor der Auswahl geprüft, der Standard ist ein
 Dry-Run im eigenen Knotenbereich, und fremde Knoten benötigen zusätzlich zur Anwendung die
-ausdrückliche All-Node-Freigabe. Das schließt die generische Mechanik, aber noch nicht den
-BACH-Vertrag: täglicher Push-Guard, Heartbeat, Cooldown, Textausgabe sowie `enable`/`disable`
-bleiben Adapteraufgaben; `init` ist durch die im BACH-Quelltext dokumentierte veraltete
-Erstkopie kein zulässiges Golden Target.
+ausdrückliche All-Node-Freigabe. Der ausgewählte Pull erhält BACHs Lebenszyklus „ein neuester
+Fremdstand“, ohne Merge- und State-Logik in den Adapter zu kopieren. Das schließt die generische
+Mechanik, aber noch nicht den BACH-Vertrag: täglicher Push-Guard, Heartbeat, Cooldown,
+Textausgabe sowie `enable`/`disable` bleiben Adapteraufgaben. Ihr vollständiger
+maschinenlesbarer Vertrag liegt in
+[`bach-k9-dbsync-adapter.v1.json`](bach-k9-dbsync-adapter.v1.json); `init` ist durch die im
+BACH-Quelltext dokumentierte veraltete Erstkopie kein zulässiges Golden Target.
 
-`snapshot` wurde nicht in den SQLite-Träger gedrückt. Der Handler verwaltet Session-Kontext in
-der Anwendungstabelle `session_snapshots`; Datenbank-Transport-Snapshots sind weder derselbe
-Zustand noch derselbe Restore-Vertrag. Das Profil wechselt deshalb von Kandidat/teilweise zu
-Lücke, bis ein eigener Session-Checkpoint-Träger bestimmt ist.
+`snapshot` wurde nicht in den SQLite-Träger gedrückt. Der neue private Träger
+[`session-checkpoint`](session-checkpoint-capability.v1.json), gepinnt auf
+`a795e67b3d9e2966ff5afc4c2078210049f56687`, besitzt eine getrennte lokale Ablage und akzeptiert
+nur ein von der Anwendung geliefertes JSON-Objekt. Er prüft kanonische Nutzlast-Hashes, trennt
+Namensräume und unterstützt einen reversiblen, standardmäßig trockenen Export/Import mit
+begrenzter Datensatzanzahl und Gesamtnutzlast. Neue sensible Dateien erhalten unter POSIX nur
+Eigentümerrechte; unter Windows bleibt die lokale Verzeichnis-ACL die Vertraulichkeitsgrenze. Die
+anonymisierte Fixture prüft Erstellen, Laden, Auflisten, Löschen, Export, Import und die
+Datensatzgrenze. Sammlung aus BACH-Tabellen, historische Textausgabe und jede
+Wiederherstellungswirkung bleiben strikt beim späteren Adapter. Das Profil ist damit
+Kandidat/teilweise, nicht akzeptiert.
 
 Dieser Zwischenstand ist **kein Äquivalenznachweis**: Während des BACH-Holds lief keine alte
 Implementierung gegen die Fixture, BACH delegiert noch nicht, und Migration, Rückweg, Bundle,
@@ -206,15 +218,13 @@ nicht jedoch die Kernel-Gates überspringen.
 ## Unmittelbar nächste Umsetzungsschritte
 
 1. `tools/check_k9_data_contract.py` als Pflichtgate beibehalten und bei BACH-Quellhash-,
-   Operations- oder Trägercommit-Drift stoppen.
-2. Für `dbsync` die dünne Adapter-Spezifikation für täglichen Push-Guard, Heartbeat,
-   Cooldown, Aktivierungsmarker und Textausgabe schreiben; `init` bis zur Quellfehlerklärung
-   getrennt halten.
-3. Für `snapshot` einen Session-Checkpoint-Träger auswählen oder als enges neues Capability
-   spezifizieren; kein zweites SQLite-Sync-System und keine Wortgleichheits-Integration bauen.
-4. Erst nach Ende des Holds alte und neue Implementierung gegen dieselbe Fixture ausführen.
-   Nur bei grüner Zustands- und Fehleräquivalenz den BACH-IN-Adapter vorbereiten.
-5. Danach `db`, `backup` und `restore` innerhalb K9-1 vermessen; offene Kernel-Lücken erst nach
+   Operations- oder einem der beiden Trägercommit-Drifts stoppen.
+2. Nach dem Hold die gepinnte dünne `dbsync`-Adapter-Spezifikation sowie BACH-Sammler und
+   -Formatter für `session-checkpoint` implementieren; `init` bis zur Quellfehlerklärung getrennt
+   halten.
+3. Alte und neue Implementierung gegen dieselben anonymisierten Fixtures ausführen. Nur bei
+   grüner Zustands-, Ausgabe- und Fehleräquivalenz BACH-IN vorbereiten.
+4. Danach `db`, `backup` und `restore` innerhalb K9-1 vermessen; offene Kernel-Lücken erst nach
    derselben Grenzprüfung in Repository-Zuschnitte überführen.
 
 ## Prüfbefehl für diese Basis

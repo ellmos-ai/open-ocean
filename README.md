@@ -60,8 +60,12 @@ architecture/
   INSTALLER-TARGET.md           what the installer has to become, and what it must not do
   BACH-EXTRACTION-ROADMAP.md    extraction order, parity gates and Cluster 9 kernel map
   bach-parity-baseline.v1.json  machine-readable registry and Cluster 9 coverage baseline
+  bach-k9-data-contract.v1.json pinned dbsync/snapshot operation and fixture contract
+  bach-k9-dbsync-adapter.v1.json thin lifecycle-adapter specification
+  session-checkpoint-capability.v1.json boundary of the correct snapshot carrier
 tools/
   audit_bach_handlers.py        side-effect-free source audit against that baseline
+  check_k9_data_contract.py     static BACH check plus two synthetic carrier fixtures
 PRIVATE.txt                     the publication gate, committed on purpose
 ```
 
@@ -77,6 +81,7 @@ repository moves on, and would make this repository look further along than it i
 |---|---|
 | Architecture skeleton | present, 13 bundles referenced |
 | BACH extraction baseline | present — 114 source-declared names; historic 113-name runtime bar retained |
+| K9-1 data/checkpoint gate | two carrier fixtures green; adapter and BACH equivalence remain open |
 | Installer | **not built** — decided in principle, deferred, now due again |
 | Runtime of our own | **not available** — every candidate is private or only declared |
 | Recipes | maintained in the recipe repository, not here |

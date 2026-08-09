@@ -60,8 +60,12 @@ architecture/
   INSTALLER-TARGET.md           was der Installer werden muss — und was er nicht tun darf
   BACH-EXTRAKTIONSROADMAP.md    Reihenfolge, Paritäts-Gates und Cluster-9-Kernelkarte
   bach-parity-baseline.v1.json  maschinenlesbare Registry- und Cluster-9-Basis
+  bach-k9-data-contract.v1.json gepinnter Operations- und Fixture-Vertrag für dbsync/snapshot
+  bach-k9-dbsync-adapter.v1.json Spezifikation des dünnen Lebenszyklus-Adapters
+  session-checkpoint-capability.v1.json Grenze des korrekten Snapshot-Trägers
 tools/
   audit_bach_handlers.py        nebenwirkungsfreier Quell-Audit gegen diese Basis
+  check_k9_data_contract.py     statische BACH-Prüfung plus zwei synthetische Träger-Fixtures
 PRIVATE.txt                     das Publikations-Gate, bewusst committet
 ```
 
@@ -78,6 +82,7 @@ erscheinen, als es ist.
 |---|---|
 | Architektur-Gerüst | vorhanden, 13 Bundles referenziert |
 | BACH-Extraktionsbasis | vorhanden — 114 quellseitige Namen; historische 113er Runtime-Messlatte bleibt erhalten |
+| K9-1 Daten-/Checkpoint-Gate | zwei Träger-Fixtures grün; Adapter und BACH-Äquivalenz bleiben offen |
 | Installer | **nicht gebaut** — im Grundsatz entschieden, zurückgestellt, jetzt wieder fällig |
 | Eigene Laufzeit | **nicht verfügbar** — jeder Kandidat ist privat oder nur deklariert |
 | Rezepte | im Rezept-Repository gepflegt, nicht hier |

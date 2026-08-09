@@ -1,0 +1,102 @@
+{
+  "schema": "ellmos.open-ocean-session-checkpoint-capability.v1",
+  "status": "carrier-hardened-fixture-green-not-bach-equivalence",
+  "recorded_at": "2026-08-09",
+  "claim_boundary": "This defines and pins the neutral session-checkpoint carrier. It does not collect BACH state, restore BACH state, prove old/new output parity, modify BACH, provide a bundle or pass an off-host sluice test.",
+  "carrier": {
+    "id": "session-checkpoint",
+    "repository": "https://github.com/ellmos-ai/session-checkpoint",
+    "commit": "a795e67b3d9e2966ff5afc4c2078210049f56687",
+    "version": "0.1.0",
+    "visibility": "private",
+    "network": "none",
+    "state": "dedicated configurable local SQLite file owned by the module",
+    "surfaces": ["Python API", "JSON-only CLI"]
+  },
+  "record": {
+    "id": "positive local integer preserved by export/import",
+    "namespace": "safe application token required on row operations",
+    "session_id": "opaque non-empty application session identifier",
+    "kind": "safe application-defined token",
+    "name": "human-readable local name",
+    "payload": "canonical JSON object; application-defined; default maximum 1 MiB",
+    "payload_sha256": "SHA-256 of canonical UTF-8 JSON; integrity, not authenticity",
+    "created_at": "timezone-aware ISO-8601 normalized to UTC",
+    "source_ref": "optional unique migration identity within a namespace"
+  },
+  "invariants": [
+    "carrier never opens or discovers an application database",
+    "carrier refuses an existing SQLite file with unrelated tables or incompatible columns",
+    "payload must be a JSON object and is verified on every get, list and export",
+    "get and delete require both numeric id and namespace",
+    "delete and import are dry-run by default in the CLI",
+    "import validates all ids, hashes and source-reference conflicts before writing any row",
+    "import defaults to at most 1000 checkpoints and 16 MiB aggregate canonical payload; the CLI reads at most 32 MiB before JSON parsing",
+    "exact repeated imports are idempotent; divergent collisions fail closed",
+    "new stores and exports use owner-only POSIX mode bits; Windows confidentiality remains the containing directory ACL",
+    "carrier performs no network access and contains no application paths or personal fixtures"
+  ],
+  "application_adapter": {
+    "namespace": "bach",
+    "collects": [
+      "system_config current_session value",
+      "at most ten pending task id/title pairs",
+      "at most five newest memory_working content values",
+      "one application-local created_at value"
+    ],
+    "payload_fields": {
+      "session_id": "string",
+      "open_tasks": "array of objects with id and title",
+      "recent_memory": "array of strings",
+      "created_at": "application timestamp string"
+    },
+    "forbidden": [
+      "carrier SQL against BACH tables",
+      "implicit task or memory restoration",
+      "database file copy or merge",
+      "parallel writes to legacy session_snapshots after BACH-IN"
+    ]
+  },
+  "operation_mapping": [
+    {
+      "bach_operation": "create",
+      "carrier_surface": "CheckpointStore.create",
+      "adapter_work": "collect the four payload fields, choose name, namespace bach and kind manual, then translate the returned row to the legacy tuple text",
+      "parity": "not-accepted"
+    },
+    {
+      "bach_operation": "delete",
+      "carrier_surface": "CheckpointStore.delete",
+      "adapter_work": "pass numeric id plus namespace bach; forward dry_run and translate not-found without cross-namespace disclosure",
+      "parity": "not-accepted"
+    },
+    {
+      "bach_operation": "list",
+      "carrier_surface": "CheckpointStore.list",
+      "adapter_work": "request namespace bach, limit 20, newest first and format metadata without payloads",
+      "parity": "not-accepted"
+    },
+    {
+      "bach_operation": "load",
+      "carrier_surface": "CheckpointStore.get or newest CheckpointStore.list result followed by get",
+      "adapter_work": "materialize and format payload only; preserve the current fact that load does not restore application state",
+      "parity": "not-accepted"
+    }
+  ],
+  "migration": {
+    "source": "copy of legacy session_snapshots rows",
+    "mapping": {
+      "id": "preserve numeric id",
+      "namespace": "bach",
+      "session_id": "legacy session_id",
+      "kind": "legacy snapshot_type or manual",
+      "name": "legacy name",
+      "payload": "parsed legacy snapshot_data object",
+      "created_at": "legacy created_at normalized by the migration adapter",
+      "source_ref": "bach-session_snapshots:{legacy_id}"
+    },
+    "preflight": "export bundle plus dry-run import; reject malformed JSON, scalar payloads, duplicate ids and source references",
+    "apply": "single carrier transaction after a copy-only comparison",
+    "rollback": "retain a hashed legacy export and support exact reverse materialization until BACH-IN is accepted"
+  }
+}

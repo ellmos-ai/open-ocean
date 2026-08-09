@@ -1,0 +1,22 @@
+{
+  "schema": "ellmos.open-ocean-k9-session-checkpoint-fixture.v1",
+  "payload": {
+    "session_id": "session-synthetic-001",
+    "open_tasks": [
+      {
+        "id": 101,
+        "title": "Synthetic pending task"
+      },
+      {
+        "id": 102,
+        "title": "Synthetic review task"
+      }
+    ],
+    "recent_memory": [
+      "Synthetic working note alpha",
+      "Synthetic working note beta"
+    ],
+    "created_at": "2026-08-08T07:00:00"
+  }
+}
+

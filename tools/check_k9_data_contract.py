@@ -83,12 +83,64 @@ def validate_contract(contract: dict[str, Any]) -> list[str]:
             problems.append(f"{profile}: expected {expected_count} unique operations")
         if any(item.get("parity") == "accepted" for item in operations):
             problems.append(f"{profile}: contract baseline must not claim accepted parity")
-    if profiles.get("snapshot", {}).get("carrier_fit") != "wrong-carrier":
+    snapshot = profiles.get("snapshot", {})
+    if snapshot.get("database_transit_fit") != "wrong-carrier":
         problems.append("snapshot must remain outside the database-transit carrier")
-    for source_name in ("bach", "carrier"):
+    if snapshot.get("carrier_fit") != "correct-carrier-selected":
+        problems.append("snapshot must bind the selected session-checkpoint carrier")
+    for source_name in ("bach", "carrier", "session_checkpoint_carrier"):
         commit = contract.get("sources", {}).get(source_name, {}).get("commit", "")
         if not re.fullmatch(r"[0-9a-f]{40}", commit):
             problems.append(f"{source_name}: expected a pinned 40-character commit")
+    return problems
+
+
+def validate_specs(contract: dict[str, Any], repo_root: Path) -> list[str]:
+    problems: list[str] = []
+    dbsync_path = repo_root / contract["profiles"]["dbsync"]["adapter_spec"]
+    checkpoint_path = repo_root / contract["profiles"]["snapshot"]["capability_spec"]
+    try:
+        dbsync = json.loads(dbsync_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        problems.append(f"dbsync adapter spec unreadable: {error}")
+        dbsync = {}
+    try:
+        checkpoint = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        problems.append(f"session-checkpoint capability spec unreadable: {error}")
+        checkpoint = {}
+
+    if dbsync.get("schema") != "ellmos.open-ocean-bach-k9-dbsync-adapter.v1":
+        problems.append("unexpected dbsync adapter schema")
+    if checkpoint.get("schema") != "ellmos.open-ocean-session-checkpoint-capability.v1":
+        problems.append("unexpected session-checkpoint capability schema")
+    expected_dbsync = sorted(
+        item["name"] for item in contract["profiles"]["dbsync"]["operations"]
+    )
+    actual_dbsync = sorted(item.get("name") for item in dbsync.get("operations", []))
+    if actual_dbsync != expected_dbsync:
+        problems.append(
+            f"dbsync adapter operations drift: expected {expected_dbsync}, got {actual_dbsync}"
+        )
+    expected_snapshot = sorted(
+        item["name"] for item in contract["profiles"]["snapshot"]["operations"]
+    )
+    actual_snapshot = sorted(
+        item.get("bach_operation") for item in checkpoint.get("operation_mapping", [])
+    )
+    if actual_snapshot != expected_snapshot:
+        problems.append(
+            f"session-checkpoint operations drift: expected {expected_snapshot}, "
+            f"got {actual_snapshot}"
+        )
+    if dbsync.get("sources", {}).get("carrier", {}).get("commit") != contract["sources"][
+        "carrier"
+    ]["commit"]:
+        problems.append("dbsync adapter carrier pin differs from the K9 data contract")
+    if checkpoint.get("carrier", {}).get("commit") != contract["sources"][
+        "session_checkpoint_carrier"
+    ]["commit"]:
+        problems.append("session-checkpoint carrier pin differs from the K9 data contract")
     return problems
 
 
@@ -210,26 +262,161 @@ def run_carrier_fixture(
     return result
 
 
+def run_session_checkpoint_fixture(
+    contract: dict[str, Any],
+    repo_root: Path,
+    carrier_root: Path,
+) -> dict[str, Any]:
+    expected_source = contract["sources"]["session_checkpoint_carrier"]
+    result: dict[str, Any] = {
+        "head": git_head(carrier_root),
+        "module": None,
+        "observed": {},
+        "problems": [],
+    }
+    if result["head"] != expected_source["commit"]:
+        result["problems"].append(
+            "session-checkpoint carrier commit drift: "
+            f"expected {expected_source['commit']}, got {result['head']}"
+        )
+    manifest_path = carrier_root / "ellmos-module.v2.json"
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        result["problems"].append(f"session-checkpoint manifest unreadable: {error}")
+        manifest = {}
+    if manifest.get("id") != expected_source["id"]:
+        result["problems"].append("session-checkpoint manifest id drift")
+    if "session.checkpoint" not in manifest.get("provides", []):
+        result["problems"].append("session-checkpoint manifest lacks session.checkpoint")
+    if manifest.get("boundaries", {}).get("network") != "none":
+        result["problems"].append("session-checkpoint carrier must remain network-free")
+
+    sys.path.insert(0, str(carrier_root))
+    try:
+        module = importlib.import_module("session_checkpoint")
+        module_path = Path(module.__file__).resolve()
+        if not module_path.is_relative_to(carrier_root.resolve()):
+            result["problems"].append(
+                f"session-checkpoint import escaped requested root: {module_path}"
+            )
+            return result
+        result["module"] = str(module_path)
+        fixture = contract["fixtures"]
+        fixture_document = json.loads(
+            (repo_root / fixture["session_checkpoint_input"]).read_text(encoding="utf-8")
+        )
+        expected = json.loads(
+            (repo_root / fixture["session_checkpoint_expected"]).read_text(encoding="utf-8")
+        )
+        payload = fixture_document["payload"]
+
+        with tempfile.TemporaryDirectory() as temp_name:
+            temp = Path(temp_name)
+            source = module.CheckpointStore(temp / "source-checkpoints.sqlite")
+            created = source.create(
+                namespace="bach",
+                session_id=payload["session_id"],
+                name="checkpoint-fixture",
+                kind="manual",
+                payload=payload,
+                created_at="2026-08-08T07:00:00Z",
+                source_ref="bach-session_snapshots:1",
+            )
+            listed = source.list(namespace="bach", limit=20)
+            loaded = source.get(created.id, namespace="bach")
+            source.delete(created.id, namespace="bach")
+            delete_dry_run_preserved = source.get(created.id, namespace="bach").id == created.id
+            bundle = source.export_bundle(namespace="bach")
+            source.delete(created.id, namespace="bach", dry_run=False)
+
+            target = module.CheckpointStore(temp / "target-checkpoints.sqlite")
+            import_plan = target.import_bundle(bundle)
+            target_after_plan = len(target.list(namespace="bach"))
+            import_apply = target.import_bundle(bundle, dry_run=False)
+            roundtrip = target.get(created.id, namespace="bach")
+
+            bounded = module.CheckpointStore(
+                temp / "bounded-checkpoints.sqlite",
+                max_import_checkpoints=1,
+            )
+            oversized_bundle = {
+                **bundle,
+                "checkpoints": bundle["checkpoints"] + bundle["checkpoints"],
+            }
+            try:
+                bounded.import_bundle(oversized_bundle, dry_run=False)
+            except module.CheckpointValidationError:
+                import_record_limit_enforced = not bounded.list(namespace="bach")
+            else:
+                import_record_limit_enforced = False
+
+            observed = {
+                "created_id": created.id,
+                "list_ids": [item.id for item in listed],
+                "payload_sha256": created.payload_sha256,
+                "loaded_payload": loaded.payload,
+                "delete_dry_run_preserved": delete_dry_run_preserved,
+                "source_after_delete": len(source.list(namespace="bach")),
+                "import_plan_inserted": import_plan["inserted"],
+                "target_after_plan": target_after_plan,
+                "import_apply_inserted": import_apply["inserted"],
+                "roundtrip_source_ref": roundtrip.source_ref,
+                "roundtrip_payload_matches": roundtrip.payload == payload,
+                "default_max_import_checkpoints": module.DEFAULT_MAX_IMPORT_CHECKPOINTS,
+                "default_max_import_payload_bytes": module.DEFAULT_MAX_IMPORT_PAYLOAD_BYTES,
+                "import_record_limit_enforced": import_record_limit_enforced,
+            }
+            result["observed"] = observed
+            for key, expected_value in expected.items():
+                if key == "schema":
+                    continue
+                if observed.get(key) != expected_value:
+                    result["problems"].append(
+                        f"session-checkpoint fixture {key}: expected {expected_value!r}, "
+                        f"got {observed.get(key)!r}"
+                    )
+    finally:
+        sys.path.pop(0)
+    return result
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--contract", type=Path, required=True)
     parser.add_argument("--bach-root", type=Path, required=True)
     parser.add_argument("--carrier-root", type=Path, required=True)
+    parser.add_argument("--session-checkpoint-root", type=Path, required=True)
     args = parser.parse_args()
 
     contract_path = args.contract.resolve()
     repo_root = contract_path.parent.parent
     contract = json.loads(contract_path.read_text(encoding="utf-8"))
     contract_problems = validate_contract(contract)
+    spec_problems = validate_specs(contract, repo_root)
     bach = inspect_bach(contract, args.bach_root.resolve())
     carrier = run_carrier_fixture(contract, repo_root, args.carrier_root.resolve())
-    problems = contract_problems + bach["problems"] + carrier["problems"]
+    session_checkpoint = run_session_checkpoint_fixture(
+        contract, repo_root, args.session_checkpoint_root.resolve()
+    )
+    problems = (
+        contract_problems
+        + spec_problems
+        + bach["problems"]
+        + carrier["problems"]
+        + session_checkpoint["problems"]
+    )
     output = {
         "schema": "ellmos.open-ocean-k9-data-check.v1",
-        "status": "pass-contract-and-carrier-fixture-not-equivalence" if not problems else "fail",
+        "status": (
+            "pass-contract-adapter-and-two-carrier-fixtures-not-equivalence"
+            if not problems
+            else "fail"
+        ),
         "contract": str(contract_path),
         "bach": bach,
         "carrier": carrier,
+        "session_checkpoint_carrier": session_checkpoint,
         "problems": problems,
     }
     print(json.dumps(output, ensure_ascii=False, indent=2))

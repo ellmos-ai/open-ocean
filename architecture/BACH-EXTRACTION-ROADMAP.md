@@ -54,15 +54,16 @@ accepted end-to-end parity evidence yet:
 | State | Count | Meaning |
 |---|---:|---|
 | accepted | 0 | full functional and reintegration evidence exists |
-| candidate-partial | 19 | related capability exists; equivalence is not evidenced |
-| gap | 10 | no plausible current catalogue carrier |
+| candidate-partial | 20 | related capability exists; equivalence is not evidenced |
+| gap | 9 | no plausible current catalogue carrier |
 | alias | 1 | `health` follows `healthcheck`; it is not independent functionality |
 
 “Candidate-partial” is deliberately not green. For example, `sqlite-transit-sync` provides
 verified SQLite transport and database snapshots, but that does not automatically satisfy
 BACH's query, export, backup and restore contracts. The similarly named BACH `snapshot` handler
-is now explicitly evidenced as a different domain: it stores session id, open tasks and working
-memory as one JSON row.
+is explicitly evidenced as a different domain: it stores session id, open tasks and working
+memory as one JSON row. The new private `session-checkpoint` carrier fits that domain, but remains
+candidate-partial until the BACH collector, output translation and old/new equivalence exist.
 
 ## Extraction guardrails
 
@@ -86,7 +87,7 @@ memory as one JSON row.
 | Package | Scope | Existing candidates | Result |
 |---|---|---|---|
 | **K9-0 Contract and inventory** | registry, alias drift, operation surfaces, catalogue fingerprint | `system-explorer` as a later import carrier | baseline and reproducible audit; **created in this revision** |
-| **K9-1 Data and continuity** | `db`, `dbsync`, `sync`, `backup`, `restore`; `snapshot` as a separate session-checkpoint gap | `sqlite-transit-sync`, `system-gap-master`, `system-explorer`, planned `mac-backup` | portable data API, backup format, restore proof, session-checkpoint carrier and BACH adapter |
+| **K9-1 Data and continuity** | `db`, `dbsync`, `sync`, `backup`, `restore`; `snapshot` as a separate session-checkpoint seam | `sqlite-transit-sync`, `session-checkpoint`, `system-gap-master`, `system-explorer`, planned `mac-backup` | portable data API, backup format, restore proof, session-checkpoint carrier and BACH adapter |
 | **K9-2 Observation and quality** | `status`, `healthcheck`, `logs`, `tokens`, `maintain`, `tuev`, `scan`, `watcher` | `system-explorer`, `ellmos-tests`, `project-docs-template`, `ellmos-unified-gui` | common state/event model, health probes and maintainable checks |
 | **K9-3 Lifecycle and distribution** | `update`, `upgrade`, `setup`, `settings`, `session`, `shutdown`, `path`, `mount`, `dist` | `policy-registry`, private `ellmos-core`, `bundles`; installer is documentation only | transactional installer core, migration, rollback and host-neutral paths |
 | **K9-4 Boundaries and operation** | `fs`, `trash`, `sandbox`, `lang`, `gui`, `help` | `system-explorer`, `lock-master`, `ellmos-unified-gui`, `project-docs-template` | filesystem policy, quarantine/trash, real isolation, i18n and help interface |
@@ -109,7 +110,7 @@ the beginning of each contract, not its full semantics.
 | `sync` | `status`, `all`, `skills`, `tools` | partial: `system-gap-master`, `sqlite-transit-sync` |
 | `backup` | `create`, `list`, `info`, `status` | partial: `sqlite-transit-sync`; `mac-backup` is planned only |
 | `restore` | `list`, `info`, `file`, `category` | partial: snapshot carrier exists; restore parity is open |
-| `snapshot` | `create`, `load`, `list`, `delete` | **gap**: application session checkpoint; `sqlite-transit-sync` is the wrong carrier |
+| `snapshot` | `create`, `load`, `list`, `delete` | partial: correct private `session-checkpoint` carrier exists; BACH adapter and equivalence remain open |
 | `status` | system summary | partial: `system-explorer`, `ellmos-unified-gui` |
 | `healthcheck` | `status`, `all`, `disk`, `network`, `nas`, `dns`, `ping` | **gap**; `health` is an alias only |
 | `logs` | `status`, `show`, `tail`, `clear` | partial run/trace histories; no common system-log contract |
@@ -145,18 +146,26 @@ placeholders only. The checker
 boots BACH: it verifies BACH through AST and hashes and runs only the carrier against temporary
 fixture databases.
 
-Pinned carrier commit `cb221ee3535b73b8ca0d1d4dbe481222694c63f8` adds conservative
-`cleanup` to `sqlite-transit-sync`: manifest, size,
+Pinned carrier commit `7648a20b11ca958e9622d2b5d8a13fd02613e92a` provides conservative
+`cleanup` and verified `pull_selected` in `sqlite-transit-sync`: manifest, size,
 SHA-256 and SQLite integrity are verified before selection; the default is a dry-run scoped to
 the local node; foreign nodes require explicit all-node authority in addition to apply. This
-closes the generic mechanism, not the BACH contract. The daily push guard, heartbeat, cooldown,
-text output and `enable`/`disable` remain adapter concerns. `init` is not a valid golden target
-because the BACH source itself documents its first-copy source as stale.
+closes the generic mechanism, not the BACH contract. Selected pull lets the future adapter retain
+BACH's one-newest-snapshot lifecycle without copying merge/state logic. The daily push guard,
+heartbeat, cooldown, text output and `enable`/`disable` remain adapter concerns; their complete
+machine-readable contract is
+[`bach-k9-dbsync-adapter.v1.json`](bach-k9-dbsync-adapter.v1.json). `init` is not a valid golden
+target because the BACH source itself documents its first-copy source as stale.
 
-`snapshot` was not forced into the SQLite carrier. The handler manages session context in the
-application's `session_snapshots` table; database-transit snapshots are neither the same state
-nor the same restore contract. The profile therefore moves from candidate-partial to gap until
-a session-checkpoint carrier is selected.
+`snapshot` was not forced into the SQLite carrier. The new private carrier
+[`session-checkpoint`](session-checkpoint-capability.v1.json), pinned at
+`a795e67b3d9e2966ff5afc4c2078210049f56687`, owns a separate local store and accepts only an
+application-provided JSON object. It verifies canonical payload hashes, isolates namespaces and
+supports reversible dry-run-first export/import with bounded record and aggregate payload input.
+New sensitive files use owner-only POSIX mode bits; Windows confidentiality remains the local
+directory ACL. The anonymized fixture exercises create, get, list, delete, export, import and the
+record-count guard. Collection from BACH tables, legacy text output and any restore effect remain
+strictly in the later adapter. The profile is therefore candidate-partial, not accepted.
 
 This interim result is **not equivalence evidence**: the old implementation did not run against
 the fixture during the BACH hold, BACH does not delegate yet, and migration, rollback, bundle,
@@ -200,14 +209,13 @@ owner decision may reorder packs; it cannot skip the kernel gates.
 ## Immediate implementation steps
 
 1. Keep `tools/check_k9_data_contract.py` as a required gate and stop on BACH source-hash,
-   operation-surface or carrier-commit drift.
-2. Specify the thin `dbsync` adapter for the daily push guard, heartbeat, cooldown, activation
-   marker and text output; keep `init` separate until the source defect is resolved.
-3. Select a session-checkpoint carrier for `snapshot`, or specify one narrow new capability;
-   do not build a second SQLite sync system or integrate by word similarity.
-4. After the hold, run old and new implementations against the same fixture. Prepare BACH-IN
-   only after state and failure equivalence are green.
-5. Then measure `db`, `backup` and `restore` inside K9-1; turn remaining kernel gaps into
+   operation-surface or either carrier-commit drift.
+2. After the hold, implement the pinned thin `dbsync` adapter specification and the BACH
+   collector/formatter for `session-checkpoint`; keep `init` separate until the source defect is
+   resolved.
+3. Run old and new implementations against the same anonymized fixtures. Prepare BACH-IN only
+   after state, output and failure equivalence are green.
+4. Then measure `db`, `backup` and `restore` inside K9-1; turn remaining kernel gaps into
    repository boundaries only after the same seam review.
 
 ## Baseline check

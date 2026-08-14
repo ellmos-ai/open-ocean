@@ -1,3 +1,5 @@
+<img src="assets/banner.png" width="100%" alt="open-ocean Banner">
+
 # open-ocean
 
 **Free the ocean.**

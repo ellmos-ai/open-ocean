@@ -278,13 +278,22 @@ not merely planned.
 - [x] **Single-command "ocean-dev up" entry point** (`tools/ocean_dev.py`) — chains Resolve → Verify →
   Fetch/Place → Activate for a chosen ring, dry-run by default, `--apply` required for any write.
   Durchgang 2, Sec. 3.4.
-- **Definition of done for this stage — status: partially met, precisely.** Running the entry point
-  against ring 1 on *this* host reaches full activation of every resolvable ring-1 skill (proven
-  above, Sec. 3.4, against a sandboxed target — not the live `~/.claude/skills/`, by design). The
-  *second-host* half of this DoD needed a real Fetch/Place/Activate `--apply` run reaching full
-  activation on the Mac; what actually ran there (below) was suite + dry-run only, against a
-  catalog later found to be 10.8 days stale — so this DoD stays **not fully met**, honestly, not
-  rounded up because the smoke itself went well.
+- **Definition of done for this stage — status: partially met, precisely (updated 2026-08-19).**
+  Running the entry point against ring 1 on *this* host reaches full activation of every resolvable
+  ring-1 skill (proven above, Sec. 3.4, against a sandboxed target — not the live
+  `~/.claude/skills/`, by design). The *second-host* half of this DoD now has real `--apply`
+  evidence, not just a dry-run: a fresh run on the Mac Studio (Sec. 5, Stage 2, 2026-08-19)
+  reached full Activate + Rollback of all 9 ring-1 skills with real registry data (actual
+  `SKILL.md` + language variants + assets copied, then removed byte-for-byte on rollback),
+  verified never touching the Mac's real `~/.claude/skills` (mtime and entry count identical
+  before and after). What did **not** happen, and is not claimed: a real Fetch of any
+  `module:` component — every one of the 14 ring-1 modules resolved `unfetchable-source-type`,
+  `unpinnable`, or `no-catalog-entry`, none `failed`, because `modules.catalog.json`'s `version`
+  field is semver, not a 40-hex commit SHA, for every git-repository module (true on both hosts,
+  confirmed against the same freshly-transferred catalog — a data gap, not a Fetch bug). "A
+  second host fully installed" therefore stays **not fully met**: Activate/Rollback are proven,
+  module Fetch is honestly blocked on catalog SHA-pinning, named as the concrete next step below
+  rather than worked around.
 
 ### Stage 2 — foreign-host smoke (Mac Studio)
 
@@ -324,12 +333,82 @@ worked around.**
   module/skill counts on the Mac are therefore **not** a current inventory of that host and are not
   reported as one; what the run *does* prove — the CLI runs correctly end-to-end on a second OS/
   Python installation with real repository data — stands on its own regardless of catalog age.
-- **Not attempted:** an `--apply` run on the Mac. Out of this stage's authorised scope (dry-run
-  only); doing it into a workspace-scoped sandbox would have been safe by the same design as the
-  development-host run in Sec. 3.4, but was not asked for here.
-- **Left open, named rather than silently dropped:** the Mac's OneDrive catalog staleness is a
-  separate, pre-existing sync issue (not an ocean-dev defect) and is not this repository's to fix;
-  a future pass that needs a *current* Mac-side inventory should re-check this file's mtime first.
+- **Left open at the time, named rather than silently dropped:** the Mac's OneDrive catalog
+  staleness is a separate, pre-existing sync issue (not an ocean-dev defect) and is not this
+  repository's to fix; a future pass that needs a *current* Mac-side inventory should re-check
+  this file's mtime first. (Closed below by not using that catalog at all.)
+
+**Continued 2026-08-19 — real `--apply` + `--rollback`, fresh input data (different worker,
+taking over from `sovereign2` who continued on a different package). Closes the two gaps the
+2026-08-18 smoke left open: the stale-catalog risk and the untested `--apply` path.**
+
+- **Fresh input data transferred, not the Mac's own OneDrive catalog.** Per the caveat above (Mac
+  catalog 10.8 days stale on 2026-08-18), this pass did not reuse it. Everything transferred by
+  `scp` into a new, separate work directory (`~/compute/open-ocean-sluice/`; the prior pass's
+  `open-ocean-smoke/`/`bundles-smoke/` left untouched, per the standing instruction that
+  `~/compute/` clones may remain):
+  - This repository's HEAD as a fresh `git archive` tarball (commits `ecf75fa` + `05c2f02`, i.e.
+    both Durchgang-2 commits including the `force_rmtree` POSIX fix the prior smoke motivated —
+    verified present in the extracted tree by grepping the fix's own code comment, not assumed
+    from the tarball's stated ref).
+  - A fresh `bundles` checkout (`git archive HEAD` of `C:\_Local_DEV\repos\bundles`, commit
+    `4b8cb0d`).
+  - `modules.catalog.json` (development host, `.TOPICS/.AI/.MODULES/`, 82 364 B, 2026-08-18
+    23:18) and the skills registry `components.json` (`.TOPICS/.AI/.SKILLS/registry/`, 93 370 B)
+    — both current on the development host.
+  - Only the **9 ring-1 skill source directories** the registry itself resolves to (not the full
+    487-`SKILL.md`/105 MB tree) — real directories with real content (multi-language
+    `SKILL.*.md` variants, `banner.png` assets, etc.), because Activate's `shutil.copytree` needs
+    an actual source directory on disk, not just a registry entry.
+  - All three tarballs `sha256sum -c`-verified intact on arrival (all `OK`) before extraction.
+- **Test suite, re-run from this fresh tree:** `82/82`, `exit 0`
+  (`python3 -m unittest discover -s tests`) — same result as the 2026-08-18 smoke's post-fix run,
+  now from an independently transferred tree rather than a re-copy.
+- **Resolve+Verify, ring 1, against the fresh catalog+registry:** `5/5` bundles `all_ok=True`;
+  `9/9` ring-1 skills `resolved`; all 14 ring-1 modules `unresolved` (correctly — the Mac has none
+  of the underlying module clones, and this pass deliberately did not fabricate any local
+  presence to make Resolve look greener).
+- **`ocean_dev.py` dry-run, ring 1:** `exit 0`. Fetch/Place reported, per module: 10×
+  `unfetchable-source-type`, 3× `unpinnable`, 1× `no-catalog-entry` — zero `failed`. Activate
+  reported 9× `planned`.
+- **`ocean_dev.py --apply`, ring 1, explicit sandboxed `--workspace`/`--skills-dir` under
+  `~/compute/open-ocean-sluice/workspace/`** (never the default `~/ocean-dev`, and never the live
+  `~/.claude/skills`): `exit 0`. Fetch/Place outcomes unchanged from the dry-run (same
+  non-`failed` statuses — correct, Fetch never had a pinnable SHA to act on regardless of
+  `--apply`). **Activate: all 9/9 ring-1 skills `activated`**, real files landed on disk (checked
+  by hand for `decide`: `SKILL.md` + 6 language variants + `banner.png` present). The written
+  `ocean-dev.activation-log.json` recorded all 9 entries with exact `dest` paths.
+  - **Live `~/.claude/skills` verified untouched on macOS, not just assumed:** captured before
+    (`May 24 14:01:24 2026` mtime, empty — 3 `ls -la` lines) and after `--apply` (identical mtime,
+    identical entry count). The sandbox guarantee from Sec. 3.2/3.4 (`host_adapters.py`'s
+    constructor never defaulting to a live directory) holds on macOS exactly as on Windows.
+- **`ocean_dev.py --rollback`, using the just-written activation log:** `exit 0`. All 9 skills
+  rolled back in exact reverse activation order (`model-strategy` … `agents-bridge`), sandbox
+  `skills/` back to empty. Live `~/.claude/skills` still untouched throughout (checked a third
+  time, same mtime/count).
+- **Exit-code mechanics confirmed by reading the source, not guessed beforehand:**
+  `ocean_dev.py`'s exit 4 ("at least one Fetch or Activate action failed") is driven strictly by
+  `FetchOutcome.action == "failed"` / an activate outcome's `action == "failed"` —
+  `unpinnable`, `no-catalog-entry`, and `unfetchable-source-type` are none of those; they are
+  honestly-reported non-failure outcomes, not swallowed errors. Verified in
+  `tools/fetch_place.py::plan_and_fetch()` and `tools/ocean_dev.py`'s `any_failed` computation
+  before relying on it — matches this run's own `exit 0` at every step.
+- **Housekeeping:** no lingering background processes after the session (`ps aux` checked,
+  clean). `~/compute/open-ocean-sluice/` (~19 MB), plus the untouched prior
+  `open-ocean-smoke/`/`bundles-smoke/`, left in place per the task's own instruction (all under
+  the Mac's `~/compute/`, never its OneDrive path). Logs pulled back to the development host
+  (checksum-verified tarballs plus every `ocean_dev.py --report`/stdout log); not committed into
+  this repository as raw files — the evidence convention here is the inline excerpts above,
+  matching this section's own established style.
+- **What this run does and does not close:** "Second host fully installed" (Stage 1's DoD) is now
+  split cleanly rather than left as one unproven claim: the **Activate/Rollback half is proven**
+  with real data on a second OS; the **Fetch half is correctly blocked by a data gap** — every
+  git-repository module in `modules.catalog.json` carries a semver `version`, not a commit SHA,
+  true on both hosts, not a Mac-specific finding. Making Fetch succeed for real needs the catalog
+  to carry actual commit SHAs for at least the 14 ring-1 modules; that is a
+  `.MODULES/modules.catalog.json` data-entry task, not an `open-ocean` code task, and is named
+  here as the concrete next step rather than being worked around (no synthetic SHA was written
+  into the transferred catalog).
 
 ### Stage 3 — BACH-parity cluster
 
@@ -354,10 +433,14 @@ worked around.**
 
 - Ring 1 is **resolvable, verifiable, fetchable-in-principle, and activatable**, and on *this* dev
   host, **mostly already active**. All six installer steps now have code and have each been proven
-  with real Ring-1 data (Sec. 3.4). What has **not** happened: a real `--apply` run installing Ring
-  1 fresh onto a machine that did not already have it — the Mac Studio smoke ran suite + dry-run
-  only (Sec. 5, Stage 2), against a catalog since found to be stale, so it does not stand in for
-  that. A genuine bare-machine install remains unproven.
+  with real Ring-1 data (Sec. 3.4). Updated 2026-08-19: a real `--apply` run **did** install Ring
+  1's 9 skills fresh onto a second host that did not already have them (Mac Studio, Sec. 5, Stage
+  2 continuation) — Activate + Rollback are proven there with real files, not a dry-run. What has
+  **still not** happened: a real Fetch of any `module:` component on any host, anywhere, because
+  every git-repository module in `modules.catalog.json` is pinned by semver, not by commit SHA —
+  a data gap in the catalog, reproduced identically on both hosts, not a code defect and not
+  specific to the Mac. A genuine bare-machine install of the *module* half of Ring 1 remains
+  unproven until the catalog carries real SHA pins; the *skill* half is now proven end to end.
 - Nothing here moves `open-ocean` closer to lifting `PRIVATE.txt`. Conditions 2 and 3 both still
   read "not met" honestly; this plan is the first concrete step toward them, not a claim that
   either is now satisfied.

@@ -293,7 +293,11 @@ not merely planned.
   confirmed against the same freshly-transferred catalog — a data gap, not a Fetch bug). "A
   second host fully installed" therefore stays **not fully met**: Activate/Rollback are proven,
   module Fetch is honestly blocked on catalog SHA-pinning, named as the concrete next step below
-  rather than worked around.
+  rather than worked around. **Superseded in part, later the same day:** the catalog gained a
+  `commit_sha` field and `fetch_place.py` was updated to read it — see Stage 2's "Continued
+  2026-08-19 (later the same day)" entry below. 1 of these 14 modules (`WikiStub-Seed`) is now
+  pinnable; a real `git fetch` at that pin has not yet been exercised in this pass (verified via
+  resolution logic against the real catalog only, not via an actual `--apply` fetch).
 
 ### Stage 2 — foreign-host smoke (Mac Studio)
 
@@ -410,6 +414,53 @@ taking over from `sovereign2` who continued on a different package). Closes the 
   here as the concrete next step rather than being worked around (no synthetic SHA was written
   into the transferred catalog).
 
+**Continued 2026-08-19 (later the same day) — the data side was delivered, `fetch_place.py` was
+not yet reading it.** `.MODULES/_scripts/build_catalog.py` gained a separate, builder-computed
+`commit_sha` field (13/22 current git-repository modules pinned, including Ring 1's
+WikiStub-Seed: `3476ba2c2c0ef76c4988f035b9dc7a7f12458af4`), reviewed and accepted (41/41 tests).
+But `fetch_place.py::resolve_pin_for_module()` still only read `version` — the new field's effect
+on Fetch was null until this pass. Decision (team lead, technical): `resolve_pin_for_module()`
+prefers `commit_sha`, falling back to `version` only when `version` itself is already a full
+40-hex SHA (the pre-existing behaviour, kept unchanged for older/synthetic data) — `version`
+stays the human-facing semver field, `commit_sha` is the one actual pin, no doubled meaning
+between the two, and still no silent branch fallback either way.
+
+- **Code change:** `tools/fetch_place.py::resolve_pin_for_module()` (prefer `commit_sha`,
+  SHA-shaped-`version` fallback), the `unpinnable` outcome in `plan_and_fetch()` (now reports
+  both `raw_version` and `raw_commit_sha` in its detail, so a human sees that both fields were
+  checked), the `unpinnable` action's description string, and the module's own "Scope" docstring
+  (previously claimed "no SHA pins at all", now dated and corrected).
+- **Tests:** 8 new (`ResolvePinForModuleTests`: commit_sha preferred over semver version,
+  commit_sha preferred over an already-SHA-shaped version too, missing/malformed commit_sha falls
+  back to a SHA-shaped version, both fields non-SHA or missing stay unpinnable;
+  `PlanAndFetchTests`: a real catalog-shaped entry with `commit_sha` set is `planned` in dry-run
+  using that SHA, the `unpinnable` outcome carries both raw fields). **90/90 total**, up from 82 —
+  all pre-existing tests unchanged and still green.
+- **Local verification against the real, current catalog** (not a fixture) — the three ring-1
+  git-repository modules, with their Resolve status manually set to `unresolved`/
+  `present_locally: False` the way a foreign host without local clones would see them (on *this*
+  dev host they resolve `present`, which masks Fetch's pin logic entirely — the same masking
+  effect Sec. 3.4 already documented, so this had to be forced rather than observed from a plain
+  dry-run here):
+  ```
+  module:WikiStub-Seed             -> planned    sha=3476ba2c2c0ef76c4988f035b9dc7a7f12458af4
+  module:build-your-users-mind     -> unpinnable raw_version=1.1.0-dev  raw_commit_sha=null
+  module:project-docs-template     -> unpinnable raw_version=0.1.0      raw_commit_sha=null
+  ```
+  Before this fix, all three were `unpinnable`. After: WikiStub-Seed is pinnable (1/3 → uses the
+  real `commit_sha`), the other two remain correctly `unpinnable` with both raw fields visible as
+  the reason — the catalog itself does not pin them, this was never a code bug in the two
+  remaining cases.
+- **Mac re-test deliberately not repeated.** The change is host-independent: pure catalog-field
+  lookup logic plus data already verified identical between hosts in the prior continuation (the
+  transferred catalog *is* a copy of the same file); no OS-specific code path changed. Recorded
+  here as a conscious decision, not an oversight — the Stage 2 foreign-host DoD (Activate/Rollback
+  on macOS with real data) was already proven separately and does not need re-proving for a change
+  that never touched Activate, Rollback, or any platform-specific path (`force_rmtree` etc.).
+- **What is still open:** 9/22 catalog-wide git-repository modules (including 2 of Ring 1's 3)
+  remain unpinned by the catalog's own data — a data-entry task for whoever owns those modules'
+  release process, not further `open-ocean` code work.
+
 ### Stage 3 — BACH-parity cluster
 
 - **Not started, not due yet.** `BACH-EXTRACTION-ROADMAP.md`'s own binding order is "Cluster 9
@@ -436,11 +487,17 @@ taking over from `sovereign2` who continued on a different package). Closes the 
   with real Ring-1 data (Sec. 3.4). Updated 2026-08-19: a real `--apply` run **did** install Ring
   1's 9 skills fresh onto a second host that did not already have them (Mac Studio, Sec. 5, Stage
   2 continuation) — Activate + Rollback are proven there with real files, not a dry-run. What has
-  **still not** happened: a real Fetch of any `module:` component on any host, anywhere, because
-  every git-repository module in `modules.catalog.json` is pinned by semver, not by commit SHA —
-  a data gap in the catalog, reproduced identically on both hosts, not a code defect and not
-  specific to the Mac. A genuine bare-machine install of the *module* half of Ring 1 remains
-  unproven until the catalog carries real SHA pins; the *skill* half is now proven end to end.
+  **still not** happened, updated later 2026-08-19: a real Fetch (an actual `git fetch` at a
+  pinned SHA, as opposed to the resolution logic that decides whether one is *possible*) of any
+  `module:` component, on any host, anywhere. The data gap that blocked it is now partially
+  closed — `modules.catalog.json` gained a `commit_sha` field and `fetch_place.py` now reads it
+  (Sec. 5, Stage 2's second "Continued" entry), so 1 of Ring 1's 3 previously-unpinnable
+  git-repository modules (`WikiStub-Seed`) is confirmed pinnable against the real catalog; the
+  other 2 (`build-your-users-mind`, `project-docs-template`) remain correctly unpinnable because
+  the catalog itself does not pin them, not because of a code limitation. A genuine bare-machine
+  *fetch* of even the one now-pinnable module has still not been exercised (only its resolution
+  status was proven); the *skill* Activate/Rollback half is proven end to end (Mac Studio,
+  2026-08-19).
 - Nothing here moves `open-ocean` closer to lifting `PRIVATE.txt`. Conditions 2 and 3 both still
   read "not met" honestly; this plan is the first concrete step toward them, not a claim that
   either is now satisfied.

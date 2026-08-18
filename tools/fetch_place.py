@@ -12,17 +12,25 @@ runs (status "unpinnable"), and any git failure after that point removes
 whatever partial directory it created rather than leaving it checked out on
 whatever `git fetch` happened to land on.
 
-Scope: Ring 1's own catalog data currently carries no SHA pins at all --
-`version` on every git-repository module is a semver string ("0.1.0" etc.),
-not a commit hash (verified empirically against modules.catalog.json before
-writing this, the same way expand_components()'s nested-ref shape was
-verified in resolve_bundles.py). That makes "unpinnable" the correct, honest
-outcome for every current Ring 1 module with this catalog -- not a bug in
-this module. The mechanic itself (valid SHA -> exact commit; invalid SHA ->
-loud failure, nothing left behind) is proven by tests/test_fetch_place.py
-against a disposable local throwaway git repository, mirroring the isolated
-test technique INSTALLER-REUSE-BEFUND Sec. 5.4 itself used to find the bug
-being avoided here.
+Scope, updated 2026-08-19: at the time this module was first written, the
+catalog carried no SHA pins at all -- `version` on every git-repository module
+was a semver string ("0.1.0" etc.), not a commit hash, so "unpinnable" was the
+correct, honest outcome for every Ring 1 module. `.MODULES/_scripts/
+build_catalog.py` now computes a separate, builder-owned `commit_sha` field
+(13/22 current git-repository modules pinned, including Ring 1's
+WikiStub-Seed) -- `resolve_pin_for_module()` prefers that field, falling back
+to `version` only when `version` itself happens to already be a full 40-hex
+SHA (the pre-existing behaviour, kept so older/synthetic catalogs without a
+`commit_sha` field still work exactly as before). A module with neither field
+holding a valid SHA is still, correctly, "unpinnable" -- e.g. Ring 1's
+build-your-users-mind and project-docs-template, which the catalog itself
+does not pin (no fallback to a branch either way; see the "unpinnable" outcome
+in plan_and_fetch(), which reports both raw fields for that reason). The
+mechanic itself (valid SHA -> exact commit; invalid SHA -> loud failure,
+nothing left behind) is proven by tests/test_fetch_place.py against a
+disposable local throwaway git repository, mirroring the isolated test
+technique INSTALLER-REUSE-BEFUND Sec. 5.4 itself used to find the bug being
+avoided here.
 
 Deliberately NOT this module's job:
   - writing into .MODULES/ (the shared catalog tree) -- E5 "Stores bleiben
@@ -98,8 +106,9 @@ _ACTIONS = {
     "unfetchable-source-type": "catalog entry exists but its source_of_truth.type is not git-repository -- "
                                 "not something this module knows how to fetch (e.g. local-directory missing "
                                 "on disk is a broken catalog entry, not a fetch target)",
-    "unpinnable": "catalog's version field is not a full 40-hex commit SHA -- refusing to fetch rather than "
-                  "silently falling back to a branch (the bug this module exists to not repeat)",
+    "unpinnable": "neither the catalog's commit_sha field nor its version field is a full 40-hex commit SHA "
+                  "-- refusing to fetch rather than silently falling back to a branch (the bug this module "
+                  "exists to not repeat)",
     "planned": "dry-run: this is what --apply would do (no git command has been run)",
     "fetched": "git fetch+checkout at the pinned SHA succeeded",
     "skipped-present-in-workspace": "the workspace destination for this module already exists -- never overwrite",
@@ -111,10 +120,30 @@ def resolve_pin_for_module(catalog_entry: dict[str, Any]) -> tuple[str | None, A
     """Returns (sha_or_none, raw_version_field). A separate, focused catalog
     read rather than extending resolve_bundles.resolve_module()'s detail dict
     -- that function is tested and stable; this need (the raw, unfiltered
-    `version` value) is specific to Fetch and does not belong in Resolve's
-    output contract."""
+    pin fields) is specific to Fetch and does not belong in Resolve's output
+    contract.
+
+    Prefers the builder-computed `commit_sha` field
+    (.MODULES/_scripts/build_catalog.py) over `version`: `version` stays a
+    human-facing semver string, `commit_sha` is the actual pin, so there is
+    no doubling of meaning between the two fields. `version` is still used as
+    a pin *fallback* when it happens to already be a full 40-hex SHA itself
+    -- the behaviour this function had before `commit_sha` existed, kept so
+    a catalog entry (or test fixture) that only ever set `version` to a SHA
+    keeps working unchanged. Neither field holding a valid SHA still means
+    unpinnable -- this never widens what counts as pinnable, it only adds a
+    second, preferred place to find a pin. The returned `raw_version_field`
+    is deliberately still `version` specifically (not `commit_sha`) --
+    callers that report "unpinnable" add the raw `commit_sha` themselves
+    (see plan_and_fetch) so both fields are visible in that outcome's detail
+    without changing this function's tested return shape."""
+    raw_commit_sha = catalog_entry.get("commit_sha")
     raw_version = catalog_entry.get("version")
-    return (raw_version if is_git_sha(raw_version) else None), raw_version
+    if is_git_sha(raw_commit_sha):
+        return raw_commit_sha, raw_version
+    if is_git_sha(raw_version):
+        return raw_version, raw_version
+    return None, raw_version
 
 
 def _run_git(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
@@ -199,7 +228,10 @@ def plan_and_fetch(
         if sha is None:
             outcomes.append(FetchOutcome(
                 comp.ref, "unpinnable",
-                {"catalog_id": catalog_id, "raw_version": raw_version, "repository": repository_url},
+                {
+                    "catalog_id": catalog_id, "raw_version": raw_version,
+                    "raw_commit_sha": entry.get("commit_sha"), "repository": repository_url,
+                },
             ))
             continue
         dest = dest_root / catalog_id

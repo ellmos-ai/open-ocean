@@ -80,6 +80,42 @@ class ResolvePinForModuleTests(unittest.TestCase):
         self.assertIsNone(sha)
         self.assertIsNone(raw)
 
+    def test_commit_sha_field_is_preferred_over_semver_version(self):
+        """.MODULES/_scripts/build_catalog.py's builder-computed pin field --
+        the fix this test class exists for."""
+        sha, raw = resolve_pin_for_module({"version": "0.1.0", "commit_sha": VALID_SHA})
+        self.assertEqual(sha, VALID_SHA)
+        self.assertEqual(raw, "0.1.0")  # raw_version_field stays `version`, not commit_sha
+
+    def test_commit_sha_field_is_preferred_over_sha_shaped_version_too(self):
+        """Even when version itself happens to be a valid SHA, a present
+        commit_sha wins -- commit_sha is the one pin field, not a tiebreak."""
+        other_sha = "b" * 40
+        sha, raw = resolve_pin_for_module({"version": VALID_SHA, "commit_sha": other_sha})
+        self.assertEqual(sha, other_sha)
+
+    def test_missing_commit_sha_falls_back_to_sha_shaped_version(self):
+        sha, raw = resolve_pin_for_module({"version": VALID_SHA, "commit_sha": None})
+        self.assertEqual(sha, VALID_SHA)
+
+    def test_malformed_commit_sha_falls_back_to_sha_shaped_version(self):
+        """A present but not-40-hex commit_sha (e.g. truncated/corrupt data)
+        does not silently win over a valid version pin -- it is simply not a
+        SHA, so resolution falls through to the next field, same as an
+        absent field."""
+        sha, raw = resolve_pin_for_module({"version": VALID_SHA, "commit_sha": "not-a-sha"})
+        self.assertEqual(sha, VALID_SHA)
+
+    def test_both_fields_non_sha_is_unpinnable(self):
+        sha, raw = resolve_pin_for_module({"version": "0.1.0", "commit_sha": "not-a-sha"})
+        self.assertIsNone(sha)
+        self.assertEqual(raw, "0.1.0")
+
+    def test_both_fields_missing_is_unpinnable(self):
+        sha, raw = resolve_pin_for_module({"commit_sha": None})
+        self.assertIsNone(sha)
+        self.assertIsNone(raw)
+
 
 class FetchModuleAtShaRealGitTests(unittest.TestCase):
     """Uses a real, disposable local git repository as the "remote" -- no
@@ -187,6 +223,29 @@ class PlanAndFetchTests(unittest.TestCase):
         outcomes = plan_and_fetch([comp], self.catalog_path, self.workspace, apply=False)
         self.assertEqual(outcomes[0].action, "unpinnable")
         self.assertEqual(outcomes[0].detail["raw_version"], "0.1.0")
+
+    def test_git_repository_with_commit_sha_is_pinnable_despite_semver_version(self):
+        """The exact case build_catalog.py's new field exists to fix: a
+        module with a human semver version but a real builder-computed pin."""
+        self._write_catalog([{"id": "WikiStub-Seed", "version": "0.1.0", "commit_sha": VALID_SHA}])
+        comp = _component("module:WikiStub-Seed", "unresolved", {
+            "catalog_id": "WikiStub-Seed", "source_type": "git-repository",
+            "present_locally": False, "repository": "https://example.invalid/repo.git",
+        })
+        outcomes = plan_and_fetch([comp], self.catalog_path, self.workspace, apply=False)
+        self.assertEqual(outcomes[0].action, "planned")
+        self.assertEqual(outcomes[0].detail["sha"], VALID_SHA)
+
+    def test_unpinnable_outcome_reports_both_raw_fields(self):
+        self._write_catalog([{"id": "build-your-users-mind", "version": "1.1.0-dev", "commit_sha": None}])
+        comp = _component("module:build-your-users-mind", "unresolved", {
+            "catalog_id": "build-your-users-mind", "source_type": "git-repository",
+            "present_locally": False, "repository": "https://example.invalid/repo.git",
+        })
+        outcomes = plan_and_fetch([comp], self.catalog_path, self.workspace, apply=False)
+        self.assertEqual(outcomes[0].action, "unpinnable")
+        self.assertEqual(outcomes[0].detail["raw_version"], "1.1.0-dev")
+        self.assertIsNone(outcomes[0].detail["raw_commit_sha"])
 
     def test_git_repository_with_real_sha_is_planned_in_dry_run(self):
         self._write_catalog([{"id": "some-module", "version": VALID_SHA}])

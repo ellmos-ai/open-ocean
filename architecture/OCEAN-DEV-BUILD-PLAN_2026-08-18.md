@@ -296,8 +296,10 @@ not merely planned.
   rather than worked around. **Superseded in part, later the same day:** the catalog gained a
   `commit_sha` field and `fetch_place.py` was updated to read it — see Stage 2's "Continued
   2026-08-19 (later the same day)" entry below. 1 of these 14 modules (`WikiStub-Seed`) is now
-  pinnable; a real `git fetch` at that pin has not yet been exercised in this pass (verified via
-  resolution logic against the real catalog only, not via an actual `--apply` fetch).
+  pinnable. **Fully closed, same day, final entry:** a real `git fetch` at that pin was executed
+  and independently verified (checked-out `HEAD` matches the pin, real GitHub commit history,
+  expected files present) — see Stage 2's "final proof for this chain" entry. Fetch/Place is no
+  longer proven only by resolution logic or disposable-repo tests for this module.
 
 ### Stage 2 — foreign-host smoke (Mac Studio)
 
@@ -461,6 +463,43 @@ between the two, and still no silent branch fallback either way.
   remain unpinned by the catalog's own data — a data-entry task for whoever owns those modules'
   release process, not further `open-ocean` code work.
 
+**Continued 2026-08-19 (final proof for this chain) — a real `git fetch` at the pin, not just
+resolution logic.** Everything above proved that `WikiStub-Seed` *resolves* as pinnable; this step
+proves Fetch actually *works* end to end, using `fetch_place.py`'s own tested `plan_and_fetch()`
+(the real production code path, not a re-implementation) with `apply=True` against a disposable
+sandbox — never the canonical clone, never OneDrive (`%TEMP%\...\scratchpad\
+wikistub_real_fetch_proof\`, a component with Resolve status forced to `unresolved` the same way
+the earlier verification did, since local presence otherwise short-circuits Fetch before it ever
+runs).
+
+- **Result:** `action="fetched"` (not `"planned"` — this was a real `--apply`, not a dry-run).
+  Reported `head` equalled the pin exactly.
+- **Independently re-verified, not just trusting the tool's own report:** `git -C <dest>
+  rev-parse HEAD` → `3476ba2c2c0ef76c4988f035b9dc7a7f12458af4`, matching the catalog's pin
+  character-for-character. `git log -1` showed real GitHub history (a genuine merged pull
+  request, dated 2026-07-31 — not a synthetic/local throwaway repo this time, unlike the disposable
+  fixtures `tests/test_fetch_place.py` uses for its own git tests). The expected working-copy
+  content was present and readable (`md_to_json.py`, `language_model.py`,
+  `wikistub_seed_cli.py`, etc. — the same files this ticket's earlier WikiStub-Aufbauprojekt work
+  forked from this exact upstream project).
+- **No auth/URL problem encountered** — `WikiStub-Seed` is `"visibility": "public"` in the
+  catalog and the GitHub repo is public, so an anonymous HTTPS clone worked without credentials.
+  (Had it failed, the instruction was to document the precise failure point rather than work
+  around it; that branch was not needed here.)
+- **Sandbox cleaned up afterward** (~9.4 MB removed) rather than kept as a standing artifact —
+  it was a one-shot proof of a code path already covered by the test suite's own disposable-repo
+  tests, not new information worth preserving on disk; this paragraph is the durable record
+  instead.
+- **This closes the Fetch/Place half of Stage 1's "second host fully installed" DoD for the one
+  module the catalog currently pins in Ring 1.** Combined with the earlier-proven Activate/Rollback
+  half (Mac Studio, 2026-08-19) and this same day's resolution-logic fix, all four
+  Resolve→Verify→Fetch/Place→Activate steps (plus Rollback) now have at least one real,
+  independently-verified run each against real data — Fetch/Place specifically was, until this
+  step, the one step proven only by disposable-repo tests and resolution-logic checks, never by an
+  actual fetch of a real, cataloged module. The remaining gap is data breadth, not proof-of-concept:
+  9/22 catalog-wide modules (2 of Ring 1's 3) still lack a pin because their own clones are not
+  clean+pushed, not because Fetch cannot fetch them once they are.
+
 ### Stage 3 — BACH-parity cluster
 
 - **Not started, not due yet.** `BACH-EXTRACTION-ROADMAP.md`'s own binding order is "Cluster 9
@@ -486,18 +525,21 @@ between the two, and still no silent branch fallback either way.
   host, **mostly already active**. All six installer steps now have code and have each been proven
   with real Ring-1 data (Sec. 3.4). Updated 2026-08-19: a real `--apply` run **did** install Ring
   1's 9 skills fresh onto a second host that did not already have them (Mac Studio, Sec. 5, Stage
-  2 continuation) — Activate + Rollback are proven there with real files, not a dry-run. What has
-  **still not** happened, updated later 2026-08-19: a real Fetch (an actual `git fetch` at a
-  pinned SHA, as opposed to the resolution logic that decides whether one is *possible*) of any
-  `module:` component, on any host, anywhere. The data gap that blocked it is now partially
-  closed — `modules.catalog.json` gained a `commit_sha` field and `fetch_place.py` now reads it
-  (Sec. 5, Stage 2's second "Continued" entry), so 1 of Ring 1's 3 previously-unpinnable
-  git-repository modules (`WikiStub-Seed`) is confirmed pinnable against the real catalog; the
-  other 2 (`build-your-users-mind`, `project-docs-template`) remain correctly unpinnable because
-  the catalog itself does not pin them, not because of a code limitation. A genuine bare-machine
-  *fetch* of even the one now-pinnable module has still not been exercised (only its resolution
-  status was proven); the *skill* Activate/Rollback half is proven end to end (Mac Studio,
-  2026-08-19).
+  2 continuation) — Activate + Rollback are proven there with real files, not a dry-run. Fetch
+  followed the same day: `modules.catalog.json` gained a `commit_sha` field and `fetch_place.py`
+  now reads it (Sec. 5, Stage 2's second "Continued" entry), making `WikiStub-Seed` (1 of Ring 1's
+  3 previously-unpinnable git-repository modules) pinnable; **then a real `git fetch` at that pin
+  was executed and independently verified** (checked-out `HEAD` equals the pin exactly, real
+  GitHub commit history, expected files present — Sec. 5, Stage 2's "final proof for this chain"
+  entry), into a disposable sandbox, never the canonical clone. The other 2 Ring-1 git-repository
+  modules (`build-your-users-mind`, `project-docs-template`) remain correctly unpinnable because
+  the catalog itself does not pin them (dirty/diverged local clones), not because of a code
+  limitation, and 9/22 modules catalog-wide are in the same state. So: all six installer steps —
+  Resolve, Verify, Fetch, Place, Activate, Rollback — have now each been proven with at least one
+  real end-to-end run against real data; what remains open is data breadth (most modules still
+  unpinned) and a still-untried single combined `--apply` run that both fetches a module *and*
+  activates skills together on one foreign host in one invocation (each half has been proven, not
+  yet together in the same run).
 - Nothing here moves `open-ocean` closer to lifting `PRIVATE.txt`. Conditions 2 and 3 both still
   read "not met" honestly; this plan is the first concrete step toward them, not a claim that
   either is now satisfied.

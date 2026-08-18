@@ -37,7 +37,6 @@ from __future__ import annotations
 import os
 import re
 import shutil
-import stat
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -58,17 +57,26 @@ def force_rmtree(path: Path) -> None:
     """shutil.rmtree() alone cannot remove a git checkout's object files on
     Windows -- git marks blobs read-only, and plain rmtree raises
     PermissionError (WinError 5) on them. Found empirically running this
-    module's own real-git tests on this host, not assumed. Clears the
-    read-only bit on every entry first, then removes normally; used both for
-    this module's own fetch-failure cleanup and by tools/ocean_dev.py's
-    module rollback, since both remove a directory that may contain a git
-    checkout."""
+    module's own real-git tests on this host, not assumed.
+
+    First fix attempt chmod'd every entry to write-only (stat.S_IWRITE,
+    0o200) before removing -- fine on Windows (chmod barely affects
+    directory traversal there), but WRONG on POSIX: a directory with mode
+    0o200 has neither read nor execute, so shutil.rmtree can no longer list
+    or descend into it, silently leaves it behind under `ignore_errors=True`,
+    and the caller never finds out. Caught by the Mac Studio foreign-host
+    smoke test (2026-08-18) -- both fetch-cleanup and rollback left a `.git`
+    directory behind there, exactly this failure mode, exactly why that
+    smoke test exists. Fixed by granting full owner rwx (0o700) instead of
+    only the write bit, on both directories and files, before removing --
+    this keeps traversal working on POSIX while still clearing Windows'
+    read-only attribute (chmod 0o700 sets FILE_ATTRIBUTE_READONLY off too)."""
     if not path.exists():
         return
     for root, dirs, files in os.walk(path):
         for name in dirs + files:
             try:
-                (Path(root) / name).chmod(stat.S_IWRITE)
+                (Path(root) / name).chmod(0o700)
             except OSError:
                 pass
     shutil.rmtree(path, ignore_errors=True)

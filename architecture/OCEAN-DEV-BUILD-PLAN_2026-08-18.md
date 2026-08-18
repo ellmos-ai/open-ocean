@@ -1,4 +1,4 @@
-# ocean-dev build plan — Durchgang 1
+# ocean-dev build plan — Durchgang 1 + 2
 
 > **Status: living plan, not a finished system.** Records what exists, what was built in this
 > pass, and what the next passes need to do, in the target order the user set. Updated as each
@@ -280,28 +280,56 @@ not merely planned.
   Durchgang 2, Sec. 3.4.
 - **Definition of done for this stage — status: partially met, precisely.** Running the entry point
   against ring 1 on *this* host reaches full activation of every resolvable ring-1 skill (proven
-  below, Sec. 3.4, against a sandboxed target — not the live `~/.claude/skills/`, by design). The
-  *second-host* half of this DoD is Stage 2's job now that Mac Studio is unblocked; see Sec. 3.5 /
-  Sec. 2 for what that pass did and did not reach.
+  above, Sec. 3.4, against a sandboxed target — not the live `~/.claude/skills/`, by design). The
+  *second-host* half of this DoD needed a real Fetch/Place/Activate `--apply` run reaching full
+  activation on the Mac; what actually ran there (below) was suite + dry-run only, against a
+  catalog later found to be 10.8 days stale — so this DoD stays **not fully met**, honestly, not
+  rounded up because the smoke itself went well.
 
 ### Stage 2 — foreign-host smoke (Mac Studio)
 
-- **Blocked, documented rather than attempted this pass.** Mac Studio's OneDrive sync client is
-  down: `pgrep -fl OneDrive` finds no running process, `.TOPICS/.AI/.MODULES/modules.catalog.json`
-  there is 10+ days stale, and 105 unresolved conflict copies have accumulated
-  (`T-20260818-179999731`, `BLOCKED`, external-state). Network-layer reachability (SSH,
-  `~/compute/`, `~/.venvs/science`) was separately verified fine on 2026-08-18
-  (`T-20260818-229528104`) — the blocker is content sync, a different layer, not connectivity.
-- **This plan does not restart the Mac Studio OneDrive client.** That ticket is explicit that a
-  blind SSH restart of a 24/7 production host without GUI diagnosis is the wrong move without
-  either physical/VNC access or explicit user sign-off, and this ticket carries no mandate to
-  operate on Mac Studio's infrastructure.
-- **When the sync ticket resolves:** re-run `python -m unittest discover -s tests` there first (it
-  needs no OneDrive access at all — the suite is synthetic-fixture-only by design, see Sec. 3.1),
-  then a real `resolve_bundles.py --ring 1` run against the *live, resynced* catalog and bundles
-  checkout, then the Stage 1 entry point once it exists. A smoke on a host with a stale catalog
-  would prove nothing except that the catalog was stale — worse than not testing, because it would
-  look like a foreign-host result while actually being a sync-outage artifact.
+**Attempted 2026-08-18, after `T-20260818-179999731`'s OneDrive-sync blocker was reported repaired
+(dead sync-engine child process restarted, ~3 min latency verified). Result: suite green, dry-run
+completed, one real cross-platform bug found and fixed, one data-freshness caveat found and NOT
+worked around.**
+
+- **Access.** No `gh auth`, no GitHub SSH host-key trust yet on that host (`ssh -T git@github.com`
+  failed at host-key verification, not credentials) — went straight to the pre-authorised fallback
+  rather than establishing new trust on a 24/7 production host mid-task: `git archive` of this
+  repository's HEAD (`ecf75fa`) and of the `bundles` checkout, both transferred by `scp` into
+  `~/compute/open-ocean-smoke/` and `~/compute/bundles-smoke/` (kept there, not deleted, per the
+  task's own instruction; ~2.7 MB combined, no background process left running — checked via `ps
+  aux` against the host's pre-existing 24/7 services, none of which are this task's).
+- **Test suite — a real bug was caught, not just a clean pass.** First run: **80/82, 2 failures**,
+  both `AssertionError: True is not false` on "a failed fetch must not leave a directory behind" /
+  the matching `ocean_dev.py` rollback test. Root cause: `force_rmtree()`'s Windows fix
+  (chmod every entry to `stat.S_IWRITE`, 0o200, before removing) is wrong on POSIX — a directory
+  with mode 0o200 has neither read nor execute, so `shutil.rmtree` can no longer descend into it
+  and `ignore_errors=True` swallowed the failure silently, leaving a `.git` directory behind on
+  both the fetch-cleanup and the rollback path. **This is exactly the failure class Stage 2 exists
+  to catch** — a Windows-only dev host cannot see a POSIX permission-bit bug. Fixed
+  (`tools/fetch_place.py::force_rmtree`, full `chmod(0o700)` instead of write-only), re-verified
+  **82/82 green on both hosts** after the fix (Windows first, then re-copied and re-run on the Mac).
+- **Dry-run resolve, ring 1, against the Mac's own OneDrive-resolved catalog:** `exit 0`, completed
+  without error, wrote nothing (`~/ocean-dev` was not created — the dry-run default held on macOS
+  too).
+- **Data-freshness caveat, checked rather than assumed — this run does NOT double as a "the sync
+  fix worked" verification.** `modules.catalog.json` under the Mac's own `~/OneDrive/...` mtime is
+  **2026-08-08, 10.8 days old**, against **2026-08-18 (0.7 days)** for the same file on the
+  development host — the sync-engine process restart did not (yet, as of this check) pull this
+  file's current content across. The two catalogs visibly disagree: `module:memory-hooker`
+  resolves `no-catalog-entry` on the fresh laptop catalog and `present` on the Mac's stale one —
+  concrete, measured evidence of exactly the risk this document flagged before attempting the
+  smoke ("would prove nothing except that the catalog was stale"). The dry-run's specific
+  module/skill counts on the Mac are therefore **not** a current inventory of that host and are not
+  reported as one; what the run *does* prove — the CLI runs correctly end-to-end on a second OS/
+  Python installation with real repository data — stands on its own regardless of catalog age.
+- **Not attempted:** an `--apply` run on the Mac. Out of this stage's authorised scope (dry-run
+  only); doing it into a workspace-scoped sandbox would have been safe by the same design as the
+  development-host run in Sec. 3.4, but was not asked for here.
+- **Left open, named rather than silently dropped:** the Mac's OneDrive catalog staleness is a
+  separate, pre-existing sync issue (not an ocean-dev defect) and is not this repository's to fix;
+  a future pass that needs a *current* Mac-side inventory should re-check this file's mtime first.
 
 ### Stage 3 — BACH-parity cluster
 
@@ -324,9 +352,12 @@ not merely planned.
 
 ## 6. Honesty check — what this plan is not claiming
 
-- Ring 1 is **resolvable and verifiable**, and on *this* dev host, **mostly already active**. It is
-  not yet **installable onto a machine that does not already have it** — that is Stage 1's
-  remaining half.
+- Ring 1 is **resolvable, verifiable, fetchable-in-principle, and activatable**, and on *this* dev
+  host, **mostly already active**. All six installer steps now have code and have each been proven
+  with real Ring-1 data (Sec. 3.4). What has **not** happened: a real `--apply` run installing Ring
+  1 fresh onto a machine that did not already have it — the Mac Studio smoke ran suite + dry-run
+  only (Sec. 5, Stage 2), against a catalog since found to be stale, so it does not stand in for
+  that. A genuine bare-machine install remains unproven.
 - Nothing here moves `open-ocean` closer to lifting `PRIVATE.txt`. Conditions 2 and 3 both still
   read "not met" honestly; this plan is the first concrete step toward them, not a claim that
   either is now satisfied.

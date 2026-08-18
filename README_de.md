@@ -83,31 +83,32 @@ erscheinen, als es ist.
 | | |
 |---|---|
 | Architektur-Gerüst | vorhanden, 13 Bundles referenziert |
-| BACH-Extraktionsbasis | vorhanden — 114 quellseitige Namen; historische 113er Runtime-Messlatte bleibt erhalten |
+| BACH-Extraktionsbasis | vorhanden — 114 quellseitige Namen; historische 113er Runtime-Messlatte bleibt erhalten; erneut geprüft am 2026-08-18 (106 Handler-Klassen, +1 gegenüber der 2026-08-08-Basis — zurückverfolgt auf eine hostgebundene Duplikatdatei in BACH, `upgrade-WORKSTATION-LG.py` neben `upgrade.py`; hier NICHT behoben, BACH liegt außerhalb des Änderungsumfangs dieses Repositories). `registered_names` unverändert bei 114. |
 | K9-1 Daten-/Checkpoint-Gate | zwei Träger-Fixtures grün; Adapter und BACH-Äquivalenz bleiben offen |
 | Installer | **nicht gebaut** — im Grundsatz entschieden, zurückgestellt, jetzt wieder fällig |
 | Eigene Laufzeit | **nicht verfügbar** — jeder Kandidat ist privat oder nur deklariert |
 | Rezepte | im Rezept-Repository gepflegt, nicht hier |
 
 **Die Ampel** — Freigabebedingung 1 geht grün, wenn jedes referenzierte Bundle grün ist, also jede
-seiner Komponenten öffentlich und geprüft:
+seiner Komponenten öffentlich und geprüft. Der Umfang zählt hier: Das Gerüst dieses Repositories
+referenziert genau **13** der rund 30 Bundles des Ökosystems (siehe
+[das Gerüst](architecture/open-ocean.skeleton.v1.json)); Bedingung 1 betrifft diese 13, nicht den
+gesamten Katalog.
 
 | | |
 |---|---|
-| Bundles grün-fähig | **13** — die, die dieses Gerüst referenziert |
-| Blockiert durch nicht-öffentliche Komponenten | 17 weitere Bundles |
-| Größter Einzelhebel | am 2026-08-08 weitgehend aufgelöst — drei der vier Repositories sind öffentlich; allein `ellmos-core` blockiert noch drei Bundles |
+| Von diesem Repository referenzierte Bundles | **13** |
+| Davon Komponenten öffentlich verifiziert (2026-08-18) | **13 / 13** |
+| Geprüfte Einzelkomponenten | 18 Module, 1 Access-Surface-Repository (`ellmos-homebase-mcp`), 27 Skills (im öffentlichen `ellmos-ai/skills`-Katalog), 1 optionale Software-App (`MediaBrain`) — alle live per `gh repo view`/Katalog-Abgleich bestätigt, NICHT über das `visibility`-Feld der eigenen Modul-Manifeste (das ist eine Zielklassifikation und kann dem tatsächlichen GitHub-Stand hinterherhinken) |
+| Nicht anwendbar auf diese Prüfung | 3 `access_surface`-Referenzen auf kommerzielle Agent-Anbieter/Abos/APIs (kein Repository, kein Öffentlich/Privat-Zustand) |
 
-Drei dieser vier wurden am 2026-08-08 durch Entscheidung des Eigentümers öffentlich —
-`ellmos-scheduler`, `system-explorer` und `policy-registry`. Damit entfällt die Repo-Sperre für
-`system-knowledge` und `personal-ops` auf der Ebene der erforderlichen Komponenten. Das vierte,
-`ellmos-core`, bleibt privat: seine eigene `RELEASE_GATE.md` untersagt jede Sichtbarkeitsänderung,
-bis die Lizenzwahl und mehrere Sicherheitspunkte geklärt sind — dieses Gate hebt der Eigentümer,
-kein Agent. Es blockiert weiterhin `core-discovery`, `prompt-workflow` und `runtime-options`;
-`governance-assurance` und `automation-control` hängen an Komponenten, die nie privat waren,
-sondern öffentlich schlicht noch nicht existieren. Solange das offen ist, kann dieses Repository
-den Umfang, den sein Name verspricht, nicht erreichen — das ist der ehrliche Grund, warum es privat
-ist und nicht bloß unfertig.
+Keines der vier Repositories, die am 2026-08-08 andere Teile des Ökosystems blockierten
+(`ellmos-core`, sowie die drei inzwischen öffentlichen `ellmos-scheduler`, `system-explorer`,
+`policy-registry`), wird vom 13-Bundle-Gerüst dieses Repositories überhaupt referenziert — sie
+sperren Bundles außerhalb dieses Umfangs (`core-discovery`, `prompt-workflow`, `runtime-options`,
+`governance-assurance`, `automation-control`). Bedingung 1, streng für das gelesen, was dieses
+Repository tatsächlich referenziert, ist zum 2026-08-18 erfüllt. Was die Veröffentlichung noch
+blockiert, sind die Bedingungen 2 und 3 unten, nicht Bedingung 1.
 
 ## Freigabebedingungen
 
@@ -116,19 +117,39 @@ das Gate dort sichtbar ist, wo Sichtbarkeit geschaltet wird). Es öffnet sich, w
 Bedingungen nachweislich erfüllt sind:
 
 1. **Grüne Bestandteile** — jedes referenzierte Bundle ist grün: jede seiner Komponenten
-   öffentlich und geprüft.
+   öffentlich und geprüft. **Erfüllt zum 2026-08-18** für den 13-Bundle-Umfang dieses
+   Repositories — siehe Ampel-Tabelle oben.
 2. **Schleusen-Test bestanden** — die Gesamtleitung trägt: eine frische Installation aus diesen
    Rezepten erreicht auf einer Maschine, die nicht der Entwicklungsrechner ist, einen
-   arbeitsfähigen Zustand.
+   arbeitsfähigen Zustand. **Nicht erfüllt, und noch nicht versuchbar.** Es gibt nichts zu
+   installieren: die Zeilen „nicht gebaut"/„nicht verfügbar" oben sind wörtlich gemeint — weder
+   Installer noch Laufzeit existieren in diesem Repository bislang, also gibt es kein Artefakt,
+   gegen das ein Schleusen-Test laufen könnte. Kein Mac-Studio-Problem: der vorgesehene
+   Fremdrechner wurde am 2026-08-18 als erreichbar und bereit verifiziert (SSH, `~/compute/`,
+   `~/.venvs/science` allesamt vorhanden) — der Blocker ist, dass der Installer, nach dem diese
+   Bedingung benannt ist, noch nicht gebaut wurde. Ihn zu bauen ist ein eigenes, umfangreiches
+   Vorhaben, außerhalb des Rahmens eines einzelnen Tickets.
 3. **Parität für den Release-Umfang** — das System leistet, was es zu decken beansprucht. Ein
    kleinerer installierbarer Kern ist eine Bau-Etappe, kein Release. Der aktuelle Quell-Audit
    erfasst 114 erreichbare Namen und erhält zugleich den historischen 113er Runtime-Snapshot als
-   Mindestzusage; siehe [Extraktionsroadmap](architecture/BACH-EXTRAKTIONSROADMAP.md).
+   Mindestzusage; siehe [Extraktionsroadmap](architecture/BACH-EXTRAKTIONSROADMAP.md). **Erneut
+   gemessen am 2026-08-18** (nur lesend, BACH unangetastet): die 114er-Messlatte ist unverändert
+   aktuell; siehe `architecture/bach-parity-baseline.v1.json` → `re_audit_2026-08-18`. Diese
+   Bedingung verlangt aber mehr als eine Namenszählung: Die
+   [Operationsmatrix für Cluster 9](architecture/BACH-EXTRAKTIONSROADMAP.md#operationsmatrix-für-cluster-9)
+   ist der einzige Cluster mit laufender Arbeit (8 von 9 Clustern haben noch nicht begonnen), und
+   darin tragen 0 von 30 Kommandonamen den Status `accepted` (funktional äquivalent) — 20 sind
+   `candidate-partial`, 9 sind `gap`, 1 ist `alias`. Bedingung 3 ist damit **nicht annähernd
+   erfüllt**; sie hängt an derselben Installer-/Laufzeit-Arbeit wie Bedingung 2.
 4. **Publikationsprüfung bestanden** — Recht, Privacy und Lizenz geprüft, keine Blocker.
+   **Durchgeführt am 2026-08-18** (Skill `repo-publish-check`, 10 Gates) — Verdikt und lokaler
+   Bericht: `.GITHUBBOT/workflows/repo-publish-check/reports/ellmos-ai__open-ocean_2026-08-18.md`
+   (bleibt lokal gemäß Skill-Regel, wird nicht in diesem Repository ausgeliefert).
 
 Bedingung 2 ist die, nach der dieses Repository benannt ist. Die Schleusen zu öffnen und
 zuzusehen, ob das Wasser wirklich ankommt, ist der Test, den keine Menge korrekter Manifeste
-ersetzt.
+ersetzt. Von den vier Bedingungen sind 1 und 4 erledigt; 2 und 3 warten beide auf dasselbe
+fehlende Stück — einen Installer und eine Laufzeit, die es hier noch nicht gibt.
 
 ## Lizenz
 

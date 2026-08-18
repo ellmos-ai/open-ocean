@@ -82,30 +82,31 @@ repository moves on, and would make this repository look further along than it i
 | | |
 |---|---|
 | Architecture skeleton | present, 13 bundles referenced |
-| BACH extraction baseline | present — 114 source-declared names; historic 113-name runtime bar retained |
+| BACH extraction baseline | present — 114 source-declared names; historic 113-name runtime bar retained; re-audited 2026-08-18 (106 handler classes, +1 vs. the 2026-08-08 baseline — traced to a host-suffixed duplicate file in BACH, `upgrade-WORKSTATION-LG.py` alongside `upgrade.py`; not fixed here, BACH is out of scope for this repository's changes). `registered_names` unchanged at 114. |
 | K9-1 data/checkpoint gate | two carrier fixtures green; adapter and BACH equivalence remain open |
 | Installer | **not built** — decided in principle, deferred, now due again |
 | Runtime of our own | **not available** — every candidate is private or only declared |
 | Recipes | maintained in the recipe repository, not here |
 
 **The traffic light** — release condition 1 turns green when every referenced bundle is green,
-meaning each of its components is public and checked:
+meaning each of its components is public and checked. Scope matters here: this repository's
+skeleton references exactly **13** of the ecosystem's ~30 bundles (see [the skeleton](architecture/open-ocean.skeleton.v1.json));
+condition 1 is about those 13, not the wider catalog.
 
 | | |
 |---|---|
-| Bundles green-capable | **13** — the ones this skeleton references |
-| Blocked by components that are not public | 17 further bundles |
-| Largest single lever | largely resolved on 2026-08-08 — three of the four repositories are public; `ellmos-core` alone still blocks three bundles |
+| Bundles referenced by this repository | **13** |
+| Of those, components verified public (2026-08-18) | **13 / 13** |
+| Unique components checked | 18 modules, 1 access-surface repository (`ellmos-homebase-mcp`), 27 skills (in the public `ellmos-ai/skills` catalog), 1 optional software app (`MediaBrain`) — all confirmed public via live `gh repo view`/catalog lookup, not the modules' own manifest `visibility` field (that field records a target classification and can lag the actual GitHub state) |
+| Not applicable to this check | 3 `access_surface` refs to commercial agent providers/subscriptions/APIs (no repository, no public/private state) |
 
-Three of those four became public on 2026-08-08 by the owner's decision — `ellmos-scheduler`,
-`system-explorer` and `policy-registry` — which lifted the private-repository block from
-`system-knowledge` and `personal-ops` at the required-component level. The fourth, `ellmos-core`,
-stays private: its own `RELEASE_GATE.md` bars any visibility change until the licence choice and
-several security items are settled, and that gate is the owner's to lift, not an agent's. It still
-blocks `core-discovery`, `prompt-workflow` and `runtime-options`; `governance-assurance` and
-`automation-control` remain blocked by components that were never private but simply do not exist
-publicly yet. Until those are resolved, this repository cannot reach the scope its name implies —
-which is the honest reason it is still private rather than merely unfinished.
+None of the four repositories that blocked *other* parts of the wider ecosystem on 2026-08-08
+(`ellmos-core`, plus the three that meanwhile went public — `ellmos-scheduler`, `system-explorer`,
+`policy-registry`) are referenced by this repository's 13-bundle skeleton at all; they gate bundles
+outside this repository's scope (`core-discovery`, `prompt-workflow`, `runtime-options`,
+`governance-assurance`, `automation-control`). Condition 1, read strictly for what this repository
+actually references, is met as of 2026-08-18. What still blocks publication is conditions 2 and 3
+below, not condition 1.
 
 ## Release conditions
 
@@ -113,17 +114,36 @@ This repository carries a conditional publication gate (`PRIVATE.txt`, committed
 the gate is visible where visibility is switched). It opens when all four are demonstrably met:
 
 1. **Green components** — every referenced bundle is green: each of its components public and
-   checked.
+   checked. **Met as of 2026-08-18** for this repository's 13-bundle scope — see the traffic-light
+   table above.
 2. **Sluice test passed** — the whole line works end to end: a fresh install from these recipes
-   reaches a working state on a machine that is not the development host.
+   reaches a working state on a machine that is not the development host. **Not met, and not yet
+   attemptable.** There is nothing to install: the "Not built"/"Not available" rows in the status
+   table above are literal — no installer and no runtime exist in this repository yet, so there is
+   no artifact a sluice test could run against. This is not a Mac Studio problem: the designated
+   foreign host was verified reachable and ready on 2026-08-18 (SSH, `~/compute/`, `~/.venvs/science`
+   all present) — the blocker is that the installer this condition is named after has not been
+   built. Building it is a substantial project of its own, out of scope for a single ticket.
 3. **Parity for the release scope** — the system performs at the level it claims to cover. A
    smaller installable core is a build stage, not a release. The current source audit records
    114 reachable names while retaining the historic 113-name runtime snapshot as the minimum
-   commitment; see the [extraction roadmap](architecture/BACH-EXTRACTION-ROADMAP.md).
-4. **Publication check passed** — law, privacy and licensing reviewed with no blockers.
+   commitment; see the [extraction roadmap](architecture/BACH-EXTRACTION-ROADMAP.md). **Re-measured
+   2026-08-18** (read-only, BACH untouched): the 114-name bar is unchanged and still current; see
+   `architecture/bach-parity-baseline.v1.json` → `re_audit_2026-08-18`. This condition asks for more
+   than a name count, though: [Cluster 9's operation matrix](architecture/BACH-EXTRACTION-ROADMAP.md#cluster-9-operation-matrix)
+   is the only cluster with active work (8 of 9 clusters have not started), and within it 0 of 30
+   command names carry `accepted` (functionally-equivalent) status yet — 20 are `candidate-partial`,
+   9 are `gap`, 1 is `alias`. Condition 3 is therefore **not close to met**; it depends on the same
+   installer/runtime work as condition 2.
+4. **Publication check passed** — law, privacy and licensing reviewed with no blockers. **Run
+   2026-08-18** (`repo-publish-check` skill, 10 gates) — verdict and local report:
+   `.GITHUBBOT/workflows/repo-publish-check/reports/ellmos-ai__open-ocean_2026-08-18.md` (kept
+   local per the skill's own rule, not shipped in this repository).
 
 Condition 2 is the one this repository is named after. Opening the sluices and watching whether
-the water actually arrives is the test that no amount of correct manifests can substitute for.
+the water actually arrives is the test that no amount of correct manifests can substitute for. Of
+the four conditions, 1 and 4 are addressed; 2 and 3 both wait on the same missing piece — an
+installer and a runtime that do not exist here yet.
 
 ## Licence
 

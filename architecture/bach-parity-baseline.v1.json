@@ -12,6 +12,23 @@
     "module_catalog": ".AI/.MODULES/modules.catalog.json",
     "audit_method": "static AST over system/hub/*.py plus effective COMMAND_ALIASES; BACH is not imported or booted"
   },
+  "re_audit_2026-08-18": {
+    "purpose": "Ticket T-20260818-229528104 (PRIVATE.txt condition 3, BACH parity), read-only re-run of tools/audit_bach_handlers.py against the live BACH source. Appended, not overwritten: the 2026-08-08 source_audit block above stays the historic anchor that release_bar.rule refers to.",
+    "counts": {
+      "handler_classes": 106,
+      "canonical_profiles": 105,
+      "aliases_declared": 13,
+      "aliases_effective": 9,
+      "registered_names": 114
+    },
+    "baseline_drift_vs_2026-08-08": [
+      "count handler_classes: expected 105, got 106"
+    ],
+    "root_cause_identified": "BACH's system/hub/ carries two files that both define a class whose profile_name() returns 'upgrade': upgrade.py and upgrade-WORKSTATION-LG.py (a host-suffixed duplicate). This is the extra handler_classes count; registered_names stayed at 114 because both collapse to the same profile name. NOT fixed here: BACH is read-only for this ticket (user lock, buildweek-no-push) and the fix belongs upstream, not in this repository.",
+    "registered_names_count_unchanged": true,
+    "dangling_aliases_unchanged": true,
+    "conclusion": "The 114-name/113-name release bar from 2026-08-08 is still current and accurate as of 2026-08-18; the only drift is the duplicate-file artifact above, which does not change scope or coverage."
+  },
   "source_audit": {
     "counts": {
       "handler_classes": 105,

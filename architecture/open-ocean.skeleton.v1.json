@@ -108,7 +108,7 @@
     }
   },
   "not_yet_present": [
-    "an installer: the component that turns a described system into an installed one",
+    "the full installer: Resolve and Verify exist (tools/resolve_bundles.py, since 2026-08-18) plus a read-only slice of Activate (tools/host_adapters.py); Fetch, Place, the write side of Activate, and Roll back do not exist yet -- see architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md",
     "a runtime of our own: every candidate is private or only declared",
     "any copy of the manifests: they live in the recipe repository and are referenced, not duplicated"
   ],

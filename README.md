@@ -60,6 +60,7 @@ and still supplied.
 architecture/
   open-ocean.skeleton.v1.json   which recipes the system intends to consume, pinned by hash
   INSTALLER-TARGET.md           what the installer has to become, and what it must not do
+  OCEAN-DEV-BUILD-PLAN_2026-08-18.md  staged build plan: resolver done, fetch/place/activate/rollback next
   BACH-EXTRACTION-ROADMAP.md    extraction order, parity gates and Cluster 9 kernel map
   bach-parity-baseline.v1.json  machine-readable registry and Cluster 9 coverage baseline
   bach-k9-data-contract.v1.json pinned dbsync/snapshot operation and fixture contract
@@ -68,6 +69,8 @@ architecture/
 tools/
   audit_bach_handlers.py        side-effect-free source audit against that baseline
   check_k9_data_contract.py     static BACH check plus two synthetic carrier fixtures
+  resolve_bundles.py            Resolve+Verify: bundle refs -> flat, hash-checked component plan
+  host_adapters.py              vendor-neutral Activate-readiness check (Claude Code as reference)
 PRIVATE.txt                     the publication gate, committed on purpose
 ```
 
@@ -84,7 +87,7 @@ repository moves on, and would make this repository look further along than it i
 | Architecture skeleton | present, 13 bundles referenced |
 | BACH extraction baseline | present — 114 source-declared names; historic 113-name runtime bar retained; re-audited 2026-08-18 (106 handler classes, +1 vs. the 2026-08-08 baseline — traced to a host-suffixed duplicate file in BACH, `upgrade-WORKSTATION-LG.py` alongside `upgrade.py`; not fixed here, BACH is out of scope for this repository's changes). `registered_names` unchanged at 114. |
 | K9-1 data/checkpoint gate | two carrier fixtures green; adapter and BACH equivalence remain open |
-| Installer | **not built** — decided in principle, deferred, now due again |
+| Installer | **partly built** (2026-08-18) — `tools/resolve_bundles.py` does the Resolve and Verify steps (bundle → flat, hash-verified component plan) plus a read-only slice of Activate (`tools/host_adapters.py`, vendor-neutral, Claude Code as the reference implementation). Fetch, Place, the write side of Activate, and Roll back are not built yet — see [`architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md`](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md) for the staged plan. Run for real against ring 1 on the development host: all 5 bundles verified, 22 of 27 components resolved, 9 of 9 skills already active on this host's Claude Code |
 | Runtime of our own | **not available** — every candidate is private or only declared |
 | Recipes | maintained in the recipe repository, not here |
 

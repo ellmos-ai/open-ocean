@@ -151,6 +151,94 @@ answer — ocean-dev accumulates skills through ordinary use, unlike a bare inst
   requirement.
 - **BACH parity work.** Out of scope for this pass by design — see Sec. 6.
 
+### 3.4 Durchgang 2 — Fetch+Place, write-side Activate + Roll back, `ocean-dev up`
+
+Built in this order because it was the order the build authorisation named: Fetch+Place first
+(`tools/fetch_place.py`), then write-side Activate + its Roll back counterpart *together*, not
+sequentially (`tools/host_adapters.py`, extended), then the single entry point that chains all of
+Resolve → Verify → Fetch/Place → Activate (`tools/ocean_dev.py`).
+
+**`tools/fetch_place.py` — the bug this module exists to not repeat, proven, not just avoided.**
+Ported (not imported) from `install_sovereign.py`'s `install_module`/`git_clone` pattern, with one
+behaviour deliberately dropped: that installer falls back to cloning the default branch when a
+pinned `--branch <ref>` does not exist, so a broken pin still produces a "successful" clone of the
+wrong commit (`INSTALLER-REUSE-BEFUND` Sec. 5.4). This module refuses instead — a pin that is not a
+full 40-hex commit SHA is never handed to git at all (`is_git_sha`, status `unpinnable`), and any
+git failure after a valid SHA is accepted removes whatever partial directory was created rather
+than leaving a checkout of whatever `git fetch` happened to land on. Proven with a real, disposable
+local git repository (no network) in `tests/test_fetch_place.py`:
+`test_fetching_the_real_commit_sha_lands_on_exactly_that_commit` and, the load-bearing one,
+`test_a_bogus_sha_shaped_pin_fails_loudly_and_leaves_nothing_behind` — asserts both the raised
+error *and* that no directory was left on disk. A third test (`test_non_sha_pin_is_refused...`)
+proves a bare branch name (`"main"`) is refused before any git command runs at all.
+
+**Scope reality, checked empirically before writing any fetch code:** every `git-repository`-typed
+module in the real `modules.catalog.json` (20 of 20, checked on 2026-08-18) carries a semver string
+in `version` ("0.1.0" etc.), not a commit SHA — including all three ring-1 git-repository modules
+(`WikiStub-Seed`, `project-docs-template`, `build-your-users-mind`), which were separately already
+`present_locally: true` on this host regardless. **A real `--ring 1` run against this host's actual
+catalog therefore reports every module as either `present` or `unpinnable`/`no-catalog-entry` — never
+`fetched`** (see the real-data run below). That is the correct, fail-closed behaviour given the
+current catalog data, not a shortfall of this module: the git-fetch *mechanism* is proven by the
+synthetic throwaway-repo tests above (including one full apply+rollback run through `ocean_dev.py`
+itself, `test_apply_fetches_the_module_and_rollback_removes_it`), not by a real Ring-1 fetch,
+because no Ring-1 component currently needs one.
+
+**`tools/host_adapters.py` — write-side `activate_skill` / `rollback_activate_skill`.** Two rules,
+both load-bearing: (1) **never overwrite** — an existing destination is a no-op
+(`skipped-exists`), which is also what makes rollback-by-removal exact (it only ever removes
+something it created into empty space); (2) **the constructor never defaults `skills_dir` to a
+host's real, live skill directory.** `skill_present()`'s own read-only default
+(`~/.claude/skills`) is unchanged; the *write*-capable caller (`tools/ocean_dev.py`) is the one
+responsible for passing an explicit target, and its own default is `<workspace>/skills` — a
+sandbox that starts empty, never the live directory, unless an operator passes `--skills-dir`
+pointing at it deliberately. Both rules found their way into this document because an earlier
+draft of this session let the write path default toward the live directory before catching it;
+see Sec. 4 for why this design choice, not a fixed default value, is what's carried forward.
+A Windows-specific bug was found and fixed empirically while testing this: `shutil.rmtree()` alone
+cannot remove a git checkout's object files on Windows (git marks blobs read-only) — raised a real
+`PermissionError` in `tests/test_ocean_dev.py`'s rollback test on first run. Fixed with a shared
+`force_rmtree()` helper (clears the read-only bit on every entry first) used by both the module and
+skill removal paths.
+
+**`tools/ocean_dev.py` — the entry point, and a real run against this host's actual Ring 1 data.**
+Composes `resolve_bundles.py`'s tested functions directly (not a wrapper around its `main()`), so a
+failed Verify still stops the run before any Fetch/Place/Activate, exit code 2, unchanged from
+Durchgang 1. Dry-run is the default; `--apply` is required for any write; every write `--apply`
+performs is recorded to an activation log (`<workspace>/ocean-dev.activation-log.json`), and
+`--rollback <that file>` undoes exactly those entries in reverse order.
+
+Real run, ring 1, this host, 2026-08-18 (`--bundles-root` pointed at the local `bundles` checkout):
+
+```
+Verify: 5 bundle(s), all_ok=True   (all 5 ring-1 bundles)
+Fetch+Place (14 module component(s)):
+  13x present, 1x no-catalog-entry (module:memory-hooker — the pre-existing
+  catalog/registry naming drift Durchgang 1 already surfaced, not new)
+Activate (9 skill component(s)), target=C:\Users\User\ocean-dev\skills:
+  dry-run: 9x planned
+  --apply: 9x activated (real SKILL.md + assets copied from the real skills
+    registry into the sandbox), activation log written with all 9 entries
+  --rollback: 9x rolled-back, sandbox emptied, exit 0
+  Verified before and after: the real ~/.claude/skills/ (134 entries) was
+  never touched by any of the above — checked by directory listing, not
+  assumed.
+```
+
+This is real evidence, not a synthetic-fixture claim: the write and rollback mechanics for skills
+were exercised end-to-end against this host's actual bundle/catalog/registry data, landing in and
+cleanly leaving a sandbox, with the live directory checked untouched both before and after.
+
+Test suite after this pass: **82 tests, all green**
+(`python -m unittest discover -s tests`; 43 from Durchgang 1 + 20 in
+`tests/test_fetch_place.py` + 11 added to `tests/test_host_adapters.py` + 9 in
+`tests/test_ocean_dev.py`, one of which uses a real disposable git repository).
+
+**Left for a later pass, named rather than silently skipped:** the general choice-applier
+(min/max cardinality) and a `--host` value other than `claude-code` remain out of scope, same
+reasons as Durchgang 1 Sec. 3.3; the `no-catalog-entry` finding for `memory-hooker` is unchanged
+and still not silently patched here.
+
 ## 4. Guardrails carried forward from prior decisions
 
 - **E4 (D-20260817-005): vendor-neutral from the start, Claude as reference**, applied to
@@ -181,23 +269,20 @@ not merely planned.
 
 - [x] **Resolve + Verify** (`tools/resolve_bundles.py`) — Durchgang 1, this document, Sec. 3.1.
 - [x] **Read-only Activate check** (`tools/host_adapters.py`) — Durchgang 1, Sec. 3.2.
-- [ ] **Fetch + Place for `module:` components not yet locally present.** Needs: a source-type
-  dispatch (`local-directory` = already resolved, nothing to do; `git-repository` = clone/pull);
-  the pilot installer's `install_module` (`install_sovereign.py:145-222`) is the pattern to port,
-  **not import** — same posture as the BACH mechanisms, ported because `open-ocean` cannot depend
-  on a private, non-packaged OneDrive script tree. Its known bug (the silent default-branch
-  fallback on an unresolvable ref, `INSTALLER-REUSE-BEFUND` Sec. 5.4) must NOT be carried over.
-- [ ] **Write-side Activate**, one host first (Claude Code, same E4 precedent): install a resolved
-  skill into `~/.claude/skills/` when `skill_present()` is false, with the Roll back counterpart
-  built in the same session as the write path — not after it, per `INSTALLER-TARGET.md`'s own
-  ordering of the six steps.
-- [ ] **A single-command "ocean-dev up" entry point** that chains Resolve → Verify → Fetch/Place →
-  Activate for a chosen ring, with `--dry-run` before any write (matching the pilot installer's
-  own `--dry-run` convention).
-- **Definition of done for this stage:** running the entry point against ring 1 on a *second* dev
-  host (not this one) reaches a state where all resolvable ring-1 skills are activated there too,
-  starting from whatever that host already has — the honest, host-plural version of "installable
-  core" before a genuinely bare-machine sluice test is attempted.
+- [x] **Fetch + Place for `module:` components not yet locally present** (`tools/fetch_place.py`) —
+  Durchgang 2, Sec. 3.4. Source-type dispatch built as planned; the pilot installer's `install_module`
+  pattern was ported, its silent-default-branch-fallback bug was not — see Sec. 3.4 for how that was
+  proven, not just claimed.
+- [x] **Write-side Activate + Roll back**, Claude Code first (`tools/host_adapters.py`, extended) —
+  Durchgang 2, Sec. 3.4. Built together in the same pass, per `INSTALLER-TARGET.md`'s ordering.
+- [x] **Single-command "ocean-dev up" entry point** (`tools/ocean_dev.py`) — chains Resolve → Verify →
+  Fetch/Place → Activate for a chosen ring, dry-run by default, `--apply` required for any write.
+  Durchgang 2, Sec. 3.4.
+- **Definition of done for this stage — status: partially met, precisely.** Running the entry point
+  against ring 1 on *this* host reaches full activation of every resolvable ring-1 skill (proven
+  below, Sec. 3.4, against a sandboxed target — not the live `~/.claude/skills/`, by design). The
+  *second-host* half of this DoD is Stage 2's job now that Mac Studio is unblocked; see Sec. 3.5 /
+  Sec. 2 for what that pass did and did not reach.
 
 ### Stage 2 — foreign-host smoke (Mac Studio)
 

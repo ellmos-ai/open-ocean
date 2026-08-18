@@ -1,0 +1,241 @@
+"""Tests for tools/ocean_dev.py -- the single-command entry point chaining
+Resolve -> Verify -> Fetch/Place -> Activate, plus --rollback.
+
+Synthetic-fixture end-to-end tests against a fully constructed fixture tree
+(same technique as test_resolve_bundles.py's MainIntegrationTests), proving
+the *wiring* between resolve_bundles/fetch_place/host_adapters -- the pieces
+each already have their own focused unit tests (test_resolve_bundles.py,
+test_fetch_place.py, test_host_adapters.py) that this file does not repeat.
+"""
+from __future__ import annotations
+
+import json
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+from tools.host_adapters import ClaudeCodeHostAdapter
+from tools.ocean_dev import main
+from tools.resolve_bundles import canonical_hash
+
+
+def _bundle(ref: str, components: list[dict]) -> dict:
+    manifest = {"schema": "ellmos.bundle.v1", "id": ref, "version": "1.0.0", "components": components, "choice_groups": []}
+    manifest["content_hash"] = canonical_hash(manifest)
+    return manifest
+
+
+def _component(kind: str, name: str, requirement: str = "recommended") -> dict:
+    return {
+        "type": kind, "ref": {"ref": f"{kind}:{name}", "version": "v4-shadow"},
+        "role": "declared-component", "requirement": requirement, "provides": [], "consumes": [],
+    }
+
+
+class OceanDevIntegrationTests(unittest.TestCase):
+    """A ring with one already-present module (nothing to fetch) and one
+    not-yet-active skill (something for Activate to genuinely do) -- proves
+    the dry-run/--apply distinction and the never-live-directory default
+    without needing a real git remote."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name)
+        self.bundles_root = self.root / "bundles"
+        (self.bundles_root / "manifests" / "bundles").mkdir(parents=True)
+        self.catalog_path = self.root / "modules.catalog.json"
+        self.registry_path = self.root / "components.json"
+        self.workspace = self.root / "workspace"
+
+        (self.root / "present-module").mkdir()
+        self.catalog_path.write_text(json.dumps({"modules": [{
+            "id": "present-module", "source_of_truth": {"type": "local-directory", "repository": "r"},
+            "resolved_source": "present-module", "visibility": "public",
+        }]}), encoding="utf-8")
+
+        # skills_source_root/skills/dev/decide/SKILL.md -- registry "path" is
+        # relative to skills_source_root, verified empirically against the
+        # real registry+skills layout before ocean_dev.py was written
+        # (see _skills_source_root's docstring).
+        skill_dir = self.root / "skills-source" / "skills" / "dev" / "decide"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text("---\nname: decide\n---\nbody")
+        self.registry_path.write_text(json.dumps({"components": [
+            {"id": "skill:dev:decide", "name": "decide", "path": "skills/dev/decide/SKILL.md", "status": "active"},
+        ]}), encoding="utf-8")
+
+        manifest = _bundle("b1", [
+            _component("module", "present-module", requirement="required"),
+            _component("skill", "decide", requirement="recommended"),
+        ])
+        bundle_dir = self.bundles_root / "manifests" / "bundles" / "b1"
+        bundle_dir.mkdir(parents=True)
+        (bundle_dir / "bundle.v1.json").write_text(json.dumps(manifest), encoding="utf-8")
+        self.skeleton = self.root / "skeleton.json"
+        self.skeleton.write_text(json.dumps({
+            "authority": {"runtime_authority": False},
+            "bundle_refs": [{"ref": "b1", "content_hash": manifest["content_hash"]}],
+            "rings": {"1": {"name": "core", "members": ["b1"]}},
+        }), encoding="utf-8")
+
+        # ocean_dev.py's own --skills-registry defaults assume a
+        # registry/components.json under a .../.SKILLS/ tree; here the
+        # registry file itself is NOT under skills-source/, so pass
+        # --skills-registry explicitly and rely on _skills_source_root's
+        # parent.parent rule only implicitly through direct source_dir
+        # construction -- to keep that rule exercised as written, place the
+        # registry one level under skills-source/registry/.
+        registry_under_source = self.root / "skills-source" / "registry" / "components.json"
+        registry_under_source.parent.mkdir(parents=True, exist_ok=True)
+        registry_under_source.write_text(self.registry_path.read_text(encoding="utf-8"), encoding="utf-8")
+        self.registry_path = registry_under_source
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def _common_args(self, apply: bool = False, skills_dir: Path | None = None) -> list[str]:
+        args = [
+            "--bundles-root", str(self.bundles_root), "--ring", "1",
+            "--skeleton", str(self.skeleton), "--modules-catalog", str(self.catalog_path),
+            "--skills-registry", str(self.registry_path), "--workspace", str(self.workspace),
+            "--json",
+        ]
+        if skills_dir is not None:
+            args += ["--skills-dir", str(skills_dir)]
+        if apply:
+            args.append("--apply")
+        return args
+
+    def test_dry_run_writes_nothing(self):
+        code = main(self._common_args(apply=False))
+        self.assertEqual(code, 0)
+        self.assertFalse(self.workspace.exists())
+
+    def test_dry_run_reports_planned_activate(self):
+        report_path = self.root / "report.json"
+        code = main(self._common_args(apply=False) + ["--report", str(report_path)])
+        self.assertEqual(code, 0)
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        activate = {o["ref"]: o for o in report["activate"]}
+        self.assertEqual(activate["skill:decide"]["action"], "planned")
+        fetch = {o["ref"]: o for o in report["fetch"]}
+        self.assertEqual(fetch["module:present-module"]["action"], "present")
+
+    def test_default_skills_dir_is_under_workspace_not_live_claude_skills(self):
+        report_path = self.root / "report.json"
+        main(self._common_args(apply=False) + ["--report", str(report_path)])
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        self.assertEqual(Path(report["skills_dir"]), self.workspace / "skills")
+        self.assertNotEqual(Path(report["skills_dir"]), Path.home() / ".claude" / "skills")
+
+    def test_apply_activates_the_skill_and_writes_an_activation_log(self):
+        code = main(self._common_args(apply=True))
+        self.assertEqual(code, 0)
+        skills_dir = self.workspace / "skills"
+        self.assertTrue((skills_dir / "decide" / "SKILL.md").is_file())
+        log_path = self.workspace / "ocean-dev.activation-log.json"
+        self.assertTrue(log_path.is_file())
+        log = json.loads(log_path.read_text(encoding="utf-8"))
+        refs = [e["ref"] for e in log["entries"]]
+        self.assertIn("skill:decide", refs)
+
+    def test_apply_never_overwrites_a_preexisting_skill(self):
+        skills_dir = self.workspace / "skills" / "decide"
+        skills_dir.mkdir(parents=True)
+        (skills_dir / "PRE-EXISTING.txt").write_text("do not touch")
+        code = main(self._common_args(apply=True))
+        self.assertEqual(code, 0)
+        self.assertTrue((skills_dir / "PRE-EXISTING.txt").is_file())
+        self.assertFalse((skills_dir / "SKILL.md").exists())
+
+    def test_second_apply_run_is_a_clean_noop_not_a_failure(self):
+        main(self._common_args(apply=True))
+        code = main(self._common_args(apply=True))
+        self.assertEqual(code, 0)
+
+    def test_rollback_removes_what_apply_created(self):
+        main(self._common_args(apply=True))
+        skills_dir = self.workspace / "skills"
+        self.assertTrue((skills_dir / "decide").is_dir())
+        log_path = self.workspace / "ocean-dev.activation-log.json"
+        code = main([
+            "--rollback", str(log_path), "--workspace", str(self.workspace),
+            "--skills-dir", str(skills_dir),
+        ])
+        self.assertEqual(code, 0)
+        self.assertFalse((skills_dir / "decide").exists())
+
+    def test_explicit_skills_dir_can_target_a_real_looking_directory(self):
+        """Proves the escape hatch works -- an operator who deliberately
+        wants the live directory can still get it -- without this test suite
+        itself ever touching a real ~/.claude/skills."""
+        explicit_dir = self.root / "pretend-live-skills"
+        code = main(self._common_args(apply=True, skills_dir=explicit_dir))
+        self.assertEqual(code, 0)
+        self.assertTrue((explicit_dir / "decide" / "SKILL.md").is_file())
+
+
+class OceanDevRealGitFetchIntegrationTests(unittest.TestCase):
+    """One end-to-end test with a real disposable git origin, proving Fetch
+    actually runs (not just decides to) when wired through the CLI, and that
+    the resulting activation log lets --rollback undo a real fetched module."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name)
+        self.origin = self.root / "origin"
+        self.origin.mkdir()
+        self._git(["init", "-q"], cwd=self.origin)
+        (self.origin / "marker.txt").write_text("x")
+        self._git(["add", "marker.txt"], cwd=self.origin)
+        self._git(["-c", "user.email=t@example.invalid", "-c", "user.name=T", "commit", "-q", "-m", "i"], cwd=self.origin)
+        self.sha = self._git(["rev-parse", "HEAD"], cwd=self.origin).stdout.strip()
+
+        self.bundles_root = self.root / "bundles"
+        (self.bundles_root / "manifests" / "bundles").mkdir(parents=True)
+        self.catalog_path = self.root / "modules.catalog.json"
+        self.registry_path = self.root / "components.json"
+        self.workspace = self.root / "workspace"
+        self.catalog_path.write_text(json.dumps({"modules": [{
+            "id": "fetchable-module",
+            "source_of_truth": {"type": "git-repository", "repository": str(self.origin)},
+            "resolved_source": "not-actually-here", "version": self.sha, "visibility": "public",
+        }]}), encoding="utf-8")
+        self.registry_path.write_text(json.dumps({"components": []}), encoding="utf-8")
+        manifest = _bundle("b1", [_component("module", "fetchable-module", requirement="required")])
+        bundle_dir = self.bundles_root / "manifests" / "bundles" / "b1"
+        bundle_dir.mkdir(parents=True)
+        (bundle_dir / "bundle.v1.json").write_text(json.dumps(manifest), encoding="utf-8")
+        self.skeleton = self.root / "skeleton.json"
+        self.skeleton.write_text(json.dumps({
+            "authority": {"runtime_authority": False},
+            "bundle_refs": [{"ref": "b1", "content_hash": manifest["content_hash"]}],
+            "rings": {"1": {"name": "core", "members": ["b1"]}},
+        }), encoding="utf-8")
+
+    @staticmethod
+    def _git(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
+        return subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, check=True)
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def test_apply_fetches_the_module_and_rollback_removes_it(self):
+        code = main([
+            "--bundles-root", str(self.bundles_root), "--ring", "1", "--skeleton", str(self.skeleton),
+            "--modules-catalog", str(self.catalog_path), "--skills-registry", str(self.registry_path),
+            "--workspace", str(self.workspace), "--apply",
+        ])
+        self.assertEqual(code, 0)
+        dest = self.workspace / "modules" / "fetchable-module"
+        self.assertTrue((dest / "marker.txt").is_file())
+
+        log_path = self.workspace / "ocean-dev.activation-log.json"
+        code = main(["--rollback", str(log_path), "--workspace", str(self.workspace)])
+        self.assertEqual(code, 0)
+        self.assertFalse(dest.exists())
+
+
+if __name__ == "__main__":
+    unittest.main()

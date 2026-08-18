@@ -60,7 +60,7 @@ and still supplied.
 architecture/
   open-ocean.skeleton.v1.json   which recipes the system intends to consume, pinned by hash
   INSTALLER-TARGET.md           what the installer has to become, and what it must not do
-  OCEAN-DEV-BUILD-PLAN_2026-08-18.md  staged build plan: resolver done, fetch/place/activate/rollback next
+  OCEAN-DEV-BUILD-PLAN_2026-08-18.md  staged build plan: resolve/verify/fetch/place/activate/rollback done, foreign-host smoke next
   BACH-EXTRACTION-ROADMAP.md    extraction order, parity gates and Cluster 9 kernel map
   bach-parity-baseline.v1.json  machine-readable registry and Cluster 9 coverage baseline
   bach-k9-data-contract.v1.json pinned dbsync/snapshot operation and fixture contract
@@ -70,7 +70,12 @@ tools/
   audit_bach_handlers.py        side-effect-free source audit against that baseline
   check_k9_data_contract.py     static BACH check plus two synthetic carrier fixtures
   resolve_bundles.py            Resolve+Verify: bundle refs -> flat, hash-checked component plan
-  host_adapters.py              vendor-neutral Activate-readiness check (Claude Code as reference)
+  host_adapters.py              vendor-neutral Activate: read-only readiness check plus write-side
+                                 activate_skill/rollback_activate_skill (Claude Code as reference)
+  fetch_place.py                Fetch+Place for module: components, SHA-pinned, fail-closed (no
+                                 silent default-branch fallback)
+  ocean_dev.py                  single entry point: Resolve -> Verify -> Fetch/Place -> Activate for
+                                 one ring; dry-run by default, --apply for real writes, --rollback
 PRIVATE.txt                     the publication gate, committed on purpose
 ```
 
@@ -87,7 +92,7 @@ repository moves on, and would make this repository look further along than it i
 | Architecture skeleton | present, 13 bundles referenced |
 | BACH extraction baseline | present — 114 source-declared names; historic 113-name runtime bar retained; re-audited 2026-08-18 (106 handler classes, +1 vs. the 2026-08-08 baseline — traced to a host-suffixed duplicate file in BACH, `upgrade-WORKSTATION-LG.py` alongside `upgrade.py`; not fixed here, BACH is out of scope for this repository's changes). `registered_names` unchanged at 114. |
 | K9-1 data/checkpoint gate | two carrier fixtures green; adapter and BACH equivalence remain open |
-| Installer | **partly built** (2026-08-18) — `tools/resolve_bundles.py` does the Resolve and Verify steps (bundle → flat, hash-verified component plan) plus a read-only slice of Activate (`tools/host_adapters.py`, vendor-neutral, Claude Code as the reference implementation). Fetch, Place, the write side of Activate, and Roll back are not built yet — see [`architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md`](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md) for the staged plan. Run for real against ring 1 on the development host: all 5 bundles verified, 22 of 27 components resolved, 9 of 9 skills already active on this host's Claude Code |
+| Installer | **all six INSTALLER-TARGET.md steps now built** (2026-08-18) — `tools/resolve_bundles.py` (Resolve+Verify), `tools/fetch_place.py` (Fetch+Place, SHA-pinned, fail-closed), `tools/host_adapters.py` (Activate, read-only check plus write-side activate/rollback), chained by the single entry point `tools/ocean_dev.py` (dry-run default, `--apply` for real writes). See [`architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md`](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md) for the staged plan and what remains open (general choice-applier, hosts beyond Claude Code, a real SHA pin to fetch against — the current catalog has none). Run for real against ring 1 on the development host: all 5 bundles verified, 9 of 9 skills activated into a sandboxed target and cleanly rolled back, 13 of 14 modules already present (1 catalog/registry naming mismatch, pre-existing finding). **Not yet run on a machine other than this one** — that is Stage 2 of the build plan, not yet this repository's claim |
 | Runtime of our own | **not available** — every candidate is private or only declared |
 | Recipes | maintained in the recipe repository, not here |
 
@@ -120,13 +125,14 @@ the gate is visible where visibility is switched). It opens when all four are de
    checked. **Met as of 2026-08-18** for this repository's 13-bundle scope — see the traffic-light
    table above.
 2. **Sluice test passed** — the whole line works end to end: a fresh install from these recipes
-   reaches a working state on a machine that is not the development host. **Not met, and not yet
-   attemptable.** There is nothing to install: the "Not built"/"Not available" rows in the status
-   table above are literal — no installer and no runtime exist in this repository yet, so there is
-   no artifact a sluice test could run against. This is not a Mac Studio problem: the designated
-   foreign host was verified reachable and ready on 2026-08-18 (SSH, `~/compute/`, `~/.venvs/science`
-   all present) — the blocker is that the installer this condition is named after has not been
-   built. Building it is a substantial project of its own, out of scope for a single ticket.
+   reaches a working state on a machine that is not the development host. **Not met yet, but the
+   blocker changed on 2026-08-18.** An installer now exists (`tools/ocean_dev.py`, see the status
+   table above) and has been proven, with real system data, to Resolve, Verify, Fetch/Place, and
+   Activate+Roll back correctly — but only ever run *on this development host*, against a
+   deliberately sandboxed target directory, never a genuinely foreign or bare machine. That is
+   exactly what a sluice test requires and what has not happened yet: see
+   `architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md` Stage 2 for the current state of a foreign-host
+   run (Mac Studio).
 3. **Parity for the release scope** — the system performs at the level it claims to cover. A
    smaller installable core is a build stage, not a release. The current source audit records
    114 reachable names while retaining the historic 113-name runtime snapshot as the minimum

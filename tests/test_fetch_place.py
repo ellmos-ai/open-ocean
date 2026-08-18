@@ -1,0 +1,226 @@
+"""Tests for tools/fetch_place.py -- the Fetch+Place step of
+architecture/INSTALLER-TARGET.md, ported (not imported) from
+sovereign-private's pilot installer, minus its known silent-default-branch-
+fallback bug (INSTALLER-REUSE-BEFUND_2026-08-07.md Sec. 5.4).
+
+Two kinds of tests here, deliberately:
+  - Synthetic-fixture tests (no git subprocess) for the decision logic in
+    plan_and_fetch: present / no-catalog-entry / unfetchable-source-type /
+    unpinnable / skipped-present-in-workspace. These need no git and no
+    network, matching the suite's "must pass on a bare machine" convention.
+  - A small number of REAL git tests against a disposable local throwaway
+    repository (git supports a plain filesystem path as a remote), the same
+    isolated-repo technique INSTALLER-REUSE-BEFUND Sec. 5.4 itself used to
+    find the bug this module exists to not repeat. These prove the actual
+    git mechanic works, which no amount of mocking would prove -- and they
+    still need no network and no real system data, so they stay
+    host-independent.
+"""
+from __future__ import annotations
+
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+from types import SimpleNamespace
+
+from tools.fetch_place import (
+    FetchError,
+    fetch_module_at_sha,
+    is_git_sha,
+    plan_and_fetch,
+    resolve_pin_for_module,
+)
+
+VALID_SHA = "a" * 40
+BOGUS_BUT_SHA_SHAPED = "f" * 40  # well-formed, does not exist in any repo
+
+
+def _component(ref: str, status: str, detail: dict) -> SimpleNamespace:
+    """A stand-in for resolve_bundles.ResolvedComponent -- plan_and_fetch only
+    reads .ref/.kind/.status/.detail, so a plain namespace is enough and
+    keeps this test file independent of resolve_bundles' dataclass."""
+    kind, name = ref.split(":", 1)
+    return SimpleNamespace(ref=ref, kind=kind, status=status, detail=detail)
+
+
+class IsGitShaTests(unittest.TestCase):
+    def test_accepts_forty_lowercase_hex_chars(self):
+        self.assertTrue(is_git_sha("0123456789abcdef0123456789abcdef01234567"))
+
+    def test_rejects_semver_string(self):
+        self.assertFalse(is_git_sha("0.1.0"))
+
+    def test_rejects_a_placeholder_like_v4_shadow(self):
+        self.assertFalse(is_git_sha("v4-shadow"))
+
+    def test_rejects_uppercase_hex(self):
+        self.assertFalse(is_git_sha("A" * 40))
+
+    def test_rejects_short_sha(self):
+        self.assertFalse(is_git_sha("abc1234"))
+
+    def test_rejects_none(self):
+        self.assertFalse(is_git_sha(None))
+
+
+class ResolvePinForModuleTests(unittest.TestCase):
+    def test_sha_shaped_version_is_the_pin(self):
+        sha, raw = resolve_pin_for_module({"version": VALID_SHA})
+        self.assertEqual(sha, VALID_SHA)
+        self.assertEqual(raw, VALID_SHA)
+
+    def test_semver_version_is_unpinnable_but_reported(self):
+        sha, raw = resolve_pin_for_module({"version": "0.1.0"})
+        self.assertIsNone(sha)
+        self.assertEqual(raw, "0.1.0")
+
+    def test_missing_version_field_is_unpinnable(self):
+        sha, raw = resolve_pin_for_module({})
+        self.assertIsNone(sha)
+        self.assertIsNone(raw)
+
+
+class FetchModuleAtShaRealGitTests(unittest.TestCase):
+    """Uses a real, disposable local git repository as the "remote" -- no
+    network access, but real git subprocess calls, proving the mechanic
+    itself (not just the branching logic around it)."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name)
+        self.origin = self.root / "origin"
+        self.origin.mkdir()
+        self._git(["init", "-q"], cwd=self.origin)
+        (self.origin / "marker.txt").write_text("hello from the throwaway origin\n")
+        self._git(["add", "marker.txt"], cwd=self.origin)
+        self._git(
+            ["-c", "user.email=test@example.invalid", "-c", "user.name=Test", "commit", "-q", "-m", "initial"],
+            cwd=self.origin,
+        )
+        self.sha = self._git(["rev-parse", "HEAD"], cwd=self.origin).stdout.strip()
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    @staticmethod
+    def _git(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
+        return subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, check=True)
+
+    def test_fetching_the_real_commit_sha_lands_on_exactly_that_commit(self):
+        dest = self.root / "dest"
+        outcome = fetch_module_at_sha(str(self.origin), self.sha, dest, dry_run=False)
+        self.assertEqual(outcome.action, "fetched")
+        self.assertEqual(outcome.detail["head"], self.sha)
+        self.assertTrue((dest / "marker.txt").is_file())
+
+    def test_a_bogus_sha_shaped_pin_fails_loudly_and_leaves_nothing_behind(self):
+        """The load-bearing test: this is what distinguishes "ported the
+        pattern" from "ported the bug". A ref that git cannot fetch must
+        raise, not fall back to cloning the default branch, and must not
+        leave a partial/wrong-commit checkout on disk."""
+        dest = self.root / "dest-bogus"
+        with self.assertRaises(FetchError):
+            fetch_module_at_sha(str(self.origin), BOGUS_BUT_SHA_SHAPED, dest, dry_run=False)
+        self.assertFalse(dest.exists(), "a failed fetch must not leave a directory behind")
+
+    def test_non_sha_pin_is_refused_before_any_git_command_runs(self):
+        dest = self.root / "dest-unpinned"
+        with self.assertRaises(FetchError):
+            fetch_module_at_sha(str(self.origin), "main", dest, dry_run=False)
+        self.assertFalse(dest.exists())
+
+    def test_dry_run_performs_no_git_operation_and_creates_nothing(self):
+        dest = self.root / "dest-dry"
+        outcome = fetch_module_at_sha(str(self.origin), self.sha, dest, dry_run=True)
+        self.assertEqual(outcome.action, "planned")
+        self.assertFalse(dest.exists())
+
+    def test_refuses_to_fetch_into_an_existing_destination(self):
+        dest = self.root / "dest-exists"
+        dest.mkdir()
+        with self.assertRaises(FetchError):
+            fetch_module_at_sha(str(self.origin), self.sha, dest, dry_run=False)
+
+
+class PlanAndFetchTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.workspace = Path(self.temp.name) / "workspace"
+        self.catalog_path = Path(self.temp.name) / "modules.catalog.json"
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def _write_catalog(self, modules: list[dict]) -> None:
+        import json
+        self.catalog_path.write_text(json.dumps({"modules": modules}), encoding="utf-8")
+
+    def test_non_module_components_are_ignored(self):
+        comp = _component("skill:decide", "resolved", {})
+        outcomes = plan_and_fetch([comp], self.catalog_path, self.workspace, apply=False)
+        self.assertEqual(outcomes, [])
+
+    def test_already_resolved_module_is_reported_present(self):
+        comp = _component("module:USMC", "resolved", {"present_locally": True})
+        outcomes = plan_and_fetch([comp], self.catalog_path, self.workspace, apply=False)
+        self.assertEqual(outcomes[0].action, "present")
+
+    def test_unresolved_without_catalog_id_is_no_catalog_entry(self):
+        comp = _component("module:memory-hooker", "unresolved", {"reason": "no catalog entry"})
+        outcomes = plan_and_fetch([comp], self.catalog_path, self.workspace, apply=False)
+        self.assertEqual(outcomes[0].action, "no-catalog-entry")
+
+    def test_local_directory_source_type_is_unfetchable_not_a_crash(self):
+        comp = _component("module:something", "unresolved", {
+            "catalog_id": "something", "source_type": "local-directory", "present_locally": False,
+        })
+        outcomes = plan_and_fetch([comp], self.catalog_path, self.workspace, apply=False)
+        self.assertEqual(outcomes[0].action, "unfetchable-source-type")
+
+    def test_git_repository_with_semver_version_is_unpinnable(self):
+        self._write_catalog([{"id": "WikiStub-Seed", "version": "0.1.0"}])
+        comp = _component("module:WikiStub-Seed", "unresolved", {
+            "catalog_id": "WikiStub-Seed", "source_type": "git-repository",
+            "present_locally": False, "repository": "https://example.invalid/repo.git",
+        })
+        outcomes = plan_and_fetch([comp], self.catalog_path, self.workspace, apply=False)
+        self.assertEqual(outcomes[0].action, "unpinnable")
+        self.assertEqual(outcomes[0].detail["raw_version"], "0.1.0")
+
+    def test_git_repository_with_real_sha_is_planned_in_dry_run(self):
+        self._write_catalog([{"id": "some-module", "version": VALID_SHA}])
+        comp = _component("module:some-module", "unresolved", {
+            "catalog_id": "some-module", "source_type": "git-repository",
+            "present_locally": False, "repository": "https://example.invalid/repo.git",
+        })
+        outcomes = plan_and_fetch([comp], self.catalog_path, self.workspace, apply=False)
+        self.assertEqual(outcomes[0].action, "planned")
+        # dry-run must not touch the filesystem at all
+        self.assertFalse((self.workspace / "modules" / "some-module").exists())
+
+    def test_existing_workspace_destination_is_never_overwritten(self):
+        dest = self.workspace / "modules" / "some-module"
+        dest.mkdir(parents=True)
+        (dest / "already-here.txt").write_text("do not touch")
+        self._write_catalog([{"id": "some-module", "version": VALID_SHA}])
+        comp = _component("module:some-module", "unresolved", {
+            "catalog_id": "some-module", "source_type": "git-repository",
+            "present_locally": False, "repository": "https://example.invalid/repo.git",
+        })
+        outcomes = plan_and_fetch([comp], self.catalog_path, self.workspace, apply=True)
+        self.assertEqual(outcomes[0].action, "skipped-present-in-workspace")
+        self.assertEqual((dest / "already-here.txt").read_text(), "do not touch")
+
+    def test_missing_repository_url_fails_without_crashing(self):
+        self._write_catalog([{"id": "some-module", "version": VALID_SHA}])
+        comp = _component("module:some-module", "unresolved", {
+            "catalog_id": "some-module", "source_type": "git-repository",
+            "present_locally": False, "repository": None,
+        })
+        outcomes = plan_and_fetch([comp], self.catalog_path, self.workspace, apply=True)
+        self.assertEqual(outcomes[0].action, "failed")
+
+
+if __name__ == "__main__":
+    unittest.main()

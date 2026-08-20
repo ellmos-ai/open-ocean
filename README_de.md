@@ -16,9 +16,11 @@ Das kostenlose Community-Vollsystem des ellmos-Ökosystems.
 
 ## Zuerst lesen: dieses Repository ist eine Baustelle
 
-**Hier liegt noch kein System.** Kein Installer, keine eigene Laufzeit — und bewusst keine Kopien
-der Rezepte. Was hier liegt, ist die Architektur dessen, was gebaut wird: welche Rezepte das
-System konsumieren soll, wo sie leben und was der Installer werden muss.
+**Das veröffentlichte Vollsystem liegt hier noch nicht.** Ein transaktionaler Installer-Kern ist
+inzwischen vorhanden und unter Windows und macOS erprobt, aber es gibt weiterhin keine eigene
+Laufzeit mit BACH-Parität — und bewusst keine Kopien der Rezepte. Was hier liegt, ist die
+Architektur und die erste ausführbare Systembau-Schicht: welche Rezepte das System konsumiert, wo
+sie leben und wie sie aufgelöst, geprüft, geholt, platziert, aktiviert und zurückgerollt werden.
 
 Wer etwas heute Nutzbares sucht, findet es in der Rezept-Schicht — einem eigenen Repository mit
 den Bundle-Manifesten, das Welle für Welle freigegeben wird. Die Rezepte sind Monate vor dem
@@ -58,17 +60,25 @@ aber ans Wasser angeschlossen und weiter versorgt.
 
 ```
 architecture/
-  open-ocean.skeleton.v1.json   welche Rezepte das System konsumieren soll, per Hash gepinnt
-  INSTALLER-TARGET.md           was der Installer werden muss — und was er nicht tun darf
-  BACH-EXTRAKTIONSROADMAP.md    Reihenfolge, Paritäts-Gates und Cluster-9-Kernelkarte
-  bach-parity-baseline.v1.json  maschinenlesbare Registry- und Cluster-9-Basis
-  bach-k9-data-contract.v1.json gepinnter Operations- und Fixture-Vertrag für dbsync/snapshot
-  bach-k9-dbsync-adapter.v1.json Spezifikation des dünnen Lebenszyklus-Adapters
-  session-checkpoint-capability.v1.json Grenze des korrekten Snapshot-Trägers
+  open-ocean.skeleton.v1.json   which recipes the system intends to consume, pinned by hash
+  INSTALLER-TARGET.md           what the installer has to become, and what it must not do
+  OCEAN-DEV-BUILD-PLAN_2026-08-18.md  staged build plan and verified foreign-host integration evidence
+  BACH-EXTRACTION-ROADMAP.md    extraction order, parity gates and Cluster 9 kernel map
+  bach-parity-baseline.v1.json  machine-readable registry and Cluster 9 coverage baseline
+  bach-k9-data-contract.v1.json pinned dbsync/snapshot operation and fixture contract
+  bach-k9-dbsync-adapter.v1.json thin lifecycle-adapter specification
+  session-checkpoint-capability.v1.json boundary of the correct snapshot carrier
 tools/
-  audit_bach_handlers.py        nebenwirkungsfreier Quell-Audit gegen diese Basis
-  check_k9_data_contract.py     statische BACH-Prüfung plus zwei synthetische Träger-Fixtures
-PRIVATE.txt                     das Publikations-Gate, bewusst committet
+  audit_bach_handlers.py        side-effect-free source audit against that baseline
+  check_k9_data_contract.py     static BACH check plus two synthetic carrier fixtures
+  resolve_bundles.py            Resolve+Verify: bundle refs -> flat, hash-checked component plan
+  host_adapters.py              vendor-neutral Activate: read-only readiness check plus write-side
+                                 activate_skill/rollback_activate_skill (Claude Code as reference)
+  fetch_place.py                Fetch+Place for module: components, SHA-pinned, fail-closed (no
+                                 silent default-branch fallback)
+  ocean_dev.py                  single entry point: Resolve -> Verify -> Fetch/Place -> Activate for
+                                 one ring; dry-run by default, --apply for real writes, --rollback
+PRIVATE.txt                     the publication gate, committed on purpose
 ```
 
 Das Gerüst referenziert 13 Bundles in zwei Ringen — den Funktionskern und die Breite darum herum.
@@ -85,7 +95,7 @@ erscheinen, als es ist.
 | Architektur-Gerüst | vorhanden, 13 Bundles referenziert |
 | BACH-Extraktionsbasis | vorhanden — 114 quellseitige Namen; historische 113er Runtime-Messlatte bleibt erhalten; erneut geprüft am 2026-08-18 (106 Handler-Klassen, +1 gegenüber der 2026-08-08-Basis — zurückverfolgt auf eine hostgebundene Duplikatdatei in BACH, `upgrade-WORKSTATION-LG.py` neben `upgrade.py`; hier NICHT behoben, BACH liegt außerhalb des Änderungsumfangs dieses Repositories). `registered_names` unverändert bei 114. |
 | K9-1 Daten-/Checkpoint-Gate | zwei Träger-Fixtures grün; Adapter und BACH-Äquivalenz bleiben offen |
-| Installer | **nicht gebaut** — im Grundsatz entschieden, zurückgestellt, jetzt wieder fällig |
+| Installer | **Alle sechs Schritte aus INSTALLER-TARGET.md sind gebaut; der aktuell pinnbare Ring-1-Pfad ist auf einem Fremdrechner integrationsgeprüft.** Am 2026-08-20 verifizierte ein einzelner `--apply`-Aufruf auf einem Mac Studio alle 5 Ring-1-Bundles, holte `WikiStub-Seed` am katalogisierten SHA `3476ba2…12458af4` und aktivierte alle 9 Ring-1-Skills in einer ausdrücklichen Sandbox. Das einzige Aktivierungsprotokoll mit 10 Einträgen rollte danach das Modul und alle Skills zurück; der Snapshot des produktiven Mac-Pfads `~/.claude/skills` blieb vor, nach Apply und nach Rollback identisch. Die portable Suite umfasst weiterhin 90 Tests; die Real-Git-Regression deckt jetzt diese kombinierte Modul-und-Skill-Transaktion ab. Das ist kein Vollsystem-Installationsclaim: Zwei Ring-1-Git-Module sind weiterhin ungepinnt, zehn Modulreferenzen sind lokale Verzeichnisquellen statt Fetch-Ziele und eine Katalogreferenz trägt weiterhin die bekannte Namensdrift `memory-hooker`/`memoryhooker`. Siehe [gestuften Bauplan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
 | Eigene Laufzeit | **nicht verfügbar** — jeder Kandidat ist privat oder nur deklariert |
 | Rezepte | im Rezept-Repository gepflegt, nicht hier |
 
@@ -121,14 +131,15 @@ Bedingungen nachweislich erfüllt sind:
    Repositories — siehe Ampel-Tabelle oben.
 2. **Schleusen-Test bestanden** — die Gesamtleitung trägt: eine frische Installation aus diesen
    Rezepten erreicht auf einer Maschine, die nicht der Entwicklungsrechner ist, einen
-   arbeitsfähigen Zustand. **Nicht erfüllt, und noch nicht versuchbar.** Es gibt nichts zu
-   installieren: die Zeilen „nicht gebaut"/„nicht verfügbar" oben sind wörtlich gemeint — weder
-   Installer noch Laufzeit existieren in diesem Repository bislang, also gibt es kein Artefakt,
-   gegen das ein Schleusen-Test laufen könnte. Kein Mac-Studio-Problem: der vorgesehene
-   Fremdrechner wurde am 2026-08-18 als erreichbar und bereit verifiziert (SSH, `~/compute/`,
-   `~/.venvs/science` allesamt vorhanden) — der Blocker ist, dass der Installer, nach dem diese
-   Bedingung benannt ist, noch nicht gebaut wurde. Ihn zu bauen ist ein eigenes, umfangreiches
-   Vorhaben, außerhalb des Rahmens eines einzelnen Tickets.
+   arbeitsfähigen Zustand. **Nicht erfüllt; die Installer-Naht selbst ist jetzt aber auf einem
+   Fremdrechner integrationsgeprüft.** Ein Mac-Studio-Durchlauf am 2026-08-20 führte Resolve,
+   Verify, einen echten SHA-gepinnten Fetch/Place und alle neun Ring-1-Skill-Aktivierungen in einem
+   `--apply`-Aufruf aus und entfernte danach alle zehn Schreibvorgänge über dasselbe
+   Aktivierungsprotokoll. Damit ist der zuvor unerprobte kombinierte Mechanismus geschlossen, nicht
+   die Freigabebedingung: Ziel war eine ausdrückliche Sandbox, nur ein Ring-1-Git-Modul besitzt
+   derzeit einen sicheren Katalog-Pin, und der Lauf erzeugte kein vollständiges arbeitsfähiges
+   Ocean-System aus allen erforderlichen Bestandteilen. Belege und verbleibende Breite stehen in
+   Stage 2 des `architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md`.
 3. **Parität für den Release-Umfang** — das System leistet, was es zu decken beansprucht. Ein
    kleinerer installierbarer Kern ist eine Bau-Etappe, kein Release. Der aktuelle Quell-Audit
    erfasst 114 erreichbare Namen und erhält zugleich den historischen 113er Runtime-Snapshot als
@@ -148,8 +159,10 @@ Bedingungen nachweislich erfüllt sind:
 
 Bedingung 2 ist die, nach der dieses Repository benannt ist. Die Schleusen zu öffnen und
 zuzusehen, ob das Wasser wirklich ankommt, ist der Test, den keine Menge korrekter Manifeste
-ersetzt. Von den vier Bedingungen sind 1 und 4 erledigt; 2 und 3 warten beide auf dasselbe
-fehlende Stück — einen Installer und eine Laufzeit, die es hier noch nicht gibt.
+ersetzt. Von den vier Bedingungen sind 1 und 4 erledigt. Bedingung 2 hat jetzt eine verifizierte
+transaktionale Installer-Naht, aber noch keine vollständige frische Installation eines
+arbeitsfähigen Systems; Bedingung 3 hat weiterhin keine BACH-Funktionsparität. Der
+Sandbox-Integrationsbeleg stuft keine der beiden Bedingungen hoch.
 
 ## Lizenz
 

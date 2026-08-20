@@ -15,7 +15,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tools.host_adapters import ClaudeCodeHostAdapter
 from tools.ocean_dev import main
 from tools.resolve_bundles import canonical_hash
 
@@ -177,9 +176,9 @@ class OceanDevIntegrationTests(unittest.TestCase):
 
 
 class OceanDevRealGitFetchIntegrationTests(unittest.TestCase):
-    """One end-to-end test with a real disposable git origin, proving Fetch
-    actually runs (not just decides to) when wired through the CLI, and that
-    the resulting activation log lets --rollback undo a real fetched module."""
+    """One end-to-end test with a real disposable git origin and a real skill
+    source, proving one CLI invocation performs Fetch and Activate together,
+    and that its one activation log lets --rollback undo both writes."""
 
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -195,15 +194,25 @@ class OceanDevRealGitFetchIntegrationTests(unittest.TestCase):
         self.bundles_root = self.root / "bundles"
         (self.bundles_root / "manifests" / "bundles").mkdir(parents=True)
         self.catalog_path = self.root / "modules.catalog.json"
-        self.registry_path = self.root / "components.json"
+        self.registry_path = self.root / "skills-source" / "registry" / "components.json"
         self.workspace = self.root / "workspace"
         self.catalog_path.write_text(json.dumps({"modules": [{
             "id": "fetchable-module",
             "source_of_truth": {"type": "git-repository", "repository": str(self.origin)},
             "resolved_source": "not-actually-here", "version": self.sha, "visibility": "public",
         }]}), encoding="utf-8")
-        self.registry_path.write_text(json.dumps({"components": []}), encoding="utf-8")
-        manifest = _bundle("b1", [_component("module", "fetchable-module", requirement="required")])
+        skill_dir = self.root / "skills-source" / "skills" / "dev" / "decide"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text("---\nname: decide\n---\nbody", encoding="utf-8")
+        self.registry_path.parent.mkdir(parents=True)
+        self.registry_path.write_text(json.dumps({"components": [{
+            "id": "skill:dev:decide", "name": "decide",
+            "path": "skills/dev/decide/SKILL.md", "status": "active",
+        }]}), encoding="utf-8")
+        manifest = _bundle("b1", [
+            _component("module", "fetchable-module", requirement="required"),
+            _component("skill", "decide", requirement="recommended"),
+        ])
         bundle_dir = self.bundles_root / "manifests" / "bundles" / "b1"
         bundle_dir.mkdir(parents=True)
         (bundle_dir / "bundle.v1.json").write_text(json.dumps(manifest), encoding="utf-8")
@@ -221,7 +230,7 @@ class OceanDevRealGitFetchIntegrationTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
-    def test_apply_fetches_the_module_and_rollback_removes_it(self):
+    def test_one_apply_fetches_and_activates_then_one_rollback_removes_both(self):
         code = main([
             "--bundles-root", str(self.bundles_root), "--ring", "1", "--skeleton", str(self.skeleton),
             "--modules-catalog", str(self.catalog_path), "--skills-registry", str(self.registry_path),
@@ -229,12 +238,23 @@ class OceanDevRealGitFetchIntegrationTests(unittest.TestCase):
         ])
         self.assertEqual(code, 0)
         dest = self.workspace / "modules" / "fetchable-module"
+        skill_dest = self.workspace / "skills" / "decide"
         self.assertTrue((dest / "marker.txt").is_file())
+        self.assertTrue((skill_dest / "SKILL.md").is_file())
 
         log_path = self.workspace / "ocean-dev.activation-log.json"
-        code = main(["--rollback", str(log_path), "--workspace", str(self.workspace)])
+        log = json.loads(log_path.read_text(encoding="utf-8"))
+        self.assertEqual(
+            [(entry["type"], entry["ref"]) for entry in log["entries"]],
+            [("module", "module:fetchable-module"), ("skill", "skill:decide")],
+        )
+        code = main([
+            "--rollback", str(log_path), "--workspace", str(self.workspace),
+            "--skills-dir", str(self.workspace / "skills"),
+        ])
         self.assertEqual(code, 0)
         self.assertFalse(dest.exists())
+        self.assertFalse(skill_dest.exists())
 
 
 if __name__ == "__main__":

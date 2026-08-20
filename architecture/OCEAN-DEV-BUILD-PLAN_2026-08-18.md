@@ -500,6 +500,39 @@ runs).
   9/22 catalog-wide modules (2 of Ring 1's 3) still lack a pin because their own clones are not
   clean+pushed, not because Fetch cannot fetch them once they are.
 
+**Continued 2026-08-20 — the combined foreign-host transaction is now proven in one invocation.**
+The previous entries proved Fetch/Place and Activate/Rollback separately. This continuation ran
+the actual `tools/ocean_dev.py --apply` chain once on the Mac Studio with both kinds of writable
+work present, then used the resulting single activation log for one rollback.
+
+- **Pinned inputs and transport:** the source snapshots came from `open-ocean`
+  `00bcd261981b335854812941c00be867368efc89` and `bundles`
+  `e25bbd1a17870b2c2bb2d07ebe223027c8588b74`. The Mac independently matched the transported
+  archive SHA-256 values: `064D2728…DB7ED14E` (open-ocean), `D68ADB80…B4C1BB31` (bundles), and
+  `8AECE389…B4C3367` (the nine real skill inputs).
+- **Foreign-host baseline:** the portable test suite ran on macOS immediately before apply:
+  **90/90 passed**.
+- **One apply:** all 5 Ring-1 bundle hashes verified; `module:WikiStub-Seed` was fetched and its
+  independent checked-out `HEAD` matched the catalogue pin
+  `3476ba2c2c0ef76c4988f035b9dc7a7f12458af4`; all 9 Ring-1 skills were activated into the
+  explicitly supplied sandbox. The same report classified the remaining module work honestly:
+  2 `unpinnable`, 10 `unfetchable-source-type`, 1 `no-catalog-entry`, and 0 failed actions.
+- **One transaction, one rollback:** the activation log contained exactly 10 entries — the fetched
+  module and 9 skills. One `--rollback` removed that module and every sandbox skill; no sandbox
+  skill remained.
+- **Live-target isolation:** independent snapshots of the real `~/.claude/skills` tree before
+  apply, after apply and after rollback had the identical SHA-256
+  `46436EF2…498E133`. The live target was never used as the activation destination.
+- **Process and evidence readback:** an independent SSH process check after the invoking session
+  had exited found no remaining ocean-dev/fetch process. The retained evidence lives under the
+  bounded remote work directory
+  `~/compute/open-ocean-sluice-combined-20260820T2350B-ASUS-GEI/`; its pulled `summary.json` has
+  SHA-256 `398C0664…8BB6A5B`.
+- **Claim boundary:** this closes the formerly untried combined mechanism path, not PRIVATE.txt
+  release condition 2. The destination was a sandbox, only one Ring-1 Git module was fetchable at
+  a safe catalogue pin, and the invocation did not construct a complete working ocean runtime.
+  Stage 3 remains separately gated and untouched.
+
 ### Stage 3 — BACH-parity cluster
 
 - **Not started, not due yet.** `BACH-EXTRACTION-ROADMAP.md`'s own binding order is "Cluster 9
@@ -521,28 +554,19 @@ runs).
 
 ## 6. Honesty check — what this plan is not claiming
 
-- Ring 1 is **resolvable, verifiable, fetchable-in-principle, and activatable**, and on *this* dev
-  host, **mostly already active**. All six installer steps now have code and have each been proven
-  with real Ring-1 data (Sec. 3.4). Updated 2026-08-19: a real `--apply` run **did** install Ring
-  1's 9 skills fresh onto a second host that did not already have them (Mac Studio, Sec. 5, Stage
-  2 continuation) — Activate + Rollback are proven there with real files, not a dry-run. Fetch
-  followed the same day: `modules.catalog.json` gained a `commit_sha` field and `fetch_place.py`
-  now reads it (Sec. 5, Stage 2's second "Continued" entry), making `WikiStub-Seed` (1 of Ring 1's
-  3 previously-unpinnable git-repository modules) pinnable; **then a real `git fetch` at that pin
-  was executed and independently verified** (checked-out `HEAD` equals the pin exactly, real
-  GitHub commit history, expected files present — Sec. 5, Stage 2's "final proof for this chain"
-  entry), into a disposable sandbox, never the canonical clone. The other 2 Ring-1 git-repository
-  modules (`build-your-users-mind`, `project-docs-template`) remain correctly unpinnable because
-  the catalog itself does not pin them (dirty/diverged local clones), not because of a code
-  limitation, and 9/22 modules catalog-wide are in the same state. So: all six installer steps —
-  Resolve, Verify, Fetch, Place, Activate, Rollback — have now each been proven with at least one
-  real end-to-end run against real data; what remains open is data breadth (most modules still
-  unpinned) and a still-untried single combined `--apply` run that both fetches a module *and*
-  activates skills together on one foreign host in one invocation (each half has been proven, not
-  yet together in the same run).
-- Nothing here moves `open-ocean` closer to lifting `PRIVATE.txt`. Conditions 2 and 3 both still
-  read "not met" honestly; this plan is the first concrete step toward them, not a claim that
-  either is now satisfied.
+- Ring 1 is **resolvable, verifiable, fetchable where safely pinned, and activatable**. All six
+  installer steps have code and real-data proof. Updated 2026-08-20: one Mac Studio `--apply`
+  invocation combined the real SHA-pinned Fetch/Place of `WikiStub-Seed` with activation of all 9
+  Ring-1 skills, and its single log rolled back all 10 writes. The former combined-path gap is
+  therefore closed. The remaining limit is breadth, not the transaction mechanism: the other 2
+  Ring-1 Git modules (`build-your-users-mind`, `project-docs-template`) remain correctly
+  unpinnable because the catalogue does not pin them, 9/22 Git modules catalogue-wide are in the
+  same state, ten Ring-1 module references are local-directory sources rather than fetch targets,
+  and one reference still has no catalogue entry. The foreign-host proof used a sandbox and did
+  not create a complete working ocean runtime.
+- Nothing here lifts `PRIVATE.txt`. Conditions 2 and 3 both still read "not met" honestly; the
+  combined integration proof advances the installer evidence without claiming that either release
+  condition is satisfied.
 - `memory-hooker`/`memoryhooker` and `software:MediaBrain` (an unhandled component kind, surfaced
   when running `--ring all`) are real, live findings from running the tool against real data, kept
   as findings rather than quietly patched around, because patching the catalog or adding a

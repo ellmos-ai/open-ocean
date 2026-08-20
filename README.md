@@ -16,9 +16,11 @@ The free community full system of the ellmos ecosystem.
 
 ## Read this first: this repository is a building site
 
-**There is no system here yet.** No installer, no runtime of our own, and deliberately no copies
-of the recipes. What is here is the architecture of what is being built: which recipes the system
-will consume, where they live, and what the installer has to become.
+**The released full system is not here yet.** A transactional installer core now exists and has
+been exercised on Windows and macOS, but there is still no BACH-parity runtime of our own and
+deliberately no copies of the recipes. What is here is the architecture and the first executable
+system-building layer: which recipes the system consumes, where they live, and how they are
+resolved, verified, fetched, placed, activated and rolled back.
 
 If you are looking for something usable today, it is the recipe layer — a separate repository
 that holds the bundle manifests and releases them wave by wave. The recipes are ready months
@@ -60,7 +62,7 @@ and still supplied.
 architecture/
   open-ocean.skeleton.v1.json   which recipes the system intends to consume, pinned by hash
   INSTALLER-TARGET.md           what the installer has to become, and what it must not do
-  OCEAN-DEV-BUILD-PLAN_2026-08-18.md  staged build plan: resolve/verify/fetch/place/activate/rollback done, foreign-host smoke next
+  OCEAN-DEV-BUILD-PLAN_2026-08-18.md  staged build plan and verified foreign-host integration evidence
   BACH-EXTRACTION-ROADMAP.md    extraction order, parity gates and Cluster 9 kernel map
   bach-parity-baseline.v1.json  machine-readable registry and Cluster 9 coverage baseline
   bach-k9-data-contract.v1.json pinned dbsync/snapshot operation and fixture contract
@@ -92,7 +94,7 @@ repository moves on, and would make this repository look further along than it i
 | Architecture skeleton | present, 13 bundles referenced |
 | BACH extraction baseline | present — 114 source-declared names; historic 113-name runtime bar retained; re-audited 2026-08-18 (106 handler classes, +1 vs. the 2026-08-08 baseline — traced to a host-suffixed duplicate file in BACH, `upgrade-WORKSTATION-LG.py` alongside `upgrade.py`; not fixed here, BACH is out of scope for this repository's changes). `registered_names` unchanged at 114. |
 | K9-1 data/checkpoint gate | two carrier fixtures green; adapter and BACH equivalence remain open |
-| Installer | **all six INSTALLER-TARGET.md steps now built** (2026-08-18) — `tools/resolve_bundles.py` (Resolve+Verify), `tools/fetch_place.py` (Fetch+Place, SHA-pinned, fail-closed), `tools/host_adapters.py` (Activate, read-only check plus write-side activate/rollback), chained by the single entry point `tools/ocean_dev.py` (dry-run default, `--apply` for real writes). See [`architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md`](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md) for the staged plan and what remains open (general choice-applier, hosts beyond Claude Code, a real SHA pin to fetch against — the current catalog has none). Run for real against ring 1 on the development host: all 5 bundles verified, 9 of 9 skills activated into a sandboxed target and cleanly rolled back, 13 of 14 modules already present (1 catalog/registry naming mismatch, pre-existing finding). **Not yet run on a machine other than this one** — that is Stage 2 of the build plan, not yet this repository's claim |
+| Installer | **all six INSTALLER-TARGET.md steps are built and the current pinnable Ring-1 path is integration-proven on a foreign host**. On 2026-08-20 one Mac Studio `--apply` invocation verified all 5 Ring-1 bundles, fetched `WikiStub-Seed` at the catalogued SHA `3476ba2…12458af4`, and activated all 9 Ring-1 skills into an explicit sandbox. Its single 10-entry activation log then rolled back the fetched module and all skills; the live Mac `~/.claude/skills` snapshot stayed identical before, after apply and after rollback. The portable suite remains 90 tests, with the real-git regression now covering this combined module+skill transaction. This is not a full-system install claim: two Ring-1 Git modules remain unpinned, ten module references are local-directory sources rather than fetch targets, and one catalogue reference still has the known `memory-hooker`/`memoryhooker` naming drift. See the [staged build plan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
 | Runtime of our own | **not available** — every candidate is private or only declared |
 | Recipes | maintained in the recipe repository, not here |
 
@@ -126,13 +128,13 @@ the gate is visible where visibility is switched). It opens when all four are de
    table above.
 2. **Sluice test passed** — the whole line works end to end: a fresh install from these recipes
    reaches a working state on a machine that is not the development host. **Not met yet, but the
-   blocker changed on 2026-08-18.** An installer now exists (`tools/ocean_dev.py`, see the status
-   table above) and has been proven, with real system data, to Resolve, Verify, Fetch/Place, and
-   Activate+Roll back correctly — but only ever run *on this development host*, against a
-   deliberately sandboxed target directory, never a genuinely foreign or bare machine. That is
-   exactly what a sluice test requires and what has not happened yet: see
-   `architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md` Stage 2 for the current state of a foreign-host
-   run (Mac Studio).
+   installer seam itself is now foreign-host integration-proven.** A Mac Studio run on 2026-08-20
+   performed Resolve, Verify, one real SHA-pinned Fetch/Place and all nine Ring-1 skill activations
+   in one `--apply` invocation, then removed all ten writes through the same activation log. This
+   closes the previously untried combined mechanism path, not the release condition: the target
+   was an explicit sandbox, only one Ring-1 Git module currently has a safe catalogue pin, and the
+   run did not produce a complete working ocean runtime from every required component. See
+   `architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md` Stage 2 for the evidence and remaining breadth.
 3. **Parity for the release scope** — the system performs at the level it claims to cover. A
    smaller installable core is a build stage, not a release. The current source audit records
    114 reachable names while retaining the historic 113-name runtime snapshot as the minimum
@@ -150,9 +152,10 @@ the gate is visible where visibility is switched). It opens when all four are de
    local per the skill's own rule, not shipped in this repository).
 
 Condition 2 is the one this repository is named after. Opening the sluices and watching whether
-the water actually arrives is the test that no amount of correct manifests can substitute for. Of
-the four conditions, 1 and 4 are addressed; 2 and 3 both wait on the same missing piece — an
-installer and a runtime that do not exist here yet.
+the water actually arrives is the test that no amount of correct manifests can substitute for.
+Of the four conditions, 1 and 4 are addressed. Condition 2 now has a verified transactional
+installer seam but still lacks a complete fresh working-system installation; condition 3 still
+lacks BACH functional parity. Neither is upgraded by the sandboxed integration proof.
 
 ## Licence
 

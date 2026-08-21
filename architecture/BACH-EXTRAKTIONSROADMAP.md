@@ -163,7 +163,7 @@ BACH-Quelltext dokumentierte veraltete Erstkopie kein zulässiges Golden Target.
 
 `snapshot` wurde nicht in den SQLite-Träger gedrückt. Der neue private Träger
 [`session-checkpoint`](session-checkpoint-capability.v1.json), gepinnt auf
-`a6b3c4563cd020763e37b05b7b007069feca44b1`, besitzt eine getrennte lokale Ablage und akzeptiert
+`2a9ce5ec5c5c47fb07615ae7b0aa19b04ef53098`, besitzt eine getrennte lokale Ablage und akzeptiert
 nur ein von der Anwendung geliefertes JSON-Objekt. Er prüft kanonische Nutzlast-Hashes, trennt
 Namensräume und unterstützt einen reversiblen, standardmäßig trockenen Export/Import mit
 begrenzter Datensatzanzahl und Gesamtnutzlast. Neue sensible Dateien erhalten unter POSIX nur

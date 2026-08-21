@@ -31,7 +31,7 @@
     "session_checkpoint_carrier": {
       "id": "session-checkpoint",
       "repository": "https://github.com/ellmos-ai/session-checkpoint",
-      "commit": "a6b3c4563cd020763e37b05b7b007069feca44b1",
+      "commit": "2a9ce5ec5c5c47fb07615ae7b0aa19b04ef53098",
       "version": "0.1.0",
       "fixture_mode": "temporary module-owned checkpoint stores only"
     }

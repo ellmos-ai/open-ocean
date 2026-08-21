@@ -177,7 +177,7 @@
     },
     "session_checkpoint_carrier": {
       "id": "session-checkpoint",
-      "commit": "a6b3c4563cd020763e37b05b7b007069feca44b1",
+      "commit": "2a9ce5ec5c5c47fb07615ae7b0aa19b04ef53098",
       "capability_added": "module-owned local session checkpoints with integrity verification, bounded import and private POSIX file creation"
     },
     "findings": {

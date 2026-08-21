@@ -1,7 +1,7 @@
 {
   "schema": "ellmos.open-ocean-bach-parity-baseline.v1",
   "status": "planning-baseline-not-parity-proof",
-  "recorded_at": "2026-08-08",
+  "recorded_at": "2026-08-22",
   "release_bar": {
     "historic_runtime_snapshot": 113,
     "rule": "The 113-name runtime snapshot remains the minimum release commitment. Current source-declared names are additive until a side-effect-free runtime dump resolves the drift; no newer command may silently fall out of scope."
@@ -177,7 +177,7 @@
     },
     "session_checkpoint_carrier": {
       "id": "session-checkpoint",
-      "commit": "a795e67b3d9e2966ff5afc4c2078210049f56687",
+      "commit": "a6b3c4563cd020763e37b05b7b007069feca44b1",
       "capability_added": "module-owned local session checkpoints with integrity verification, bounded import and private POSIX file creation"
     },
     "findings": {

@@ -1,7 +1,7 @@
 {
   "schema": "ellmos.open-ocean-bach-k9-data-contract.v1",
   "status": "adapter-specified-two-carrier-fixtures-green-not-equivalence",
-  "recorded_at": "2026-08-09",
+  "recorded_at": "2026-08-22",
   "claim_boundary": "This contract, adapter specification and synthetic carrier fixtures are not BACH runtime equivalence, BACH-IN, migration, rollback, bundle, installer, or foreign-system evidence.",
   "hold": {
     "bach_mode": "read-only",
@@ -31,7 +31,7 @@
     "session_checkpoint_carrier": {
       "id": "session-checkpoint",
       "repository": "https://github.com/ellmos-ai/session-checkpoint",
-      "commit": "a795e67b3d9e2966ff5afc4c2078210049f56687",
+      "commit": "a6b3c4563cd020763e37b05b7b007069feca44b1",
       "version": "0.1.0",
       "fixture_mode": "temporary module-owned checkpoint stores only"
     }

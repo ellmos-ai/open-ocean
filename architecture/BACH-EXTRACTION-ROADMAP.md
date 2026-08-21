@@ -159,7 +159,7 @@ target because the BACH source itself documents its first-copy source as stale.
 
 `snapshot` was not forced into the SQLite carrier. The new private carrier
 [`session-checkpoint`](session-checkpoint-capability.v1.json), pinned at
-`a795e67b3d9e2966ff5afc4c2078210049f56687`, owns a separate local store and accepts only an
+`a6b3c4563cd020763e37b05b7b007069feca44b1`, owns a separate local store and accepts only an
 application-provided JSON object. It verifies canonical payload hashes, isolates namespaces and
 supports reversible dry-run-first export/import with bounded record and aggregate payload input.
 New sensitive files use owner-only POSIX mode bits; Windows confidentiality remains the local

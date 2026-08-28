@@ -108,7 +108,7 @@
     }
   },
   "not_yet_present": [
-    "the full installer: Resolve and Verify exist (tools/resolve_bundles.py, since 2026-08-18) plus a read-only slice of Activate (tools/host_adapters.py); Fetch, Place, the write side of Activate, and Roll back do not exist yet -- see architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md",
+    "the full production installer: Resolve and Verify, SHA-pinned module Fetch/Place, sandboxed write-side skill Activate, activation logging, and exact log-based Roll back exist in tools; general choice application, host adapters beyond claude-code, a full live-system installation, and product cutover do not exist yet -- see architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md",
     "a runtime of our own: every candidate is private or only declared",
     "any copy of the manifests: they live in the recipe repository and are referenced, not duplicated"
   ],

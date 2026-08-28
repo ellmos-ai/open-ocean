@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Single-command entry point chaining Resolve -> Verify -> Fetch/Place ->
-Activate for one ring (architecture/INSTALLER-TARGET.md's four-step model,
+Activate for one skeleton ring or a complete system manifest
+(architecture/INSTALLER-TARGET.md's four-step model,
 plus Roll back as a separate `--rollback` mode). This is the "ocean-dev up"
 item from architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md Section 5.
 
 Composition, not re-implementation: Resolve/Verify reuse
-tools/resolve_bundles.py's own tested functions directly (load_skeleton,
-select_bundle_refs, verify_bundle, expand_components, merge_components,
+tools/resolve_bundles.py's own tested functions directly (load_bundle_selection,
+verify_bundle, expand_components, merge_components,
 resolve_module, resolve_skill, resolve_access_surface, apply_activation_check)
 -- this file does not wrap resolve_bundles.main() or duplicate its logic, it
 imports the pieces and owns its own reporting/exit codes on top of them, so a
@@ -38,6 +39,9 @@ Usage:
         [--workspace <dir>] [--skills-dir <dir>] [--host claude-code]
         [--apply] [--json] [--report <path>] [--activation-log <path>]
 
+    python tools/ocean_dev.py --bundles-root <path-to-recipe-projection>
+        --system-manifest <path-to-system.v1.json> [--workspace <dir>]
+
     python tools/ocean_dev.py --rollback <path-to-activation-log.json>
         [--workspace <dir>] [--skills-dir <dir>] [--host claude-code]
 
@@ -59,17 +63,15 @@ from fetch_place import force_rmtree, plan_and_fetch  # noqa: E402
 from host_adapters import known_adapters  # noqa: E402
 from resolve_bundles import (  # noqa: E402
     DEFAULT_MODULES_CATALOG,
-    DEFAULT_SKELETON,
     DEFAULT_SKILLS_REGISTRY,
     ResolveError,
     apply_activation_check,
     expand_components,
-    load_skeleton,
+    load_bundle_selection,
     merge_components,
     resolve_access_surface,
     resolve_module,
     resolve_skill,
-    select_bundle_refs,
     verify_bundle,
 )
 
@@ -88,12 +90,18 @@ def _skills_source_root(skills_registry: Path) -> Path:
     return skills_registry.parent.parent
 
 
-def resolve_and_verify(args: argparse.Namespace) -> tuple[list[Any], list[Any]]:
+def resolve_and_verify(
+    args: argparse.Namespace,
+) -> tuple[list[Any], list[Any], str, dict[str, str] | None]:
     """Runs Resolve + Verify via resolve_bundles.py's own functions. Returns
-    (verifications, components). Raises ResolveError (caller maps to exit 3)
-    or returns with an unresolved Verify (caller checks .ok and exits 2)."""
-    skeleton = load_skeleton(args.skeleton)
-    refs = select_bundle_refs(skeleton, args.ring)
+    (verifications, components, selection, composition metadata). Raises
+    ResolveError (caller maps to exit 3) or returns with an unresolved Verify
+    (caller checks .ok and exits 2)."""
+    refs, selection, composition_metadata = load_bundle_selection(
+        skeleton_path=args.skeleton,
+        system_path=args.system_manifest,
+        ring=args.ring,
+    )
 
     verifications = []
     component_lists = []
@@ -104,7 +112,7 @@ def resolve_and_verify(args: argparse.Namespace) -> tuple[list[Any], list[Any]]:
             component_lists.append(expand_components(manifest, bundle_ref["ref"]))
 
     if not all(v.ok for v in verifications):
-        return verifications, []
+        return verifications, [], selection, composition_metadata
 
     components = merge_components(component_lists)
     for comp in components:
@@ -117,7 +125,7 @@ def resolve_and_verify(args: argparse.Namespace) -> tuple[list[Any], list[Any]]:
         else:
             comp.status = "unresolved"
             comp.detail = {"reason": f"unknown component kind: {comp.kind!r}"}
-    return verifications, components
+    return verifications, components, selection, composition_metadata
 
 
 def activate_skills(components: list[Any], adapter: Any, skills_source_root: Path, apply: bool) -> list[dict[str, Any]]:
@@ -282,6 +290,13 @@ def do_rollback(log_path: Path, adapter: Any, workspace: Path) -> int:
 
 def render_text(report: dict[str, Any]) -> str:
     lines = [f"ocean-dev up -- ring {report['ring']} -- {'APPLY' if report['apply'] else 'DRY-RUN'}", ""]
+    if "composition" in report:
+        composition = report["composition"]
+        lines.extend([
+            f"Composition: {composition['mode']} {composition['id']} "
+            f"({composition['schema']})",
+            "",
+        ])
     v = report["verify"]
     lines.append(f"Verify: {v['bundles_checked']} bundle(s), all_ok={v['all_ok']}")
     for r in v["results"]:
@@ -299,9 +314,12 @@ def render_text(report: dict[str, Any]) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--bundles-root", type=Path, help="path to a local checkout of ellmos-ai/bundles (required unless --rollback)")
-    parser.add_argument("--ring", default="1")
-    parser.add_argument("--skeleton", type=Path, default=DEFAULT_SKELETON)
+    parser.add_argument("--bundles-root", type=Path,
+                        help="bundle export checkout or private recipe projection (required unless --rollback)")
+    parser.add_argument("--ring", help="default: 1 for the skeleton; system manifests always select all refs")
+    parser.add_argument("--skeleton", type=Path)
+    parser.add_argument("--system-manifest", type=Path,
+                        help="ellmos.system.v1 composition; selects every bundle_ref")
     parser.add_argument("--modules-catalog", type=Path, default=DEFAULT_MODULES_CATALOG)
     parser.add_argument("--skills-registry", type=Path, default=DEFAULT_SKILLS_REGISTRY)
     parser.add_argument("--workspace", type=Path, default=DEFAULT_WORKSPACE)
@@ -330,7 +348,7 @@ def main(argv: list[str] | None = None) -> int:
         return 3
 
     try:
-        verifications, components = resolve_and_verify(args)
+        verifications, components, selection, composition_metadata = resolve_and_verify(args)
     except ResolveError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 3
@@ -354,7 +372,7 @@ def main(argv: list[str] | None = None) -> int:
 
     report = {
         "schema": "ellmos.open-ocean-up-report.v1",
-        "ring": args.ring,
+        "ring": selection,
         "apply": args.apply,
         "host": adapter.name,
         "skills_dir": str(skills_dir),
@@ -367,6 +385,8 @@ def main(argv: list[str] | None = None) -> int:
         "fetch": [o.as_dict() for o in fetch_outcomes],
         "activate": activate_outcomes,
     }
+    if composition_metadata is not None:
+        report["composition"] = composition_metadata
     if args.report:
         args.report.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(json.dumps(report, indent=2, ensure_ascii=False) if args.json else render_text(report))

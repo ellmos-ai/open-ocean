@@ -22,6 +22,7 @@ from tools.resolve_bundles import (
     canonical_hash,
     expand_components,
     load_skeleton,
+    load_system_manifest,
     main,
     merge_components,
     resolve_access_surface,
@@ -120,6 +121,54 @@ class SkeletonAndRingSelectionTests(unittest.TestCase):
         with self.assertRaises(ResolveError):
             select_bundle_refs(skeleton, "1")
 
+    def test_system_manifest_without_id_is_rejected(self):
+        path = self.root / "system.v1.json"
+        path.write_text(json.dumps({
+            "schema": "ellmos.system.v1",
+            "authority": {"runtime_authority": False},
+            "bundle_refs": [],
+        }), encoding="utf-8")
+
+        with self.assertRaisesRegex(ResolveError, "non-empty id"):
+            load_system_manifest(path)
+
+    def test_system_manifest_without_bundle_refs_is_rejected(self):
+        path = self.root / "system.v1.json"
+        path.write_text(json.dumps({
+            "schema": "ellmos.system.v1",
+            "id": "empty-system",
+            "authority": {"runtime_authority": False},
+            "bundle_refs": [],
+        }), encoding="utf-8")
+
+        with self.assertRaisesRegex(ResolveError, "non-empty bundle_refs"):
+            load_system_manifest(path)
+
+    def test_system_manifest_rejects_incomplete_bundle_ref(self):
+        path = self.root / "system.v1.json"
+        path.write_text(json.dumps({
+            "schema": "ellmos.system.v1",
+            "id": "incomplete-system",
+            "authority": {"runtime_authority": False},
+            "bundle_refs": [{"ref": "bundle-a"}],
+        }), encoding="utf-8")
+
+        with self.assertRaisesRegex(ResolveError, r"bundle_refs\[0\].*content_hash"):
+            load_system_manifest(path)
+
+    def test_system_manifest_rejects_duplicate_bundle_refs(self):
+        path = self.root / "system.v1.json"
+        ref = {"ref": "bundle-a", "content_hash": "x"}
+        path.write_text(json.dumps({
+            "schema": "ellmos.system.v1",
+            "id": "duplicate-system",
+            "authority": {"runtime_authority": False},
+            "bundle_refs": [ref, ref],
+        }), encoding="utf-8")
+
+        with self.assertRaisesRegex(ResolveError, "duplicate bundle ref"):
+            load_system_manifest(path)
+
 
 class VerifyBundleTests(unittest.TestCase):
     def setUp(self):
@@ -143,6 +192,43 @@ class VerifyBundleTests(unittest.TestCase):
         self.assertTrue(result.self_consistent)
         self.assertTrue(result.matches_pin)
         self.assertEqual(out, manifest)
+
+    def test_ok_when_manifest_lives_in_private_projection_layout(self):
+        """Catches treating the private Full Dev recipe projection as absent.
+
+        Public exports use ``manifests/bundles/<id>/bundle.v1.json`` while the
+        canonical private projection uses ``bundles/<id>/bundle.v1.json``.
+        Both carry the same bundle contract and must pass the same hash gate.
+        """
+        manifest = _bundle("b1", [])
+        private_dir = self.root / "bundles" / "b1"
+        private_dir.mkdir(parents=True)
+        (private_dir / "bundle.v1.json").write_text(
+            json.dumps(manifest), encoding="utf-8"
+        )
+
+        result, out = verify_bundle(
+            {"ref": "b1", "content_hash": manifest["content_hash"]}, self.root
+        )
+
+        self.assertTrue(result.ok)
+        self.assertEqual(Path(result.manifest_path), private_dir / "bundle.v1.json")
+        self.assertEqual(out, manifest)
+
+    def test_rejects_ambiguous_exported_and_private_projection_layouts(self):
+        """Catches silently choosing one of two equally named authorities."""
+        manifest = _bundle("b1", [])
+        self._place("b1", manifest)
+        private_dir = self.root / "bundles" / "b1"
+        private_dir.mkdir(parents=True)
+        (private_dir / "bundle.v1.json").write_text(
+            json.dumps(manifest), encoding="utf-8"
+        )
+
+        with self.assertRaisesRegex(ResolveError, "ambiguous bundle manifest"):
+            verify_bundle(
+                {"ref": "b1", "content_hash": manifest["content_hash"]}, self.root
+            )
 
     def test_content_tampered_after_hashing_fails_self_consistency_not_pin(self):
         manifest = _bundle("b1", [])
@@ -321,6 +407,11 @@ class MainIntegrationTests(unittest.TestCase):
         d.mkdir(parents=True)
         (d / "bundle.v1.json").write_text(json.dumps(manifest), encoding="utf-8")
 
+    def _place_private_bundle(self, ref: str, manifest: dict) -> None:
+        d = self.bundles_root / "bundles" / ref
+        d.mkdir(parents=True)
+        (d / "bundle.v1.json").write_text(json.dumps(manifest), encoding="utf-8")
+
     def _write_skeleton(self, bundle_refs: list[dict]) -> Path:
         path = self.root / "skeleton.json"
         path.write_text(json.dumps({
@@ -329,6 +420,59 @@ class MainIntegrationTests(unittest.TestCase):
             "rings": {"1": {"name": "core", "members": [b["ref"] for b in bundle_refs]}},
         }), encoding="utf-8")
         return path
+
+    def _write_system_manifest(self, bundle_refs: list[dict]) -> Path:
+        path = self.root / "system.v1.json"
+        path.write_text(json.dumps({
+            "schema": "ellmos.system.v1",
+            "id": "ellmos-development-fullsystem",
+            "authority": {"runtime_authority": False},
+            "bundle_refs": bundle_refs,
+        }), encoding="utf-8")
+        return path
+
+    def test_system_manifest_defaults_to_all_refs_and_records_composition(self):
+        manifest = _bundle("b1", [])
+        self._place_private_bundle("b1", manifest)
+        system_path = self._write_system_manifest([
+            {"ref": "b1", "content_hash": manifest["content_hash"]},
+        ])
+        report_path = self.root / "system-report.json"
+
+        code = main([
+            "--bundles-root", str(self.bundles_root),
+            "--system-manifest", str(system_path),
+            "--json", "--report", str(report_path),
+        ])
+
+        self.assertEqual(code, 0)
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        self.assertEqual(report["ring"], "all")
+        self.assertEqual(report["verify"]["bundles_checked"], 1)
+        self.assertEqual(report["composition"], {
+            "mode": "system-manifest",
+            "schema": "ellmos.system.v1",
+            "id": "ellmos-development-fullsystem",
+        })
+        self.assertNotIn(str(system_path), json.dumps(report))
+
+    def test_system_manifest_rejects_numbered_ring(self):
+        system_path = self._write_system_manifest([])
+        code = main([
+            "--bundles-root", str(self.bundles_root),
+            "--system-manifest", str(system_path), "--ring", "1",
+        ])
+        self.assertEqual(code, 3)
+
+    def test_rejects_skeleton_and_system_manifest_together(self):
+        skeleton_path = self._write_skeleton([])
+        system_path = self._write_system_manifest([])
+        code = main([
+            "--bundles-root", str(self.bundles_root),
+            "--skeleton", str(skeleton_path),
+            "--system-manifest", str(system_path),
+        ])
+        self.assertEqual(code, 3)
 
     def test_exit_0_on_a_fully_resolvable_ring(self):
         manifest = _bundle("b1", [

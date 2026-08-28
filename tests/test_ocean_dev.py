@@ -107,6 +107,37 @@ class OceanDevIntegrationTests(unittest.TestCase):
             args.append("--apply")
         return args
 
+    def test_system_manifest_drives_the_complete_dry_run(self):
+        system_path = self.root / "system.v1.json"
+        skeleton = json.loads(self.skeleton.read_text(encoding="utf-8"))
+        system_path.write_text(json.dumps({
+            "schema": "ellmos.system.v1",
+            "id": "ellmos-development-fullsystem",
+            "authority": {"runtime_authority": False},
+            "bundle_refs": skeleton["bundle_refs"],
+        }), encoding="utf-8")
+        report_path = self.root / "system-report.json"
+
+        code = main([
+            "--bundles-root", str(self.bundles_root),
+            "--system-manifest", str(system_path),
+            "--modules-catalog", str(self.catalog_path),
+            "--skills-registry", str(self.registry_path),
+            "--workspace", str(self.workspace),
+            "--json", "--report", str(report_path),
+        ])
+
+        self.assertEqual(code, 0)
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        self.assertEqual(report["ring"], "all")
+        self.assertEqual(report["composition"], {
+            "mode": "system-manifest",
+            "schema": "ellmos.system.v1",
+            "id": "ellmos-development-fullsystem",
+        })
+        self.assertEqual(report["verify"]["bundles_checked"], 1)
+        self.assertFalse(self.workspace.exists())
+
     def test_dry_run_writes_nothing(self):
         code = main(self._common_args(apply=False))
         self.assertEqual(code, 0)

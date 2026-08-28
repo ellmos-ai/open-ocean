@@ -1,4 +1,4 @@
-# ocean-dev build plan — Durchgang 1 + 2
+# ocean-dev build plan — Durchgang 1 + 2 + Full Dev composition
 
 > **Status: living plan, not a finished system.** Records what exists, what was built in this
 > pass, and what the next passes need to do, in the target order the user set. Updated as each
@@ -239,6 +239,47 @@ Test suite after this pass: **82 tests, all green**
 reasons as Durchgang 1 Sec. 3.3; the `no-catalog-entry` finding for `memory-hooker` is unchanged
 and still not silently patched here.
 
+### 3.5 Full Dev composition — 2026-08-28
+
+The product direction now distinguishes two compositions without duplicating their authorities:
+
+- **OCEAN Full Dev** is the local development/test composition. It consumes every functional
+  `bundle_ref` already declared by the external `ellmos-development-fullsystem/system.v1.json`.
+- **OCEAN Public** remains the separately gated 13-bundle, public-allowlisted composition declared
+  by this repository's skeleton.
+- OCEAN is the successor/new BACH. Most extraction is already complete; current BACH work replaces
+  legacy internals with the same canonical modules and bundles OCEAN consumes. A BACH-only
+  extraction is exceptional and value-gated. LTS, freeze, or archive is a later explicit product
+  decision, not an automatic stage transition.
+
+This pass added the smallest executable seam needed for that distinction:
+
+- `resolve_bundles.py` and `ocean_dev.py` accept `--system-manifest <system.v1.json>`. A system
+  composition selects all of its `bundle_refs[]`; numbered rings are rejected rather than silently
+  truncating Full Dev.
+- `--skeleton` and `--system-manifest` are mutually exclusive. System inputs must declare
+  `schema: ellmos.system.v1`, a non-empty `id`, and `authority.runtime_authority: false`.
+- Bundle lookup accepts either the public export layout
+  `manifests/bundles/<id>/bundle.v1.json` or the canonical private projection layout
+  `bundles/<id>/bundle.v1.json`. If both exist for one ID, resolution fails closed as ambiguous.
+- Hash semantics are unchanged: self-consistency and the composition pin must both match before
+  component resolution or any write-capable phase can start. No recipe or system manifest is
+  copied into this repository.
+
+**Live Full Dev dry-run, 2026-08-28:** FileCommander executed the pipeline against the canonical
+OneDrive projections. All **30/30** referenced bundle manifests were found and internally
+self-consistent; **27/30** matched the Full Dev manifest pins. The run returned exit 2 before
+Fetch/Place/Activate on exactly these three stale pins:
+
+- `ellmos-core-discovery-bundle`
+- `ellmos-agent-orchestration-bundle`
+- `ellmos-dev-lifecycle-bundle`
+
+The requested dry-run workspace remained absent, proving the gate stopped before writes. The
+portable suite now contains **110 tests, all green**. This is measured progress, not a Full Dev
+installation claim: the three stale pins must be reconciled in their canonical recipe/system
+authority and then re-read before component breadth can be evaluated.
+
 ## 4. Guardrails carried forward from prior decisions
 
 - **E4 (D-20260817-005): vendor-neutral from the start, Claude as reference**, applied to
@@ -259,11 +300,14 @@ and still not silently patched here.
   `PRIVATE.txt`'s own text; the release conditions it names are *measured*, never declared met by
   fiat.
 
-## 5. Target order and staged work packages
+## 5. Stage record and adaptive work packages
 
-The order below is the one the build authorisation set: **minimal installable ocean-dev core →
-foreign-host smoke → BACH-parity cluster.** Each stage only starts once the one before it is real,
-not merely planned.
+Stages 1 and 2 below are completed historical build records. From 2026-08-28 onward there is no
+fixed domain or cluster order. The next module/bundle is selected from current evidence after the
+knowledge and policy ritual; only the gates *inside* a cycle are ordered: authority and baseline →
+test-first cutover → focused tests → full regression → documentation/language parity → commit and
+push → separately authorised release decision. A failed cycle is repaired or rolled back before a
+different cutover is presented as complete.
 
 ### Stage 1 — minimal installable ocean-dev core
 
@@ -533,24 +577,23 @@ work present, then used the resulting single activation log for one rollback.
   a safe catalogue pin, and the invocation did not construct a complete working ocean runtime.
   Stage 3 remains separately gated and untouched.
 
-### Stage 3 — BACH-parity cluster
+### Stage 3 — adaptive BACH/OCEAN module and bundle cycles
 
-- **Not started, not due yet.** `BACH-EXTRACTION-ROADMAP.md`'s own binding order is "Cluster 9
-  first" (already the only cluster with any work — 0/30 `accepted`, see the operation matrix),
-  followed by Cluster 1 (memory/knowledge), 3 (tasks/automation), 5 (multi-agent/orchestration), 7
-  (self-extension/dev tools), 4 (documents/media), 6 (communication), 8 (cognitive control), and
-  finally 2 (personal-life services, held out of the free core for separate privacy/legal/product
-  reasons).
-- Stage 1's ring-1 bundles (`agents`, `coordination-choice`, `knowledge`, `memory-human-context`,
-  `working-memory`) already overlap Cluster 1 and parts of Cluster 3/5 in *subject matter* — but
-  functional-parity proof (the thing PRIVATE.txt condition 3 actually asks for) is a distinct,
-  much larger claim than "the recipe references a plausible replacement module". Nothing in Stage
-  1 should be read as advancing Cluster 9's 0/30 `accepted` count; it did not touch that matrix.
-- Next concrete step, when this stage starts: `tools/check_k9_data_contract.py`'s existing
-  fixture-equivalence pattern is the template — run old (BACH) and new (open-ocean) implementations
-  against the same anonymized fixtures, BACH read-only throughout (the buildweek-no-push lock
-  applies regardless of that lock's own expiry, because this repository's own rule is BACH stays
-  read-only for parity work independent of any external lock state).
+- The earlier fixed Cluster 9 → 1 → 3 → 5 → 7 → 4 → 6 → 8 → 2 sequence is historical guidance,
+  **not a binding execution order**. The explicit 2026-08-28 product decision supersedes it.
+- At the start of every new section, lift current knowledge through `.AI`, Gardener, the policy
+  registry, and directly applicable policy binders. Classify evidence as current, historical,
+  conflicting, or unavailable before choosing the next bounded cycle.
+- Selection is evidence-driven: readiness, dependency leverage, testability, risk, an active
+  blocker, or a newly discovered high-value BACH unique may make any eligible module/bundle next.
+  A BACH unique is extracted only as an exceptional, separately justified action.
+- Each cycle wires one module or bundle into BACH and/or OCEAN, disconnects only the superseded
+  legacy path, proves equivalence with shared anonymized fixtures where applicable, and keeps root,
+  help, roadmap/changelog, task, and DE/EN documentation deltas in the same commit.
+- `tools/check_k9_data_contract.py` remains a useful fixture-equivalence pattern, not a command to
+  start with Cluster 9 regardless of evidence. BACH and OCEAN consume the same canonical modules;
+  the main development direction is OCEAN Full Dev while OCEAN Public remains separately
+  allowlisted and release-gated.
 
 ## 6. Honesty check — what this plan is not claiming
 

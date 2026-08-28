@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Resolve bundle references from the skeleton into a flat, verified component plan.
+"""Resolve bundle references from a skeleton or system manifest into a verified component plan.
 
 This is the "Resolve" and "Verify" steps from architecture/INSTALLER-TARGET.md,
 built because they were the #1 documented gap blocking everything else
@@ -10,7 +10,8 @@ copied into this repository (architecture/open-ocean.skeleton.v1.json,
 "any copy of the manifests" is listed under not_yet_present on purpose).
 
 What this script does (INSTALLER-TARGET.md "Resolve" + "Verify"):
-  1. Load the skeleton's pinned bundle_refs (ring 1, ring 2, or both).
+  1. Load pinned bundle_refs from either the public skeleton (ring 1, ring 2,
+     or both) or an external ellmos.system.v1 composition (all refs).
   2. For each bundle: read its bundle.v1.json from an external --bundles-root
      checkout, recompute its content_hash the same way the recipe repository
      computes it (bundles/tools/export_from_source.py:canonical_hash -- sorted,
@@ -49,8 +50,11 @@ Usage:
         [--ring 1|2|all] [--skeleton <path>] [--modules-catalog <path>]
         [--skills-registry <path>] [--json] [--report <path>]
 
+    python tools/resolve_bundles.py --bundles-root <path-to-recipe-projection>
+        --system-manifest <path-to-system.v1.json>
+
 Exit codes: 0 = resolved, all hashes verified. 2 = a hash verification failed.
-3 = the skeleton or a referenced bundle manifest could not be read.
+3 = the composition or a referenced bundle manifest could not be read.
 """
 from __future__ import annotations
 
@@ -78,7 +82,7 @@ DEFAULT_SKILLS_REGISTRY = Path.home() / "OneDrive" / ".TOPICS" / ".AI" / ".SKILL
 
 
 class ResolveError(RuntimeError):
-    """A skeleton or bundle manifest could not be read (exit 3)."""
+    """A composition or bundle manifest could not be read (exit 3)."""
 
 
 def read_json(path: Path) -> dict[str, Any]:
@@ -153,6 +157,38 @@ def load_skeleton(skeleton_path: Path) -> dict[str, Any]:
     return skeleton
 
 
+def load_system_manifest(system_path: Path) -> dict[str, Any]:
+    system = read_json(system_path)
+    if system.get("schema") != "ellmos.system.v1":
+        raise ResolveError(
+            f"{system_path} is not an ellmos.system.v1 manifest"
+        )
+    if system.get("authority", {}).get("runtime_authority") is not False:
+        raise ResolveError(
+            f"{system_path} does not declare authority.runtime_authority=false -- "
+            "refusing to treat it as a declarative system composition"
+        )
+    if not isinstance(system.get("id"), str) or not system["id"].strip():
+        raise ResolveError(f"{system_path} has no non-empty id")
+    if not isinstance(system.get("bundle_refs"), list) or not system["bundle_refs"]:
+        raise ResolveError(f"{system_path} has no non-empty bundle_refs[] list")
+    seen_refs: set[str] = set()
+    for index, bundle_ref in enumerate(system["bundle_refs"]):
+        if not isinstance(bundle_ref, dict):
+            raise ResolveError(f"{system_path} bundle_refs[{index}] is not an object")
+        for key in ("ref", "content_hash"):
+            if not isinstance(bundle_ref.get(key), str) or not bundle_ref[key].strip():
+                raise ResolveError(
+                    f"{system_path} bundle_refs[{index}] has no non-empty {key}"
+                )
+        if bundle_ref["ref"] in seen_refs:
+            raise ResolveError(
+                f"{system_path} has duplicate bundle ref {bundle_ref['ref']!r}"
+            )
+        seen_refs.add(bundle_ref["ref"])
+    return system
+
+
 def select_bundle_refs(skeleton: dict[str, Any], ring: str) -> list[dict[str, Any]]:
     all_refs = {r["ref"]: r for r in skeleton.get("bundle_refs", [])}
     if ring == "all":
@@ -167,9 +203,43 @@ def select_bundle_refs(skeleton: dict[str, Any], ring: str) -> list[dict[str, An
     return [all_refs[m] for m in ring_def["members"]]
 
 
+def load_bundle_selection(
+    *, skeleton_path: Path | None, system_path: Path | None, ring: str | None,
+) -> tuple[list[dict[str, Any]], str, dict[str, str] | None]:
+    """Load one composition authority and return refs, selection, and safe metadata."""
+    if skeleton_path is not None and system_path is not None:
+        raise ResolveError("--skeleton and --system-manifest are mutually exclusive")
+    if system_path is not None:
+        if ring not in (None, "all"):
+            raise ResolveError(
+                "--system-manifest is a complete composition; only --ring all is valid"
+            )
+        composition = load_system_manifest(system_path)
+        selection = "all"
+        metadata = {
+            "mode": "system-manifest",
+            "schema": composition["schema"],
+            "id": composition["id"],
+        }
+    else:
+        composition = load_skeleton(skeleton_path or DEFAULT_SKELETON)
+        selection = ring or "1"
+        metadata = None
+    return select_bundle_refs(composition, selection), selection, metadata
+
+
 def verify_bundle(bundle_ref: dict[str, Any], bundles_root: Path) -> tuple[VerifyResult, dict[str, Any] | None]:
     ref_id = bundle_ref["ref"]
-    manifest_path = bundles_root / "manifests" / "bundles" / ref_id / "bundle.v1.json"
+    exported_path = bundles_root / "manifests" / "bundles" / ref_id / "bundle.v1.json"
+    private_projection_path = bundles_root / "bundles" / ref_id / "bundle.v1.json"
+    exported_exists = exported_path.is_file()
+    private_projection_exists = private_projection_path.is_file()
+    if exported_exists and private_projection_exists:
+        raise ResolveError(
+            f"ambiguous bundle manifest for {ref_id!r}: both {exported_path} "
+            f"and {private_projection_path} exist"
+        )
+    manifest_path = private_projection_path if private_projection_exists else exported_path
     pinned = bundle_ref["content_hash"]
     if not manifest_path.is_file():
         return VerifyResult(ref_id, str(manifest_path), pinned, None, None, False, False, False), None
@@ -328,6 +398,7 @@ def apply_activation_check(components: list[ResolvedComponent], adapter: Any) ->
 def build_report(
     verifications: list[VerifyResult], components: list[ResolvedComponent], ring: str,
     activation: dict[str, Any] | None = None,
+    composition: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     by_status: dict[str, int] = {}
     for c in components:
@@ -348,11 +419,20 @@ def build_report(
     }
     if activation is not None:
         report["activation"] = activation
+    if composition is not None:
+        report["composition"] = composition
     return report
 
 
 def render_text_report(report: dict[str, Any]) -> str:
     lines = [f"open-ocean resolve report -- ring {report['ring']}", ""]
+    if "composition" in report:
+        composition = report["composition"]
+        lines.extend([
+            f"Composition: {composition['mode']} {composition['id']} "
+            f"({composition['schema']})",
+            "",
+        ])
     v = report["verify"]
     lines.append(f"Verify: {v['bundles_checked']} bundle(s) checked, all_ok={v['all_ok']}")
     for r in v["results"]:
@@ -380,9 +460,12 @@ def render_text_report(report: dict[str, Any]) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--bundles-root", type=Path, required=True,
-                        help="path to a local checkout of ellmos-ai/bundles")
-    parser.add_argument("--ring", default="1", help="'1', '2', or 'all' (default: 1)")
-    parser.add_argument("--skeleton", type=Path, default=DEFAULT_SKELETON)
+                        help="path to a bundle export checkout or private recipe projection")
+    parser.add_argument("--ring", help="'1', '2', or 'all' (default: 1 for the skeleton; "
+                        "system manifests always select all refs)")
+    parser.add_argument("--skeleton", type=Path)
+    parser.add_argument("--system-manifest", type=Path,
+                        help="ellmos.system.v1 composition; selects every bundle_ref")
     parser.add_argument("--modules-catalog", type=Path, default=DEFAULT_MODULES_CATALOG)
     parser.add_argument("--skills-registry", type=Path, default=DEFAULT_SKILLS_REGISTRY)
     parser.add_argument("--json", action="store_true", help="print the report as JSON instead of text")
@@ -393,8 +476,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        skeleton = load_skeleton(args.skeleton)
-        refs = select_bundle_refs(skeleton, args.ring)
+        refs, selection, composition_metadata = load_bundle_selection(
+            skeleton_path=args.skeleton,
+            system_path=args.system_manifest,
+            ring=args.ring,
+        )
     except ResolveError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 3
@@ -412,7 +498,9 @@ def main(argv: list[str] | None = None) -> int:
             component_lists.append(expand_components(manifest, bundle_ref["ref"]))
 
     if not all(v.ok for v in verifications):
-        report = build_report(verifications, [], args.ring)
+        report = build_report(
+            verifications, [], selection, composition=composition_metadata,
+        )
         print(json.dumps(report, indent=2, ensure_ascii=False) if args.json else render_text_report(report))
         print("\nVerify FAILED -- stopping before resolving components (INSTALLER-TARGET.md: "
               "a failed hash check stops the run).", file=sys.stderr)
@@ -441,7 +529,10 @@ def main(argv: list[str] | None = None) -> int:
             return 3
         activation_summary = apply_activation_check(components, adapter_cls())
 
-    report = build_report(verifications, components, args.ring, activation=activation_summary)
+    report = build_report(
+        verifications, components, selection, activation=activation_summary,
+        composition=composition_metadata,
+    )
     if args.report:
         args.report.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(json.dumps(report, indent=2, ensure_ascii=False) if args.json else render_text_report(report))

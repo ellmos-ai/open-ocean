@@ -50,11 +50,11 @@ The governing rule is a conservation law: **extraction changes the bed, never th
 Restructuring must preserve function — "same volume of water" means functional parity. That is
 not decoration either; it is the release bar this repository has to clear.
 
-The system is not being written next to the original instance, and the original is not being
-rebuilt. It emerges by continued **extraction**: modules flow out of the original, and the
-original then wires them back in, replacing its own internals. It does not become a museum piece.
-It carries on as a straightened river — no longer entirely natural, but connected to the water
-and still supplied.
+Most extraction has already happened. The current work makes legacy BACH more modular by replacing
+its internals with the canonical modules and bundles while OCEAN is completed as its successor.
+A valuable BACH-only component may still be extracted, but that is an exception with its own gate.
+BACH stays supplied by consuming the same modules as OCEAN; any later move to LTS, freeze, or
+archive remains an explicit product decision, never an automatic consequence of this plan.
 
 ## What is actually in here
 
@@ -77,13 +77,30 @@ tools/
   fetch_place.py                Fetch+Place for module: components, SHA-pinned, fail-closed (no
                                  silent default-branch fallback)
   ocean_dev.py                  single entry point: Resolve -> Verify -> Fetch/Place -> Activate for
-                                 one ring; dry-run by default, --apply for real writes, --rollback
+                                 one ring or a complete system manifest; dry-run by default,
+                                 --apply for real writes, --rollback
 PRIVATE.txt                     the publication gate, committed on purpose
 ```
 
 The skeleton references 13 bundles in two rings — the functional core, and breadth around it. It
 **references** them: no manifest is copied here. Copies would fork the moment the recipe
 repository moves on, and would make this repository look further along than it is.
+
+### Local composition modes
+
+- The repository skeleton is the 13-bundle public scope; choose ring `1`, `2`, or `all`.
+- OCEAN Full Dev consumes the existing external `ellmos.system.v1` full-system manifest and all of
+  its `bundle_refs[]`. The manifest and private recipes remain in their canonical stores; nothing
+  is copied into this repository.
+
+```text
+python tools/ocean_dev.py --bundles-root <recipe-projection> \
+  --system-manifest <ellmos-development-fullsystem/system.v1.json>
+```
+
+Without `--apply` this is a read-only dry-run. A system manifest cannot be combined with a numbered
+ring; partial work is selected adaptively as a separate bundle cycle, not by silently truncating
+the declared Full Dev composition.
 
 ## Status
 
@@ -94,7 +111,7 @@ repository moves on, and would make this repository look further along than it i
 | Architecture skeleton | present, 13 bundles referenced |
 | BACH extraction baseline | present — 114 source-declared names; historic 113-name runtime bar retained; re-audited 2026-08-18 (106 handler classes, +1 vs. the 2026-08-08 baseline — traced to a host-suffixed duplicate file in BACH, `upgrade-WORKSTATION-LG.py` alongside `upgrade.py`; not fixed here, BACH is out of scope for this repository's changes). `registered_names` unchanged at 114. |
 | K9-1 data/checkpoint gate | two carrier fixtures green; adapter and BACH equivalence remain open |
-| Installer | **Resolve, Verify, SHA-pinned Fetch/Place, sandboxed skill Activate, activation logging, and target-validated Roll back are implemented for the currently supported component path; that pinnable Ring-1 slice is integration-proven on a foreign host.** On 2026-08-20 one Mac Studio `--apply` invocation verified all 5 Ring-1 bundles, fetched `WikiStub-Seed` at the catalogued SHA `3476ba2…12458af4`, and activated all 9 Ring-1 skills into an explicit sandbox. Its single 10-entry activation log then rolled back the fetched module and all skills; the live Mac `~/.claude/skills` snapshot stayed identical before, after apply and after rollback. The portable suite is now 100 tests, including real-git transaction coverage plus fail-closed regressions for replaying a log against a different target, for a deletion that leaves its target behind, and for catalog IDs whose letter case differs from the bundle ref. This is not a full-system install claim: two Ring-1 Git modules remain unpinned, ten module references are local-directory sources rather than fetch targets, and one catalogue reference still has the known `memory-hooker`/`memoryhooker` naming drift. See the [staged build plan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
+| Installer | **Resolve, Verify, SHA-pinned Fetch/Place, sandboxed skill Activate, activation logging, and target-validated Roll back are implemented for the currently supported component path; that pinnable Ring-1 slice is integration-proven on a foreign host.** On 2026-08-20 one Mac Studio `--apply` invocation verified all 5 Ring-1 bundles, fetched `WikiStub-Seed` at the catalogued SHA `3476ba2…12458af4`, and activated all 9 Ring-1 skills into an explicit sandbox. Its single 10-entry activation log then rolled back the fetched module and all skills; the live Mac `~/.claude/skills` snapshot stayed identical before, after apply and after rollback. On 2026-08-28 the same pipeline gained direct Full Dev composition from the canonical external `ellmos.system.v1` manifest and private recipe-projection layout. A live read-only run found all 30 manifests and verified 27 pins; it stopped before Fetch/Place/Activate on exactly three stale manifest pins (`core-discovery`, `agent-orchestration`, `dev-lifecycle`). The portable suite is now 110 tests. This is not a full-system install claim: the three pins must first be reconciled in their canonical authority, and the earlier source-type, pinning, and naming gaps still apply. See the [staged build plan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
 | Runtime of our own | **not available** — every candidate is private or only declared |
 | Recipes | maintained in the recipe repository, not here |
 

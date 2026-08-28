@@ -50,11 +50,12 @@ Die leitende Regel ist ein Erhaltungssatz: **Extraktion ändert das Bett, nie da
 muss die Funktion erhalten — „gleiche Wassermenge" heißt Funktionsparität. Auch das ist keine
 Zierde, sondern die Messlatte, die dieses Repository für seine Freigabe überspringen muss.
 
-Das System wird nicht neben der ursprünglichen Instanz neu geschrieben, und die Ursprungsinstanz
-wird nicht umgebaut. Es entsteht durch fortgesetzte **Extraktion**: Module fließen heraus, und die
-Ursprungsinstanz baut sie anschließend selbst wieder ein und ersetzt damit ihre eigenen Innereien.
-Sie wird kein Museumsstück. Sie lebt weiter als begradigter Fluss — nicht mehr ganz natürlich,
-aber ans Wasser angeschlossen und weiter versorgt.
+Der größte Teil der Extraktion ist bereits erfolgt. Die aktuelle Arbeit macht das bisherige BACH
+modularer, indem seine Innereien durch die kanonischen Module und Bundles ersetzt werden, während
+OCEAN als Nachfolger fertiggestellt wird. Eine wertvolle BACH-Eigenheit kann ausnahmsweise noch
+extrahiert werden, aber nur über ein eigenes Gate. BACH bleibt durch dieselben Module wie OCEAN
+versorgt; ein späterer Wechsel in LTS, Stillstand oder Archiv bleibt eine ausdrückliche
+Produktentscheidung und folgt niemals automatisch aus diesem Plan.
 
 ## Was tatsächlich hier liegt
 
@@ -77,7 +78,8 @@ tools/
   fetch_place.py                Fetch+Place for module: components, SHA-pinned, fail-closed (no
                                  silent default-branch fallback)
   ocean_dev.py                  single entry point: Resolve -> Verify -> Fetch/Place -> Activate for
-                                 one ring; dry-run by default, --apply for real writes, --rollback
+                                 one ring or a complete system manifest; dry-run by default,
+                                 --apply for real writes, --rollback
 PRIVATE.txt                     the publication gate, committed on purpose
 ```
 
@@ -85,6 +87,23 @@ Das Gerüst referenziert 13 Bundles in zwei Ringen — den Funktionskern und die
 Es **referenziert** sie: Kein Manifest wird hierher kopiert. Kopien würden in dem Moment
 auseinanderlaufen, in dem das Rezept-Repository weitergeht, und ließen dieses Repository weiter
 erscheinen, als es ist.
+
+### Lokale Kompositionsmodi
+
+- Das Repository-Gerüst bildet den öffentlichen Umfang mit 13 Bundles ab; auswählbar sind Ring
+  `1`, `2` oder `all`.
+- OCEAN Full Dev konsumiert das vorhandene externe Vollsystemmanifest `ellmos.system.v1` und alle
+  darin deklarierten `bundle_refs[]`. Manifest und private Rezepte bleiben in ihren kanonischen
+  Ablagen; nichts davon wird in dieses Repository kopiert.
+
+```text
+python tools/ocean_dev.py --bundles-root <rezept-projektion> \
+  --system-manifest <ellmos-development-fullsystem/system.v1.json>
+```
+
+Ohne `--apply` ist dies ein rein lesender Dry-run. Ein Systemmanifest lässt sich nicht mit einem
+nummerierten Ring kombinieren; Teilarbeit wird adaptiv als eigener Bundle-Zyklus ausgewählt und
+nicht durch stilles Kürzen der deklarierten Full-Dev-Komposition.
 
 ## Status
 
@@ -95,7 +114,7 @@ erscheinen, als es ist.
 | Architektur-Gerüst | vorhanden, 13 Bundles referenziert |
 | BACH-Extraktionsbasis | vorhanden — 114 quellseitige Namen; historische 113er Runtime-Messlatte bleibt erhalten; erneut geprüft am 2026-08-18 (106 Handler-Klassen, +1 gegenüber der 2026-08-08-Basis — zurückverfolgt auf eine hostgebundene Duplikatdatei in BACH, `upgrade-WORKSTATION-LG.py` neben `upgrade.py`; hier NICHT behoben, BACH liegt außerhalb des Änderungsumfangs dieses Repositories). `registered_names` unverändert bei 114. |
 | K9-1 Daten-/Checkpoint-Gate | zwei Träger-Fixtures grün; Adapter und BACH-Äquivalenz bleiben offen |
-| Installer | **Resolve, Verify, SHA-gepinnte Fetch/Place-Schritte, sandboxiertes Skill-Activate, Aktivierungsprotokollierung und zielvalidiertes Rollback sind für den derzeit unterstützten Komponentenpfad implementiert; dieser pinnbare Ring-1-Ausschnitt ist auf einem Fremdrechner integrationsgeprüft.** Am 2026-08-20 verifizierte ein einzelner `--apply`-Aufruf auf einem Mac Studio alle 5 Ring-1-Bundles, holte `WikiStub-Seed` am katalogisierten SHA `3476ba2…12458af4` und aktivierte alle 9 Ring-1-Skills in einer ausdrücklichen Sandbox. Das einzige Aktivierungsprotokoll mit 10 Einträgen rollte danach das Modul und alle Skills zurück; der Snapshot des produktiven Mac-Pfads `~/.claude/skills` blieb vor, nach Apply und nach Rollback identisch. Die portable Suite umfasst nun 100 Tests, einschließlich Real-Git-Transaktionsabdeckung sowie Fail-Closed-Regressionen für die Wiedergabe eines Protokolls gegen ein anderes Ziel, für einen Löschvorgang, der sein Ziel zurücklässt, und für Katalog-IDs, deren Groß-/Kleinschreibung vom Bundle-Ref abweicht. Das ist kein Vollsystem-Installationsclaim: Zwei Ring-1-Git-Module sind weiterhin ungepinnt, zehn Modulreferenzen sind lokale Verzeichnisquellen statt Fetch-Ziele und eine Katalogreferenz trägt weiterhin die bekannte Namensdrift `memory-hooker`/`memoryhooker`. Siehe [gestuften Bauplan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
+| Installer | **Resolve, Verify, SHA-gepinnte Fetch/Place-Schritte, sandboxiertes Skill-Activate, Aktivierungsprotokollierung und zielvalidiertes Rollback sind für den derzeit unterstützten Komponentenpfad implementiert; dieser pinnbare Ring-1-Ausschnitt ist auf einem Fremdrechner integrationsgeprüft.** Am 2026-08-20 verifizierte ein einzelner `--apply`-Aufruf auf einem Mac Studio alle 5 Ring-1-Bundles, holte `WikiStub-Seed` am katalogisierten SHA `3476ba2…12458af4` und aktivierte alle 9 Ring-1-Skills in einer ausdrücklichen Sandbox. Das einzige Aktivierungsprotokoll mit 10 Einträgen rollte danach das Modul und alle Skills zurück; der Snapshot des produktiven Mac-Pfads `~/.claude/skills` blieb vor, nach Apply und nach Rollback identisch. Seit 2026-08-28 kann dieselbe Pipeline OCEAN Full Dev direkt aus dem kanonischen externen `ellmos.system.v1`-Manifest und dem privaten Rezept-Projektionslayout zusammensetzen. Ein echter rein lesender Lauf fand alle 30 Manifeste und bestätigte 27 Pins; er stoppte vor Fetch/Place/Activate exakt an drei veralteten Manifest-Pins (`core-discovery`, `agent-orchestration`, `dev-lifecycle`). Die portable Suite umfasst nun 110 Tests. Das ist kein Vollsystem-Installationsclaim: Zuerst müssen die drei Pins in ihrer kanonischen Autorität abgeglichen werden; die bisherigen Lücken bei Quelltypen, Pinning und Benennung gelten weiterhin. Siehe [gestuften Bauplan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
 | Eigene Laufzeit | **nicht verfügbar** — jeder Kandidat ist privat oder nur deklariert |
 | Rezepte | im Rezept-Repository gepflegt, nicht hier |
 

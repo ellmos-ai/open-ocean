@@ -14,6 +14,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from tools.ocean_dev import main
 from tools.resolve_bundles import canonical_hash
@@ -165,6 +166,81 @@ class OceanDevIntegrationTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertFalse((skills_dir / "decide").exists())
 
+    def test_rollback_with_different_skill_target_fails_closed(self):
+        main(self._common_args(apply=True))
+        original = self.workspace / "skills" / "decide"
+        other_workspace = self.root / "other-workspace"
+        foreign = other_workspace / "skills" / "decide"
+        foreign.mkdir(parents=True)
+        (foreign / "FOREIGN.txt").write_text("keep")
+
+        code = main([
+            "--rollback", str(self.workspace / "ocean-dev.activation-log.json"),
+            "--workspace", str(other_workspace),
+            "--skills-dir", str(other_workspace / "skills"),
+        ])
+
+        self.assertEqual(code, 4)
+        self.assertTrue((original / "SKILL.md").is_file())
+        self.assertTrue((foreign / "FOREIGN.txt").is_file())
+
+    def test_unknown_log_entry_fails_before_any_delete(self):
+        target = self.workspace / "skills" / "decide"
+        target.mkdir(parents=True)
+        (target / "KEEP.txt").write_text("keep")
+        log_path = self.root / "invalid-log.json"
+        log_path.write_text(json.dumps({
+            "schema": "ellmos.open-ocean-activation-log.v1",
+            "entries": [{"type": "unknown", "ref": "skill:decide", "id": "decide", "dest": str(target)}],
+        }), encoding="utf-8")
+
+        code = main([
+            "--rollback", str(log_path), "--workspace", str(self.workspace),
+            "--skills-dir", str(self.workspace / "skills"),
+        ])
+
+        self.assertEqual(code, 4)
+        self.assertTrue((target / "KEEP.txt").is_file())
+
+    def test_module_delete_noop_is_not_reported_as_success(self):
+        module_dest = self.workspace / "modules" / "module-a"
+        module_dest.mkdir(parents=True)
+        (module_dest / "KEEP.txt").write_text("keep")
+        log_path = self.root / "module-log.json"
+        log_path.write_text(json.dumps({
+            "schema": "ellmos.open-ocean-activation-log.v1",
+            "entries": [{"type": "module", "ref": "module:module-a", "dest": str(module_dest)}],
+        }), encoding="utf-8")
+
+        with mock.patch("tools.ocean_dev.force_rmtree", return_value=None):
+            code = main([
+                "--rollback", str(log_path), "--workspace", str(self.workspace),
+                "--skills-dir", str(self.workspace / "skills"),
+            ])
+
+        self.assertEqual(code, 4)
+        self.assertTrue((module_dest / "KEEP.txt").is_file())
+
+    def test_legacy_module_log_uses_catalog_destination_case_on_posix(self):
+        module_dest = self.workspace / "modules" / "catalog-name"
+        module_dest.mkdir(parents=True)
+        (module_dest / "created-by-apply.txt").write_text("remove")
+        log_path = self.root / "legacy-case-log.json"
+        log_path.write_text(json.dumps({
+            "schema": "ellmos.open-ocean-activation-log.v1",
+            "entries": [{
+                "type": "module", "ref": "module:CATALOG-NAME", "dest": str(module_dest),
+            }],
+        }), encoding="utf-8")
+
+        code = main([
+            "--rollback", str(log_path), "--workspace", str(self.workspace),
+            "--skills-dir", str(self.workspace / "skills"),
+        ])
+
+        self.assertEqual(code, 0)
+        self.assertFalse(module_dest.exists())
+
     def test_explicit_skills_dir_can_target_a_real_looking_directory(self):
         """Proves the escape hatch works -- an operator who deliberately
         wants the live directory can still get it -- without this test suite
@@ -248,6 +324,7 @@ class OceanDevRealGitFetchIntegrationTests(unittest.TestCase):
             [(entry["type"], entry["ref"]) for entry in log["entries"]],
             [("module", "module:fetchable-module"), ("skill", "skill:decide")],
         )
+        self.assertEqual(log["entries"][0]["id"], "fetchable-module")
         code = main([
             "--rollback", str(log_path), "--workspace", str(self.workspace),
             "--skills-dir", str(self.workspace / "skills"),
@@ -255,6 +332,36 @@ class OceanDevRealGitFetchIntegrationTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertFalse(dest.exists())
         self.assertFalse(skill_dest.exists())
+
+    def test_rollback_with_different_workspace_preserves_original_and_foreign_targets(self):
+        code = main([
+            "--bundles-root", str(self.bundles_root), "--ring", "1", "--skeleton", str(self.skeleton),
+            "--modules-catalog", str(self.catalog_path), "--skills-registry", str(self.registry_path),
+            "--workspace", str(self.workspace), "--apply",
+        ])
+        self.assertEqual(code, 0)
+        original_module = self.workspace / "modules" / "fetchable-module"
+        original_skill = self.workspace / "skills" / "decide"
+
+        other_workspace = self.root / "other-workspace"
+        foreign_module = other_workspace / "modules" / "fetchable-module"
+        foreign_skill = other_workspace / "skills" / "decide"
+        foreign_module.mkdir(parents=True)
+        foreign_skill.mkdir(parents=True)
+        (foreign_module / "FOREIGN.txt").write_text("keep")
+        (foreign_skill / "FOREIGN.txt").write_text("keep")
+
+        code = main([
+            "--rollback", str(self.workspace / "ocean-dev.activation-log.json"),
+            "--workspace", str(other_workspace),
+            "--skills-dir", str(other_workspace / "skills"),
+        ])
+
+        self.assertEqual(code, 4)
+        self.assertTrue((original_module / "marker.txt").is_file())
+        self.assertTrue((original_skill / "SKILL.md").is_file())
+        self.assertTrue((foreign_module / "FOREIGN.txt").is_file())
+        self.assertTrue((foreign_skill / "FOREIGN.txt").is_file())
 
 
 if __name__ == "__main__":

@@ -108,7 +108,7 @@
     }
   },
   "not_yet_present": [
-    "the full production installer: Resolve and Verify, SHA-pinned module Fetch/Place, sandboxed write-side skill Activate, activation logging, and exact log-based Roll back exist in tools; general choice application, host adapters beyond claude-code, a full live-system installation, and product cutover do not exist yet -- see architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md",
+    "the full production installer: Resolve and Verify, SHA-pinned module Fetch/Place, sandboxed write-side skill Activate, activation logging, and target-validated log-based Roll back for supported components exist in tools; catalog, pin, source-type, and component-coverage gaps remain alongside general choice application, host adapters beyond claude-code, a full live-system installation, and product cutover -- see architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md for the itemized scope",
     "a runtime of our own: every candidate is private or only declared",
     "any copy of the manifests: they live in the recipe repository and are referenced, not duplicated"
   ],

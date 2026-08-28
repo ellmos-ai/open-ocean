@@ -152,38 +152,131 @@ def write_activation_log(path: Path, module_outcomes: list[Any], skill_outcomes:
     entries = []
     for o in module_outcomes:
         if o.action == "fetched":
-            entries.append({"type": "module", "ref": o.ref, "dest": o.detail["dest"]})
+            resolved_dest = Path(o.detail["dest"]).resolve(strict=False)
+            entries.append({
+                "type": "module",
+                "ref": o.ref,
+                "id": resolved_dest.name,
+                "dest": str(resolved_dest),
+            })
     for o in skill_outcomes:
         if o["action"] == "activated":
-            entries.append({"type": "skill", "ref": o["ref"], "id": o["skill_name"], "dest": o["detail"]["dest"]})
+            entries.append({
+                "type": "skill",
+                "ref": o["ref"],
+                "id": o["skill_name"],
+                "dest": str(Path(o["detail"]["dest"]).resolve(strict=False)),
+            })
     if not entries:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps({"schema": "ellmos.open-ocean-activation-log.v1", "entries": entries}, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
-def do_rollback(log_path: Path, adapter: Any) -> int:
+def _safe_leaf_id(value: Any) -> bool:
+    return isinstance(value, str) and bool(value) and value not in {".", ".."} and "/" not in value and "\\" not in value
+
+
+def do_rollback(log_path: Path, adapter: Any, workspace: Path) -> int:
     if not log_path.is_file():
         print(f"ERROR: activation log not found: {log_path}", file=sys.stderr)
         return 3
-    log = json.loads(log_path.read_text(encoding="utf-8"))
-    entries = log.get("entries", [])
-    failures = 0
-    for entry in reversed(entries):
-        if entry["type"] == "skill":
-            result = adapter.rollback_activate_skill(entry["id"])
-            print(f"  [{'OK' if result.action == 'rolled-back' else 'FAIL'}] skill {entry['id']}: {result.action} ({result.detail})")
-            failures += int(result.action != "rolled-back")
-        elif entry["type"] == "module":
-            dest = Path(entry["dest"])
-            if dest.is_dir():
-                force_rmtree(dest)
-                print(f"  [OK] module {entry['ref']}: removed {dest}")
-            else:
-                print(f"  [FAIL] module {entry['ref']}: {dest} not found (already rolled back?)")
-                failures += 1
+    try:
+        log = json.loads(log_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"ERROR: invalid activation log {log_path}: {exc}", file=sys.stderr)
+        return 4
+    if not isinstance(log, dict) or log.get("schema") != "ellmos.open-ocean-activation-log.v1":
+        print(f"ERROR: unsupported or missing activation-log schema in {log_path}", file=sys.stderr)
+        return 4
+    entries = log.get("entries")
+    if not isinstance(entries, list):
+        print(f"ERROR: activation-log entries must be a list in {log_path}", file=sys.stderr)
+        return 4
+
+    # Validate every entry and every target before the first deletion. A
+    # malformed or replayed log therefore cannot produce a partial rollback.
+    operations: list[tuple[str, str, str, Path]] = []
+    for index, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            print(f"ERROR: activation-log entry {index} is not an object", file=sys.stderr)
+            return 4
+        entry_type = entry.get("type")
+        ref = entry.get("ref")
+        raw_dest = entry.get("dest")
+        if not isinstance(raw_dest, str) or not raw_dest:
+            print(f"ERROR: activation-log entry {index} has no valid destination", file=sys.stderr)
+            return 4
+        logged_dest = Path(raw_dest).resolve(strict=False)
+        if entry_type == "skill":
+            skill_id = entry.get("id")
+            if not _safe_leaf_id(skill_id) or ref != f"skill:{skill_id}":
+                print(f"ERROR: invalid skill rollback entry {index}: {entry!r}", file=sys.stderr)
+                return 4
+            configured_dest = (adapter.skills_dir / skill_id).resolve(strict=False)
+            if logged_dest != configured_dest:
+                print(
+                    f"ERROR: skill {skill_id} logged destination {logged_dest} does not match configured target {configured_dest}",
+                    file=sys.stderr,
+                )
+                return 4
+            operations.append(("skill", ref, skill_id, logged_dest))
+        elif entry_type == "module":
+            if not isinstance(ref, str) or not ref.startswith("module:"):
+                print(f"ERROR: invalid module rollback entry {index}: {entry!r}", file=sys.stderr)
+                return 4
+            ref_module_id = ref.removeprefix("module:")
+            logged_module_id = entry.get("id", Path(raw_dest).name)
+            if not _safe_leaf_id(ref_module_id) or not _safe_leaf_id(logged_module_id):
+                print(
+                    f"ERROR: unsafe module id in rollback entry {index}: ref={ref_module_id!r}, id={logged_module_id!r}",
+                    file=sys.stderr,
+                )
+                return 4
+            if logged_module_id.casefold() != ref_module_id.casefold():
+                print(
+                    f"ERROR: module rollback entry {index} id {logged_module_id!r} does not match ref {ref!r}",
+                    file=sys.stderr,
+                )
+                return 4
+            configured_dest = (workspace / "modules" / logged_module_id).resolve(strict=False)
+            if logged_dest != configured_dest:
+                print(
+                    f"ERROR: module {ref} logged destination {logged_dest} does not match workspace target {configured_dest}",
+                    file=sys.stderr,
+                )
+                return 4
+            operations.append(("module", ref, logged_module_id, logged_dest))
         else:
-            print(f"  [SKIP] unknown log entry type: {entry!r}")
+            print(f"ERROR: unknown activation-log entry type at index {index}: {entry_type!r}", file=sys.stderr)
+            return 4
+
+    failures = 0
+    for entry_type, ref, component_id, dest in reversed(operations):
+        if entry_type == "skill":
+            result = adapter.rollback_activate_skill(component_id, expected_dest=dest)
+            print(f"  [{'OK' if result.action == 'rolled-back' else 'FAIL'}] skill {component_id}: {result.action} ({result.detail})")
+            failures += int(result.action != "rolled-back")
+        else:
+            if dest.is_symlink():
+                print(f"  [FAIL] module {ref}: refusing to remove symlink {dest}")
+                failures += 1
+                continue
+            if not dest.is_dir():
+                print(f"  [FAIL] module {ref}: {dest} not found (already rolled back?)")
+                failures += 1
+                continue
+            try:
+                force_rmtree(dest)
+            except OSError as exc:
+                print(f"  [FAIL] module {ref}: could not remove {dest}: {exc}")
+                failures += 1
+                continue
+            if dest.exists() or dest.is_symlink():
+                print(f"  [FAIL] module {ref}: target remains after rollback: {dest}")
+                failures += 1
+            else:
+                print(f"  [OK] module {ref}: removed {dest}")
     return 4 if failures else 0
 
 
@@ -230,7 +323,7 @@ def main(argv: list[str] | None = None) -> int:
     adapter = adapter_cls(skills_dir=skills_dir)
 
     if args.rollback:
-        return do_rollback(args.rollback, adapter)
+        return do_rollback(args.rollback, adapter, args.workspace)
 
     if args.bundles_root is None:
         print("ERROR: --bundles-root is required (unless --rollback)", file=sys.stderr)

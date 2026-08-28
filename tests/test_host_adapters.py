@@ -6,6 +6,7 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from tools.host_adapters import ActivateResult, ClaudeCodeHostAdapter, HostAdapter, known_adapters
 
@@ -134,6 +135,34 @@ class RollbackActivateSkillTests(unittest.TestCase):
         self.assertTrue(adapter.skill_present("round-trip"))
         adapter.rollback_activate_skill("round-trip")
         self.assertFalse(adapter.skill_present("round-trip"))
+
+    def test_logged_destination_must_match_configured_target(self):
+        adapter = ClaudeCodeHostAdapter(self.skills_dir)
+        dest = self.skills_dir / "my-skill"
+        dest.mkdir()
+        (dest / "KEEP.txt").write_text("keep")
+        result = adapter.rollback_activate_skill(
+            "my-skill", expected_dest=Path(self.temp.name) / "different-skills" / "my-skill"
+        )
+        self.assertEqual(result.action, "failed")
+        self.assertTrue((dest / "KEEP.txt").is_file())
+
+    def test_delete_noop_is_reported_as_failure(self):
+        adapter = ClaudeCodeHostAdapter(self.skills_dir)
+        dest = self.skills_dir / "my-skill"
+        dest.mkdir()
+        with mock.patch("tools.host_adapters.force_rmtree", return_value=None):
+            result = adapter.rollback_activate_skill("my-skill", expected_dest=dest)
+        self.assertEqual(result.action, "failed")
+        self.assertTrue(dest.is_dir())
+
+    def test_unsafe_skill_name_is_rejected_without_touching_parent(self):
+        adapter = ClaudeCodeHostAdapter(self.skills_dir)
+        marker = Path(self.temp.name) / "KEEP.txt"
+        marker.write_text("keep")
+        result = adapter.rollback_activate_skill("../KEEP.txt")
+        self.assertEqual(result.action, "failed")
+        self.assertTrue(marker.is_file())
 
 
 if __name__ == "__main__":

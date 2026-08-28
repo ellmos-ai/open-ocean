@@ -23,10 +23,12 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest import mock
 
 from tools.fetch_place import (
     FetchError,
     fetch_module_at_sha,
+    force_rmtree,
     is_git_sha,
     plan_and_fetch,
     resolve_pin_for_module,
@@ -177,6 +179,29 @@ class FetchModuleAtShaRealGitTests(unittest.TestCase):
         dest.mkdir()
         with self.assertRaises(FetchError):
             fetch_module_at_sha(str(self.origin), self.sha, dest, dry_run=False)
+
+
+class ForceRmtreeTests(unittest.TestCase):
+    def test_reports_failure_when_rmtree_returns_but_target_remains(self):
+        with tempfile.TemporaryDirectory() as temp:
+            target = Path(temp) / "target"
+            target.mkdir()
+            (target / "file.txt").write_text("still here")
+            with mock.patch("tools.fetch_place.shutil.rmtree", return_value=None):
+                with self.assertRaisesRegex(OSError, "target remains"):
+                    force_rmtree(target)
+            self.assertTrue(target.is_dir())
+
+    def test_fetch_reports_cleanup_failure_instead_of_hiding_it(self):
+        with tempfile.TemporaryDirectory() as temp:
+            dest = Path(temp) / "partial"
+            failed_git = SimpleNamespace(returncode=1, stderr="fetch failed", stdout="")
+            with mock.patch("tools.fetch_place._run_git", return_value=failed_git), mock.patch(
+                "tools.fetch_place.force_rmtree", side_effect=OSError("locked")
+            ):
+                with self.assertRaisesRegex(FetchError, "cleanup.*failed"):
+                    fetch_module_at_sha("https://example.invalid/repo.git", VALID_SHA, dest, dry_run=False)
+            self.assertTrue(dest.is_dir())
 
 
 class PlanAndFetchTests(unittest.TestCase):

@@ -79,15 +79,23 @@ def force_rmtree(path: Path) -> None:
     only the write bit, on both directories and files, before removing --
     this keeps traversal working on POSIX while still clearing Windows'
     read-only attribute (chmod 0o700 sets FILE_ATTRIBUTE_READONLY off too)."""
+    if path.is_symlink():
+        raise OSError(f"refusing to recursively remove symlink: {path}")
     if not path.exists():
         return
+    try:
+        path.chmod(0o700)
+    except OSError:
+        pass
     for root, dirs, files in os.walk(path):
         for name in dirs + files:
             try:
                 (Path(root) / name).chmod(0o700)
             except OSError:
                 pass
-    shutil.rmtree(path, ignore_errors=True)
+    shutil.rmtree(path)
+    if path.exists() or path.is_symlink():
+        raise OSError(f"recursive removal reported success but target remains: {path}")
 
 
 @dataclass
@@ -187,8 +195,11 @@ def fetch_module_at_sha(repository_url: str, sha: str, dest: Path, *, dry_run: b
                 f"post-checkout HEAD {landed_sha!r} does not match the pinned SHA {sha!r} -- "
                 "refusing to leave a mismatched checkout in place"
             )
-    except FetchError:
-        force_rmtree(dest)
+    except FetchError as exc:
+        try:
+            force_rmtree(dest)
+        except OSError as cleanup_exc:
+            raise FetchError(f"{exc}; cleanup of partial destination {dest} failed: {cleanup_exc}") from cleanup_exc
         raise
     return FetchOutcome("", "fetched", {"repository": repository_url, "sha": sha, "dest": str(dest), "head": landed_sha})
 

@@ -107,23 +107,49 @@ class ClaudeCodeHostAdapter:
         try:
             shutil.copytree(source_dir, dest)
         except OSError as exc:
-            force_rmtree(dest)
-            return ActivateResult(skill_name, "failed", {"reason": str(exc)})
+            try:
+                force_rmtree(dest)
+            except OSError as cleanup_exc:
+                return ActivateResult(skill_name, "failed", {
+                    "reason": str(exc),
+                    "cleanup_error": str(cleanup_exc),
+                    "dest": str(dest),
+                })
+            return ActivateResult(skill_name, "failed", {"reason": str(exc), "dest": str(dest)})
         if not dest.is_dir():
             return ActivateResult(skill_name, "failed", {"reason": "copytree reported success but dest is missing"})
         return ActivateResult(skill_name, "activated", {"source": str(source_dir), "dest": str(dest)})
 
-    def rollback_activate_skill(self, skill_name: str) -> ActivateResult:
-        """Removes `self.skills_dir / skill_name`. Callers must only invoke
-        this for a skill_name their own run actually activated (tracked in an
-        activation log, e.g. tools/ocean_dev.py's) -- this method has no way
-        of knowing on its own whether the directory pre-existed, by design:
-        that bookkeeping is policy, and belongs with the caller that decided
-        to apply in the first place, not duplicated into the mechanism."""
+    def rollback_activate_skill(self, skill_name: str, *, expected_dest: Path | None = None) -> ActivateResult:
+        """Remove an activation only when its logged destination matches this
+        adapter's configured target. The caller supplies ``expected_dest``
+        from the activation log; a target mismatch fails closed instead of
+        reconstructing and deleting a same-named directory elsewhere."""
+        if not skill_name or skill_name in {".", ".."} or "/" in skill_name or "\\" in skill_name:
+            return ActivateResult(skill_name, "failed", {"reason": f"unsafe skill name: {skill_name!r}"})
         dest = self.skills_dir / skill_name
+        if expected_dest is not None:
+            configured = dest.resolve(strict=False)
+            logged = expected_dest.resolve(strict=False)
+            if logged != configured:
+                return ActivateResult(skill_name, "failed", {
+                    "reason": "logged destination does not match configured skills target",
+                    "logged_dest": str(logged),
+                    "configured_dest": str(configured),
+                })
+        if dest.is_symlink():
+            return ActivateResult(skill_name, "failed", {"reason": f"refusing to roll back symlink: {dest}"})
         if not dest.is_dir():
             return ActivateResult(skill_name, "failed", {"reason": f"nothing to roll back at {dest}"})
-        force_rmtree(dest)
+        try:
+            force_rmtree(dest)
+        except OSError as exc:
+            return ActivateResult(skill_name, "failed", {"reason": str(exc), "dest": str(dest)})
+        if dest.exists() or dest.is_symlink():
+            return ActivateResult(skill_name, "failed", {
+                "reason": f"rollback reported success but target remains: {dest}",
+                "dest": str(dest),
+            })
         return ActivateResult(skill_name, "rolled-back", {"dest": str(dest)})
 
 

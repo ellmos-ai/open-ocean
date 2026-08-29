@@ -52,6 +52,10 @@ class OceanDevIntegrationTests(unittest.TestCase):
         self.catalog_path.write_text(json.dumps({"modules": [{
             "id": "present-module", "source_of_truth": {"type": "local-directory", "repository": "r"},
             "resolved_source": "present-module", "visibility": "public",
+            "kind": "runtime", "package": "present-module",
+            "provides": ["runtime.host"], "requires": ["routing.default"],
+            "entrypoints": {"service": "present-module serve"},
+            "boundaries": {"network": "local", "data": "user-local"},
         }]}), encoding="utf-8")
 
         # skills_source_root/skills/dev/decide/SKILL.md -- registry "path" is
@@ -152,6 +156,27 @@ class OceanDevIntegrationTests(unittest.TestCase):
         self.assertEqual(activate["skill:decide"]["action"], "planned")
         fetch = {o["ref"]: o for o in report["fetch"]}
         self.assertEqual(fetch["module:present-module"]["action"], "present")
+
+    def test_report_exposes_resolved_runtime_metadata_for_lifecycle_consumers(self):
+        report_path = self.root / "report.json"
+
+        code = main(self._common_args(apply=False) + ["--report", str(report_path)])
+
+        self.assertEqual(code, 0)
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        modules = {item["ref"]: item for item in report["components"] if item["kind"] == "module"}
+        runtime = modules["module:present-module"]
+        self.assertEqual(runtime["status"], "resolved")
+        self.assertEqual(runtime["detail"]["catalog_id"], "present-module")
+        self.assertEqual(runtime["detail"]["provides"], ["runtime.host"])
+        self.assertEqual(runtime["detail"]["requires"], ["routing.default"])
+        self.assertEqual(runtime["detail"]["entrypoints"], {"service": "present-module serve"})
+        self.assertEqual(runtime["detail"]["package"], "present-module")
+        self.assertEqual(runtime["detail"]["kind"], "runtime")
+        self.assertEqual(
+            runtime["detail"]["local_path"],
+            str((self.catalog_path.parent / "present-module").resolve(strict=False)),
+        )
 
     def test_default_skills_dir_is_under_workspace_not_live_claude_skills(self):
         report_path = self.root / "report.json"

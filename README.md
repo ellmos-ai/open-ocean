@@ -16,16 +16,16 @@ The free community full system of the ellmos ecosystem.
 
 ## Read this first: this repository is a building site
 
-**The released full system is not here yet.** A transactional installer core now exists and has
-been exercised on Windows and macOS, but there is still no BACH-parity runtime of our own and
-deliberately no copies of the recipes. What is here is the architecture and the first executable
-system-building layer: which recipes the system consumes, where they live, and how they are
-resolved, verified, fetched, placed, activated and rolled back.
+**The released public full system is not here yet.** The private OCEAN Full Dev composition is now
+runnable on the development host: it can plan, install, start, inspect, bootstrap a user, stop and
+restart one declared `runtime.host`. This is the first usable OCEAN product slice, not a BACH-parity
+or public-release claim. The verified composition still reports ten missing required modules and
+therefore marks itself `full_composition: false`.
 
-If you are looking for something usable today, it is the recipe layer — a separate repository
-that holds the bundle manifests and releases them wave by wave. The recipes are ready months
-before the system that consumes them, which is exactly why they are not in here: a repository
-that shipped recipes under the system's name would look finished while the system is not.
+OCEAN consumes the recipes from their canonical repository instead of copying them here. The
+transaction layer resolves, verifies, fetches, places, activates and rolls back; the lifecycle
+layer operates the selected runtime in an explicit local sandbox. The current Full Dev host is the
+private `ellmos-core`, selected by capability rather than hard-coded as the future public runtime.
 
 | Repository | What it is | State |
 |---|---|---|
@@ -79,6 +79,10 @@ tools/
   ocean_dev.py                  single entry point: Resolve -> Verify -> Fetch/Place -> Activate for
                                  one ring or a complete system manifest; dry-run by default,
                                  --apply for real writes, --rollback
+  ocean_lifecycle.py            capability-driven plan/up/status/down/user lifecycle
+  runtime_supervisor.py         authenticated loopback supervisor for one runtime instance
+  runtime_user.py               password-safe user bootstrap delegated to the runtime
+ocean.py                        user-facing OCEAN Full Dev CLI
 PRIVATE.txt                     the publication gate, committed on purpose
 ```
 
@@ -102,6 +106,20 @@ Without `--apply` this is a read-only dry-run. A system manifest cannot be combi
 ring; partial work is selected adaptively as a separate bundle cycle, not by silently truncating
 the declared Full Dev composition.
 
+The product lifecycle is exposed at the repository root:
+
+```text
+python ocean.py plan <composition arguments>
+python ocean.py up <composition arguments> --apply
+python ocean.py status --workspace <local-sandbox>
+python ocean.py user add --workspace <local-sandbox> --username <name> --email <address>
+python ocean.py down --workspace <local-sandbox>
+```
+
+Run `python ocean.py --help` and the respective subcommand help for the complete arguments. User
+passwords are prompted without echo and are never passed as process arguments; local automation
+may use `--password-stdin`.
+
 ## Status
 
 **This repository:**
@@ -111,8 +129,8 @@ the declared Full Dev composition.
 | Architecture skeleton | present, 13 bundles referenced |
 | BACH extraction baseline | present — 114 source-declared names; historic 113-name runtime bar retained; re-audited 2026-08-18 (106 handler classes, +1 vs. the 2026-08-08 baseline — traced to a host-suffixed duplicate file in BACH, `upgrade-WORKSTATION-LG.py` alongside `upgrade.py`; not fixed here, BACH is out of scope for this repository's changes). `registered_names` unchanged at 114. |
 | K9-1 data/checkpoint gate | two carrier fixtures green; adapter and BACH equivalence remain open |
-| Installer | **Resolve, Verify, SHA-pinned Fetch/Place, sandboxed skill Activate, activation logging, and target-validated Roll back are implemented for the currently supported component path; that pinnable Ring-1 slice is integration-proven on a foreign host.** On 2026-08-20 one Mac Studio `--apply` invocation verified all 5 Ring-1 bundles, fetched `WikiStub-Seed` at the catalogued SHA `3476ba2…12458af4`, and activated all 9 Ring-1 skills into an explicit sandbox. Its single 10-entry activation log then rolled back the fetched module and all skills; the live Mac `~/.claude/skills` snapshot stayed identical before, after apply and after rollback. On 2026-08-28 the same pipeline gained direct Full Dev composition from the canonical external `ellmos.system.v1` manifest and private recipe-projection layout. A live read-only run found all 30 manifests and verified 27 pins; it stopped before Fetch/Place/Activate on exactly three stale manifest pins (`core-discovery`, `agent-orchestration`, `dev-lifecycle`). The portable suite is now 110 tests. This is not a full-system install claim: the three pins must first be reconciled in their canonical authority, and the earlier source-type, pinning, and naming gaps still apply. See the [staged build plan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
-| Runtime of our own | **not available** — every candidate is private or only declared |
+| Installer and lifecycle | **Resolve, Verify, SHA-pinned Fetch/Place, sandboxed skill Activate, activation logging, target-validated Roll back, runtime start/status/stop/restart and delegated user bootstrap are implemented.** A live Windows Full Dev run on 2026-08-29 verified all 29 pinned bundles, resolved 51 modules and 62 skills, installed the skill set into an explicit sandbox and reached a healthy web login surface. Start → stop → restart was independently checked. The suite now contains 114 passing tests. Twenty-six module references remain unresolved; ten of them are required by the current Full Dev manifest. See the [staged build plan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
+| Runtime | **available for private Full Dev** through the declared `runtime.host` provider `ellmos-core`; a public OCEAN runtime is not shipped and the private provider is not a public dependency |
 | Recipes | maintained in the recipe repository, not here |
 
 **The traffic light** — release condition 1 turns green when every referenced bundle is green,
@@ -144,14 +162,13 @@ the gate is visible where visibility is switched). It opens when all four are de
    checked. **Met as of 2026-08-18** for this repository's 13-bundle scope — see the traffic-light
    table above.
 2. **Sluice test passed** — the whole line works end to end: a fresh install from these recipes
-   reaches a working state on a machine that is not the development host. **Not met yet, but the
-   installer seam itself is now foreign-host integration-proven.** A Mac Studio run on 2026-08-20
-   performed Resolve, Verify, one real SHA-pinned Fetch/Place and all nine Ring-1 skill activations
-   in one `--apply` invocation, then removed all ten writes through the same activation log. This
-   closes the previously untried combined mechanism path, not the release condition: the target
-   was an explicit sandbox, only one Ring-1 Git module currently has a safe catalogue pin, and the
-   run did not produce a complete working ocean runtime from every required component. See
-   `architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md` Stage 2 for the evidence and remaining breadth.
+   reaches a working state on a machine that is not the development host. **Not met yet.** The
+   installer seam remains foreign-host integration-proven by the 2026-08-20 Mac Studio run. On
+   2026-08-29 the development host additionally completed a real Full Dev plan/apply/start/status/
+   stop/restart cycle and reached a healthy web login surface. That materially advances OCEAN, but
+   it is neither a fresh foreign-host full-system proof nor a complete composition: ten required
+   modules are still missing. See `architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md` for the exact
+   evidence and remaining breadth.
 3. **Parity for the release scope** — the system performs at the level it claims to cover. A
    smaller installable core is a build stage, not a release. The current source audit records
    114 reachable names while retaining the historic 113-name runtime snapshot as the minimum
@@ -170,9 +187,9 @@ the gate is visible where visibility is switched). It opens when all four are de
 
 Condition 2 is the one this repository is named after. Opening the sluices and watching whether
 the water actually arrives is the test that no amount of correct manifests can substitute for.
-Of the four conditions, 1 and 4 are addressed. Condition 2 now has a verified transactional
-installer seam but still lacks a complete fresh working-system installation; condition 3 still
-lacks BACH functional parity. Neither is upgraded by the sandboxed integration proof.
+Of the four conditions, 1 and 4 are addressed. Condition 2 now has a verified transactional seam
+and a working development-host runtime, but still lacks a complete fresh foreign-host installation;
+condition 3 still lacks BACH functional parity. `PRIVATE.txt` therefore remains in force.
 
 ## Licence
 

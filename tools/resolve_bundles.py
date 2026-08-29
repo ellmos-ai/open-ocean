@@ -333,7 +333,13 @@ def resolve_module(component: ResolvedComponent, catalog_path: Path) -> None:
     component.detail = {
         "catalog_id": match["id"], "repository": sot.get("repository"),
         "source_type": sot.get("type"), "resolved_source": resolved_source,
+        "local_path": str(local_path.resolve(strict=False)) if local_path else None,
         "present_locally": present_locally, "visibility": match.get("visibility"),
+        "kind": match.get("kind"), "package": match.get("package"),
+        "provides": list(match.get("provides") or []),
+        "requires": list(match.get("requires") or []),
+        "entrypoints": dict(match.get("entrypoints") or {}),
+        "boundaries": dict(match.get("boundaries") or {}),
     }
 
 

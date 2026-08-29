@@ -1,0 +1,583 @@
+"""User-facing lifecycle orchestration built on the Open Ocean transaction engine.
+
+This module deliberately does not duplicate Resolve, Verify, Fetch, Place, Activate,
+or Roll back.  It invokes :mod:`tools.ocean_dev` as the transaction boundary and adds
+the missing product concern: selecting and operating one declared ``runtime.host``.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import secrets
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
+import uuid
+from datetime import datetime, timezone
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+
+TOOLS_DIR = Path(__file__).resolve().parent
+TRANSACTION_CLI = TOOLS_DIR / "ocean_dev.py"
+SUPERVISOR_CLI = TOOLS_DIR / "runtime_supervisor.py"
+RUNTIME_USER_CLI = TOOLS_DIR / "runtime_user.py"
+INSTALL_STATE = "ocean.install.json"
+RUNTIME_STATE = "ocean.runtime.json"
+RUNTIME_SPEC = "ocean.runtime-spec.json"
+
+
+class LifecycleError(RuntimeError):
+    """The composition cannot safely advance to the requested lifecycle state."""
+
+    def __init__(self, message: str, *, exit_code: int = 4) -> None:
+        super().__init__(message)
+        self.exit_code = exit_code
+
+
+@dataclass(frozen=True)
+class RuntimeProvider:
+    id: str
+    ref: str
+    local_path: Path
+    entrypoints: dict[str, str]
+    package: str | None
+    detail: dict[str, Any]
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "ref": self.ref,
+            "capability": "runtime.host",
+            "local_path": str(self.local_path),
+            "entrypoints": self.entrypoints,
+            "package": self.package,
+        }
+
+
+def run_transaction(
+    *,
+    bundles_root: Path,
+    system_manifest: Path,
+    modules_catalog: Path,
+    skills_registry: Path,
+    workspace: Path,
+    apply: bool = False,
+) -> dict[str, Any]:
+    """Run the existing transaction CLI and return its JSON report."""
+    command = [
+        sys.executable,
+        str(TRANSACTION_CLI),
+        "--bundles-root", str(bundles_root),
+        "--system-manifest", str(system_manifest),
+        "--modules-catalog", str(modules_catalog),
+        "--skills-registry", str(skills_registry),
+        "--workspace", str(workspace),
+        "--json",
+    ]
+    if apply:
+        command.append("--apply")
+    proc = subprocess.run(
+        command,
+        cwd=TOOLS_DIR.parent,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if proc.returncode != 0:
+        detail = proc.stderr.strip() or proc.stdout.strip() or "transaction failed without output"
+        raise LifecycleError(
+            f"Open-Ocean-Transaktion fehlgeschlagen (Exit {proc.returncode}): {detail}",
+            exit_code=proc.returncode,
+        )
+    try:
+        report = json.loads(proc.stdout)
+    except json.JSONDecodeError as exc:
+        raise LifecycleError(f"Open-Ocean-Transaktion lieferte kein gültiges JSON: {exc}") from exc
+    if not isinstance(report, dict):
+        raise LifecycleError("Open-Ocean-Transaktion lieferte kein JSON-Objekt")
+    return report
+
+
+def select_runtime_provider(components: list[dict[str, Any]]) -> RuntimeProvider:
+    """Select exactly one resolved module declaring ``runtime.host``."""
+    candidates = []
+    for component in components:
+        detail = component.get("detail") or {}
+        if (
+            component.get("kind") == "module"
+            and component.get("status") == "resolved"
+            and "runtime.host" in (detail.get("provides") or [])
+        ):
+            candidates.append(component)
+    if not candidates:
+        raise LifecycleError(
+            "Die Komposition enthält keinen lokal aufgelösten Anbieter für runtime.host."
+        )
+    if len(candidates) != 1:
+        refs = ", ".join(sorted(str(item.get("ref")) for item in candidates))
+        raise LifecycleError(
+            f"Die Komposition enthält mehrere runtime.host-Anbieter ({refs}); Auswahl muss deklarativ eindeutig sein."
+        )
+    component = candidates[0]
+    detail = component["detail"]
+    raw_path = detail.get("local_path")
+    if not isinstance(raw_path, str) or not raw_path:
+        raise LifecycleError(f"Runtime-Anbieter {component['ref']} hat keinen lokalen Quellpfad.")
+    entrypoints = detail.get("entrypoints") or {}
+    if not isinstance(entrypoints, dict) or not entrypoints.get("service"):
+        raise LifecycleError(f"Runtime-Anbieter {component['ref']} deklariert keinen Service-Einstieg.")
+    return RuntimeProvider(
+        id=str(detail.get("catalog_id") or component["ref"].split(":", 1)[-1]),
+        ref=str(component["ref"]),
+        local_path=Path(raw_path).resolve(strict=False),
+        entrypoints={str(k): str(v) for k, v in entrypoints.items()},
+        package=str(detail["package"]) if detail.get("package") else None,
+        detail=dict(detail),
+    )
+
+
+def lifecycle_plan(transaction_report: dict[str, Any]) -> dict[str, Any]:
+    components = transaction_report.get("components")
+    if not isinstance(components, list):
+        raise LifecycleError("Transaktionsbericht enthält keine Komponentenauflösung.")
+    runtime = select_runtime_provider(components)
+    required_missing = sorted(
+        str(component.get("ref"))
+        for component in components
+        if component.get("requirement") == "required"
+        and component.get("kind") in {"module", "skill"}
+        and component.get("status") != "resolved"
+    )
+    composition = transaction_report.get("composition") or {}
+    return {
+        "schema": "ellmos.open-ocean-lifecycle-plan.v1",
+        "composition": {
+            "id": composition.get("id"),
+            "mode": composition.get("mode"),
+            "schema": composition.get("schema"),
+        },
+        "runtime": runtime.as_dict(),
+        "readiness": {
+            "runtime_host": True,
+            "required_components_missing": required_missing,
+            "full_composition": not required_missing,
+        },
+        "transaction": transaction_report,
+    }
+
+
+def plan_from_paths(
+    *,
+    bundles_root: Path,
+    system_manifest: Path,
+    modules_catalog: Path,
+    skills_registry: Path,
+    workspace: Path,
+) -> dict[str, Any]:
+    return lifecycle_plan(run_transaction(
+        bundles_root=bundles_root,
+        system_manifest=system_manifest,
+        modules_catalog=modules_catalog,
+        skills_registry=skills_registry,
+        workspace=workspace,
+        apply=False,
+    ))
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _write_json_atomic(path: Path, value: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    temporary.write_text(json.dumps(value, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    temporary.replace(path)
+
+
+def write_runtime_projection(
+    workspace: Path,
+    transaction_report: dict[str, Any],
+) -> tuple[Path, Path]:
+    """Create the read-only compatibility projection consumed by ellmos-core's module page."""
+    components = transaction_report["components"]
+    fetch_by_ref = {item["ref"]: item for item in transaction_report.get("fetch", [])}
+    modules = []
+    locked = []
+    for component in components:
+        if component.get("kind") != "module":
+            continue
+        detail = component.get("detail") or {}
+        module_id = str(detail.get("catalog_id") or component["ref"].split(":", 1)[-1])
+        fetch = fetch_by_ref.get(component["ref"], {})
+        resolved = component.get("status") == "resolved" or fetch.get("action") == "fetched"
+        optional = component.get("requirement") == "optional"
+        modules.append({
+            "name": module_id,
+            "kind": detail.get("kind") or "module",
+            "bundles": component.get("from_bundles") or [],
+            "enabled": resolved or not optional,
+            "source": {
+                "type": detail.get("source_type") or "unresolved",
+                "repo": detail.get("repository"),
+                "path": detail.get("local_path") or (fetch.get("detail") or {}).get("dest"),
+            },
+            "boundaries": {
+                "net": (detail.get("boundaries") or {}).get("network", ""),
+                "targets": [],
+            },
+            "wiring": {
+                "provides": detail.get("provides") or [],
+                "consumes": detail.get("requires") or [],
+            },
+        })
+        if resolved:
+            status = "cloned" if fetch.get("action") == "fetched" else "local-present"
+        else:
+            status = "skipped" if optional else "error"
+        locked.append({"name": module_id, "status": status})
+
+    composition = transaction_report.get("composition") or {}
+    manifest = {
+        "schema": "ellmos-sovereign-manifest-v1",
+        "name": composition.get("id") or "open-ocean",
+        "tier": "DEV",
+        "authority": "compatibility-projection-only",
+        "modules": modules,
+    }
+    lock = {
+        "schema": "ellmos.open-ocean-runtime-lock.v1",
+        "manifest": manifest["name"],
+        "tier": "DEV",
+        "modules": locked,
+    }
+    manifest_path = workspace / "sovereign.manifest.json"
+    lock_path = workspace / "sovereign.lock.json"
+    _write_json_atomic(manifest_path, manifest)
+    _write_json_atomic(lock_path, lock)
+    return manifest_path, lock_path
+
+
+def _ellmos_core_runtime_spec(
+    provider: RuntimeProvider,
+    components: list[dict[str, Any]],
+    workspace: Path,
+    manifest_path: Path,
+    host: str,
+    port: int,
+) -> dict[str, Any]:
+    if provider.id != "ellmos-core":
+        raise LifecycleError(
+            f"Für runtime.host {provider.id!r} ist noch kein OCEAN-Laufzeitadapter registriert."
+        )
+    package_root = provider.local_path / "src" / "ellmos_core"
+    if not package_root.is_dir():
+        raise LifecycleError(f"ellmos-core-Paket nicht unter {package_root} gefunden.")
+    python_paths = []
+    for component in components:
+        if component.get("kind") != "module" or component.get("status") != "resolved":
+            continue
+        raw = (component.get("detail") or {}).get("local_path")
+        if raw:
+            source_dir = Path(raw) / "src"
+            if source_dir.is_dir():
+                python_paths.append(str(source_dir.resolve(strict=False)))
+    inherited = os.environ.get("PYTHONPATH")
+    if inherited:
+        python_paths.append(inherited)
+    runtime_url = f"http://{host}:{port}"
+    return {
+        "runtime_id": provider.id,
+        "command": [sys.executable, "-m", "ellmos_core.cli", "serve"],
+        "cwd": str(provider.local_path),
+        "env": {
+            "PYTHONPATH": os.pathsep.join(dict.fromkeys(python_paths)),
+            "PYTHONDONTWRITEBYTECODE": "1",
+            "PYTHONUTF8": "1",
+            "ELLMOS_CORE_DEBUG": "0",
+            "ELLMOS_CORE_SECRET_KEY": secrets.token_urlsafe(48),
+            "ELLMOS_CORE_SECURE_COOKIES": "0",
+            "ELLMOS_CORE_HOST": host,
+            "ELLMOS_CORE_PORT": str(port),
+            "ELLMOS_CORE_DB_PATH": str((workspace / "state" / "ellmos_core.db").resolve(strict=False)),
+            "ELLMOS_CORE_MANIFEST_PATH": str(manifest_path.resolve(strict=False)),
+        },
+        "runtime_url": runtime_url,
+        "health_url": f"{runtime_url}/api/health",
+    }
+
+
+def _read_json(path: Path) -> dict[str, Any]:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise LifecycleError(f"Lokaler OCEAN-Status ist nicht lesbar: {path}: {exc}", exit_code=3) from exc
+    if not isinstance(value, dict):
+        raise LifecycleError(f"Lokaler OCEAN-Status ist kein JSON-Objekt: {path}", exit_code=3)
+    return value
+
+
+def _control_request(state: dict[str, Any], action: str, timeout: float = 2.0) -> dict[str, Any]:
+    control = state.get("control") or {}
+    host, port, token = control.get("host"), control.get("port"), control.get("token")
+    if host != "127.0.0.1" or not isinstance(port, int) or not isinstance(token, str):
+        raise LifecycleError("Runtime-Status enthält keinen gültigen lokalen Kontrollkanal.", exit_code=3)
+    method = "POST" if action == "stop" else "GET"
+    request = urllib.request.Request(
+        f"http://{host}:{port}/{action}",
+        method=method,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except (OSError, urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError) as exc:
+        raise LifecycleError(f"Authentifizierter OCEAN-Kontrollkanal nicht erreichbar: {exc}", exit_code=3) from exc
+
+
+def _health(health_url: str, timeout: float = 1.0) -> bool:
+    try:
+        with urllib.request.urlopen(health_url, timeout=timeout) as response:
+            return response.status == 200
+    except (OSError, urllib.error.URLError, urllib.error.HTTPError):
+        return False
+
+
+def start_runtime(
+    provider: RuntimeProvider,
+    components: list[dict[str, Any]],
+    workspace: Path,
+    manifest_path: Path,
+    *,
+    host: str,
+    port: int,
+    startup_timeout: float = 20.0,
+) -> dict[str, Any]:
+    if host not in {"127.0.0.1", "localhost"}:
+        raise LifecycleError("OCEAN Full Dev bindet in diesem Bauabschnitt ausschließlich an Loopback.")
+    state_path = workspace / RUNTIME_STATE
+    if state_path.exists():
+        existing = _read_json(state_path)
+        if existing.get("status") == "running":
+            try:
+                if _control_request(existing, "status").get("status") == "running":
+                    raise LifecycleError("In dieser Sandbox läuft bereits eine OCEAN-Laufzeit.")
+            except LifecycleError as exc:
+                if "läuft bereits" in str(exc):
+                    raise
+                raise LifecycleError(
+                    "Vorhandener Runtime-Status ist nicht kontrollierbar; kein zweiter Prozess wird gestartet."
+                ) from exc
+
+    launch = _ellmos_core_runtime_spec(provider, components, workspace, manifest_path, host, port)
+    token = secrets.token_urlsafe(32)
+    spec = {
+        "schema": "ellmos.open-ocean-runtime-spec.v1",
+        "instance_id": str(uuid.uuid4()),
+        **launch,
+        "token": token,
+        "state_path": str(state_path.resolve(strict=False)),
+        "log_path": str((workspace / "logs" / "runtime.log").resolve(strict=False)),
+    }
+    spec_path = workspace / RUNTIME_SPEC
+    _write_json_atomic(spec_path, spec)
+    supervisor_log = workspace / "logs" / "supervisor.log"
+    supervisor_log.parent.mkdir(parents=True, exist_ok=True)
+    creationflags = 0
+    if os.name == "nt":
+        creationflags = subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
+    with supervisor_log.open("ab", buffering=0) as log_handle:
+        subprocess.Popen(
+            [sys.executable, str(SUPERVISOR_CLI), "--spec", str(spec_path)],
+            cwd=TOOLS_DIR.parent,
+            stdin=subprocess.DEVNULL,
+            stdout=log_handle,
+            stderr=log_handle,
+            creationflags=creationflags,
+        )
+    deadline = time.monotonic() + startup_timeout
+    runtime_state: dict[str, Any] | None = None
+    while time.monotonic() < deadline:
+        if state_path.is_file():
+            runtime_state = _read_json(state_path)
+            if runtime_state.get("instance_id") != spec["instance_id"]:
+                time.sleep(0.1)
+                continue
+            try:
+                control = _control_request(runtime_state, "status", timeout=0.5)
+            except LifecycleError:
+                control = {}
+            if control.get("status") == "running" and _health(launch["health_url"], timeout=0.5):
+                return runtime_state
+            if runtime_state.get("status") == "stopped":
+                break
+        time.sleep(0.1)
+    if runtime_state and runtime_state.get("status") == "running":
+        try:
+            _control_request(runtime_state, "stop")
+        except LifecycleError:
+            pass
+    raise LifecycleError(
+        f"OCEAN-Laufzeit erreichte innerhalb von {startup_timeout:g}s keinen grünen Health-Status; siehe {supervisor_log}."
+    )
+
+
+def up_from_paths(
+    *,
+    bundles_root: Path,
+    system_manifest: Path,
+    modules_catalog: Path,
+    skills_registry: Path,
+    workspace: Path,
+    host: str,
+    port: int,
+) -> dict[str, Any]:
+    transaction = run_transaction(
+        bundles_root=bundles_root,
+        system_manifest=system_manifest,
+        modules_catalog=modules_catalog,
+        skills_registry=skills_registry,
+        workspace=workspace,
+        apply=True,
+    )
+    plan = lifecycle_plan(transaction)
+    provider = select_runtime_provider(transaction["components"])
+    manifest_path, lock_path = write_runtime_projection(workspace, transaction)
+    install = {
+        "schema": "ellmos.open-ocean-install-state.v1",
+        "recorded_at": _now(),
+        "workspace": str(workspace.resolve(strict=False)),
+        "plan": plan,
+        "projection": {"manifest": str(manifest_path), "lock": str(lock_path)},
+    }
+    _write_json_atomic(workspace / INSTALL_STATE, install)
+    runtime_state = start_runtime(
+        provider,
+        transaction["components"],
+        workspace,
+        manifest_path,
+        host=host,
+        port=port,
+    )
+    return {
+        "schema": "ellmos.open-ocean-lifecycle-up.v1",
+        "composition": plan["composition"],
+        "readiness": plan["readiness"],
+        "runtime": {
+            "id": provider.id,
+            "status": runtime_state["status"],
+            "url": runtime_state["runtime_url"],
+            "health": "ok",
+        },
+        "workspace": str(workspace.resolve(strict=False)),
+    }
+
+
+def status_for_workspace(workspace: Path) -> dict[str, Any]:
+    install = _read_json(workspace / INSTALL_STATE)
+    runtime = _read_json(workspace / RUNTIME_STATE)
+    control_status = "stopped"
+    if runtime.get("status") == "running":
+        try:
+            control_status = str(_control_request(runtime, "status").get("status", "unavailable"))
+        except LifecycleError:
+            control_status = "unavailable"
+    health = "ok" if control_status == "running" and _health(str(runtime.get("health_url"))) else "unavailable"
+    return {
+        "schema": "ellmos.open-ocean-lifecycle-status.v1",
+        "runtime": {
+            "id": runtime.get("runtime_id"),
+            "control": control_status,
+            "health": health,
+            "url": runtime.get("runtime_url"),
+        },
+        "composition": install["plan"]["composition"],
+        "readiness": install["plan"]["readiness"],
+        "workspace": str(workspace.resolve(strict=False)),
+    }
+
+
+def down_for_workspace(workspace: Path) -> dict[str, Any]:
+    state_path = workspace / RUNTIME_STATE
+    runtime = _read_json(state_path)
+    if runtime.get("status") != "running":
+        return {"schema": "ellmos.open-ocean-lifecycle-down.v1", "stopped": False, "already_stopped": True}
+    result = _control_request(runtime, "stop")
+    deadline = time.monotonic() + 5.0
+    while time.monotonic() < deadline:
+        current = _read_json(state_path)
+        if current.get("status") == "stopped":
+            return {
+                "schema": "ellmos.open-ocean-lifecycle-down.v1",
+                "stopped": True,
+                "runtime_id": current.get("runtime_id"),
+            }
+        time.sleep(0.05)
+    raise LifecycleError(f"Runtime meldete Stop, Statusdatei blieb aber aktiv: {result}")
+
+
+def user_add_for_workspace(
+    workspace: Path,
+    *,
+    username: str,
+    email: str,
+    role: str,
+    password: str,
+) -> dict[str, Any]:
+    """Delegate local user creation to the selected runtime over stdin."""
+    username, email = username.strip(), email.strip()
+    if not username or not email:
+        raise LifecycleError("Benutzername und E-Mail-Adresse dürfen nicht leer sein.", exit_code=2)
+    if role not in {"admin", "user"}:
+        raise LifecycleError(f"Unbekannte Rolle: {role!r}", exit_code=2)
+    if not password:
+        raise LifecycleError("Das Passwort darf nicht leer sein.", exit_code=2)
+
+    live = status_for_workspace(workspace)
+    if live["runtime"]["control"] != "running" or live["runtime"]["health"] != "ok":
+        raise LifecycleError("Benutzer können nur für eine aktive, gesunde OCEAN-Laufzeit angelegt werden.")
+    spec = _read_json(workspace / RUNTIME_SPEC)
+    runtime_id = str(spec.get("runtime_id") or "")
+    runtime_env = spec.get("env") or {}
+    if not runtime_id or not isinstance(runtime_env, dict):
+        raise LifecycleError("Runtime-Spezifikation enthält keinen nutzbaren Benutzeradapter.", exit_code=3)
+
+    command = [
+        sys.executable,
+        str(RUNTIME_USER_CLI),
+        "--runtime-id", runtime_id,
+        "--username", username,
+        "--email", email,
+        "--role", role,
+    ]
+    env = os.environ.copy()
+    env.update({str(key): str(value) for key, value in runtime_env.items()})
+    proc = subprocess.run(
+        command,
+        cwd=str(spec.get("cwd") or workspace),
+        env=env,
+        input=password + "\n",
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if proc.returncode != 0:
+        detail = proc.stderr.strip() or proc.stdout.strip() or "user creation failed without output"
+        raise LifecycleError(
+            f"Runtime-Benutzer konnte nicht angelegt werden (Exit {proc.returncode}): {detail}",
+            exit_code=proc.returncode,
+        )
+    return {
+        "schema": "ellmos.open-ocean-user-add.v1",
+        "runtime_id": runtime_id,
+        "username": username,
+        "role": role,
+        "created": True,
+    }

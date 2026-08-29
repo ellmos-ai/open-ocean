@@ -382,6 +382,7 @@ def main(argv: list[str] | None = None) -> int:
             "results": [v.as_dict() for v in verifications],
         },
         "activation_check": activation_summary,
+        "components": [component.as_dict() for component in components],
         "fetch": [o.as_dict() for o in fetch_outcomes],
         "activate": activate_outcomes,
     }

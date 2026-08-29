@@ -614,3 +614,57 @@ work present, then used the resulting single activation log for one rollback.
   when running `--ring all`) are real, live findings from running the tool against real data, kept
   as findings rather than quietly patched around, because patching the catalog or adding a
   `software_app` resolver were not asked for in this pass and are better done deliberately.
+
+## 7. OCEAN-first execution checkpoint — 2026-08-29
+
+The product direction is now explicit: the legacy BACH migration plan is delegated to BACH's own
+task system; this repository's active implementation focus is a usable OCEAN. The private Full Dev
+composition may consume private modules, while Public OCEAN remains separately allowlisted and
+publication-gated. The runtime is selected by the declared `runtime.host` capability so today's
+private provider does not become a hard dependency of the future public product.
+
+### Delivered in this cycle
+
+- `ocean.py` is the product entry point for `plan`, `up`, `status`, `down`, and `user add`.
+- The existing `ocean_dev.py` remains the sole Resolve → Verify → Fetch/Place → Activate/Rollback
+  transaction boundary; the new lifecycle layer does not duplicate the installer.
+- One local runtime instance is supervised through a loopback-only authenticated control channel.
+  Its web health is checked live before `up` succeeds, and `down` targets only that exact instance.
+- User creation delegates to the selected runtime. Passwords cross only a hidden prompt or stdin
+  pipe and never appear in command-line arguments.
+- The runtime receives a generated local secret with reload disabled. A start → stop → restart
+  regression test covers both the former orphan-child defect and stale-state restart race.
+
+### Current evidence
+
+- Portable suite: **114 passed**.
+- Real Windows Full Dev sandbox: **29/29 bundle pins verified**, **51 modules resolved**, **62
+  skills resolved and present**, live root page **HTTP 200**, live health **HTTP 200**, database
+  check green with 20 tables.
+- Lifecycle proof: start → live status → controlled stop with port release → restart → live health.
+- Real user-bootstrap proof: a random disposable administrator was created through `ocean user
+  add`, its stored password hash verified, and the exact row removed; user count was 0 before and
+  after the acceptance run.
+- Honest boundary: 26 module references are unresolved and ten of them are required by the current
+  Full Dev manifest (`audit-trail`, `automation-registry`, `automation-runtime`, `billing`,
+  `entitlement-enforcement`, `hosted-operations`, `runtime-boundary-enforcement`,
+  `software-endpoint-registry`, `sso-rbac`, `tenant-isolation`). The machine report therefore says
+  `full_composition: false`.
+
+### Adaptive next-cycle rule
+
+No fixed module order is imposed. Before the next bounded section, repeat the knowledge-lift ritual
+through `.AI`, Gardener and applicable policy binders, then choose from the measured result. The
+next cycle should either (a) close the highest-leverage genuinely required module gap or (b) correct
+the Full Dev manifest if a listed commercial/public concern is misclassified as required. Each
+cycle must keep runtime acceptance, rollback/stop evidence, root help, changelog and DE/EN
+documentation in the same tested commit. Public release, tags, visibility and `PRIVATE.txt` remain
+separate explicit gates.
+
+Language work follows the same cycle rather than a later translation batch. English is the
+repository documentation authority and German is maintained section-for-section in parallel; code
+blocks, identifiers, counts and limitation statements stay invariant. For product surfaces, each
+integration uses the selected runtime's existing locale mechanism and updates every already
+supported locale for any new end-user string. OCEAN must not introduce a second translation system
+beside the runtime provider's catalog. A locale is counted as covered only after the real surface,
+not just its resource file, has been checked.

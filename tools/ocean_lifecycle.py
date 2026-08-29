@@ -433,18 +433,18 @@ def _runtime_endpoint_open(state: dict[str, Any]) -> bool:
     return _tcp_endpoint_open(host, port)
 
 
-def start_runtime(
-    provider: RuntimeProvider,
-    components: list[dict[str, Any]],
-    workspace: Path,
-    manifest_path: Path,
-    *,
-    host: str,
-    port: int,
-    startup_timeout: float = 20.0,
-) -> dict[str, Any]:
+def _assert_runtime_start_available(workspace: Path, *, host: str, port: int) -> None:
+    """Fail before composition writes when this sandbox cannot start safely.
+
+    ``up`` runs this once before the transaction and ``start_runtime`` repeats it
+    immediately before spawning. The second check closes the race in which a port
+    becomes occupied while Resolve/Verify/Fetch/Activate is running.
+    """
     if host not in {"127.0.0.1", "localhost"}:
         raise LifecycleError("OCEAN Full Dev bindet in diesem Bauabschnitt ausschließlich an Loopback.")
+    if not isinstance(port, int) or not 1 <= port <= 65535:
+        raise LifecycleError(f"Ungültiger OCEAN-Port: {port}", exit_code=2)
+
     state_path = workspace / RUNTIME_STATE
     if state_path.exists():
         existing = _read_json(state_path)
@@ -468,6 +468,20 @@ def start_runtime(
         raise LifecycleError(
             f"Der angeforderte OCEAN-Port {host}:{port} ist bereits belegt; Start abgebrochen."
         )
+
+
+def start_runtime(
+    provider: RuntimeProvider,
+    components: list[dict[str, Any]],
+    workspace: Path,
+    manifest_path: Path,
+    *,
+    host: str,
+    port: int,
+    startup_timeout: float = 20.0,
+) -> dict[str, Any]:
+    _assert_runtime_start_available(workspace, host=host, port=port)
+    state_path = workspace / RUNTIME_STATE
 
     launch = _ellmos_core_runtime_spec(provider, components, workspace, manifest_path, host, port)
     token = secrets.token_urlsafe(32)
@@ -533,6 +547,7 @@ def up_from_paths(
     host: str,
     port: int,
 ) -> dict[str, Any]:
+    _assert_runtime_start_available(workspace, host=host, port=port)
     transaction = run_transaction(
         bundles_root=bundles_root,
         system_manifest=system_manifest,

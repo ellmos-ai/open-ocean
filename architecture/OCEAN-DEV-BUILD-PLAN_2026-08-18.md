@@ -797,6 +797,92 @@ identity of the product shown there, so that part of the evidence is withdrawn.
   the browser requests `/favicon.ico` and receives 404. It does not affect navigation, health or
   product identity and is not silently counted as fixed.
 
-This correction makes the current Full Dev surface usable and truthfully identifiable as OCEAN. It
-does not close the nine missing required modules, the three live recipe-pin mismatches, BACH parity,
+At that checkpoint, this correction made the Full Dev surface usable and truthfully identifiable
+as OCEAN. It did not close the nine missing required modules, the three live recipe-pin mismatches, BACH parity,
 foreign-host full-system proof, Public OCEAN, release, tag, visibility or `PRIVATE.txt` gates.
+
+## 10. Adaptive provider cycle 2: recipe reconciliation and automation registry — 2026-08-29
+
+This cycle starts from the measured findings of sections 8 and 9 rather than from a fixed module
+order. Its section-start lift re-read the live `.AI` system and module sources, Gardener findings,
+the architecture contracts and the visibility policy. The policy keeps Hosted-only concerns
+private; it does not allow OCEAN to pretend that billing, tenancy or SSO providers exist. The
+module catalogue does, however, contain one exact reusable provider for the required
+`automation-registry` gap: `automation-master` declares `automation.registry` at a clean, pushed
+commit. `ellmos-scheduler` is not substituted for the separate `automation-runtime` contract.
+
+### Recipe/system authority reconciliation
+
+- The 30-ref system projection combined three independently advanced recipe histories. No single
+  existing remote branch contained its current Core, Compare-Race, Dev-Lifecycle and Therapy pins,
+  so OCEAN did not hide the mismatch with a copied manifest or local repin.
+- A clean reconciliation worktree based on recipe `main` forward-ported Compare-Race and the
+  Therapy bundle, restored all Therapy crosswalk/binding records, and propagated the repository's
+  own content-hash chain with its generators.
+- TDD first proved the missing Therapy ref and Compare-Race member, then the reconciled state proved
+  all **30/30** Full Dev pins against their exact bundle manifests. The portable component-registry
+  receipt advanced additively to V10; historical receipts were not rewritten.
+- The result is pushed as
+  `ellmos-development-system@489b67880b42ba4bd2a1d8052239896f84192269` on branch
+  `codex/ocean-fullsystem-reconcile-20260829`. It is the pinned integration source for this cycle,
+  not yet a claim that canonical recipe `main` has merged it.
+- Recipe verification passed its skill/hash generators, README generator, compile check and
+  whitespace check. The host-independent suite passed **148 tests, 5 skips and 20 subtests**. The
+  unabridged suite additionally stayed fail-closed on an expired WORKSTATION-LG currentness receipt
+  and WORKSTATION-LG-only local files; ASUS-GEI did not forge replacements for either host proof.
+
+### Exact provider binding and applied Full Dev state
+
+- The content-hashed OCEAN overlay now binds `module:automation-registry` to catalog entry and
+  provider `automation-master`, repository `https://github.com/dev-bricks/automation-master.git`,
+  commit `ad40de721615518e409b53b00ed4b2a49840db28`, placement `automation-registry`, provider
+  manifest `ellmos-module.v2.json`, and required capability `automation.registry`.
+- A behavioral TDD test loads the shipped overlay and proves that this declared ref resolves
+  through the exact provider contract; no case-folded or fuzzy alias is accepted.
+- The read-only OCEAN plan verified **30/30** pins and planned the exact provider plus **18** Therapy
+  skills. After controlled stop/apply/start, live status is `running/ok` at
+  `http://127.0.0.1:8810/control/`.
+- The installed provider is a clean detached checkout at the exact commit and expected origin. Its
+  manifest declares `automation.registry`; the runtime projection includes its `src` path.
+- Current resolution is **53 resolved modules**, **24 unresolved module refs**, **80 resolved and
+  present skills**, and **8 required gaps**. The append-preserving rollback ledger contains 80
+  skill entries and two bound-module entries. Machine truth remains `full_composition: false`.
+- HTTP returned UTF-8 OCEAN content with status 200. A real Chromium/Playwright run asserted the
+  exact title `OCEAN Full Dev — Übersicht` and navigated the Skills link to `/control/p9`.
+- The Open OCEAN suite is **130 passed**; Ruff, `compileall`, whitespace checks and UTF-8 root,
+  plan and up help readbacks also passed.
+
+### Late-write lifecycle finding and correction
+
+The first real apply attempt encountered an already running OCEAN instance. The command correctly
+refused a second process, but only after Fetch/Activate had updated the sandbox. The resulting state
+was valid and was subsequently started through a controlled `down` → `up`, yet the ordering was not
+transaction-safe. A red regression reproduced the behavior by introducing a new skill while a
+sandbox was live. The runtime/port preflight now runs before `run_transaction` and repeats directly
+before process creation to close the race. The green regression proves that a rejected second
+`up --apply` neither creates the skill placement nor changes the activation ledger. A repeated
+real command against the live port returned the existing-runtime gate while the SHA-256 values of
+the activation ledger, install record and generated manifest, the 80-skill directory count, and
+the clean provider HEAD all remained unchanged.
+
+### Unordered continuation tasks
+
+The next section is selected only after repeating the `.AI`/Gardener/policy lift. This list is a
+pool, not a sequence, and is the task source to migrate into OCEAN Task-Master once that integration
+exists:
+
+- provide or deliberately reclassify `audit-trail`;
+- provide the distinct `automation-runtime` contract without treating the scheduler as equivalent;
+- provide or deliberately reclassify `runtime-boundary-enforcement`;
+- keep `billing`, `entitlement-enforcement`, `hosted-operations`, `sso-rbac` and
+  `tenant-isolation` private and fail-closed until actual Hosted providers and product authority
+  exist;
+- merge or otherwise canonically adopt the pushed recipe reconciliation before a public or
+  foreign-host release proof;
+- derive and test the separate Public OCEAN allowlist; Full Dev's private providers must never leak
+  into it by default.
+
+Every selected section repeats tests, real runtime/browser acceptance where relevant, root CLI help
+readback, paired English/German README and changelog updates, this plan/task pool, commit/push and an
+explicit integration checkpoint. An integration tag records evidence; it does not authorize a
+public release, repository visibility change or modification of `PRIVATE.txt`.

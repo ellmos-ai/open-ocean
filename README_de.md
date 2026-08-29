@@ -20,7 +20,7 @@ Das kostenlose Community-Vollsystem des ellmos-Ökosystems.
 Komposition ist auf dem Entwicklungsrechner jetzt lauffähig: Sie kann einen deklarierten
 `runtime.host` planen, installieren, starten, prüfen, mit einem Benutzer versehen, stoppen und neu
 starten. Das ist der erste nutzbare OCEAN-Produktabschnitt, aber kein Claim auf BACH-Parität oder
-Veröffentlichungsreife. Die geprüfte Komposition weist weiterhin neun fehlende Pflichtmodule aus
+Veröffentlichungsreife. Die geprüfte Komposition weist jetzt acht fehlende Pflichtmodule aus
 und markiert sich deshalb selbst mit `full_composition: false`.
 
 OCEAN konsumiert die Rezepte aus ihrem kanonischen Repository, statt sie hierher zu kopieren. Die
@@ -151,7 +151,7 @@ authentifizierte Kontrollkanal noch der aufgezeichnete Runtime-Port aktiv ist.
 | Architektur-Gerüst | vorhanden, 13 Bundles referenziert |
 | BACH-Extraktionsbasis | vorhanden — 114 quellseitige Namen; historische 113er Runtime-Messlatte bleibt erhalten; erneut geprüft am 2026-08-18 (106 Handler-Klassen, +1 gegenüber der 2026-08-08-Basis — zurückverfolgt auf eine hostgebundene Duplikatdatei in BACH, `upgrade-WORKSTATION-LG.py` neben `upgrade.py`; hier NICHT behoben, BACH liegt außerhalb des Änderungsumfangs dieses Repositories). `registered_names` unverändert bei 114. |
 | K9-1 Daten-/Checkpoint-Gate | zwei Träger-Fixtures grün; Adapter und BACH-Äquivalenz bleiben offen |
-| Installer und Lebenszyklus | **Resolve, Verify, SHA-gepinnte Fetch/Place-Schritte, exakte Anbieterbindungen, erhaltende Aktivierungsprotokollierung, zielvalidiertes Rollback, Wiederherstellung des installierten Snapshots, Runtime-Start/Status/Stopp/Neustart und delegierte Benutzeranlage sind implementiert.** Ein angewandter Windows-Full-Dev-Snapshot vom 2026-08-29 bestätigte alle damals deklarierten 29 Bundle-Pins, löste 52 Module und 62 Skills auf und installierte die Skills in eine ausdrückliche Sandbox. Der erste adaptive Anbieterzyklus integrierte `software-endpoint-registry` am exakten `system-explorer`-Commit und prüfte dessen echte CLI-/HTTP-Endpunktprojektion. Eine spätere Prüfung der Produktidentität widerlegte den früheren Oberflächenbeleg über HTTP 200 am Wurzelpfad: Dort lief die TerminPilot-Fachoberfläche des Anbieters. OCEAN wählt jetzt die aufgelöste Operator-Oberfläche, gibt `http://127.0.0.1:8810/control/` zurück und stellt den installierten Snapshot nach Prozessverlust wieder her. HTTP- und echte Browser-Abnahme bestätigten den OCEAN-Titel sowie ein navigierbares Skills-Panel. Die Suite umfasst jetzt 128 grüne Tests. 25 Modulreferenzen bleiben unaufgelöst; neun davon sind im angewandten Snapshot Pflicht. Nach dem Neustart von OneDrive rückte die aktuelle Systemautorität auf 30 Bundle-Referenzen vor; ein frischer rein lesender Plan stoppt korrekt bei drei Rezept-Pin-Abweichungen und hat den installierten Snapshot nicht ersetzt. Siehe [gestuften Bauplan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
+| Installer und Lebenszyklus | **Resolve, Verify, SHA-gepinnte Fetch/Place-Schritte, exakte Anbieterbindungen, isolierte Skill-Aktivierung, erhaltende Aktivierungsprotokollierung, zielvalidiertes Rollback, Wiederherstellung des installierten Snapshots, Runtime-Start/Status/Stopp/Neustart und delegierte Benutzeranlage sind implementiert.** Der aktuelle Windows-Full-Dev-Integrationskandidat bestätigt **30/30** Bundle-Pins, löst **53 Module und 80 Skills** auf und läuft unter `http://127.0.0.1:8810/control/`. Der erste adaptive Anbieterzyklus integrierte `software-endpoint-registry`; Zyklus 2 integriert `automation-registry` über `automation-master@ad40de7…` und konsumiert die 18 Skills des Therapy-Bundles. Die Vorprüfung der aktiven Laufzeit stoppt ein zweites `up --apply` jetzt vor jedem Fetch/Activate-Schreibzugriff. HTTP- und echte Browser-Abnahme bestätigten den OCEAN-Titel sowie ein navigierbares Skills-Panel. Die Suite umfasst jetzt 130 grüne Tests. 24 Modulreferenzen bleiben unaufgelöst; acht davon sind Pflicht. Damit ist dies weiterhin Full Dev und weder vollständiges noch öffentliches OCEAN. Die abgeglichene 30-Bundle-Rezeptquelle ist als `ellmos-development-system@489b678…` gepusht; ihre Übernahme in den kanonischen Rezept-Branch `main` bleibt gesonderte Arbeit. Siehe [gestuften Bauplan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
 | Laufzeit | **für das private Full Dev verfügbar** über den deklarierten `runtime.host`-Anbieter `ellmos-core`, mit dem aufgelösten `unified-gui.host` als OCEAN-Operator-Oberfläche; eine öffentliche OCEAN-Laufzeit wird noch nicht ausgeliefert, und der private Anbieter ist keine öffentliche Abhängigkeit |
 | Rezepte | im Rezept-Repository gepflegt, nicht hier |
 
@@ -195,10 +195,11 @@ Bedingungen nachweislich erfüllt sind:
    nun die aufgelöste Operator-Oberfläche unter `127.0.0.1:8810/control/` bereit und prüft sie im
    echten Browser. Das bringt OCEAN substanziell voran,
    ist aber weder ein frischer Fremdrechner-Vollsystembeleg noch eine vollständige Komposition:
-   Neun Pflichtmodule fehlen im angewandten Snapshot weiterhin. Ein frischer Plan nach der
-   Synchronisierung stoppt außerdem sicher, weil drei der nun 30 autoritativen Bundle-Referenzen
-   nicht zu ihren aktuellen Rezeptmanifesten passen. Die genauen Belege und die verbleibende Breite
-   stehen im `architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md`.
+   Acht Pflichtmodule fehlen im angewandten Snapshot weiterhin. Die früheren drei
+   Rezept-Pin-Abweichungen sind auf dem gepushten Integrationsbranch abgeglichen; der aktuelle
+   Apply-Lauf bestätigt alle 30 Referenzen. Der Branch ist noch nicht in den kanonischen
+   Rezept-Branch `main` übernommen. Die genauen Belege und die verbleibende Breite stehen im
+   `architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md`.
 3. **Parität für den Release-Umfang** — das System leistet, was es zu decken beansprucht. Ein
    kleinerer installierbarer Kern ist eine Bau-Etappe, kein Release. Der aktuelle Quell-Audit
    erfasst 114 erreichbare Namen und erhält zugleich den historischen 113er Runtime-Snapshot als

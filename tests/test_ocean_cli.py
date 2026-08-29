@@ -390,6 +390,86 @@ def test_up_status_down_runs_one_real_sandboxed_runtime_round_trip(tmp_path):
         _run_ocean("down", "--workspace", str(fixture["workspace"]), "--json")
 
 
+def test_second_up_rejects_a_running_runtime_before_fetch_or_activate(tmp_path):
+    """A running sandbox is a write preflight gate, not a late start error."""
+    fixture = _write_runnable_ellmos_core_fixture(tmp_path)
+    port = _free_tcp_port()
+    common = [
+        "--bundles-root", str(fixture["bundles_root"]),
+        "--system-manifest", str(fixture["system"]),
+        "--modules-catalog", str(fixture["catalog"]),
+        "--skills-registry", str(fixture["skills"]),
+        "--workspace", str(fixture["workspace"]),
+    ]
+    try:
+        first = _run_ocean(
+            "up", *common,
+            "--host", "127.0.0.1",
+            "--port", str(port),
+            "--apply",
+            "--json",
+        )
+        assert first.returncode == 0, first.stderr
+        log_path = fixture["workspace"] / "ocean-dev.activation-log.json"
+        log_before = log_path.read_bytes() if log_path.exists() else None
+
+        manifest_path = (
+            fixture["bundles_root"]
+            / "manifests"
+            / "bundles"
+            / "core"
+            / "bundle.v1.json"
+        )
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["components"].append({
+            "type": "skill",
+            "ref": {"ref": "skill:late-skill", "version": "fixture"},
+            "role": "fixture",
+            "requirement": "recommended",
+            "provides": [],
+            "consumes": [],
+        })
+        manifest["content_hash"] = canonical_hash(manifest)
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        system = json.loads(fixture["system"].read_text(encoding="utf-8"))
+        system["bundle_refs"][0]["content_hash"] = manifest["content_hash"]
+        fixture["system"].write_text(json.dumps(system), encoding="utf-8")
+
+        skill_source = (
+            fixture["skills"].parent.parent
+            / "skills"
+            / "fixture"
+            / "late-skill"
+        )
+        skill_source.mkdir(parents=True)
+        (skill_source / "SKILL.md").write_text("# Late skill\n", encoding="utf-8")
+        fixture["skills"].write_text(json.dumps({
+            "components": [{
+                "id": "skill:fixture:late-skill",
+                "name": "late-skill",
+                "category": "fixture",
+                "status": "active",
+                "path": "skills/fixture/late-skill/SKILL.md",
+            }],
+        }), encoding="utf-8")
+
+        second = _run_ocean(
+            "up", *common,
+            "--host", "127.0.0.1",
+            "--port", str(port),
+            "--apply",
+            "--json",
+        )
+
+        assert second.returncode != 0
+        assert "läuft bereits" in second.stderr
+        assert not (fixture["workspace"] / "skills" / "late-skill").exists()
+        log_after = log_path.read_bytes() if log_path.exists() else None
+        assert log_after == log_before
+    finally:
+        _run_ocean("down", "--workspace", str(fixture["workspace"]), "--json")
+
+
 def test_start_recovers_an_installed_runtime_from_stale_running_state(tmp_path):
     """Catches an OS/process loss leaving OCEAN permanently blocked by stale JSON."""
     fixture = _write_runnable_ellmos_core_fixture(tmp_path)

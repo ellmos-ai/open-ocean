@@ -7,6 +7,17 @@
     "runtime_authority": false
   },
   "bindings": {
+    "module:automation-registry": {
+      "component_type": "module",
+      "catalog_id": "automation-master",
+      "repository": "https://github.com/dev-bricks/automation-master.git",
+      "commit": "ad40de721615518e409b53b00ed4b2a49840db28",
+      "placement_id": "automation-registry",
+      "required_provides": [
+        "automation.registry"
+      ],
+      "provider_manifest": "ellmos-module.v2.json"
+    },
     "module:software-endpoint-registry": {
       "component_type": "module",
       "catalog_id": "system-explorer",
@@ -19,5 +30,5 @@
       "provider_manifest": "ellmos-module.v2.json"
     }
   },
-  "content_hash": "424edf4f6cdece33fca490fbe013a68e519fdfc2e27d895931841ca1585c1e60"
+  "content_hash": "6b4a47a0063f9dea2339bc5987aa75f1eb9562275e8af2472cbcc873c610dfc3"
 }

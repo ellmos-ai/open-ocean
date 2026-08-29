@@ -15,6 +15,8 @@
 - Exakte, inhaltsgehashte Full-Dev-Komponentenbindungen für Integrationen zwischen Rezept und
   Anbieter; die erste Bindung ordnet `module:software-endpoint-registry` dem `system-explorer` am
   Commit `ec50c92319ba8fc262d695b86818fc85666feff7` zu.
+- Die zweite exakte Bindung ordnet `module:automation-registry` dem `automation-master` am Commit
+  `ad40de721615518e409b53b00ed4b2a49840db28` zu und verlangt `automation.registry`.
 - Anbieterprüfung über Repository-Ursprung, exakten Git-HEAD, sauberen Checkout,
   Modulmanifest-Identität und deklarierte Fähigkeit, bevor eine gebundene Komponente als
   aufgelöst gelten kann.
@@ -39,26 +41,34 @@
 - Runtime-Importe schreiben kein Python-Bytecode mehr in externe Modulprojektionen.
 - Vorhandene Rollback-Protokolleinträge bleiben über spätere Komponentendurchläufe erhalten;
   fehlerhafte, doppelte oder widersprüchliche Einträge stoppen die Transaktion vor Schreibzugriffen.
+- Die Vorprüfung auf eine aktive Laufzeit und einen belegten Zielport liegt jetzt vor der
+  Apply-Transaktion. Ein zweites `up --apply` kann nichts mehr holen oder aktivieren, bevor es die
+  bereits laufende Sandbox meldet.
 
 ### Geprüft
 
-- 128 Tests sind grün, einschließlich echter HTTP-Akzeptanz für Start, Status, Benutzeranlage,
-  Stopp, Neustart, Wiederherstellung veralteter Zustände und Auswahl der Produktoberfläche.
-- Eine echte private Full-Dev-Sandbox bestätigte 29 Bundle-Pins, löste 52 Module und 62 Skills auf
-  und erreichte eine gesunde Web-Anmeldeoberfläche auf `127.0.0.1`.
+- 130 Tests sind grün, einschließlich echter HTTP-Akzeptanz für Start, Status, Benutzeranlage,
+  Stopp, Neustart, Wiederherstellung veralteter Zustände, Auswahl der Produktoberfläche und
+  schreibfreier Ablehnung einer bereits laufenden Sandbox.
+- Der aktuelle private Full-Dev-Integrationskandidat bestätigt 30/30 Bundle-Pins, löst 53 Module
+  und 80 Skills auf und ist unter `http://127.0.0.1:8810/control/` gesund.
 - Der echte Anbieter für `software-endpoint-registry` wurde am exakten Pin geholt, projizierte zwei
   Software-Endpunkte (CLI und HTTP) und ergänzte einen Rollback-Protokolleintrag, ohne die 62
   vorhandenen Skill-Einträge zu verlieren.
+- Der echte Anbieter für `automation-registry` ist ein sauberer abgetrennter Checkout am exakten
+  `automation-master`-Pin und -Ursprung; sein Modulmanifest deklariert `automation.registry`.
+- Das Therapy-Bundle ergänzt 18 aufgelöste und installierte Skills. Das erhaltende Protokoll
+  umfasst jetzt 80 Skill-Einträge und zwei Einträge gebundener Module.
 - Die echte private Laufzeit legte einen zufälligen Wegwerfadministrator an, bestätigte dessen
   Passwort-Hash und kehrte nach der Bereinigung zum ursprünglichen Null-Benutzer-Stand zurück.
-- 25 Modulreferenzen bleiben unaufgelöst; neun davon sind Pflicht. Der Lauf meldet daher weiterhin
+- 24 Modulreferenzen bleiben unaufgelöst; acht davon sind Pflicht. Der Lauf meldet daher weiterhin
   `full_composition: false`.
-- Nach dem Neustart von OneDrive rückte die aktuelle Full-Dev-Autorität von 29 auf 30
-  Bundle-Referenzen vor. Ein frischer rein lesender Plan stoppte sicher bei drei
-  Rezept-Pin-Abweichungen; kein neuer Apply-Lauf ersetzte den gesunden Installations-Snapshot.
+- Die früheren drei Rezept-Pin-Abweichungen wurden ohne spontanes Umpinnen auf dem gepushten Branch
+  `ellmos-development-system@489b67880b42ba4bd2a1d8052239896f84192269` abgeglichen; seine
+  Übernahme in den kanonischen Rezept-Branch `main` bleibt gesonderte Arbeit.
 - Der installierte Snapshot wurde unter `http://127.0.0.1:8810/control/` neu gestartet. HTTP und
   ein echter Playwright-Browser zeigten `OCEAN Full Dev`, keine TerminPilot-/
   Terminkoordination-Marker und ein navigierbares Skills-Panel; Port `8800` lauschte nicht mehr.
 
-Dieser Eintrag enthält weder Release, Tag, Sichtbarkeitsänderung noch eine Änderung an
-`PRIVATE.txt`.
+Ein Integrations-Checkpoint-Tag ist kein öffentliches Release. Dieser Eintrag enthält weder eine
+Sichtbarkeitsänderung noch eine Änderung an `PRIVATE.txt`.

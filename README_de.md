@@ -4,7 +4,7 @@
 
 **Free the ocean.**
 
-Das kostenlose Community-Vollsystem des ellmos-Ökosystems.
+Das kostenlose Community-System des ellmos-Ökosystems.
 
 *[English](README.md)*
 
@@ -16,19 +16,19 @@ Das kostenlose Community-Vollsystem des ellmos-Ökosystems.
 
 ## Zuerst lesen: dieses Repository ist eine Baustelle
 
-**Das veröffentlichte öffentliche Vollsystem liegt hier noch nicht.** Die private OCEAN-Full-Dev-
-Komposition ist auf dem Entwicklungsrechner jetzt lauffähig: Sie kann einen deklarierten
+**Das veröffentlichte OPEN-OCEAN-System liegt hier noch nicht.** Die lokale FULL-OCEAN-
+Entwicklungskomposition ist auf dem Entwicklungsrechner jetzt lauffähig: Sie kann einen deklarierten
 `runtime.host` planen, installieren, starten, prüfen, mit einem Benutzer versehen, stoppen und neu
 starten. Das ist der erste nutzbare OCEAN-Produktabschnitt, aber kein Claim auf BACH-Parität oder
-Veröffentlichungsreife. Die geprüfte 28-Bundle-Komposition weist jetzt genau ein fehlendes
-Pflichtmodul aus, `module:automation-runtime`, und markiert sich deshalb wahrheitsgemäß mit
-`full_composition: false`.
+OPEN-OCEAN-Veröffentlichungsreife. Die geprüfte 28-Bundle-Komposition löst jetzt jede deklarierte
+Pflichtkomponente auf und meldet wahrheitsgemäß `full_composition: true`; ihre elf unaufgelösten
+Modulreferenzen sind für diese Komposition optional.
 
 OCEAN konsumiert die Rezepte aus ihrem kanonischen Repository, statt sie hierher zu kopieren. Die
 Transaktionsschicht löst auf, prüft, holt, platziert, aktiviert und rollt zurück; die
 Lebenszyklusschicht betreibt die ausgewählte Laufzeit in einer ausdrücklichen lokalen Sandbox. Der
 aktuelle Full-Dev-Host ist das private `ellmos-core`, über seine Fähigkeit ausgewählt und nicht als
-künftige öffentliche OCEAN-Laufzeit fest verdrahtet.
+künftige OPEN-OCEAN-Laufzeit fest verdrahtet.
 Wenn die aufgelöste Komposition zusätzlich `unified-gui.host` bereitstellt, macht OCEAN diese
 Operator-Oberfläche zu seinem Produkteinstieg. Die aktuelle Entwicklungsadresse lautet
 `http://127.0.0.1:8810/control/`; der eigene Port trennt OCEAN vom eigenständigen
@@ -64,8 +64,8 @@ schmücken:
 | **Bach / Rinnsal** | die wilden, gewachsenen Läufe: die ursprüngliche persönliche Vollinstanz |
 | **water pipes** | dasselbe Wasser, gezähmt und modularisiert — Module und Bundles |
 | **waterfall** | die deklarative Quelle: Baukasten, Rezepte, Kataloge |
-| **ocean** | das Vollsystem; Endpunkt der Linie Bach → Rinnsal → Ozean |
-| **open-ocean** | der Teil, der allen gehört: das kostenlose Community-Vollsystem |
+| **ocean** | die Nachfolger-Produktfamilie; Endpunkt der Linie Bach → Rinnsal → Ozean |
+| **open-ocean** | der Teil, der allen gehört: das kostenlose Community-System |
 | **private-ocean** | private, nicht proprietäre OCEAN-Komponenten |
 | **full-ocean** | OPEN OCEAN + PRIVATE OCEAN; die vollständige OCEAN-Entwicklungs-/Testkomposition |
 | **speedboat** | ein eigenständiger proprietärer Stack, der gemeinsame OCEAN-Teile ausdrücklich auswählt |
@@ -139,8 +139,10 @@ Das standardmäßige `--component-bindings`-Overlay schließt Benennungslücken 
 Anbieter, ohne das kanonische Rezept oder den Modulkatalog zu verändern. Jede Bindung ist exakt und
 schlägt im Zweifel geschlossen fehl: Komponentenreferenz, Repository, vollständiger Commit-SHA,
 Platzierung, ID des Anbieter-Manifests und erforderliche Fähigkeiten müssen übereinstimmen und der
-Checkout muss sauber sein, bevor OCEAN den Anbieter als aufgelöst wertet. Die erste solche Bindung
-ordnet `module:software-endpoint-registry` dem geprüften Anbieter `system-explorer` zu.
+Checkout muss sauber sein, bevor OCEAN den Anbieter als aufgelöst wertet. Das ausgelieferte Overlay
+bindet derzeit `module:software-endpoint-registry` an `system-explorer` und die getrennten logischen
+Rollen `module:automation-registry` und `module:automation-runtime` an unabhängig gepinnte
+Platzierungen von `automation-master`.
 
 Der Produktlebenszyklus liegt im Wurzelverzeichnis:
 
@@ -170,8 +172,8 @@ authentifizierte Kontrollkanal noch der aufgezeichnete Runtime-Port aktiv ist.
 | Architektur-Gerüst | vorhanden, 13 Bundles referenziert |
 | BACH-Extraktionsbasis | vorhanden — 114 quellseitige Namen; historische 113er Runtime-Messlatte bleibt erhalten; erneut geprüft am 2026-08-18 (106 Handler-Klassen, +1 gegenüber der 2026-08-08-Basis — zurückverfolgt auf eine hostgebundene Duplikatdatei in BACH, `upgrade-WORKSTATION-LG.py` neben `upgrade.py`; hier NICHT behoben, BACH liegt außerhalb des Änderungsumfangs dieses Repositories). `registered_names` unverändert bei 114. |
 | K9-1 Daten-/Checkpoint-Gate | zwei Träger-Fixtures grün; Adapter und BACH-Äquivalenz bleiben offen |
-| Installer und Lebenszyklus | **Resolve, Verify, SHA-gepinnte Fetch/Place-Schritte, exakte Anbieterbindungen, isolierte Skill-Aktivierung, erhaltende Aktivierungsprotokollierung, zielvalidiertes Rollback, Wiederherstellung des installierten Snapshots, Runtime-Start/Status/Stopp/Neustart und delegierte Benutzeranlage sind implementiert.** Der aktuelle Windows-Full-Dev-Integrationskandidat bestätigt **28/28** OCEAN-Familien-Bundle-Pins, löst **53 von 65 Modulreferenzen und alle 80 Skills** auf und läuft unter `http://127.0.0.1:8810/control/`. Zwölf Modulreferenzen bleiben unaufgelöst, aber nur `module:automation-runtime` ist Pflicht; die sieben früheren proprietären Anforderungen sind in den eigenständigen SPEEDBOAT-Stack gewandert. Die Vorprüfung der aktiven Laufzeit stoppt ein zweites `up --apply` vor jedem Fetch/Activate-Schreibzugriff. Der produkteigene Ursprung leitet Root auf OCEAN um und entfernt alte Anbieter-PWA-Worker und -Caches, ohne Cookies oder anderen Browserspeicher zu löschen. Der Live-HTTP-Abgleich bestätigt `307 / → /control/`, das Manifest `OCEAN Full Dev` und keine TerminPilot-Produktmarker. Die Suite umfasst jetzt 135 grüne Tests. Dies bleibt eine unvollständige private Full-Dev-Integration und ist keine öffentliche OCEAN-Freigabe. Die abgeglichene Rezeptquelle ist als `ellmos-development-system@7754f811b4b793fa7e25d42c395cf6b31d6eacaa` gepusht; ihre Übernahme in den kanonischen Rezept-Branch `main` bleibt gesonderte Arbeit. Siehe [gestuften Bauplan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
-| Laufzeit | **für das private Full Dev verfügbar** über den deklarierten `runtime.host`-Anbieter `ellmos-core`, mit dem aufgelösten `unified-gui.host` als OCEAN-Operator-Oberfläche; eine öffentliche OCEAN-Laufzeit wird noch nicht ausgeliefert, und der private Anbieter ist keine öffentliche Abhängigkeit |
+| Installer und Lebenszyklus | **Resolve, Verify, SHA-gepinnte Fetch/Place-Schritte, exakte Anbieterbindungen, isolierte Skill-Aktivierung, erhaltende Aktivierungsprotokollierung, zielvalidiertes Rollback, Wiederherstellung des installierten Snapshots, Runtime-Start/Status/Stopp/Neustart und delegierte Benutzeranlage sind implementiert.** Die aktuelle Windows-Full-Dev-Integration bestätigt **28/28** OCEAN-Familien-Bundle-Pins, löst **54 von 65 Modulreferenzen und alle 80 Skills** auf, hat keine fehlende Pflichtkomponente, meldet `full_composition: true` und läuft unter `http://127.0.0.1:8810/control/`. Die elf unaufgelösten Modulreferenzen sind optional. Der getrennt platzierte Anbieter für `automation-runtime` bestand am Commit `c2de7188626510b181c4ecf2708c15f2395e32aa` die Abnahme für natives Provider-/Scheduler-Rücklesen, unveränderliche Belege, Bereinigung und begrenzte Statistik. Die Vorprüfung der aktiven Laufzeit stoppt ein zweites `up --apply` vor jedem Fetch/Activate-Schreibzugriff. Der produkteigene Ursprung leitet Root auf OCEAN um und entfernt alte Anbieter-PWA-Worker und -Caches, ohne Cookies oder anderen Browserspeicher zu löschen. Der Live-HTTP-Abgleich bestätigt `307 / → /control/`, das Manifest `OCEAN Full Dev` und keine TerminPilot-Produktmarker. Die Suite umfasst jetzt 136 grüne Tests. Dies ist für den deklarierten Pflichtumfang ein kompositionsvollständiger privater Full-Dev-Build, aber weder eine OPEN-OCEAN-Freigabe noch ein BACH-Paritätsclaim. Die abgeglichene Rezeptquelle ist als `ellmos-development-system@4fa0d4f44451d967c2a5b4cf4bd659828c9dcdd9` gepusht; ihre Übernahme in den kanonischen Rezept-Branch `main` bleibt gesonderte Arbeit. Siehe [gestuften Bauplan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
+| Laufzeit | **für das private Full Dev verfügbar** über den deklarierten `runtime.host`-Anbieter `ellmos-core`, mit dem aufgelösten `unified-gui.host` als OCEAN-Operator-Oberfläche; eine OPEN-OCEAN-Laufzeit wird noch nicht ausgeliefert, und der private Anbieter ist keine öffentliche Abhängigkeit |
 | Rezepte | im Rezept-Repository gepflegt, nicht hier |
 
 **Die Ampel** — Freigabebedingung 1 geht grün, wenn jedes referenzierte Bundle grün ist, also jede
@@ -213,12 +215,11 @@ Bedingungen nachweislich erfüllt sind:
    als TerminPilot-Fachoberfläche des Anbieters statt OCEAN heraus. Der korrigierte Zyklus stellt
    nun die aufgelöste Operator-Oberfläche unter `127.0.0.1:8810/control/` bereit und prüft sie im
    echten Browser. Eine spätere Regression mit persistentem Browserprofil übertrug zusätzlich Root,
-   Manifest, Offline-Identität und Worker-Bereinigung dieses Ursprungs an OCEAN. Das bringt OCEAN
-   substanziell voran,
-   ist aber weder ein frischer Fremdrechner-Vollsystembeleg noch eine vollständige Komposition:
-   Im angewandten Snapshot der 28 OCEAN-Familien-Bundles fehlt weiterhin
-   `module:automation-runtime`. Die sieben anderen früheren Pflichtlücken waren proprietäre
-   SPEEDBOAT-Belange und keine fehlende OCEAN-Substanz. Der aktuelle Apply-Lauf bestätigt alle 28
+   Manifest, Offline-Identität und Worker-Bereinigung dieses Ursprungs an OCEAN. Die Komposition
+   auf dem Entwicklungsrechner löst nun zusätzlich das getrennte `module:automation-runtime` auf,
+   hat keine fehlende Pflichtkomponente und meldet `full_composition: true`. Das bringt OCEAN
+   substanziell voran, ist aber weiterhin nicht der geforderte frische
+   Fremdrechner-Vollsystembeleg. Der aktuelle Apply-Lauf bestätigt alle 28
    Referenzen gegen den gepushten Rezept-Commit
    `7754f811b4b793fa7e25d42c395cf6b31d6eacaa`. Der Branch ist noch nicht in den kanonischen
    Rezept-Branch `main` übernommen. Die genauen Belege und die verbleibende Breite stehen im

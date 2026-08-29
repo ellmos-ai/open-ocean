@@ -19,12 +19,16 @@
   (sluice test) and 3 (BACH parity) both blocked on the same missing thing: no installer, no
   runtime. This plan is the direct response.
 
-## 1. Terminology (user briefing, 2026-08-18)
+## 1. Terminology (user briefing, 2026-08-18; superseded names marked 2026-08-29)
 
 | Term | Meaning |
 |---|---|
 | **ocean-dev** | the local development system — what runs and gets tested on a dev host today. Not a separate repository or product; a *mode* of using this one, where "installed" can mean "already present because this is where it's built" rather than "freshly fetched onto a bare machine". |
-| **ocean-full / open-ocean** | the published, BACH-parity full system — this repository's eventual release, gated by `PRIVATE.txt`. |
+| ~~**ocean-full / open-ocean**~~ | ~~Historical alias for one published BACH-parity system.~~ **Superseded 2026-08-29; these names are not equivalent.** |
+| **OPEN OCEAN** | Public OCEAN product and the eventual release built by this repository. |
+| **PRIVATE OCEAN** | Private, non-proprietary OCEAN complement. |
+| **FULL OCEAN** | Exactly OPEN OCEAN + PRIVATE OCEAN; the local development/test composition. |
+| **SPEEDBOAT** | Independent proprietary sibling stack with only explicitly selected OCEAN parts. |
 | **ellmos-systems** | OS-level layer: BACH, rinnsal, ocean. Broad, zweckoffen, own lifecycle (matches the `os-stack` class in `.STACKS/STACK-MAPPING.md`). |
 | **ellmos-stacks** | zweckbezogene Rezepte — the bundle/stack composition layer `open-ocean` *consumes* (`ellmos-ai/bundles`), not a peer of the systems above it. |
 
@@ -245,7 +249,7 @@ The product direction now distinguishes two compositions without duplicating the
 
 - **OCEAN Full Dev** is the local development/test composition. It consumes every functional
   `bundle_ref` already declared by the external `ellmos-development-fullsystem/system.v1.json`.
-- **OCEAN Public** remains the separately gated 13-bundle, public-allowlisted composition declared
+- **OPEN OCEAN** remains the separately gated 13-bundle, public-allowlisted composition declared
   by this repository's skeleton.
 - OCEAN is the successor/new BACH. Most extraction is already complete; current BACH work replaces
   legacy internals with the same canonical modules and bundles OCEAN consumes. A BACH-only
@@ -592,7 +596,7 @@ work present, then used the resulting single activation log for one rollback.
   help, roadmap/changelog, task, and DE/EN documentation deltas in the same commit.
 - `tools/check_k9_data_contract.py` remains a useful fixture-equivalence pattern, not a command to
   start with Cluster 9 regardless of evidence. BACH and OCEAN consume the same canonical modules;
-  the main development direction is OCEAN Full Dev while OCEAN Public remains separately
+  the main development direction is FULL OCEAN development while OPEN OCEAN remains separately
   allowlisted and release-gated.
 
 ## 6. Honesty check — what this plan is not claiming
@@ -619,7 +623,7 @@ work present, then used the resulting single activation log for one rollback.
 
 The product direction is now explicit: the legacy BACH migration plan is delegated to BACH's own
 task system; this repository's active implementation focus is a usable OCEAN. The private Full Dev
-composition may consume private modules, while Public OCEAN remains separately allowlisted and
+composition may consume private modules, while OPEN OCEAN remains separately allowlisted and
 publication-gated. The runtime is selected by the declared `runtime.host` capability so today's
 private provider does not become a hard dependency of the future public product.
 
@@ -801,7 +805,7 @@ identity of the product shown there, so that part of the evidence is withdrawn.
 
 At that checkpoint, this correction made the Full Dev surface usable and truthfully identifiable
 as OCEAN. It did not close the nine missing required modules, the three live recipe-pin mismatches, BACH parity,
-foreign-host full-system proof, Public OCEAN, release, tag, visibility or `PRIVATE.txt` gates.
+foreign-host full-system proof, OPEN OCEAN, release, tag, visibility or `PRIVATE.txt` gates.
 
 ## 10. Adaptive provider cycle 2: recipe reconciliation and automation registry — 2026-08-29
 
@@ -881,7 +885,7 @@ exists:
   exist;
 - merge or otherwise canonically adopt the pushed recipe reconciliation before a public or
   foreign-host release proof;
-- derive and test the separate Public OCEAN allowlist; Full Dev's private providers must never leak
+- derive and test the separate OPEN OCEAN allowlist; Full Dev's private providers must never leak
   into it by default.
 
 Every selected section repeats tests, real runtime/browser acceptance where relevant, root CLI help
@@ -935,8 +939,8 @@ worded manifest and root-scoped `/sw.js` outside the mounted OCEAN console.
   English/German README and changelog entries and this plan were updated in the same cycle.
 
 The checkpoint is `ocean-full-dev-origin-koralle-20260829`. It records the private Full Dev fix;
-it is not a Public OCEAN release and changes neither repository visibility nor `PRIVATE.txt`.
-At that historical checkpoint, eight required module gaps and the separate Public OCEAN allowlist
+it is not an OPEN OCEAN release and changes neither repository visibility nor `PRIVATE.txt`.
+At that historical checkpoint, eight required module gaps and the separate OPEN OCEAN allowlist
 remained open. Section 12 supersedes the current gap count after repeating the section-start
 `.AI`/Gardener/policy lift.
 
@@ -1010,5 +1014,80 @@ lift. The pool has no fixed order:
   commit/push and one named integration checkpoint for each completed section.
 
 The checkpoint name for this private integration cycle is
-`ocean-full-dev-wellenkamm-20260829`. It is not a Public OCEAN release and authorizes neither a
+`ocean-full-dev-wellenkamm-20260829`. It is not an OPEN OCEAN release and authorizes neither a
 repository-visibility change nor a modification of `PRIVATE.txt`.
+
+## 13. Automation Runtime integration and declared-composition closure — 2026-08-29
+
+This module cycle repeated the section-start lift through `.AI`, Gardener, USMC and the applicable
+release/visibility policies. It retained the ratified product algebra:
+
+```text
+OPEN OCEAN + PRIVATE OCEAN = FULL OCEAN
+```
+
+The cycle closes the final required component in the private FULL OCEAN development composition;
+it does not convert private components into OPEN OCEAN and does not attach SPEEDBOAT inheritance.
+
+### Provider and binding proof
+
+- `automation-master` now provides the separate logical `AutomationRuntime` observer at pushed
+  commit `c2de7188626510b181c4ecf2708c15f2395e32aa` on branch
+  `feat/automation-runtime-observer-20260829`.
+- The provider requires closed authority-resolution inputs, native provider and scheduler
+  readback, immutable execution pins for non-app-native runs, SHA-256 input fingerprints, bounded
+  redacted summaries and create-only content-hashed receipts outside configured OneDrive roots.
+  It observes evidence only; definition, approval, scheduling, lease, dispatch, retry, execution
+  and policy authority remain with their owning components.
+- Provider verification is **66 passed** with Ruff, `compileall`, CLI-help, diff and bilingual
+  UTF-8 checks green. English and German runtime-observation contracts are shipped together.
+- The canonical OneDrive module projection and generated module catalogue were refreshed through
+  FileCommander. Source/projection SHA-256 hashes match, catalogue JSON is valid and the only
+  structural catalogue change is `automation-master`; its catalogue pin is the provider commit
+  above.
+- TDD first failed because the shipped OCEAN overlay contained no
+  `module:automation-runtime` binding. The now-green binding test proves that registry and runtime
+  remain distinct logical placements even though both consume `automation-master`.
+- Binding overlay hash `516169be3dcbdf5814fbbec285fbfffa33fcef095c8ab4ee2b2b038a2cc43873`
+  pins `module:automation-runtime` to its own `automation-runtime` placement and requires
+  `automation.runtime.observe`, `automation.runtime.receipt` and
+  `automation.runtime.statistics`. The already verified `automation-registry` placement remains
+  untouched at its prior pin.
+
+### Controlled apply and installed-provider acceptance
+
+- The read-only plan verifies all **28/28** recipe pins and plans only the new runtime placement;
+  it does not overwrite the existing registry checkout.
+- A controlled `down` followed by `up --apply` fetched the exact runtime provider commit into
+  `C:\_Local_DEV\ocean-full-dev\modules\automation-runtime`, verified clean detached HEAD,
+  repository origin, manifest identity and all three required capabilities, then restarted OCEAN.
+- The installed state resolves **54 of 65 module references**, leaves **11 optional** module
+  references unresolved, resolves **80/80 skills**, has no missing required component and reports
+  `full_composition: true`. Runtime status is `running/ok` at
+  `http://127.0.0.1:8810/control/`.
+- Acceptance executed the installed provider rather than the source checkout. A synthetic native
+  provider receipt and closed scheduler SQLite snapshot produced bounded hashed readbacks, one
+  immutable `ellmos.automation-runtime-receipt.v1` receipt and bounded success statistics. Raw
+  provider detail and scheduler output did not cross the readback boundary.
+- The Open OCEAN suite is now **136 passed**. This evidence closes the declared private FULL OCEAN
+  development composition only. It is not a fresh foreign-host full-system proof, OPEN OCEAN
+  release, BACH-parity proof, visibility change or authorization to modify `PRIVATE.txt`.
+- The recipe branch documentation follow-up is pushed at
+  `ellmos-development-system@4fa0d4f44451d967c2a5b4cf4bd659828c9dcdd9`; it records the same
+  28/28, 54/65 and 80/80 consumer proof without turning branch adoption into a release claim.
+
+### Adaptive continuation pool
+
+Selection remains result-driven rather than ordered. At the next section start, repeat the
+`.AI`/Gardener/USMC/policy lift and choose among:
+
+- derive and test a default-deny OPEN OCEAN allowlist independently from FULL OCEAN;
+- run the complete fresh-install proof on a non-development host;
+- decide whether/how recipe branch tip `4fa0d4f…` is adopted into canonical recipe `main`;
+- continue BACH parity work while treating newly discovered BACH-only extraction as exceptional
+  and value-gated;
+- select shared OCEAN components for SPEEDBOAT only for a concrete proprietary use case;
+- keep documentation, root/help surfaces and language variants synchronized in every cycle.
+
+The named checkpoint for this private integration cycle is
+`ocean-full-dev-gezeitenstrom-20260829`. It is not a public release tag.

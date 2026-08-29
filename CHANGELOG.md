@@ -18,6 +18,9 @@
   `ec50c92319ba8fc262d695b86818fc85666feff7`.
 - The second exact binding maps `module:automation-registry` to `automation-master` at commit
   `ad40de721615518e409b53b00ed4b2a49840db28` and requires `automation.registry`.
+- The third exact binding maps the distinct logical `module:automation-runtime` role to its own
+  `automation-master` placement at commit `c2de7188626510b181c4ecf2708c15f2395e32aa` and requires
+  runtime observation, immutable receipts, and bounded statistics.
 - Provider verification across repository origin, exact Git HEAD, clean worktree, module-manifest
   identity and declared capability before a bound component can become resolved.
 - Capability-selected OCEAN operator entry: a resolved `unified-gui.host` is mounted at
@@ -28,6 +31,9 @@
 
 ### Fixed
 
+- Removed the obsolete `ocean-full / open-ocean` equivalence from current product wording and
+  marked it as superseded in the living plan: OPEN OCEAN is public, PRIVATE OCEAN is private and
+  non-proprietary, and FULL OCEAN is their exact union.
 - Disabled the runtime host's reload process and generated a per-start local secret so an
   authenticated stop cannot leave a reload child behind.
 - Ignored stale stopped state from a previous instance during restart.
@@ -48,23 +54,27 @@
 
 ### Verified
 
-- 135 tests pass, including real HTTP start/status/user/stop/restart, stale-state recovery,
+- 136 tests pass, including real HTTP start/status/user/stop/restart, stale-state recovery,
   product-surface/origin selection, PWA cleanup and pre-write active-runtime rejection.
 - The current private Full Dev integration candidate verifies 28/28 OCEAN-family bundle pins,
-  resolves 53 of 65 module references and all 80 skills, and is healthy at
+  resolves 54 of 65 module references and all 80 skills, and is healthy at
   `http://127.0.0.1:8810/control/`.
 - The real `software-endpoint-registry` provider was fetched at its exact pin, projected two
   software endpoints (CLI and HTTP), and added one rollback-ledger entry without losing the 62
   existing skill entries.
 - The real `automation-registry` provider is a clean detached checkout at the exact
   `automation-master` pin and origin; its module manifest declares `automation.registry`.
+- The real `automation-runtime` provider is a separate clean detached placement at the exact
+  `automation-master` pin and origin. Installed-provider acceptance proved native provider and
+  scheduler readback, an immutable content-hashed receipt, bounded statistics, and non-export of
+  raw provider/scheduler content.
 - The Therapy bundle adds 18 resolved and installed skills. The append-preserving ledger now holds
-  80 skill entries and two bound-module entries.
+  80 skill entries and three bound-module entries.
 - The real private runtime created a random disposable administrator, verified its password hash,
   and returned to the original zero-user state after cleanup.
-- Twelve module references remain unresolved. Only `module:automation-runtime` is required, so
-  the run still reports `full_composition: false`; the seven former proprietary requirements are
-  SPEEDBOAT concerns and no longer block FULL OCEAN.
+- Eleven optional module references remain unresolved. No required component is missing, so the
+  applied 28-bundle development composition reports `full_composition: true`. This is not a
+  public-release, BACH-parity, or foreign-host full-system claim.
 - The former three recipe-pin mismatches were reconciled without ad-hoc repinning on pushed branch
   `ellmos-development-system@7754f811b4b793fa7e25d42c395cf6b31d6eacaa`; merging that branch into
   canonical recipe `main` remains separate work.

@@ -4,7 +4,7 @@
 
 **Free the ocean.**
 
-The free community full system of the ellmos ecosystem.
+The free community system of the ellmos ecosystem.
 
 *[Deutsch](README_de.md)*
 
@@ -16,17 +16,17 @@ The free community full system of the ellmos ecosystem.
 
 ## Read this first: this repository is a building site
 
-**The released public full system is not here yet.** The private OCEAN Full Dev composition is now
+**The released OPEN OCEAN system is not here yet.** The local FULL OCEAN development composition is now
 runnable on the development host: it can plan, install, start, inspect, bootstrap a user, stop and
 restart one declared `runtime.host`. This is the first usable OCEAN product slice, not a BACH-parity
-or public-release claim. The verified 28-bundle composition now reports exactly one missing
-required module, `module:automation-runtime`, and therefore truthfully marks itself
-`full_composition: false`.
+or OPEN OCEAN release claim. The verified 28-bundle composition now resolves every declared required
+component and truthfully reports `full_composition: true`; its eleven unresolved module references
+are optional for this composition.
 
 OCEAN consumes the recipes from their canonical repository instead of copying them here. The
 transaction layer resolves, verifies, fetches, places, activates and rolls back; the lifecycle
 layer operates the selected runtime in an explicit local sandbox. The current Full Dev host is the
-private `ellmos-core`, selected by capability rather than hard-coded as the future public runtime.
+private `ellmos-core`, selected by capability rather than hard-coded as the future OPEN OCEAN runtime.
 When the resolved composition also provides `unified-gui.host`, OCEAN exposes that operator UI as
 its product entry point. The current development URL is `http://127.0.0.1:8810/control/`; the
 dedicated port keeps OCEAN separate from the runtime provider's standalone TerminPilot PWA origin.
@@ -60,8 +60,8 @@ than decorating it:
 | **Bach / Rinnsal** | the wild, grown streams: the original personal full instance |
 | **water pipes** | the same water, tamed and modularised — modules and bundles |
 | **waterfall** | the declarative source: the kit, the recipes, the catalogues |
-| **ocean** | the full system; the end of the line Bach → Rinnsal → ocean |
-| **open-ocean** | the part that belongs to everyone: the free community full system |
+| **ocean** | the successor product family; the end of the line Bach → Rinnsal → ocean |
+| **open-ocean** | the part that belongs to everyone: the free community system |
 | **private-ocean** | private, non-proprietary OCEAN components |
 | **full-ocean** | OPEN OCEAN + PRIVATE OCEAN; the complete OCEAN development/test composition |
 | **speedboat** | an independent proprietary stack that selects shared OCEAN parts explicitly |
@@ -130,8 +130,10 @@ the declared Full Dev composition.
 The default `--component-bindings` overlay closes recipe-to-provider naming gaps without changing
 the canonical recipe or module catalog. Each binding is exact and fail-closed: component ref,
 repository, full commit SHA, placement, provider manifest ID and required capabilities must all
-match and the checkout must be clean before OCEAN treats the provider as resolved. The first such
-binding maps `module:software-endpoint-registry` to the verified `system-explorer` provider.
+match and the checkout must be clean before OCEAN treats the provider as resolved. The shipped
+overlay currently binds `module:software-endpoint-registry` to `system-explorer` and the distinct
+logical roles `module:automation-registry` and `module:automation-runtime` to independently pinned
+placements of `automation-master`.
 
 The product lifecycle is exposed at the repository root:
 
@@ -160,8 +162,8 @@ authenticated control channel and the recorded runtime port are no longer active
 | Architecture skeleton | present, 13 bundles referenced |
 | BACH extraction baseline | present — 114 source-declared names; historic 113-name runtime bar retained; re-audited 2026-08-18 (106 handler classes, +1 vs. the 2026-08-08 baseline — traced to a host-suffixed duplicate file in BACH, `upgrade-WORKSTATION-LG.py` alongside `upgrade.py`; not fixed here, BACH is out of scope for this repository's changes). `registered_names` unchanged at 114. |
 | K9-1 data/checkpoint gate | two carrier fixtures green; adapter and BACH equivalence remain open |
-| Installer and lifecycle | **Resolve, Verify, SHA-pinned Fetch/Place, exact provider bindings, sandboxed skill Activate, append-preserving activation logging, target-validated Roll back, installed-snapshot recovery, runtime start/status/stop/restart and delegated user bootstrap are implemented.** The current Windows Full Dev integration candidate verifies **28/28** OCEAN-family bundle pins, resolves **53 of 65 module references and all 80 skills**, and runs at `http://127.0.0.1:8810/control/`. Twelve module references remain unresolved, but only `module:automation-runtime` is required; the seven former proprietary requirements moved to the independent SPEEDBOAT stack. The active-runtime preflight stops a second `up --apply` before Fetch/Activate can write. The product-owned origin redirects Root to OCEAN and clears legacy provider PWA workers/caches without clearing cookies or other browser storage. Live HTTP confirms `307 / → /control/`, the `OCEAN Full Dev` manifest and no TerminPilot product markers. The suite now contains 135 passing tests. This remains an incomplete private Full Dev integration, not a public OCEAN release. The reconciled recipe source is pushed at `ellmos-development-system@7754f811b4b793fa7e25d42c395cf6b31d6eacaa`; merging it into canonical recipe `main` remains separate work. See the [staged build plan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
-| Runtime | **available for private Full Dev** through the declared `runtime.host` provider `ellmos-core`, with the resolved `unified-gui.host` exposed as the OCEAN operator surface; a public OCEAN runtime is not shipped and the private provider is not a public dependency |
+| Installer and lifecycle | **Resolve, Verify, SHA-pinned Fetch/Place, exact provider bindings, sandboxed skill Activate, append-preserving activation logging, target-validated Roll back, installed-snapshot recovery, runtime start/status/stop/restart and delegated user bootstrap are implemented.** The current Windows Full Dev integration verifies **28/28** OCEAN-family bundle pins, resolves **54 of 65 module references and all 80 skills**, has no missing required component, reports `full_composition: true`, and runs at `http://127.0.0.1:8810/control/`. The eleven unresolved module references are optional. The separately placed `automation-runtime` provider passed native provider/scheduler readback, immutable-receipt, redaction and bounded-statistics acceptance at commit `c2de7188626510b181c4ecf2708c15f2395e32aa`. The active-runtime preflight stops a second `up --apply` before Fetch/Activate can write. The product-owned origin redirects Root to OCEAN and clears legacy provider PWA workers/caches without clearing cookies or other browser storage. Live HTTP confirms `307 / → /control/`, the `OCEAN Full Dev` manifest and no TerminPilot product markers. The suite now contains 136 passing tests. This is a composition-complete private Full Dev build for its declared required scope, not an OPEN OCEAN release or BACH-parity claim. The reconciled recipe source is pushed at `ellmos-development-system@4fa0d4f44451d967c2a5b4cf4bd659828c9dcdd9`; merging it into canonical recipe `main` remains separate work. See the [staged build plan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
+| Runtime | **available for private Full Dev** through the declared `runtime.host` provider `ellmos-core`, with the resolved `unified-gui.host` exposed as the OCEAN operator surface; an OPEN OCEAN runtime is not shipped and the private provider is not a public dependency |
 | Recipes | maintained in the recipe repository, not here |
 
 **The traffic light** — release condition 1 turns green when every referenced bundle is green,
@@ -200,11 +202,10 @@ the gate is visible where visibility is switched). It opens when all four are de
    to be the provider's TerminPilot domain surface, not OCEAN. The corrected cycle now exposes and
    browser-verifies the resolved operator UI at `127.0.0.1:8810/control/`. A later persistent-profile
    regression additionally made OCEAN own Root, manifest, offline identity and worker cleanup on
-   that origin. That materially advances OCEAN, but
-   it is neither a fresh foreign-host full-system proof nor a complete composition: the applied
-   28-bundle OCEAN-family snapshot still requires `module:automation-runtime`. The seven other
-   former required gaps were proprietary SPEEDBOAT concerns, not missing OCEAN substance. The
-   current apply verifies all 28 refs against pushed recipe commit
+   that origin. The development-host composition now also resolves the distinct
+   `module:automation-runtime`, has no missing required component and reports
+   `full_composition: true`. That materially advances OCEAN, but it is still not the required fresh
+   foreign-host full-system proof. The current apply verifies all 28 refs against pushed recipe commit
    `7754f811b4b793fa7e25d42c395cf6b31d6eacaa`; the branch is not yet merged into canonical recipe
    `main`. See
    `architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md` for the exact evidence and remaining breadth.

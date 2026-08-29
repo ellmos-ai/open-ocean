@@ -57,6 +57,55 @@ class ShippedFullDevBindingTests(unittest.TestCase):
         )
         self.assertFalse(component.detail["binding"]["provider_verified"])
 
+    def test_automation_runtime_is_a_distinct_logical_role_of_the_pinned_provider(self):
+        """FULL OCEAN must close the runtime gap without merging role ownership."""
+        with tempfile.TemporaryDirectory() as temporary:
+            catalog = Path(temporary) / "modules.catalog.json"
+            catalog.write_text(
+                json.dumps({
+                    "modules": [{
+                        "id": "automation-master",
+                        "source_of_truth": {
+                            "type": "git-repository",
+                            "repository": "https://github.com/dev-bricks/automation-master.git",
+                        },
+                        "resolved_source": "automation-master",
+                        "provides": [
+                            "automation.registry",
+                            "automation.runtime.observe",
+                            "automation.runtime.receipt",
+                            "automation.runtime.statistics",
+                        ],
+                    }],
+                }),
+                encoding="utf-8",
+            )
+            bindings = load_component_bindings(FULL_DEV_BINDINGS)
+            component = ResolvedComponent(
+                ref="module:automation-runtime",
+                kind="module",
+                requirement="required",
+            )
+
+            resolve_module(component, catalog, bindings)
+
+        runtime = bindings["bindings"]["module:automation-runtime"]
+        registry = bindings["bindings"]["module:automation-registry"]
+        self.assertEqual(component.detail["catalog_id"], "automation-master")
+        self.assertTrue(component.detail["catalog_repository_matches_binding"])
+        self.assertEqual(
+            runtime["required_provides"],
+            [
+                "automation.runtime.observe",
+                "automation.runtime.receipt",
+                "automation.runtime.statistics",
+            ],
+        )
+        self.assertEqual(runtime["catalog_id"], registry["catalog_id"])
+        self.assertEqual(runtime["repository"], registry["repository"])
+        self.assertNotEqual(runtime["placement_id"], registry["placement_id"])
+        self.assertFalse(component.detail["binding"]["provider_verified"])
+
 
 if __name__ == "__main__":
     unittest.main()

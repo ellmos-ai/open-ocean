@@ -19,6 +19,10 @@
   Commit `ec50c92319ba8fc262d695b86818fc85666feff7` zu.
 - Die zweite exakte Bindung ordnet `module:automation-registry` dem `automation-master` am Commit
   `ad40de721615518e409b53b00ed4b2a49840db28` zu und verlangt `automation.registry`.
+- Die dritte exakte Bindung ordnet die getrennte logische Rolle `module:automation-runtime` einer
+  eigenen `automation-master`-Platzierung am Commit
+  `c2de7188626510b181c4ecf2708c15f2395e32aa` zu und verlangt Runtime-Beobachtung,
+  unveränderliche Belege und begrenzte Statistiken.
 - Anbieterprüfung über Repository-Ursprung, exakten Git-HEAD, sauberen Checkout,
   Modulmanifest-Identität und deklarierte Fähigkeit, bevor eine gebundene Komponente als
   aufgelöst gelten kann.
@@ -31,6 +35,9 @@
 
 ### Behoben
 
+- Die veraltete Gleichsetzung `ocean-full / open-ocean` wurde aus der aktuellen Produktsprache
+  entfernt und im lebenden Plan als überholt markiert: OPEN OCEAN ist öffentlich, PRIVATE OCEAN
+  ist privat und nicht proprietär, und FULL OCEAN ist exakt ihre Vereinigung.
 - Der Reload-Prozess des Runtime-Hosts ist abgeschaltet; jeder Start erhält einen eigenen lokalen
   Secret-Key, damit ein authentifizierter Stopp keinen Reload-Kindprozess zurücklässt.
 - Ein veralteter Stopp-Status der vorherigen Instanz löst beim Neustart keinen Fehlalarm mehr aus.
@@ -54,24 +61,28 @@
 
 ### Geprüft
 
-- 135 Tests sind grün, einschließlich echter HTTP-Akzeptanz für Start, Status, Benutzeranlage,
+- 136 Tests sind grün, einschließlich echter HTTP-Akzeptanz für Start, Status, Benutzeranlage,
   Stopp, Neustart, Wiederherstellung veralteter Zustände, Auswahl von Produktoberfläche und
   -ursprung, PWA-Bereinigung sowie schreibfreier Ablehnung einer bereits laufenden Sandbox.
 - Der aktuelle private Full-Dev-Integrationskandidat bestätigt 28/28 OCEAN-Familien-Bundle-Pins,
-  löst 53 von 65 Modulreferenzen und alle 80 Skills auf und ist unter
+  löst 54 von 65 Modulreferenzen und alle 80 Skills auf und ist unter
   `http://127.0.0.1:8810/control/` gesund.
 - Der echte Anbieter für `software-endpoint-registry` wurde am exakten Pin geholt, projizierte zwei
   Software-Endpunkte (CLI und HTTP) und ergänzte einen Rollback-Protokolleintrag, ohne die 62
   vorhandenen Skill-Einträge zu verlieren.
 - Der echte Anbieter für `automation-registry` ist ein sauberer abgetrennter Checkout am exakten
   `automation-master`-Pin und -Ursprung; sein Modulmanifest deklariert `automation.registry`.
+- Der echte Anbieter für `automation-runtime` liegt als getrennte, saubere Platzierung am exakten
+  `automation-master`-Pin und -Ursprung vor. Die Abnahme am installierten Anbieter bestätigte
+  natives Provider- und Scheduler-Rücklesen, einen unveränderlichen inhaltsgehashten Beleg,
+  begrenzte Statistiken und die Nichtausgabe roher Provider-/Scheduler-Inhalte.
 - Das Therapy-Bundle ergänzt 18 aufgelöste und installierte Skills. Das erhaltende Protokoll
-  umfasst jetzt 80 Skill-Einträge und zwei Einträge gebundener Module.
+  umfasst jetzt 80 Skill-Einträge und drei Einträge gebundener Module.
 - Die echte private Laufzeit legte einen zufälligen Wegwerfadministrator an, bestätigte dessen
   Passwort-Hash und kehrte nach der Bereinigung zum ursprünglichen Null-Benutzer-Stand zurück.
-- Zwölf Modulreferenzen bleiben unaufgelöst. Nur `module:automation-runtime` ist Pflicht; der Lauf
-  meldet daher weiterhin `full_composition: false`. Die sieben früheren proprietären Anforderungen
-  sind SPEEDBOAT-Belange und blockieren FULL OCEAN nicht mehr.
+- Elf optionale Modulreferenzen bleiben unaufgelöst. Keine Pflichtkomponente fehlt; deshalb meldet
+  die angewandte 28-Bundle-Entwicklungskomposition `full_composition: true`. Das ist weder ein
+  öffentlicher Release- noch ein BACH-Paritäts- oder Fremdrechner-Vollsystemclaim.
 - Die früheren drei Rezept-Pin-Abweichungen wurden ohne spontanes Umpinnen auf dem gepushten Branch
   `ellmos-development-system@7754f811b4b793fa7e25d42c395cf6b31d6eacaa` abgeglichen; seine
   Übernahme in den kanonischen Rezept-Branch `main` bleibt gesonderte Arbeit.

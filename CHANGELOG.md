@@ -6,6 +6,8 @@
 
 ### Added
 
+- Paired English/German product-stack boundary documents for OPEN OCEAN, PRIVATE OCEAN,
+  FULL OCEAN and the independent SPEEDBOAT sibling stack, backed by documentation-contract tests.
 - Root `ocean.py` lifecycle with `plan`, `up`, `start`, `status`, `down`, and `user add`.
 - Capability-driven selection of exactly one resolved `runtime.host`.
 - Local authenticated runtime supervisor and compatibility projections for the selected host.
@@ -46,10 +48,11 @@
 
 ### Verified
 
-- 133 tests pass, including real HTTP start/status/user/stop/restart, stale-state recovery,
+- 135 tests pass, including real HTTP start/status/user/stop/restart, stale-state recovery,
   product-surface/origin selection, PWA cleanup and pre-write active-runtime rejection.
-- The current private Full Dev integration candidate verifies 30/30 bundle pins, resolves 53
-  modules and 80 skills, and is healthy at `http://127.0.0.1:8810/control/`.
+- The current private Full Dev integration candidate verifies 28/28 OCEAN-family bundle pins,
+  resolves 53 of 65 module references and all 80 skills, and is healthy at
+  `http://127.0.0.1:8810/control/`.
 - The real `software-endpoint-registry` provider was fetched at its exact pin, projected two
   software endpoints (CLI and HTTP), and added one rollback-ledger entry without losing the 62
   existing skill entries.
@@ -59,11 +62,14 @@
   80 skill entries and two bound-module entries.
 - The real private runtime created a random disposable administrator, verified its password hash,
   and returned to the original zero-user state after cleanup.
-- Twenty-four module references remain unresolved; eight are required, so the run still reports
-  `full_composition: false`.
+- Twelve module references remain unresolved. Only `module:automation-runtime` is required, so
+  the run still reports `full_composition: false`; the seven former proprietary requirements are
+  SPEEDBOAT concerns and no longer block FULL OCEAN.
 - The former three recipe-pin mismatches were reconciled without ad-hoc repinning on pushed branch
-  `ellmos-development-system@489b67880b42ba4bd2a1d8052239896f84192269`; merging that branch into
+  `ellmos-development-system@7754f811b4b793fa7e25d42c395cf6b31d6eacaa`; merging that branch into
   canonical recipe `main` remains separate work.
+- A controlled stop/apply/start readback retained healthy OCEAN identity: Root returns `307` to
+  `/control/`, the UTF-8 manifest names `OCEAN Full Dev`, and no TerminPilot product marker appears.
 - The installed snapshot was restarted at `http://127.0.0.1:8810/control/`. HTTP and a real
   Playwright browser showed `OCEAN Full Dev`, no TerminPilot/appointment-coordination markers, and
   a navigable Skills panel; port `8800` was no longer listening.

@@ -936,5 +936,79 @@ worded manifest and root-scoped `/sw.js` outside the mounted OCEAN console.
 
 The checkpoint is `ocean-full-dev-origin-koralle-20260829`. It records the private Full Dev fix;
 it is not a Public OCEAN release and changes neither repository visibility nor `PRIVATE.txt`.
-Eight required module gaps and the separate Public OCEAN allowlist remain open, so the next
-adaptive section returns to the section-start `.AI`/Gardener/policy lift before selecting work.
+At that historical checkpoint, eight required module gaps and the separate Public OCEAN allowlist
+remained open. Section 12 supersedes the current gap count after repeating the section-start
+`.AI`/Gardener/policy lift.
+
+## 12. Product boundary and SPEEDBOAT separation — 2026-08-29
+
+This adaptive cycle began with the required section-start lift through
+`.AI/SYSTEM-PRODUKTLINIE.md`, `.AI/VISIBILITY-POLICY.md`, `.AI/GLOSSARY.md`,
+`.AI/.OS/DECISIONS.md`, Gardener and USMC. The user then ratified the product algebra:
+
+```text
+OPEN OCEAN = PUBLIC
+PRIVATE OCEAN = PRIVATE_NON_PROPRIETARY
+FULL OCEAN = OPEN OCEAN + PRIVATE OCEAN
+
+SPEEDBOAT = PROPRIETARY
+            + SELECTED_PUBLIC
+            + SELECTED_PRIVATE_NON_PROPRIETARY
+```
+
+SPEEDBOAT is an independent sibling stack, not an OCEAN edition, overlay or inherited superset.
+It may navigate selected OCEAN waters or travel between islands, but every shared bundle/module
+requires an explicit allowlist entry. Repository visibility remains separate from product
+membership.
+
+### Declarative boundary and recipe proof
+
+- Recipe commit `7754f811b4b793fa7e25d42c395cf6b31d6eacaa` adds the closed
+  `contracts/product-stack-boundary-contract.v1.json` contract and an independent
+  `systems/products/speedboat/system.v1.json` manifest with empty inheritance and empty shared
+  allowlists.
+- FULL OCEAN now declares 28 platform/domain bundles. The proprietary
+  `ellmos-multitenancy-bundle` and `ellmos-saas-operations-bundle` are SPEEDBOAT-only and no
+  longer create false OCEAN completeness gaps.
+- The legacy catalog token `hosted-private` is retained only for schema/hash compatibility and
+  maps to product category `proprietary`; this is not a claim that private equals proprietary.
+- TDD first failed on the missing product contract/manifest and the stale 30-bundle assumptions.
+  The focused recipe suite is now **41 passed, 1 skipped**, and the generated README catalogue is
+  in sync. The unabridged recipe suite still fails closed only on the previously reproduced
+  external evidence gates: one missing WORKSTATION-LG local file and an expired System Explorer
+  currentness receipt (**152 passed, 5 skipped, 1 failed, 14 errors**).
+
+### Controlled apply and live readback
+
+- A read-only plan against the new recipe verified **28/28** exact bundle pins and planned 158
+  component occurrences: **53 of 65 module references resolved**, **12 unresolved**, and all
+  **80/80 skills resolved**.
+- Only `module:automation-runtime` remains a required FULL OCEAN gap. Machine truth therefore
+  remains `full_composition: false`; the other unresolved references are optional.
+- After a controlled `down` and `up --apply`, install state at
+  `C:\_Local_DEV\ocean-full-dev\ocean.install.json` records the applied 28-pin transaction and
+  the same single required gap. Runtime status is `running/ok` on port `8810`.
+- Live HTTP proves `307 / -> /control/` with `Cache-Control: no-store`; the UTF-8 web manifest
+  names `OCEAN Full Dev`, and the control HTML contains no TerminPilot, appointment-coordination
+  or appointment-query product markers.
+- The complete Open OCEAN suite is **135 passed**; Ruff, `compileall` and whitespace checks pass.
+  English/German product-boundary docs, READMEs and changelogs were updated together and retain
+  the release/visibility non-claim.
+
+### Unordered continuation pool
+
+The next module/bundle section is selected only after repeating the `.AI`/Gardener/USMC/policy
+lift. The pool has no fixed order:
+
+- provide and TDD-integrate the distinct `module:automation-runtime` contract;
+- derive and test a default-deny OPEN OCEAN public allowlist independently from FULL OCEAN;
+- decide whether/how recipe commit `7754f811…` is adopted into canonical recipe `main`;
+- select shared OCEAN components for SPEEDBOAT only when a concrete proprietary use case exists;
+- keep BACH-only extraction exceptional and value-gated while BACH consumes the same canonical
+  modules as OCEAN;
+- repeat runtime/HTTP acceptance, bilingual/root/help/changelog/plan updates, tests,
+  commit/push and one named integration checkpoint for each completed section.
+
+The checkpoint name for this private integration cycle is
+`ocean-full-dev-wellenkamm-20260829`. It is not a Public OCEAN release and authorizes neither a
+repository-visibility change nor a modification of `PRIVATE.txt`.

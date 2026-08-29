@@ -20,8 +20,9 @@ Das kostenlose Community-Vollsystem des ellmos-Ökosystems.
 Komposition ist auf dem Entwicklungsrechner jetzt lauffähig: Sie kann einen deklarierten
 `runtime.host` planen, installieren, starten, prüfen, mit einem Benutzer versehen, stoppen und neu
 starten. Das ist der erste nutzbare OCEAN-Produktabschnitt, aber kein Claim auf BACH-Parität oder
-Veröffentlichungsreife. Die geprüfte Komposition weist jetzt acht fehlende Pflichtmodule aus
-und markiert sich deshalb selbst mit `full_composition: false`.
+Veröffentlichungsreife. Die geprüfte 28-Bundle-Komposition weist jetzt genau ein fehlendes
+Pflichtmodul aus, `module:automation-runtime`, und markiert sich deshalb wahrheitsgemäß mit
+`full_composition: false`.
 
 OCEAN konsumiert die Rezepte aus ihrem kanonischen Repository, statt sie hierher zu kopieren. Die
 Transaktionsschicht löst auf, prüft, holt, platziert, aktiviert und rollt zurück; die
@@ -42,6 +43,18 @@ Anbieter-Service-Worker sowie -Caches, bevor sie die OCEAN-Adresse beanspruchen 
 
 ## Der Name und die Architektur, die er trägt
 
+Die ratifizierte Produktgrenze ist unter
+[Produkt- und Stackgrenzen](architecture/PRODUKT-STACK-GRENZEN.md) dokumentiert:
+
+- **OPEN OCEAN = PUBLIC**
+- **PRIVATE OCEAN = PRIVATE, NICHT PROPRIETÄR**
+- **FULL OCEAN = OPEN OCEAN + PRIVATE OCEAN**
+- **SPEEDBOAT = PROPRIETÄR + ausdrücklich ausgewählte OPEN-/PRIVATE-OCEAN-Teile**
+
+Dieses Repository baut OPEN OCEAN und betreibt FULL OCEAN als private Entwicklungs- und
+Testkomposition. SPEEDBOAT ist ein eigenständiger Geschwister-Stack, keine OCEAN-Edition und
+kein Overlay.
+
 Das Ökosystem benennt seine Ebenen nach Wasser, weil das Bild die Architektur trägt statt sie zu
 schmücken:
 
@@ -53,6 +66,9 @@ schmücken:
 | **waterfall** | die deklarative Quelle: Baukasten, Rezepte, Kataloge |
 | **ocean** | das Vollsystem; Endpunkt der Linie Bach → Rinnsal → Ozean |
 | **open-ocean** | der Teil, der allen gehört: das kostenlose Community-Vollsystem |
+| **private-ocean** | private, nicht proprietäre OCEAN-Komponenten |
+| **full-ocean** | OPEN OCEAN + PRIVATE OCEAN; die vollständige OCEAN-Entwicklungs-/Testkomposition |
+| **speedboat** | ein eigenständiger proprietärer Stack, der gemeinsame OCEAN-Teile ausdrücklich auswählt |
 
 Die leitende Regel ist ein Erhaltungssatz: **Extraktion ändert das Bett, nie das Wasser.** Umbau
 muss die Funktion erhalten — „gleiche Wassermenge" heißt Funktionsparität. Auch das ist keine
@@ -106,8 +122,9 @@ erscheinen, als es ist.
 - Das Repository-Gerüst bildet den öffentlichen Umfang mit 13 Bundles ab; auswählbar sind Ring
   `1`, `2` oder `all`.
 - OCEAN Full Dev konsumiert das vorhandene externe Vollsystemmanifest `ellmos.system.v1` und alle
-  darin deklarierten `bundle_refs[]`. Manifest und private Rezepte bleiben in ihren kanonischen
-  Ablagen; nichts davon wird in dieses Repository kopiert.
+  28 OCEAN-Familien-Referenzen in `bundle_refs[]`. Proprietäre SPEEDBOAT-Bundles sind
+  ausgeschlossen. Manifest und private Rezepte bleiben in ihren kanonischen Ablagen; nichts davon
+  wird in dieses Repository kopiert.
 
 ```text
 python tools/ocean_dev.py --bundles-root <recipe-projection> \
@@ -153,7 +170,7 @@ authentifizierte Kontrollkanal noch der aufgezeichnete Runtime-Port aktiv ist.
 | Architektur-Gerüst | vorhanden, 13 Bundles referenziert |
 | BACH-Extraktionsbasis | vorhanden — 114 quellseitige Namen; historische 113er Runtime-Messlatte bleibt erhalten; erneut geprüft am 2026-08-18 (106 Handler-Klassen, +1 gegenüber der 2026-08-08-Basis — zurückverfolgt auf eine hostgebundene Duplikatdatei in BACH, `upgrade-WORKSTATION-LG.py` neben `upgrade.py`; hier NICHT behoben, BACH liegt außerhalb des Änderungsumfangs dieses Repositories). `registered_names` unverändert bei 114. |
 | K9-1 Daten-/Checkpoint-Gate | zwei Träger-Fixtures grün; Adapter und BACH-Äquivalenz bleiben offen |
-| Installer und Lebenszyklus | **Resolve, Verify, SHA-gepinnte Fetch/Place-Schritte, exakte Anbieterbindungen, isolierte Skill-Aktivierung, erhaltende Aktivierungsprotokollierung, zielvalidiertes Rollback, Wiederherstellung des installierten Snapshots, Runtime-Start/Status/Stopp/Neustart und delegierte Benutzeranlage sind implementiert.** Der aktuelle Windows-Full-Dev-Integrationskandidat bestätigt **30/30** Bundle-Pins, löst **53 Module und 80 Skills** auf und läuft unter `http://127.0.0.1:8810/control/`. Der erste adaptive Anbieterzyklus integrierte `software-endpoint-registry`; Zyklus 2 integriert `automation-registry` über `automation-master@ad40de7…` und konsumiert die 18 Skills des Therapy-Bundles. Die Vorprüfung der aktiven Laufzeit stoppt ein zweites `up --apply` jetzt vor jedem Fetch/Activate-Schreibzugriff. Der produkteigene Ursprung leitet Root auf OCEAN um und entfernt alte Anbieter-PWA-Worker und -Caches, ohne Cookies oder anderen Browserspeicher zu löschen. HTTP- und Browserabnahme mit persistentem Profil bestätigten den OCEAN-Titel sowie ein navigierbares Skills-Panel. Die Suite umfasst jetzt 133 grüne Tests. 24 Modulreferenzen bleiben unaufgelöst; acht davon sind Pflicht. Damit ist dies weiterhin Full Dev und weder vollständiges noch öffentliches OCEAN. Die abgeglichene 30-Bundle-Rezeptquelle ist als `ellmos-development-system@489b678…` gepusht; ihre Übernahme in den kanonischen Rezept-Branch `main` bleibt gesonderte Arbeit. Siehe [gestuften Bauplan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
+| Installer und Lebenszyklus | **Resolve, Verify, SHA-gepinnte Fetch/Place-Schritte, exakte Anbieterbindungen, isolierte Skill-Aktivierung, erhaltende Aktivierungsprotokollierung, zielvalidiertes Rollback, Wiederherstellung des installierten Snapshots, Runtime-Start/Status/Stopp/Neustart und delegierte Benutzeranlage sind implementiert.** Der aktuelle Windows-Full-Dev-Integrationskandidat bestätigt **28/28** OCEAN-Familien-Bundle-Pins, löst **53 von 65 Modulreferenzen und alle 80 Skills** auf und läuft unter `http://127.0.0.1:8810/control/`. Zwölf Modulreferenzen bleiben unaufgelöst, aber nur `module:automation-runtime` ist Pflicht; die sieben früheren proprietären Anforderungen sind in den eigenständigen SPEEDBOAT-Stack gewandert. Die Vorprüfung der aktiven Laufzeit stoppt ein zweites `up --apply` vor jedem Fetch/Activate-Schreibzugriff. Der produkteigene Ursprung leitet Root auf OCEAN um und entfernt alte Anbieter-PWA-Worker und -Caches, ohne Cookies oder anderen Browserspeicher zu löschen. Der Live-HTTP-Abgleich bestätigt `307 / → /control/`, das Manifest `OCEAN Full Dev` und keine TerminPilot-Produktmarker. Die Suite umfasst jetzt 135 grüne Tests. Dies bleibt eine unvollständige private Full-Dev-Integration und ist keine öffentliche OCEAN-Freigabe. Die abgeglichene Rezeptquelle ist als `ellmos-development-system@7754f811b4b793fa7e25d42c395cf6b31d6eacaa` gepusht; ihre Übernahme in den kanonischen Rezept-Branch `main` bleibt gesonderte Arbeit. Siehe [gestuften Bauplan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
 | Laufzeit | **für das private Full Dev verfügbar** über den deklarierten `runtime.host`-Anbieter `ellmos-core`, mit dem aufgelösten `unified-gui.host` als OCEAN-Operator-Oberfläche; eine öffentliche OCEAN-Laufzeit wird noch nicht ausgeliefert, und der private Anbieter ist keine öffentliche Abhängigkeit |
 | Rezepte | im Rezept-Repository gepflegt, nicht hier |
 
@@ -199,9 +216,11 @@ Bedingungen nachweislich erfüllt sind:
    Manifest, Offline-Identität und Worker-Bereinigung dieses Ursprungs an OCEAN. Das bringt OCEAN
    substanziell voran,
    ist aber weder ein frischer Fremdrechner-Vollsystembeleg noch eine vollständige Komposition:
-   Acht Pflichtmodule fehlen im angewandten Snapshot weiterhin. Die früheren drei
-   Rezept-Pin-Abweichungen sind auf dem gepushten Integrationsbranch abgeglichen; der aktuelle
-   Apply-Lauf bestätigt alle 30 Referenzen. Der Branch ist noch nicht in den kanonischen
+   Im angewandten Snapshot der 28 OCEAN-Familien-Bundles fehlt weiterhin
+   `module:automation-runtime`. Die sieben anderen früheren Pflichtlücken waren proprietäre
+   SPEEDBOAT-Belange und keine fehlende OCEAN-Substanz. Der aktuelle Apply-Lauf bestätigt alle 28
+   Referenzen gegen den gepushten Rezept-Commit
+   `7754f811b4b793fa7e25d42c395cf6b31d6eacaa`. Der Branch ist noch nicht in den kanonischen
    Rezept-Branch `main` übernommen. Die genauen Belege und die verbleibende Breite stehen im
    `architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md`.
 3. **Parität für den Release-Umfang** — das System leistet, was es zu decken beansprucht. Ein

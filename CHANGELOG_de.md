@@ -6,6 +6,8 @@
 
 ### Hinzugefügt
 
+- Gekoppelte englische/deutsche Produkt- und Stackgrenzen-Dokumente für OPEN OCEAN, PRIVATE OCEAN,
+  FULL OCEAN und den eigenständigen Geschwister-Stack SPEEDBOAT, abgesichert durch Dokumentvertragstests.
 - Wurzel-CLI `ocean.py` mit `plan`, `up`, `start`, `status`, `down` und `user add`.
 - Fähigkeitsgesteuerte Auswahl genau eines aufgelösten `runtime.host`.
 - Lokaler authentifizierter Runtime-Supervisor und Kompatibilitätsprojektionen für den
@@ -52,11 +54,12 @@
 
 ### Geprüft
 
-- 133 Tests sind grün, einschließlich echter HTTP-Akzeptanz für Start, Status, Benutzeranlage,
+- 135 Tests sind grün, einschließlich echter HTTP-Akzeptanz für Start, Status, Benutzeranlage,
   Stopp, Neustart, Wiederherstellung veralteter Zustände, Auswahl von Produktoberfläche und
   -ursprung, PWA-Bereinigung sowie schreibfreier Ablehnung einer bereits laufenden Sandbox.
-- Der aktuelle private Full-Dev-Integrationskandidat bestätigt 30/30 Bundle-Pins, löst 53 Module
-  und 80 Skills auf und ist unter `http://127.0.0.1:8810/control/` gesund.
+- Der aktuelle private Full-Dev-Integrationskandidat bestätigt 28/28 OCEAN-Familien-Bundle-Pins,
+  löst 53 von 65 Modulreferenzen und alle 80 Skills auf und ist unter
+  `http://127.0.0.1:8810/control/` gesund.
 - Der echte Anbieter für `software-endpoint-registry` wurde am exakten Pin geholt, projizierte zwei
   Software-Endpunkte (CLI und HTTP) und ergänzte einen Rollback-Protokolleintrag, ohne die 62
   vorhandenen Skill-Einträge zu verlieren.
@@ -66,11 +69,15 @@
   umfasst jetzt 80 Skill-Einträge und zwei Einträge gebundener Module.
 - Die echte private Laufzeit legte einen zufälligen Wegwerfadministrator an, bestätigte dessen
   Passwort-Hash und kehrte nach der Bereinigung zum ursprünglichen Null-Benutzer-Stand zurück.
-- 24 Modulreferenzen bleiben unaufgelöst; acht davon sind Pflicht. Der Lauf meldet daher weiterhin
-  `full_composition: false`.
+- Zwölf Modulreferenzen bleiben unaufgelöst. Nur `module:automation-runtime` ist Pflicht; der Lauf
+  meldet daher weiterhin `full_composition: false`. Die sieben früheren proprietären Anforderungen
+  sind SPEEDBOAT-Belange und blockieren FULL OCEAN nicht mehr.
 - Die früheren drei Rezept-Pin-Abweichungen wurden ohne spontanes Umpinnen auf dem gepushten Branch
-  `ellmos-development-system@489b67880b42ba4bd2a1d8052239896f84192269` abgeglichen; seine
+  `ellmos-development-system@7754f811b4b793fa7e25d42c395cf6b31d6eacaa` abgeglichen; seine
   Übernahme in den kanonischen Rezept-Branch `main` bleibt gesonderte Arbeit.
+- Ein kontrollierter Stopp-/Apply-/Start-Abgleich behielt die gesunde OCEAN-Identität bei: Root
+  liefert `307` auf `/control/`, das UTF-8-Manifest heißt `OCEAN Full Dev`, und kein
+  TerminPilot-Produktmarker erscheint.
 - Der installierte Snapshot wurde unter `http://127.0.0.1:8810/control/` neu gestartet. HTTP und
   ein echter Playwright-Browser zeigten `OCEAN Full Dev`, keine TerminPilot-/
   Terminkoordination-Marker und ein navigierbares Skills-Panel; Port `8800` lauschte nicht mehr.

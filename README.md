@@ -19,8 +19,9 @@ The free community full system of the ellmos ecosystem.
 **The released public full system is not here yet.** The private OCEAN Full Dev composition is now
 runnable on the development host: it can plan, install, start, inspect, bootstrap a user, stop and
 restart one declared `runtime.host`. This is the first usable OCEAN product slice, not a BACH-parity
-or public-release claim. The verified composition now reports eight missing required modules and
-therefore marks itself `full_composition: false`.
+or public-release claim. The verified 28-bundle composition now reports exactly one missing
+required module, `module:automation-runtime`, and therefore truthfully marks itself
+`full_composition: false`.
 
 OCEAN consumes the recipes from their canonical repository instead of copying them here. The
 transaction layer resolves, verifies, fetches, places, activates and rolls back; the lifecycle
@@ -39,6 +40,17 @@ offline identity, and evicts provider service workers/caches before they can cla
 
 ## The name, and the architecture it carries
 
+The ratified product boundary is documented in
+[Product stack boundaries](architecture/PRODUCT-STACK-BOUNDARIES.md):
+
+- **OPEN OCEAN = PUBLIC**
+- **PRIVATE OCEAN = PRIVATE, NON-PROPRIETARY**
+- **FULL OCEAN = OPEN OCEAN + PRIVATE OCEAN**
+- **SPEEDBOAT = PROPRIETARY + explicitly selected OPEN-/PRIVATE-OCEAN parts**
+
+This repository builds OPEN OCEAN and operates FULL OCEAN as the private development/test
+composition. SPEEDBOAT is an independent sibling stack, not an OCEAN edition or overlay.
+
 The ecosystem names its layers after water, because the metaphor carries the architecture rather
 than decorating it:
 
@@ -50,6 +62,9 @@ than decorating it:
 | **waterfall** | the declarative source: the kit, the recipes, the catalogues |
 | **ocean** | the full system; the end of the line Bach → Rinnsal → ocean |
 | **open-ocean** | the part that belongs to everyone: the free community full system |
+| **private-ocean** | private, non-proprietary OCEAN components |
+| **full-ocean** | OPEN OCEAN + PRIVATE OCEAN; the complete OCEAN development/test composition |
+| **speedboat** | an independent proprietary stack that selects shared OCEAN parts explicitly |
 
 The governing rule is a conservation law: **extraction changes the bed, never the water.**
 Restructuring must preserve function — "same volume of water" means functional parity. That is
@@ -99,9 +114,9 @@ repository moves on, and would make this repository look further along than it i
 ### Local composition modes
 
 - The repository skeleton is the 13-bundle public scope; choose ring `1`, `2`, or `all`.
-- OCEAN Full Dev consumes the existing external `ellmos.system.v1` full-system manifest and all of
-  its `bundle_refs[]`. The manifest and private recipes remain in their canonical stores; nothing
-  is copied into this repository.
+- OCEAN Full Dev consumes the existing external `ellmos.system.v1` full-system manifest and all 28
+  of its OCEAN-family `bundle_refs[]`. Proprietary SPEEDBOAT bundles are excluded. The manifest and
+  private recipes remain in their canonical stores; nothing is copied into this repository.
 
 ```text
 python tools/ocean_dev.py --bundles-root <recipe-projection> \
@@ -145,7 +160,7 @@ authenticated control channel and the recorded runtime port are no longer active
 | Architecture skeleton | present, 13 bundles referenced |
 | BACH extraction baseline | present — 114 source-declared names; historic 113-name runtime bar retained; re-audited 2026-08-18 (106 handler classes, +1 vs. the 2026-08-08 baseline — traced to a host-suffixed duplicate file in BACH, `upgrade-WORKSTATION-LG.py` alongside `upgrade.py`; not fixed here, BACH is out of scope for this repository's changes). `registered_names` unchanged at 114. |
 | K9-1 data/checkpoint gate | two carrier fixtures green; adapter and BACH equivalence remain open |
-| Installer and lifecycle | **Resolve, Verify, SHA-pinned Fetch/Place, exact provider bindings, sandboxed skill Activate, append-preserving activation logging, target-validated Roll back, installed-snapshot recovery, runtime start/status/stop/restart and delegated user bootstrap are implemented.** The current Windows Full Dev integration candidate verifies **30/30** bundle pins, resolves **53 modules and 80 skills**, and runs at `http://127.0.0.1:8810/control/`. Adaptive provider cycle 1 integrated `software-endpoint-registry`; cycle 2 integrates `automation-registry` through `automation-master@ad40de7…` and consumes the Therapy bundle's 18 skills. The active-runtime preflight now stops a second `up --apply` before Fetch/Activate can write. The product-owned origin redirects Root to OCEAN and clears legacy provider PWA workers/caches without clearing cookies or other browser storage. HTTP plus persistent-profile browser acceptance verified the OCEAN title and navigable Skills panel. The suite now contains 133 passing tests. Twenty-four module references remain unresolved; eight of them are required, so this remains Full Dev rather than a complete or public OCEAN release. The reconciled 30-bundle recipe source is pushed at `ellmos-development-system@489b678…`; merging it into canonical recipe `main` remains separate work. See the [staged build plan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
+| Installer and lifecycle | **Resolve, Verify, SHA-pinned Fetch/Place, exact provider bindings, sandboxed skill Activate, append-preserving activation logging, target-validated Roll back, installed-snapshot recovery, runtime start/status/stop/restart and delegated user bootstrap are implemented.** The current Windows Full Dev integration candidate verifies **28/28** OCEAN-family bundle pins, resolves **53 of 65 module references and all 80 skills**, and runs at `http://127.0.0.1:8810/control/`. Twelve module references remain unresolved, but only `module:automation-runtime` is required; the seven former proprietary requirements moved to the independent SPEEDBOAT stack. The active-runtime preflight stops a second `up --apply` before Fetch/Activate can write. The product-owned origin redirects Root to OCEAN and clears legacy provider PWA workers/caches without clearing cookies or other browser storage. Live HTTP confirms `307 / → /control/`, the `OCEAN Full Dev` manifest and no TerminPilot product markers. The suite now contains 135 passing tests. This remains an incomplete private Full Dev integration, not a public OCEAN release. The reconciled recipe source is pushed at `ellmos-development-system@7754f811b4b793fa7e25d42c395cf6b31d6eacaa`; merging it into canonical recipe `main` remains separate work. See the [staged build plan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
 | Runtime | **available for private Full Dev** through the declared `runtime.host` provider `ellmos-core`, with the resolved `unified-gui.host` exposed as the OCEAN operator surface; a public OCEAN runtime is not shipped and the private provider is not a public dependency |
 | Recipes | maintained in the recipe repository, not here |
 
@@ -186,10 +201,12 @@ the gate is visible where visibility is switched). It opens when all four are de
    browser-verifies the resolved operator UI at `127.0.0.1:8810/control/`. A later persistent-profile
    regression additionally made OCEAN own Root, manifest, offline identity and worker cleanup on
    that origin. That materially advances OCEAN, but
-   it is neither a fresh foreign-host full-system proof nor a complete composition: eight required
-   modules are still missing from the applied snapshot. The former three recipe-pin mismatches are
-   reconciled on the pushed integration branch, and the current apply verifies all 30 refs; the
-   branch is not yet merged into canonical recipe `main`. See
+   it is neither a fresh foreign-host full-system proof nor a complete composition: the applied
+   28-bundle OCEAN-family snapshot still requires `module:automation-runtime`. The seven other
+   former required gaps were proprietary SPEEDBOAT concerns, not missing OCEAN substance. The
+   current apply verifies all 28 refs against pushed recipe commit
+   `7754f811b4b793fa7e25d42c395cf6b31d6eacaa`; the branch is not yet merged into canonical recipe
+   `main`. See
    `architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md` for the exact evidence and remaining breadth.
 3. **Parity for the release scope** — the system performs at the level it claims to cover. A
    smaller installable core is a build stage, not a release. The current source audit records

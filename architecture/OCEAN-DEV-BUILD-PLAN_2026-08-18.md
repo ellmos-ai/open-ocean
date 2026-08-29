@@ -1091,3 +1091,52 @@ Selection remains result-driven rather than ordered. At the next section start, 
 
 The named checkpoint for this private integration cycle is
 `ocean-full-dev-gezeitenstrom-20260829`. It is not a public release tag.
+
+## 14. ASUS-GEI Full Ocean cutover and lifecycle closure — 2026-08-29
+
+This result-driven cycle repeated the section-start lift through `.AI`, Gardener, USMC and the
+applicable release/visibility policies. It then selected the laptop cutover because the canonical
+Full Ocean recipe was complete enough to provide a new usable system; no BACH module cycle was
+started in parallel.
+
+### Canonical recipe and reproducible inputs
+
+- Full Ocean selection commit `1b461c9cb900ada15b8e104f2586a6b4a1ea5278` is adopted in canonical
+  recipe `main`; the post-adoption resolver readback is
+  `b13f1b11626141d6dc6927028dc10008bc406866`.
+- The accepted input checkouts are detached and clean: Open OCEAN at
+  `0be175db471d1959f1becbfa127e80143de8c268` for the initial apply and the recipe at the Full Ocean
+  selection commit above. The prior `C:\_Local_DEV\ocean-full-dev` workspace remains intact as a
+  rollback source.
+- The read-only plan left the target absent, verified 28/28 exact bundle hashes, resolved 51 of 65
+  modules plus 80/80 skills and planned exactly three required, SHA-pinned provider placements.
+  Apply materialized those three providers and closed every required gap.
+
+### Live composition and product acceptance
+
+- The new workspace is `C:\_Local_DEV\ocean-full`. Its install state verifies 28/28 bundles,
+  resolves 54 of 65 modules and 80/80 skills, leaves eleven optional module references unresolved,
+  has no required gap and reports `full_composition: true`.
+- All provider placements are clean detached checkouts at their declared origins and exact pins:
+  `automation-registry@ad40de721615518e409b53b00ed4b2a49840db28`,
+  `automation-runtime@c2de7188626510b181c4ecf2708c15f2395e32aa`, and
+  `software-endpoint-registry@ec50c92319ba8fc262d695b86818fc85666feff7`.
+- Live HTTP returns `307 / -> /control/`. A real Playwright browser reaches
+  `OCEAN Full Dev — Übersicht`, exposes the OCEAN navigation and does not show a TerminPilot product
+  marker. The remaining browser-console finding is a non-functional missing `favicon.ico` (404),
+  not a product-identity or runtime-health failure.
+
+### TDD lifecycle repair and restart proof
+
+- The first stop exposed a real Windows race: the supervisor wrote a correct `stopped` temporary
+  state, but atomic replacement could collide with the lifecycle reader and leave the canonical
+  state stale. A regression test first reproduced the `PermissionError`.
+- The supervisor now retries only transient `PermissionError` replacement failures, at most 20
+  times with 50 ms spacing. The retry remains atomic, bounded and fail-closed.
+- The focused regression, `compileall`, Ruff, 125 unittest cases and the complete 137-test pytest
+  suite pass. A live stop/start/stop/start cycle left `stopped`, no temporary file, no supervisor,
+  no child and no listener between starts, then returned to `running/ok` on port `8810`.
+
+The private integration checkpoint for this cutover is
+`ocean-full-laptop-hafenlicht-20260829`. It is not an OPEN OCEAN release and changes neither
+repository visibility nor `PRIVATE.txt`.

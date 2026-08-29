@@ -51,10 +51,12 @@
 - Closed the remaining PWA identity leak on port `8810`: the provider had still exposed its own
   root, manifest and root-scoped worker on OCEAN's new origin, so port separation alone was not a
   complete product boundary.
+- Retried transient Windows contention while atomically replacing the supervisor state file. A
+  successful stop now leaves `stopped`, no temporary state file, no process and no listener.
 
 ### Verified
 
-- 136 tests pass, including real HTTP start/status/user/stop/restart, stale-state recovery,
+- 137 tests pass, including real HTTP start/status/user/stop/restart, stale-state recovery,
   product-surface/origin selection, PWA cleanup and pre-write active-runtime rejection.
 - The current private Full Dev integration candidate verifies 28/28 OCEAN-family bundle pins,
   resolves 54 of 65 module references and all 80 skills, and is healthy at
@@ -75,9 +77,11 @@
 - Eleven optional module references remain unresolved. No required component is missing, so the
   applied 28-bundle development composition reports `full_composition: true`. This is not a
   public-release, BACH-parity, or foreign-host full-system claim.
-- The former three recipe-pin mismatches were reconciled without ad-hoc repinning on pushed branch
-  `ellmos-development-system@7754f811b4b793fa7e25d42c395cf6b31d6eacaa`; merging that branch into
-  canonical recipe `main` remains separate work.
+- Full Ocean selection commit `1b461c9cb900ada15b8e104f2586a6b4a1ea5278` is adopted in canonical
+  recipe `main`; post-adoption readback is `b13f1b11626141d6dc6927028dc10008bc406866`.
+- A fresh local Blue-Green apply into `C:\_Local_DEV\ocean-full` preserved the prior workspace as
+  rollback, fetched all three exact provider pins, reached `full_composition: true`, and passed a
+  real stop/start/stop/start cycle after the Windows state-file regression was fixed.
 - A controlled stop/apply/start readback retained healthy OCEAN identity: Root returns `307` to
   `/control/`, the UTF-8 manifest names `OCEAN Full Dev`, and no TerminPilot product marker appears.
 - The installed snapshot was restarted at `http://127.0.0.1:8810/control/`. HTTP and a real

@@ -58,10 +58,13 @@
 - Das verbleibende PWA-Identitätsleck auf Port `8810` ist geschlossen: Der Anbieter hatte am neuen
   OCEAN-Ursprung weiterhin eigenen Root, Manifest und root-weiten Worker ausgeliefert. Die
   Porttrennung allein war daher noch keine vollständige Produktgrenze.
+- Vorübergehende Windows-Kollisionen beim atomaren Ersetzen der Supervisor-Statusdatei werden
+  begrenzt wiederholt. Ein erfolgreicher Stopp hinterlässt jetzt `stopped`, keine temporäre
+  Statusdatei, keinen Prozess und keinen Listener.
 
 ### Geprüft
 
-- 136 Tests sind grün, einschließlich echter HTTP-Akzeptanz für Start, Status, Benutzeranlage,
+- 137 Tests sind grün, einschließlich echter HTTP-Akzeptanz für Start, Status, Benutzeranlage,
   Stopp, Neustart, Wiederherstellung veralteter Zustände, Auswahl von Produktoberfläche und
   -ursprung, PWA-Bereinigung sowie schreibfreier Ablehnung einer bereits laufenden Sandbox.
 - Der aktuelle private Full-Dev-Integrationskandidat bestätigt 28/28 OCEAN-Familien-Bundle-Pins,
@@ -83,9 +86,13 @@
 - Elf optionale Modulreferenzen bleiben unaufgelöst. Keine Pflichtkomponente fehlt; deshalb meldet
   die angewandte 28-Bundle-Entwicklungskomposition `full_composition: true`. Das ist weder ein
   öffentlicher Release- noch ein BACH-Paritäts- oder Fremdrechner-Vollsystemclaim.
-- Die früheren drei Rezept-Pin-Abweichungen wurden ohne spontanes Umpinnen auf dem gepushten Branch
-  `ellmos-development-system@7754f811b4b793fa7e25d42c395cf6b31d6eacaa` abgeglichen; seine
-  Übernahme in den kanonischen Rezept-Branch `main` bleibt gesonderte Arbeit.
+- Der Full-Ocean-Auswahlcommit `1b461c9cb900ada15b8e104f2586a6b4a1ea5278` ist in den kanonischen
+  Rezept-Branch `main` übernommen; dessen Nachlesestand lautet
+  `b13f1b11626141d6dc6927028dc10008bc406866`.
+- Ein frischer lokaler Blue-Green-Apply nach `C:\_Local_DEV\ocean-full` erhielt den vorherigen
+  Workspace als Rücksprungpunkt, holte alle drei exakten Anbieterpins, erreichte
+  `full_composition: true` und bestand nach der Windows-Statusdatei-Reparatur einen echten
+  Stopp-/Start-/Stopp-/Start-Zyklus.
 - Ein kontrollierter Stopp-/Apply-/Start-Abgleich behielt die gesunde OCEAN-Identität bei: Root
   liefert `307` auf `/control/`, das UTF-8-Manifest heißt `OCEAN Full Dev`, und kein
   TerminPilot-Produktmarker erscheint.

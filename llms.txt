@@ -1,0 +1,44 @@
+# open-ocean
+
+> Free community system and private Full Ocean integration/runtime builder for the ellmos ecosystem.
+
+## Product boundary
+
+- OPEN OCEAN = PUBLIC
+- PRIVATE OCEAN = PRIVATE, NON-PROPRIETARY
+- FULL OCEAN = OPEN OCEAN + PRIVATE OCEAN
+- SPEEDBOAT is an independent proprietary sibling stack with explicit shared-component allowlists.
+
+## Current private Full Ocean development state
+
+- Accepted workspace on ASUS-GEI: `C:\_Local_DEV\ocean-full`
+- Product URL: `http://127.0.0.1:8810/control/`
+- Composition: 28/28 verified bundles, 54/65 resolved modules, 80/80 resolved skills
+- Required gaps: 0; optional unresolved module references: 11
+- Product identity: `OCEAN Full Dev`; no TerminPilot product surface on the OCEAN origin
+- This is not an OPEN OCEAN release, BACH-parity claim, visibility change or permission to remove
+  `PRIVATE.txt`.
+
+## Lifecycle CLI
+
+```text
+python ocean.py plan <composition arguments>
+python ocean.py up <composition arguments> --apply
+python ocean.py start --workspace <local-sandbox>
+python ocean.py status --workspace <local-sandbox>
+python ocean.py user add --workspace <local-sandbox> --username <name> --email <address>
+python ocean.py down --workspace <local-sandbox>
+```
+
+Use `python ocean.py --help` and subcommand help for the complete argument surface.
+
+## Primary documents
+
+- English overview: `README.md`
+- German overview: `README_de.md`
+- English changes: `CHANGELOG.md`
+- German changes: `CHANGELOG_de.md`
+- Living build plan and evidence: `architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md`
+- Product boundaries: `architecture/PRODUCT-STACK-BOUNDARIES.md`
+- German product boundaries: `architecture/PRODUKT-STACK-GRENZEN.md`
+- Publication gate: `PRIVATE.txt`

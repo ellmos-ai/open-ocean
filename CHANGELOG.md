@@ -21,6 +21,8 @@
 - Capability-selected OCEAN operator entry: a resolved `unified-gui.host` is mounted at
   `/control/`, receives the deployment title `OCEAN Full Dev`, and runs on dedicated default port
   `8810` rather than the runtime provider's standalone TerminPilot PWA origin.
+- OCEAN-owned origin adapter for Root redirect, product manifest/offline identity, legacy
+  service-worker/cache eviction and provider API delegation.
 
 ### Fixed
 
@@ -38,11 +40,14 @@
   or conflicting entries now stop the transaction before writes.
 - Moved the active-runtime and requested-port preflight ahead of the apply transaction. A second
   `up --apply` can no longer Fetch/Activate anything before reporting that the sandbox is running.
+- Closed the remaining PWA identity leak on port `8810`: the provider had still exposed its own
+  root, manifest and root-scoped worker on OCEAN's new origin, so port separation alone was not a
+  complete product boundary.
 
 ### Verified
 
-- 130 tests pass, including real HTTP start/status/user/stop/restart, stale-state recovery,
-  product-surface selection and pre-write active-runtime rejection.
+- 133 tests pass, including real HTTP start/status/user/stop/restart, stale-state recovery,
+  product-surface/origin selection, PWA cleanup and pre-write active-runtime rejection.
 - The current private Full Dev integration candidate verifies 30/30 bundle pins, resolves 53
   modules and 80 skills, and is healthy at `http://127.0.0.1:8810/control/`.
 - The real `software-endpoint-registry` provider was fetched at its exact pin, projected two
@@ -62,6 +67,10 @@
 - The installed snapshot was restarted at `http://127.0.0.1:8810/control/`. HTTP and a real
   Playwright browser showed `OCEAN Full Dev`, no TerminPilot/appointment-coordination markers, and
   a navigable Skills panel; port `8800` was no longer listening.
+- In a persistent Playwright profile, the seeded legacy provider cache was removed while an
+  unrelated synthetic future-OCEAN cache remained; service-worker registrations were zero, `/`
+  redirected to the OCEAN overview, and the UTF-8 title retained its em dash and German `Ü`
+  without replacement characters.
 
 An integration-checkpoint tag is not a public release. No visibility or `PRIVATE.txt` change is
 part of this entry.

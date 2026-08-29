@@ -773,8 +773,9 @@ identity of the product shown there, so that part of the evidence is withdrawn.
   provider's console mount, writes only an OCEAN-owned workspace title override, and returns
   `/control/` rather than treating the provider's domain root as the product.
 - New installs use dedicated default port `8810`. This gives OCEAN a different browser origin from
-  the provider's standalone TerminPilot PWA on port `8800`, so its root-scoped service worker cannot
-  substitute TerminPilot content for the OCEAN address.
+  the provider's standalone TerminPilot PWA on port `8800`. At this checkpoint, however, the same
+  provider process still exposed its own root, manifest and root-scoped worker on the new origin;
+  the stronger origin-ownership correction is recorded in section 11.
 - `ocean start --workspace <sandbox>` starts the already installed transaction snapshot without
   consulting changed live recipe authority. This is deliberately distinct from `ocean up --apply`:
   the latter remains the transaction/apply boundary and still stops on the three current pin
@@ -791,8 +792,9 @@ identity of the product shown there, so that part of the evidence is withdrawn.
   200 and the database check still reports 20 tables.
 - Direct HTML inspection found `OCEAN Full Dev` and no `TerminPilot`, `Terminkoordination` or
   `Terminabfragen` marker at the returned product URL.
-- A real Playwright browser loaded the overview with title `OCEAN Full Dev — Übersicht`, then
+- A fresh Playwright browser loaded the overview with title `OCEAN Full Dev — Übersicht`, then
   navigated to the Skills panel with title `OCEAN Full Dev — Skills`. Port `8800` had no listener.
+  This did not yet exercise an installed PWA or a profile retaining a root-scoped worker.
 - One pre-existing cosmetic browser finding remains: the mounted UI does not declare a favicon, so
   the browser requests `/favicon.ico` and receives 404. It does not affect navigation, health or
   product identity and is not silently counted as fixed.
@@ -886,3 +888,53 @@ Every selected section repeats tests, real runtime/browser acceptance where rele
 readback, paired English/German README and changelog updates, this plan/task pool, commit/push and an
 explicit integration checkpoint. An integration tag records evidence; it does not authorize a
 public release, repository visibility change or modification of `PRIVATE.txt`.
+
+## 11. Product-owned origin and persistent-PWA correction — 2026-08-29
+
+This corrective cycle interrupts the unordered provider pool because direct user evidence again
+showed the installed TerminPilot offline shell where OCEAN was expected. Read-only live inspection
+separated two facts: port `8800` had no listener, so its previously installed TerminPilot PWA was
+truthfully offline; port `8810/control/` was healthy OCEAN. The boundary was nevertheless still
+incomplete because the process on `8810` exposed the runtime provider's root page, appointment-
+worded manifest and root-scoped `/sw.js` outside the mounted OCEAN console.
+
+### Corrected origin contract
+
+- When `unified-gui.host` selects the OCEAN operator surface, the lifecycle now starts an
+  OCEAN-owned ASGI boundary around the selected `ellmos-core` provider. Lifespan, health and the
+  provider API remain delegated; browser identity is no longer delegated.
+- `/` returns a non-cacheable redirect to `/control/`. `/manifest.webmanifest` names `OCEAN Full
+  Dev` and limits its start URL and scope to `/control/`. `/offline` contains only OCEAN copy.
+- `/sw.js` is a non-cacheable retirement worker that deletes legacy `ellmos-core-pwa*` cache
+  entries, unregisters itself and refreshes controlled windows. OCEAN HTML also carries a bounded
+  cleanup script so a currently controlling legacy root worker is removed without waiting for the
+  browser's periodic update.
+- Cleanup is limited to the dedicated OCEAN origin's root-scoped service-worker registration and
+  provider cache prefix. It does not clear unrelated or future OCEAN caches, issue
+  `Clear-Site-Data`, remove cookies, local storage, sessions or the separately installed
+  TerminPilot PWA on port `8800`.
+
+### TDD and live evidence
+
+- The red test first failed because `tools.ocean_origin` did not exist and the lifecycle still
+  launched the provider CLI directly. Green tests now prove Root redirect, OCEAN manifest and
+  offline identity, retiring worker behavior, control-HTML injection, unchanged delegation of
+  non-OCEAN provider routes, and selection of the OCEAN runtime entry point.
+- The installed snapshot was stopped and restarted without reapplying recipe authority. Its
+  runtime specification now launches `tools/ocean_runtime.py`; status is `running/ok` at
+  `http://127.0.0.1:8810/control/`.
+- Live HTTP proves `307 / -> /control/` with `Cache-Control: no-store`, an OCEAN manifest scoped to
+  `/control/`, a retiring worker, and a status-200 overview containing the cleanup marker but no
+  `TerminPilot` marker.
+- A persistent Chromium profile deliberately received an `ellmos-core-pwa-v1` cache containing
+  the old TerminPilot offline text plus an unrelated synthetic future-OCEAN cache. After reload,
+  the provider cache was absent, the unrelated cache remained, service-worker registrations were
+  zero, Root reached the OCEAN overview and no TerminPilot marker remained. A code-point readback
+  confirmed `OCEAN Full Dev — Übersicht` with U+2014 and U+00DC and no replacement character.
+- The complete suite is **133 passed**. Ruff, `compileall` and `git diff --check` pass. Paired
+  English/German README and changelog entries and this plan were updated in the same cycle.
+
+The checkpoint is `ocean-full-dev-origin-koralle-20260829`. It records the private Full Dev fix;
+it is not a Public OCEAN release and changes neither repository visibility nor `PRIVATE.txt`.
+Eight required module gaps and the separate Public OCEAN allowlist remain open, so the next
+adaptive section returns to the section-start `.AI`/Gardener/policy lift before selecting work.

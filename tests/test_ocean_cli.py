@@ -262,6 +262,7 @@ def test_runtime_spec_exposes_resolved_operator_ui_as_the_ocean_surface(tmp_path
     assert spec["health_url"] == "http://127.0.0.1:8810/api/health"
     assert spec["env"]["ELLMOS_CORE_CONSOLE_ENABLED"] == "1"
     assert spec["env"]["ELLMOS_CORE_CONSOLE_PREFIX"] == "/control"
+    assert Path(spec["command"][1]).name == "ocean_runtime.py"
     assert str(operator_ui / "src") in spec["env"]["PYTHONPATH"]
     assert Path(spec["cwd"]) == (tmp_path / "workspace").resolve(strict=False)
     assert json.loads(

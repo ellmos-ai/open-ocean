@@ -28,6 +28,7 @@ TOOLS_DIR = Path(__file__).resolve().parent
 TRANSACTION_CLI = TOOLS_DIR / "ocean_dev.py"
 SUPERVISOR_CLI = TOOLS_DIR / "runtime_supervisor.py"
 RUNTIME_USER_CLI = TOOLS_DIR / "runtime_user.py"
+OCEAN_RUNTIME_CLI = TOOLS_DIR / "ocean_runtime.py"
 INSTALL_STATE = "ocean.install.json"
 RUNTIME_STATE = "ocean.runtime.json"
 RUNTIME_SPEC = "ocean.runtime-spec.json"
@@ -367,10 +368,16 @@ def _ellmos_core_runtime_spec(
         runtime_env.update({
             "ELLMOS_CORE_CONSOLE_ENABLED": "1",
             "ELLMOS_CORE_CONSOLE_PREFIX": OCEAN_OPERATOR_PREFIX,
+            "OCEAN_OPERATOR_TITLE": OCEAN_OPERATOR_TITLE,
         })
+    runtime_command = (
+        [sys.executable, str(OCEAN_RUNTIME_CLI)]
+        if operator_enabled
+        else [sys.executable, "-m", "ellmos_core.cli", "serve"]
+    )
     return {
         "runtime_id": provider.id,
-        "command": [sys.executable, "-m", "ellmos_core.cli", "serve"],
+        "command": runtime_command,
         "cwd": str(workspace.resolve(strict=False) if operator_enabled else provider.local_path),
         "env": runtime_env,
         "runtime_url": runtime_url,

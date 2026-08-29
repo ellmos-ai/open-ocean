@@ -29,6 +29,8 @@ private `ellmos-core`, selected by capability rather than hard-coded as the futu
 When the resolved composition also provides `unified-gui.host`, OCEAN exposes that operator UI as
 its product entry point. The current development URL is `http://127.0.0.1:8810/control/`; the
 dedicated port keeps OCEAN separate from the runtime provider's standalone TerminPilot PWA origin.
+An OCEAN-owned origin adapter also redirects `/` to that entry point, serves the OCEAN manifest and
+offline identity, and evicts provider service workers/caches before they can claim the OCEAN URL.
 
 | Repository | What it is | State |
 |---|---|---|
@@ -143,7 +145,7 @@ authenticated control channel and the recorded runtime port are no longer active
 | Architecture skeleton | present, 13 bundles referenced |
 | BACH extraction baseline | present — 114 source-declared names; historic 113-name runtime bar retained; re-audited 2026-08-18 (106 handler classes, +1 vs. the 2026-08-08 baseline — traced to a host-suffixed duplicate file in BACH, `upgrade-WORKSTATION-LG.py` alongside `upgrade.py`; not fixed here, BACH is out of scope for this repository's changes). `registered_names` unchanged at 114. |
 | K9-1 data/checkpoint gate | two carrier fixtures green; adapter and BACH equivalence remain open |
-| Installer and lifecycle | **Resolve, Verify, SHA-pinned Fetch/Place, exact provider bindings, sandboxed skill Activate, append-preserving activation logging, target-validated Roll back, installed-snapshot recovery, runtime start/status/stop/restart and delegated user bootstrap are implemented.** The current Windows Full Dev integration candidate verifies **30/30** bundle pins, resolves **53 modules and 80 skills**, and runs at `http://127.0.0.1:8810/control/`. Adaptive provider cycle 1 integrated `software-endpoint-registry`; cycle 2 integrates `automation-registry` through `automation-master@ad40de7…` and consumes the Therapy bundle's 18 skills. The active-runtime preflight now stops a second `up --apply` before Fetch/Activate can write. HTTP plus real-browser acceptance verified the OCEAN title and navigable Skills panel. The suite now contains 130 passing tests. Twenty-four module references remain unresolved; eight of them are required, so this remains Full Dev rather than a complete or public OCEAN release. The reconciled 30-bundle recipe source is pushed at `ellmos-development-system@489b678…`; merging it into canonical recipe `main` remains separate work. See the [staged build plan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
+| Installer and lifecycle | **Resolve, Verify, SHA-pinned Fetch/Place, exact provider bindings, sandboxed skill Activate, append-preserving activation logging, target-validated Roll back, installed-snapshot recovery, runtime start/status/stop/restart and delegated user bootstrap are implemented.** The current Windows Full Dev integration candidate verifies **30/30** bundle pins, resolves **53 modules and 80 skills**, and runs at `http://127.0.0.1:8810/control/`. Adaptive provider cycle 1 integrated `software-endpoint-registry`; cycle 2 integrates `automation-registry` through `automation-master@ad40de7…` and consumes the Therapy bundle's 18 skills. The active-runtime preflight now stops a second `up --apply` before Fetch/Activate can write. The product-owned origin redirects Root to OCEAN and clears legacy provider PWA workers/caches without clearing cookies or other browser storage. HTTP plus persistent-profile browser acceptance verified the OCEAN title and navigable Skills panel. The suite now contains 133 passing tests. Twenty-four module references remain unresolved; eight of them are required, so this remains Full Dev rather than a complete or public OCEAN release. The reconciled 30-bundle recipe source is pushed at `ellmos-development-system@489b678…`; merging it into canonical recipe `main` remains separate work. See the [staged build plan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
 | Runtime | **available for private Full Dev** through the declared `runtime.host` provider `ellmos-core`, with the resolved `unified-gui.host` exposed as the OCEAN operator surface; a public OCEAN runtime is not shipped and the private provider is not a public dependency |
 | Recipes | maintained in the recipe repository, not here |
 
@@ -181,7 +183,9 @@ the gate is visible where visibility is switched). It opens when all four are de
    2026-08-29 the development host additionally completed a real Full Dev plan/apply/start/status/
    stop/restart cycle. The initial root-page acceptance proved transport only and was later found
    to be the provider's TerminPilot domain surface, not OCEAN. The corrected cycle now exposes and
-   browser-verifies the resolved operator UI at `127.0.0.1:8810/control/`. That materially advances OCEAN, but
+   browser-verifies the resolved operator UI at `127.0.0.1:8810/control/`. A later persistent-profile
+   regression additionally made OCEAN own Root, manifest, offline identity and worker cleanup on
+   that origin. That materially advances OCEAN, but
    it is neither a fresh foreign-host full-system proof nor a complete composition: eight required
    modules are still missing from the applied snapshot. The former three recipe-pin mismatches are
    reconciled on the pushed integration branch, and the current apply verifies all 30 refs; the

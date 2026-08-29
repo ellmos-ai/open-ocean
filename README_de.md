@@ -31,7 +31,9 @@ künftige öffentliche OCEAN-Laufzeit fest verdrahtet.
 Wenn die aufgelöste Komposition zusätzlich `unified-gui.host` bereitstellt, macht OCEAN diese
 Operator-Oberfläche zu seinem Produkteinstieg. Die aktuelle Entwicklungsadresse lautet
 `http://127.0.0.1:8810/control/`; der eigene Port trennt OCEAN vom eigenständigen
-TerminPilot-PWA-Ursprung des Laufzeitanbieters.
+TerminPilot-PWA-Ursprung des Laufzeitanbieters. Ein OCEAN-eigener Ursprungsadapter leitet zusätzlich
+`/` auf diesen Einstieg um, liefert OCEAN-Manifest und -Offline-Identität und entfernt
+Anbieter-Service-Worker sowie -Caches, bevor sie die OCEAN-Adresse beanspruchen können.
 
 | Repository | Was es ist | Zustand |
 |---|---|---|
@@ -151,7 +153,7 @@ authentifizierte Kontrollkanal noch der aufgezeichnete Runtime-Port aktiv ist.
 | Architektur-Gerüst | vorhanden, 13 Bundles referenziert |
 | BACH-Extraktionsbasis | vorhanden — 114 quellseitige Namen; historische 113er Runtime-Messlatte bleibt erhalten; erneut geprüft am 2026-08-18 (106 Handler-Klassen, +1 gegenüber der 2026-08-08-Basis — zurückverfolgt auf eine hostgebundene Duplikatdatei in BACH, `upgrade-WORKSTATION-LG.py` neben `upgrade.py`; hier NICHT behoben, BACH liegt außerhalb des Änderungsumfangs dieses Repositories). `registered_names` unverändert bei 114. |
 | K9-1 Daten-/Checkpoint-Gate | zwei Träger-Fixtures grün; Adapter und BACH-Äquivalenz bleiben offen |
-| Installer und Lebenszyklus | **Resolve, Verify, SHA-gepinnte Fetch/Place-Schritte, exakte Anbieterbindungen, isolierte Skill-Aktivierung, erhaltende Aktivierungsprotokollierung, zielvalidiertes Rollback, Wiederherstellung des installierten Snapshots, Runtime-Start/Status/Stopp/Neustart und delegierte Benutzeranlage sind implementiert.** Der aktuelle Windows-Full-Dev-Integrationskandidat bestätigt **30/30** Bundle-Pins, löst **53 Module und 80 Skills** auf und läuft unter `http://127.0.0.1:8810/control/`. Der erste adaptive Anbieterzyklus integrierte `software-endpoint-registry`; Zyklus 2 integriert `automation-registry` über `automation-master@ad40de7…` und konsumiert die 18 Skills des Therapy-Bundles. Die Vorprüfung der aktiven Laufzeit stoppt ein zweites `up --apply` jetzt vor jedem Fetch/Activate-Schreibzugriff. HTTP- und echte Browser-Abnahme bestätigten den OCEAN-Titel sowie ein navigierbares Skills-Panel. Die Suite umfasst jetzt 130 grüne Tests. 24 Modulreferenzen bleiben unaufgelöst; acht davon sind Pflicht. Damit ist dies weiterhin Full Dev und weder vollständiges noch öffentliches OCEAN. Die abgeglichene 30-Bundle-Rezeptquelle ist als `ellmos-development-system@489b678…` gepusht; ihre Übernahme in den kanonischen Rezept-Branch `main` bleibt gesonderte Arbeit. Siehe [gestuften Bauplan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
+| Installer und Lebenszyklus | **Resolve, Verify, SHA-gepinnte Fetch/Place-Schritte, exakte Anbieterbindungen, isolierte Skill-Aktivierung, erhaltende Aktivierungsprotokollierung, zielvalidiertes Rollback, Wiederherstellung des installierten Snapshots, Runtime-Start/Status/Stopp/Neustart und delegierte Benutzeranlage sind implementiert.** Der aktuelle Windows-Full-Dev-Integrationskandidat bestätigt **30/30** Bundle-Pins, löst **53 Module und 80 Skills** auf und läuft unter `http://127.0.0.1:8810/control/`. Der erste adaptive Anbieterzyklus integrierte `software-endpoint-registry`; Zyklus 2 integriert `automation-registry` über `automation-master@ad40de7…` und konsumiert die 18 Skills des Therapy-Bundles. Die Vorprüfung der aktiven Laufzeit stoppt ein zweites `up --apply` jetzt vor jedem Fetch/Activate-Schreibzugriff. Der produkteigene Ursprung leitet Root auf OCEAN um und entfernt alte Anbieter-PWA-Worker und -Caches, ohne Cookies oder anderen Browserspeicher zu löschen. HTTP- und Browserabnahme mit persistentem Profil bestätigten den OCEAN-Titel sowie ein navigierbares Skills-Panel. Die Suite umfasst jetzt 133 grüne Tests. 24 Modulreferenzen bleiben unaufgelöst; acht davon sind Pflicht. Damit ist dies weiterhin Full Dev und weder vollständiges noch öffentliches OCEAN. Die abgeglichene 30-Bundle-Rezeptquelle ist als `ellmos-development-system@489b678…` gepusht; ihre Übernahme in den kanonischen Rezept-Branch `main` bleibt gesonderte Arbeit. Siehe [gestuften Bauplan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
 | Laufzeit | **für das private Full Dev verfügbar** über den deklarierten `runtime.host`-Anbieter `ellmos-core`, mit dem aufgelösten `unified-gui.host` als OCEAN-Operator-Oberfläche; eine öffentliche OCEAN-Laufzeit wird noch nicht ausgeliefert, und der private Anbieter ist keine öffentliche Abhängigkeit |
 | Rezepte | im Rezept-Repository gepflegt, nicht hier |
 
@@ -193,7 +195,9 @@ Bedingungen nachweislich erfüllt sind:
    Neustart. Die erste Abnahme des Wurzelpfads belegte nur den Transport und stellte sich später
    als TerminPilot-Fachoberfläche des Anbieters statt OCEAN heraus. Der korrigierte Zyklus stellt
    nun die aufgelöste Operator-Oberfläche unter `127.0.0.1:8810/control/` bereit und prüft sie im
-   echten Browser. Das bringt OCEAN substanziell voran,
+   echten Browser. Eine spätere Regression mit persistentem Browserprofil übertrug zusätzlich Root,
+   Manifest, Offline-Identität und Worker-Bereinigung dieses Ursprungs an OCEAN. Das bringt OCEAN
+   substanziell voran,
    ist aber weder ein frischer Fremdrechner-Vollsystembeleg noch eine vollständige Komposition:
    Acht Pflichtmodule fehlen im angewandten Snapshot weiterhin. Die früheren drei
    Rezept-Pin-Abweichungen sind auf dem gepushten Integrationsbranch abgeglichen; der aktuelle

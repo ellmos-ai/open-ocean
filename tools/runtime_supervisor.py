@@ -12,6 +12,7 @@ import argparse
 import json
 import os
 import subprocess
+import time
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -19,6 +20,8 @@ from typing import Any
 
 
 STATE_SCHEMA = "ellmos.open-ocean-runtime-state.v1"
+ATOMIC_REPLACE_ATTEMPTS = 20
+ATOMIC_REPLACE_RETRY_SECONDS = 0.05
 
 
 def _now() -> str:
@@ -33,7 +36,16 @@ def _write_json_atomic(path: Path, value: dict[str, Any]) -> None:
         temporary.chmod(0o600)
     except OSError:
         pass
-    temporary.replace(path)
+    for attempt in range(ATOMIC_REPLACE_ATTEMPTS):
+        try:
+            temporary.replace(path)
+            return
+        except PermissionError:
+            if attempt == ATOMIC_REPLACE_ATTEMPTS - 1:
+                raise
+            # Windows can briefly deny replace while the lifecycle process is
+            # reading the old state file. Keep the write atomic and bounded.
+            time.sleep(ATOMIC_REPLACE_RETRY_SECONDS)
 
 
 def _terminate_child(child: subprocess.Popen[Any], timeout: float = 5.0) -> None:

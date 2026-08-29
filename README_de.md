@@ -165,6 +165,12 @@ authentifizierte Kontrollkanal noch der aufgezeichnete Runtime-Port aktiv ist.
 Unter Windows wiederholt der Supervisor außerdem eine vorübergehend blockierte atomare Ersetzung
 der Statusdatei innerhalb eines begrenzten Ein-Sekunden-Fensters. Damit kann ein erfolgreicher
 Stopp keinen veralteten `running`-Eintrag zurücklassen.
+Auf ASUS-GEI startet der verborgene Logon-Task mit eingeschränkten Benutzerrechten
+`EllmosOceanFullUserStart` jetzt den exakten Checkout
+`ocean-full-laptop-hafenlicht-20260829` und `C:\_Local_DEV\ocean-full`. Seine kontrollierte
+Bedarfsstart-Abnahme endete mit Task-Ergebnis `0`, genau einem Supervisor, einem Kind und einem
+Listener. Das belegt den konfigurierten Logon-Pfad, aber keinen tatsächlich ausgeführten Neustart.
+Anschließend wurde der frühere BACH-Session-Sidecar über BACHs eigene CLI beendet.
 
 ## Status
 

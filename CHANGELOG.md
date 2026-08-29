@@ -91,6 +91,12 @@
   unrelated synthetic future-OCEAN cache remained; service-worker registrations were zero, `/`
   redirected to the OCEAN overview, and the UTF-8 title retained its em dash and German `Ü`
   without replacement characters.
+- The hidden limited-user `EllmosOceanFullUserStart` logon task demand-started the pinned runtime
+  checkout with task result `0`, exactly one supervisor/child/listener tuple and healthy Full Ocean
+  status. `StartWhenAvailable` is deliberately off so registration cannot race a manual proof.
+  This verifies the task path, not a physical reboot.
+- BACH's former session sidecar stopped cleanly through its native CLI after OCEAN and its logon
+  task were accepted. The operational task-race lesson is persisted as USMC lesson `62`.
 
 An integration-checkpoint tag is not a public release. No visibility or `PRIVATE.txt` change is
 part of this entry.

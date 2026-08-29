@@ -103,6 +103,13 @@
   entfernt, während ein unabhängiger synthetischer künftiger OCEAN-Cache erhalten blieb;
   Service-Worker-Registrierungen lagen bei null, `/` leitete auf die OCEAN-Übersicht um, und der
   UTF-8-Titel behielt Gedankenstrich und deutsches `Ü` ohne Ersatzzeichen.
+- Der verborgene Logon-Task mit eingeschränkten Benutzerrechten
+  `EllmosOceanFullUserStart` startete den gepinnten Laufzeit-Checkout bei der Bedarfsabnahme mit
+  Task-Ergebnis `0`, genau einem Supervisor-/Kind-/Listener-Tupel und gesundem Full-Ocean-Status.
+  `StartWhenAvailable` ist bewusst aus, damit die Registrierung nicht mit einem manuellen Beleglauf
+  kollidiert. Das bestätigt den Task-Pfad, aber keinen physischen Neustart.
+- BACHs früherer Session-Sidecar wurde nach der OCEAN- und Logon-Task-Abnahme sauber über seine
+  native CLI beendet. Die operative Task-Race-Lektion liegt als USMC-Lektion `62` vor.
 
 Ein Integrations-Checkpoint-Tag ist kein öffentliches Release. Dieser Eintrag enthält weder eine
 Sichtbarkeitsänderung noch eine Änderung an `PRIVATE.txt`.

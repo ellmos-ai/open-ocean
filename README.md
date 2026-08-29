@@ -154,6 +154,11 @@ authority; it also recovers a stale `running` state after an OS or process loss 
 authenticated control channel and the recorded runtime port are no longer active.
 On Windows, the supervisor also retries transient atomic state-file replacement contention within
 a bounded one-second window, so a successful stop cannot leave a stale `running` record behind.
+On ASUS-GEI, the hidden limited-user logon task `EllmosOceanFullUserStart` now launches the exact
+`ocean-full-laptop-hafenlicht-20260829` checkout and `C:\_Local_DEV\ocean-full`; its controlled
+demand-start acceptance returned task result `0` with one supervisor, one child and one listener.
+This proves the configured logon path, not an actual reboot. The former BACH session sidecar was
+then stopped through BACH's own CLI.
 
 ## Status
 

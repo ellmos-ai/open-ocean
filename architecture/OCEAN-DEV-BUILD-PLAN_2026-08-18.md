@@ -1137,6 +1137,33 @@ started in parallel.
   suite pass. A live stop/start/stop/start cycle left `stopped`, no temporary file, no supervisor,
   no child and no listener between starts, then returned to `running/ok` on port `8810`.
 
-The private integration checkpoint for this cutover is
-`ocean-full-laptop-hafenlicht-20260829`. It is not an OPEN OCEAN release and changes neither
-repository visibility nor `PRIVATE.txt`.
+### Host activation and handoff
+
+- The hidden limited-user task `EllmosOceanFullUserStart` triggers at logon and launches
+  `pythonw.exe`, the exact `ocean-full-laptop-hafenlicht-20260829` checkout and
+  `C:\_Local_DEV\ocean-full`. It has no execution-time limit and ignores overlapping task
+  instances. Its controlled demand invocation returned task result `0`; after a stability delay,
+  runtime state, process inventory and listener ownership agreed on exactly one supervisor and one
+  child, and OCEAN was `running/ok` with `full_composition: true`.
+- `StartWhenAvailable` is intentionally false. Enabling it during registration and immediately
+  invoking the task exposed a separate simultaneous-start race before either supervisor had written
+  runtime state. The exact OCEAN orphan was stopped by terminating its verified child and allowing
+  its own supervisor to write `stopped`; the final task was then registered and tested exactly once.
+  The reusable operating rule is stored as USMC lesson `62`.
+- This is proof of the scheduled action and its runtime result, not a claim that the laptop was
+  physically rebooted. A real reboot/readback remains a later device-acceptance check.
+- Only after this acceptance, BACH's session scheduler stopped successfully through
+  `python system\bach.py scheduler session stop`; no BACH session-daemon process remains.
+
+### Remaining bounded follow-ups
+
+- Add a workspace-scoped interprocess start lock so two direct lifecycle invocations cannot pass
+  the empty-state preflight concurrently. The final scheduled-task configuration avoids this race,
+  but configuration is not a substitute for the code-level guard.
+- Serve an OCEAN favicon or remove the reference; the current browser console reports one harmless
+  `favicon.ico` 404.
+- Run the unchanged logon task through an actual reboot before claiming reboot acceptance.
+
+The code-and-cutover checkpoint is `ocean-full-laptop-hafenlicht-20260829`; the final documented
+host-activation checkpoint is `ocean-full-laptop-leuchtfeuer-20260829`. Neither is an OPEN OCEAN
+release, and neither changes repository visibility or `PRIVATE.txt`.

@@ -18,6 +18,7 @@ Two kinds of tests here, deliberately:
 """
 from __future__ import annotations
 
+import json
 import subprocess
 import tempfile
 import unittest
@@ -32,6 +33,7 @@ from tools.fetch_place import (
     is_git_sha,
     plan_and_fetch,
     resolve_pin_for_module,
+    verify_bound_provider,
 )
 
 VALID_SHA = "a" * 40
@@ -131,7 +133,12 @@ class FetchModuleAtShaRealGitTests(unittest.TestCase):
         self.origin.mkdir()
         self._git(["init", "-q"], cwd=self.origin)
         (self.origin / "marker.txt").write_text("hello from the throwaway origin\n")
-        self._git(["add", "marker.txt"], cwd=self.origin)
+        (self.origin / "ellmos-module.v2.json").write_text(json.dumps({
+            "schema": "ellmos.module.v2",
+            "id": "system-explorer",
+            "provides": ["software.endpoint.registry"],
+        }), encoding="utf-8")
+        self._git(["add", "marker.txt", "ellmos-module.v2.json"], cwd=self.origin)
         self._git(
             ["-c", "user.email=test@example.invalid", "-c", "user.name=Test", "commit", "-q", "-m", "initial"],
             cwd=self.origin,
@@ -180,6 +187,82 @@ class FetchModuleAtShaRealGitTests(unittest.TestCase):
         with self.assertRaises(FetchError):
             fetch_module_at_sha(str(self.origin), self.sha, dest, dry_run=False)
 
+    def test_bound_provider_verifies_commit_repository_identity_and_capability(self):
+        dest = self.root / "bound-provider"
+        fetch_module_at_sha(str(self.origin), self.sha, dest, dry_run=False)
+
+        proof = verify_bound_provider(dest, {
+            "catalog_id": "system-explorer",
+            "repository": str(self.origin),
+            "commit": self.sha,
+            "placement_id": "software-endpoint-registry",
+            "required_provides": ["software.endpoint.registry"],
+            "provider_manifest": "ellmos-module.v2.json",
+        })
+
+        self.assertEqual(proof["head"], self.sha)
+        self.assertEqual(proof["provider_id"], "system-explorer")
+        self.assertEqual(proof["verified_provides"], ["software.endpoint.registry"])
+
+    def test_bound_provider_rejects_an_unproven_capability(self):
+        dest = self.root / "bound-provider-missing-capability"
+        fetch_module_at_sha(str(self.origin), self.sha, dest, dry_run=False)
+
+        with self.assertRaisesRegex(FetchError, "capabilit"):
+            verify_bound_provider(dest, {
+                "catalog_id": "system-explorer",
+                "repository": str(self.origin),
+                "commit": self.sha,
+                "placement_id": "software-endpoint-registry",
+                "required_provides": ["missing.capability"],
+                "provider_manifest": "ellmos-module.v2.json",
+            })
+
+    def test_bound_provider_rejects_a_dirty_worktree_at_the_pinned_head(self):
+        dest = self.root / "bound-provider-dirty"
+        fetch_module_at_sha(str(self.origin), self.sha, dest, dry_run=False)
+        (dest / "marker.txt").write_text("locally changed\n", encoding="utf-8")
+
+        with self.assertRaisesRegex(FetchError, "uncommitted"):
+            verify_bound_provider(dest, {
+                "catalog_id": "system-explorer",
+                "repository": str(self.origin),
+                "commit": self.sha,
+                "placement_id": "software-endpoint-registry",
+                "required_provides": ["software.endpoint.registry"],
+                "provider_manifest": "ellmos-module.v2.json",
+            })
+
+    def test_fetching_bound_provider_promotes_an_unresolved_component(self):
+        catalog_path = self.root / "modules.catalog.json"
+        catalog_path.write_text(json.dumps({"modules": [{
+            "id": "system-explorer",
+        }]}), encoding="utf-8")
+        comp = _component("module:software-endpoint-registry", "unresolved", {
+            "catalog_id": "system-explorer",
+            "source_type": "git-repository",
+            "present_locally": False,
+            "repository": str(self.origin),
+            "provides": [],
+            "binding": {
+                "catalog_id": "system-explorer",
+                "repository": str(self.origin),
+                "commit": self.sha,
+                "placement_id": "software-endpoint-registry",
+                "required_provides": ["software.endpoint.registry"],
+                "provider_manifest": "ellmos-module.v2.json",
+                "provider_verified": False,
+            },
+        })
+
+        outcomes = plan_and_fetch(
+            [comp], catalog_path, self.root / "workspace", apply=True
+        )
+
+        self.assertEqual(outcomes[0].action, "fetched")
+        self.assertEqual(comp.status, "resolved")
+        self.assertTrue(comp.detail["binding"]["provider_verified"])
+
 
 class ForceRmtreeTests(unittest.TestCase):
     def test_reports_failure_when_rmtree_returns_but_target_remains(self):
@@ -226,6 +309,38 @@ class PlanAndFetchTests(unittest.TestCase):
         comp = _component("module:USMC", "resolved", {"present_locally": True})
         outcomes = plan_and_fetch([comp], self.catalog_path, self.workspace, apply=False)
         self.assertEqual(outcomes[0].action, "present")
+
+    def test_bound_alias_uses_overlay_pin_and_placement_even_when_catalog_mirror_is_present(self):
+        self._write_catalog([{
+            "id": "system-explorer",
+            "version": "0.4.0",
+            "commit_sha": "b" * 40,
+        }])
+        comp = _component("module:software-endpoint-registry", "resolved", {
+            "catalog_id": "system-explorer",
+            "source_type": "git-repository",
+            "present_locally": True,
+            "repository": "https://example.invalid/system-explorer.git",
+            "binding": {
+                "catalog_id": "system-explorer",
+                "repository": "https://example.invalid/system-explorer.git",
+                "commit": VALID_SHA,
+                "placement_id": "software-endpoint-registry",
+                "required_provides": ["software.endpoint.registry"],
+                "provider_manifest": "ellmos-module.v2.json",
+                "provider_verified": False,
+            },
+        })
+
+        outcomes = plan_and_fetch([comp], self.catalog_path, self.workspace, apply=False)
+
+        self.assertEqual(outcomes[0].action, "planned")
+        self.assertEqual(outcomes[0].detail["sha"], VALID_SHA)
+        self.assertEqual(
+            Path(outcomes[0].detail["dest"]),
+            self.workspace / "modules" / "software-endpoint-registry",
+        )
+        self.assertEqual(outcomes[0].detail["pin_source"], "component-binding")
 
     def test_unresolved_without_catalog_id_is_no_catalog_entry(self):
         comp = _component("module:memory-hooker", "unresolved", {"reason": "no catalog entry"})

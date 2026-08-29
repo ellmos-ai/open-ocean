@@ -66,6 +66,7 @@ def run_transaction(
     modules_catalog: Path,
     skills_registry: Path,
     workspace: Path,
+    component_bindings: Path | None = None,
     apply: bool = False,
 ) -> dict[str, Any]:
     """Run the existing transaction CLI and return its JSON report."""
@@ -79,6 +80,8 @@ def run_transaction(
         "--workspace", str(workspace),
         "--json",
     ]
+    if component_bindings is not None:
+        command.extend(["--component-bindings", str(component_bindings)])
     if apply:
         command.append("--apply")
     proc = subprocess.run(
@@ -179,6 +182,7 @@ def plan_from_paths(
     modules_catalog: Path,
     skills_registry: Path,
     workspace: Path,
+    component_bindings: Path | None = None,
 ) -> dict[str, Any]:
     return lifecycle_plan(run_transaction(
         bundles_root=bundles_root,
@@ -186,6 +190,7 @@ def plan_from_paths(
         modules_catalog=modules_catalog,
         skills_registry=skills_registry,
         workspace=workspace,
+        component_bindings=component_bindings,
         apply=False,
     ))
 
@@ -214,10 +219,25 @@ def write_runtime_projection(
         if component.get("kind") != "module":
             continue
         detail = component.get("detail") or {}
-        module_id = str(detail.get("catalog_id") or component["ref"].split(":", 1)[-1])
+        binding = detail.get("binding") or {}
+        module_id = str(
+            binding.get("placement_id")
+            or detail.get("catalog_id")
+            or component["ref"].split(":", 1)[-1]
+        )
         fetch = fetch_by_ref.get(component["ref"], {})
-        resolved = component.get("status") == "resolved" or fetch.get("action") == "fetched"
+        fetch_action = fetch.get("action")
+        resolved = component.get("status") == "resolved" or fetch_action in {
+            "fetched",
+            "present-pinned-provider",
+        }
         optional = component.get("requirement") == "optional"
+        fetch_detail = fetch.get("detail") or {}
+        source_path = (
+            fetch_detail.get("dest")
+            if fetch_action in {"fetched", "present-pinned-provider"}
+            else detail.get("local_path")
+        )
         modules.append({
             "name": module_id,
             "kind": detail.get("kind") or "module",
@@ -226,7 +246,7 @@ def write_runtime_projection(
             "source": {
                 "type": detail.get("source_type") or "unresolved",
                 "repo": detail.get("repository"),
-                "path": detail.get("local_path") or (fetch.get("detail") or {}).get("dest"),
+                "path": source_path,
             },
             "boundaries": {
                 "net": (detail.get("boundaries") or {}).get("network", ""),
@@ -238,7 +258,12 @@ def write_runtime_projection(
             },
         })
         if resolved:
-            status = "cloned" if fetch.get("action") == "fetched" else "local-present"
+            if fetch_action == "fetched":
+                status = "cloned"
+            elif fetch_action == "present-pinned-provider":
+                status = "pinned-local"
+            else:
+                status = "local-present"
         else:
             status = "skipped" if optional else "error"
         locked.append({"name": module_id, "status": status})
@@ -435,6 +460,7 @@ def up_from_paths(
     modules_catalog: Path,
     skills_registry: Path,
     workspace: Path,
+    component_bindings: Path | None = None,
     host: str,
     port: int,
 ) -> dict[str, Any]:
@@ -444,6 +470,7 @@ def up_from_paths(
         modules_catalog=modules_catalog,
         skills_registry=skills_registry,
         workspace=workspace,
+        component_bindings=component_bindings,
         apply=True,
     )
     plan = lifecycle_plan(transaction)

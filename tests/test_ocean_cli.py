@@ -39,6 +39,24 @@ def test_root_help_exposes_the_complete_first_usable_lifecycle():
     assert "\ufffd" not in proc.stderr
 
 
+def test_plan_help_exposes_the_exact_component_binding_overlay():
+    """Keeps the per-module integration seam visible on the product CLI."""
+    proc = subprocess.run(
+        [sys.executable, str(OCEAN), "plan", "--help"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+
+    assert proc.returncode == 0, proc.stderr
+    assert "--component-bindings" in proc.stdout
+    assert "exaktes OCEAN-Integrations-Overlay" in proc.stdout
+    assert "\ufffd" not in proc.stdout
+    assert "\ufffd" not in proc.stderr
+
+
 def _write_plan_fixture(root: Path, *, runtime_providers: int = 1) -> dict[str, Path]:
     bundles_root = root / "composition"
     manifest_dir = bundles_root / "manifests" / "bundles" / "core"

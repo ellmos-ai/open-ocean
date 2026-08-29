@@ -1,0 +1,23 @@
+{
+  "schema": "ellmos.open-ocean-component-bindings.v1",
+  "id": "ocean-full-dev-component-bindings",
+  "version": "1.0.0",
+  "authority": {
+    "kind": "integration-overlay",
+    "runtime_authority": false
+  },
+  "bindings": {
+    "module:software-endpoint-registry": {
+      "component_type": "module",
+      "catalog_id": "system-explorer",
+      "repository": "https://github.com/ellmos-ai/system-explorer.git",
+      "commit": "ec50c92319ba8fc262d695b86818fc85666feff7",
+      "placement_id": "software-endpoint-registry",
+      "required_provides": [
+        "software.endpoint.registry"
+      ],
+      "provider_manifest": "ellmos-module.v2.json"
+    }
+  },
+  "content_hash": "424edf4f6cdece33fca490fbe013a68e519fdfc2e27d895931841ca1585c1e60"
+}

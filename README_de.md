@@ -20,7 +20,7 @@ Das kostenlose Community-Vollsystem des ellmos-Ökosystems.
 Komposition ist auf dem Entwicklungsrechner jetzt lauffähig: Sie kann einen deklarierten
 `runtime.host` planen, installieren, starten, prüfen, mit einem Benutzer versehen, stoppen und neu
 starten. Das ist der erste nutzbare OCEAN-Produktabschnitt, aber kein Claim auf BACH-Parität oder
-Veröffentlichungsreife. Die geprüfte Komposition weist weiterhin zehn fehlende Pflichtmodule aus
+Veröffentlichungsreife. Die geprüfte Komposition weist weiterhin neun fehlende Pflichtmodule aus
 und markiert sich deshalb selbst mit `full_composition: false`.
 
 OCEAN konsumiert die Rezepte aus ihrem kanonischen Repository, statt sie hierher zu kopieren. Die
@@ -64,6 +64,7 @@ Produktentscheidung und folgt niemals automatisch aus diesem Plan.
 ```
 architecture/
   open-ocean.skeleton.v1.json   which recipes the system intends to consume, pinned by hash
+  ocean-full-dev.component-bindings.v1.json  exakte, nicht-autoritative Modul-Integrationspins
   INSTALLER-TARGET.md           what the installer has to become, and what it must not do
   OCEAN-DEV-BUILD-PLAN_2026-08-18.md  staged build plan and verified foreign-host integration evidence
   BACH-EXTRACTION-ROADMAP.md    extraction order, parity gates and Cluster 9 kernel map
@@ -111,6 +112,13 @@ Ohne `--apply` ist dies ein rein lesender Dry-run. Ein Systemmanifest lässt sic
 nummerierten Ring kombinieren; Teilarbeit wird adaptiv als eigener Bundle-Zyklus ausgewählt und
 nicht durch stilles Kürzen der deklarierten Full-Dev-Komposition.
 
+Das standardmäßige `--component-bindings`-Overlay schließt Benennungslücken zwischen Rezept und
+Anbieter, ohne das kanonische Rezept oder den Modulkatalog zu verändern. Jede Bindung ist exakt und
+schlägt im Zweifel geschlossen fehl: Komponentenreferenz, Repository, vollständiger Commit-SHA,
+Platzierung, ID des Anbieter-Manifests und erforderliche Fähigkeiten müssen übereinstimmen und der
+Checkout muss sauber sein, bevor OCEAN den Anbieter als aufgelöst wertet. Die erste solche Bindung
+ordnet `module:software-endpoint-registry` dem geprüften Anbieter `system-explorer` zu.
+
 Der Produktlebenszyklus liegt im Wurzelverzeichnis:
 
 ```text
@@ -134,7 +142,7 @@ Passwort wird verdeckt abgefragt und nie als Prozessargument übergeben; lokale 
 | Architektur-Gerüst | vorhanden, 13 Bundles referenziert |
 | BACH-Extraktionsbasis | vorhanden — 114 quellseitige Namen; historische 113er Runtime-Messlatte bleibt erhalten; erneut geprüft am 2026-08-18 (106 Handler-Klassen, +1 gegenüber der 2026-08-08-Basis — zurückverfolgt auf eine hostgebundene Duplikatdatei in BACH, `upgrade-WORKSTATION-LG.py` neben `upgrade.py`; hier NICHT behoben, BACH liegt außerhalb des Änderungsumfangs dieses Repositories). `registered_names` unverändert bei 114. |
 | K9-1 Daten-/Checkpoint-Gate | zwei Träger-Fixtures grün; Adapter und BACH-Äquivalenz bleiben offen |
-| Installer und Lebenszyklus | **Resolve, Verify, SHA-gepinnte Fetch/Place-Schritte, sandboxiertes Skill-Activate, Aktivierungsprotokollierung, zielvalidiertes Rollback, Runtime-Start/Status/Stopp/Neustart und delegierte Benutzeranlage sind implementiert.** Ein echter Windows-Full-Dev-Lauf am 2026-08-29 bestätigte alle 29 gepinnten Bundles, löste 51 Module und 62 Skills auf, installierte die Skills in eine ausdrückliche Sandbox und erreichte eine gesunde Web-Anmeldeoberfläche. Start → Stopp → Neustart wurde unabhängig geprüft. Die Suite umfasst jetzt 114 grüne Tests. 26 Modulreferenzen bleiben unaufgelöst; zehn davon sind im aktuellen Full-Dev-Manifest Pflicht. Siehe [gestuften Bauplan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
+| Installer und Lebenszyklus | **Resolve, Verify, SHA-gepinnte Fetch/Place-Schritte, exakte Anbieterbindungen, erhaltende Aktivierungsprotokollierung, zielvalidiertes Rollback, Runtime-Start/Status/Stopp/Neustart und delegierte Benutzeranlage sind implementiert.** Ein angewandter Windows-Full-Dev-Snapshot vom 2026-08-29 bestätigte alle damals deklarierten 29 Bundle-Pins, löste 52 Module und 62 Skills auf, installierte die Skills in eine ausdrückliche Sandbox und erreichte eine gesunde Web-Anmeldeoberfläche. Der erste adaptive Anbieterzyklus integrierte `software-endpoint-registry` am exakten `system-explorer`-Commit und prüfte dessen echte CLI-/HTTP-Endpunktprojektion. Start → Stopp → Neustart wurde unabhängig geprüft. Die Suite umfasst jetzt 126 grüne Tests. 25 Modulreferenzen bleiben unaufgelöst; neun davon sind im angewandten Snapshot Pflicht. Nach dem Neustart von OneDrive rückte die aktuelle Systemautorität auf 30 Bundle-Referenzen vor; ein frischer rein lesender Plan stoppt korrekt bei drei Rezept-Pin-Abweichungen und hat den arbeitsfähigen Installations-Snapshot nicht ersetzt. Siehe [gestuften Bauplan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
 | Laufzeit | **für das private Full Dev verfügbar** über den deklarierten `runtime.host`-Anbieter `ellmos-core`; eine öffentliche OCEAN-Laufzeit wird noch nicht ausgeliefert, und der private Anbieter ist keine öffentliche Abhängigkeit |
 | Rezepte | im Rezept-Repository gepflegt, nicht hier |
 
@@ -175,8 +183,10 @@ Bedingungen nachweislich erfüllt sind:
    Entwicklungsrechner zusätzlich einen echten Full-Dev-Zyklus aus Plan/Apply/Start/Status/Stopp/
    Neustart und erreichte eine gesunde Web-Anmeldeoberfläche. Das bringt OCEAN substanziell voran,
    ist aber weder ein frischer Fremdrechner-Vollsystembeleg noch eine vollständige Komposition:
-   Zehn Pflichtmodule fehlen weiterhin. Die genauen Belege und die verbleibende Breite stehen im
-   `architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md`.
+   Neun Pflichtmodule fehlen im angewandten Snapshot weiterhin. Ein frischer Plan nach der
+   Synchronisierung stoppt außerdem sicher, weil drei der nun 30 autoritativen Bundle-Referenzen
+   nicht zu ihren aktuellen Rezeptmanifesten passen. Die genauen Belege und die verbleibende Breite
+   stehen im `architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md`.
 3. **Parität für den Release-Umfang** — das System leistet, was es zu decken beansprucht. Ein
    kleinerer installierbarer Kern ist eine Bau-Etappe, kein Release. Der aktuelle Quell-Audit
    erfasst 114 erreichbare Namen und erhält zugleich den historischen 113er Runtime-Snapshot als

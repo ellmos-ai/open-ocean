@@ -42,6 +42,7 @@ Deliberately NOT this module's job:
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
@@ -119,6 +120,7 @@ _ACTIONS = {
                   "exists to not repeat)",
     "planned": "dry-run: this is what --apply would do (no git command has been run)",
     "fetched": "git fetch+checkout at the pinned SHA succeeded",
+    "present-pinned-provider": "the exact OCEAN-bound provider commit, identity, repository, and capabilities are already present",
     "skipped-present-in-workspace": "the workspace destination for this module already exists -- never overwrite",
     "failed": "a git command failed; any partial destination directory was removed",
 }
@@ -158,6 +160,63 @@ def _run_git(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
     return subprocess.run(
         ["git", *args], cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace",
     )
+
+
+def _normalized_repository(value: str) -> str:
+    return value.strip().replace("\\", "/").rstrip("/").removesuffix(".git").casefold()
+
+
+def verify_bound_provider(dest: Path, binding: dict[str, Any]) -> dict[str, Any]:
+    """Prove that an existing placement satisfies one exact OCEAN binding."""
+    if dest.is_symlink() or not dest.is_dir():
+        raise FetchError(f"bound provider placement is not a regular directory: {dest}")
+    head = _run_git(["rev-parse", "HEAD"], cwd=dest)
+    observed_head = head.stdout.strip() if head.returncode == 0 else None
+    if observed_head != binding.get("commit"):
+        raise FetchError(
+            f"bound provider HEAD {observed_head!r} does not match pinned commit "
+            f"{binding.get('commit')!r}"
+        )
+    status = _run_git(["status", "--porcelain=v1", "--untracked-files=all"], cwd=dest)
+    if status.returncode != 0:
+        raise FetchError("bound provider worktree state could not be verified")
+    if status.stdout.strip():
+        raise FetchError("bound provider has uncommitted or untracked changes")
+    remote = _run_git(["remote", "get-url", "origin"], cwd=dest)
+    observed_repository = remote.stdout.strip() if remote.returncode == 0 else None
+    if (
+        not observed_repository
+        or _normalized_repository(observed_repository)
+        != _normalized_repository(str(binding.get("repository") or ""))
+    ):
+        raise FetchError(
+            f"bound provider repository {observed_repository!r} does not match "
+            f"{binding.get('repository')!r}"
+        )
+    manifest_path = dest / str(binding.get("provider_manifest") or "")
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise FetchError(f"bound provider manifest is unreadable: {manifest_path}: {exc}") from exc
+    if manifest.get("schema") != "ellmos.module.v2":
+        raise FetchError(f"bound provider manifest has unsupported schema: {manifest.get('schema')!r}")
+    if manifest.get("id") != binding.get("catalog_id"):
+        raise FetchError(
+            f"bound provider ID {manifest.get('id')!r} does not match "
+            f"catalog ID {binding.get('catalog_id')!r}"
+        )
+    declared = set(manifest.get("provides") or [])
+    required = list(binding.get("required_provides") or [])
+    missing = sorted(set(required) - declared)
+    if missing:
+        raise FetchError(f"bound provider does not declare required capabilities: {missing}")
+    return {
+        "head": observed_head,
+        "repository": observed_repository,
+        "provider_id": manifest["id"],
+        "verified_provides": required,
+        "manifest": str(manifest_path),
+    }
 
 
 def fetch_module_at_sha(repository_url: str, sha: str, dest: Path, *, dry_run: bool) -> FetchOutcome:
@@ -212,7 +271,6 @@ def plan_and_fetch(
     resolve_pin_for_module) -- membership/presence was already decided by
     resolve_bundles.resolve_module() and is trusted here via component.status
     and component.detail, not re-derived."""
-    import json
     catalog: dict[str, Any] = {}
     if catalog_path.is_file():
         catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
@@ -222,6 +280,119 @@ def plan_and_fetch(
     dest_root = workspace / "modules"
     for comp in components:
         if comp.kind != "module":
+            continue
+        binding = comp.detail.get("binding")
+        if isinstance(binding, dict):
+            catalog_id = comp.detail.get("catalog_id")
+            entry = modules_by_id.get(catalog_id, {})
+            if not entry:
+                outcomes.append(FetchOutcome(
+                    comp.ref,
+                    "no-catalog-entry",
+                    {"reason": "exact bound catalog record is absent", **dict(comp.detail)},
+                ))
+                continue
+            if comp.detail.get("source_type") != "git-repository":
+                outcomes.append(FetchOutcome(
+                    comp.ref, "unfetchable-source-type", dict(comp.detail)
+                ))
+                continue
+            sha = binding.get("commit")
+            repository_url = comp.detail.get("repository")
+            placement_id = binding.get("placement_id")
+            if not is_git_sha(sha):
+                outcomes.append(FetchOutcome(
+                    comp.ref,
+                    "unpinnable",
+                    {"pin_source": "component-binding", "raw_commit_sha": sha},
+                ))
+                continue
+            if (
+                not isinstance(placement_id, str)
+                or not placement_id
+                or placement_id in {".", ".."}
+                or "/" in placement_id
+                or "\\" in placement_id
+                or comp.ref != f"module:{placement_id}"
+            ):
+                outcomes.append(FetchOutcome(
+                    comp.ref,
+                    "failed",
+                    {"reason": "unsafe or mismatched component-binding placement_id"},
+                ))
+                continue
+            if (
+                not repository_url
+                or _normalized_repository(str(repository_url))
+                != _normalized_repository(str(binding.get("repository") or ""))
+            ):
+                outcomes.append(FetchOutcome(
+                    comp.ref,
+                    "failed",
+                    {"reason": "catalog repository does not match component binding"},
+                ))
+                continue
+            dest = dest_root / placement_id
+            if dest.exists() or dest.is_symlink():
+                try:
+                    proof = verify_bound_provider(dest, binding)
+                except FetchError as exc:
+                    outcomes.append(FetchOutcome(
+                        comp.ref,
+                        "failed",
+                        {"error": str(exc), "dest": str(dest), "never_overwritten": True},
+                    ))
+                    continue
+                binding["provider_verified"] = True
+                binding["verification"] = proof
+                comp.status = "resolved"
+                comp.detail["local_path"] = str(dest.resolve(strict=False))
+                comp.detail["present_locally"] = True
+                comp.detail["provides"] = sorted(
+                    set(comp.detail.get("provides") or [])
+                    | set(binding.get("required_provides") or [])
+                )
+                outcomes.append(FetchOutcome(
+                    comp.ref,
+                    "present-pinned-provider",
+                    {"dest": str(dest), "pin_source": "component-binding", **proof},
+                ))
+                continue
+            try:
+                outcome = fetch_module_at_sha(
+                    str(repository_url), sha, dest, dry_run=not apply
+                )
+            except FetchError as exc:
+                outcomes.append(FetchOutcome(comp.ref, "failed", {"error": str(exc)}))
+                continue
+            outcome.ref = comp.ref
+            outcome.detail.update({
+                "catalog_id": catalog_id,
+                "placement_id": placement_id,
+                "pin_source": "component-binding",
+                "required_provides": list(binding.get("required_provides") or []),
+            })
+            if apply:
+                try:
+                    proof = verify_bound_provider(dest, binding)
+                except FetchError as exc:
+                    try:
+                        force_rmtree(dest)
+                    except OSError as cleanup_exc:
+                        exc = FetchError(f"{exc}; cleanup failed: {cleanup_exc}")
+                    outcomes.append(FetchOutcome(comp.ref, "failed", {"error": str(exc)}))
+                    continue
+                binding["provider_verified"] = True
+                binding["verification"] = proof
+                comp.status = "resolved"
+                comp.detail["local_path"] = str(dest.resolve(strict=False))
+                comp.detail["present_locally"] = True
+                comp.detail["provides"] = sorted(
+                    set(comp.detail.get("provides") or [])
+                    | set(binding.get("required_provides") or [])
+                )
+                outcome.detail.update(proof)
+            outcomes.append(outcome)
             continue
         if comp.status == "resolved":
             outcomes.append(FetchOutcome(comp.ref, "present", {"present_locally": True}))

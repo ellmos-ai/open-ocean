@@ -14,9 +14,10 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
-from tools.ocean_dev import main
+from tools.ocean_dev import ActivationLogError, main, write_activation_log
 from tools.resolve_bundles import canonical_hash
 
 
@@ -195,6 +196,72 @@ class OceanDevIntegrationTests(unittest.TestCase):
         log = json.loads(log_path.read_text(encoding="utf-8"))
         refs = [e["ref"] for e in log["entries"]]
         self.assertIn("skill:decide", refs)
+
+    def test_new_module_receipt_merges_with_existing_skill_rollback_entries(self):
+        log_path = self.workspace / "ocean-dev.activation-log.json"
+        prior_skill = self.workspace / "skills" / "decide"
+        prior_skill.mkdir(parents=True)
+        log_path.write_text(json.dumps({
+            "schema": "ellmos.open-ocean-activation-log.v1",
+            "entries": [{
+                "type": "skill",
+                "ref": "skill:decide",
+                "id": "decide",
+                "dest": str(prior_skill.resolve(strict=False)),
+            }],
+        }), encoding="utf-8")
+        module_dest = self.workspace / "modules" / "software-endpoint-registry"
+        outcome = SimpleNamespace(
+            action="fetched",
+            ref="module:software-endpoint-registry",
+            detail={"dest": str(module_dest)},
+        )
+
+        write_activation_log(log_path, [outcome], [])
+        write_activation_log(log_path, [outcome], [])
+
+        merged = json.loads(log_path.read_text(encoding="utf-8"))
+        self.assertEqual(
+            [(entry["type"], entry["ref"]) for entry in merged["entries"]],
+            [
+                ("skill", "skill:decide"),
+                ("module", "module:software-endpoint-registry"),
+            ],
+        )
+
+    def test_malformed_existing_activation_log_is_not_overwritten(self):
+        log_path = self.workspace / "ocean-dev.activation-log.json"
+        log_path.parent.mkdir(parents=True)
+        log_path.write_text('{"schema":"wrong","entries":[]}', encoding="utf-8")
+        before = log_path.read_bytes()
+
+        with self.assertRaises(ActivationLogError):
+            write_activation_log(log_path, [], [{
+                "action": "activated",
+                "ref": "skill:decide",
+                "skill_name": "decide",
+                "detail": {"dest": str(self.workspace / "skills" / "decide")},
+            }])
+
+        self.assertEqual(log_path.read_bytes(), before)
+
+    def test_conflicting_prior_receipt_stops_apply_before_activation(self):
+        log_path = self.workspace / "ocean-dev.activation-log.json"
+        log_path.parent.mkdir(parents=True)
+        log_path.write_text(json.dumps({
+            "schema": "ellmos.open-ocean-activation-log.v1",
+            "entries": [{
+                "type": "skill",
+                "ref": "skill:decide",
+                "id": "decide",
+                "dest": str((self.root / "wrong-target" / "decide").resolve(strict=False)),
+            }],
+        }), encoding="utf-8")
+
+        code = main(self._common_args(apply=True))
+
+        self.assertEqual(code, 4)
+        self.assertFalse((self.workspace / "skills" / "decide").exists())
 
     def test_apply_never_overwrites_a_preexisting_skill(self):
         skills_dir = self.workspace / "skills" / "decide"

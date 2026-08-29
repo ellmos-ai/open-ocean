@@ -17,6 +17,7 @@ from tools.ocean_lifecycle import (
     up_from_paths,
     user_add_for_workspace,
 )
+from tools.resolve_bundles import DEFAULT_COMPONENT_BINDINGS
 
 
 def _configure_utf8_output() -> None:
@@ -31,6 +32,12 @@ def _add_composition_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--system-manifest", type=Path, required=True)
     parser.add_argument("--modules-catalog", type=Path, required=True)
     parser.add_argument("--skills-registry", type=Path, required=True)
+    parser.add_argument(
+        "--component-bindings",
+        type=Path,
+        default=DEFAULT_COMPONENT_BINDINGS,
+        help="exaktes OCEAN-Integrations-Overlay für deklarierte Komponenten",
+    )
     parser.add_argument("--workspace", type=Path, required=True)
     parser.add_argument("--json", action="store_true")
 
@@ -86,6 +93,7 @@ def main(argv: list[str] | None = None) -> int:
                 modules_catalog=args.modules_catalog,
                 skills_registry=args.skills_registry,
                 workspace=args.workspace,
+                component_bindings=args.component_bindings,
             )
         except LifecycleError as exc:
             print(str(exc), file=sys.stderr)
@@ -108,6 +116,7 @@ def main(argv: list[str] | None = None) -> int:
                 modules_catalog=args.modules_catalog,
                 skills_registry=args.skills_registry,
                 workspace=args.workspace,
+                component_bindings=args.component_bindings,
                 host=args.host,
                 port=args.port,
             )

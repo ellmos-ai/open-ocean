@@ -637,19 +637,18 @@ private provider does not become a hard dependency of the future public product.
 
 ### Current evidence
 
-- Portable suite: **114 passed**.
-- Real Windows Full Dev sandbox: **29/29 bundle pins verified**, **51 modules resolved**, **62
-  skills resolved and present**, live root page **HTTP 200**, live health **HTTP 200**, database
-  check green with 20 tables.
+- Portable suite: **126 passed**.
+- Applied Windows Full Dev snapshot: **29/29 then-declared bundle pins verified**, **52 modules
+  resolved**, **62 skills resolved and present**, live root page **HTTP 200**, live health
+  **HTTP 200**, database check green with 20 tables.
 - Lifecycle proof: start → live status → controlled stop with port release → restart → live health.
 - Real user-bootstrap proof: a random disposable administrator was created through `ocean user
   add`, its stored password hash verified, and the exact row removed; user count was 0 before and
   after the acceptance run.
-- Honest boundary: 26 module references are unresolved and ten of them are required by the current
-  Full Dev manifest (`audit-trail`, `automation-registry`, `automation-runtime`, `billing`,
+- Honest boundary: 25 module references are unresolved and nine of them are required by the applied
+  Full Dev snapshot (`audit-trail`, `automation-registry`, `automation-runtime`, `billing`,
   `entitlement-enforcement`, `hosted-operations`, `runtime-boundary-enforcement`,
-  `software-endpoint-registry`, `sso-rbac`, `tenant-isolation`). The machine report therefore says
-  `full_composition: false`.
+  `sso-rbac`, `tenant-isolation`). The machine report therefore says `full_composition: false`.
 
 ### Adaptive next-cycle rule
 
@@ -668,3 +667,77 @@ integration uses the selected runtime's existing locale mechanism and updates ev
 supported locale for any new end-user string. OCEAN must not introduce a second translation system
 beside the runtime provider's catalog. A locale is counted as covered only after the real surface,
 not just its resource file, has been checked.
+
+## 8. Adaptive provider cycle 1: software endpoint registry — 2026-08-29
+
+The first module cycle followed the adaptive rule above rather than a predeclared sequence. The
+section-start knowledge lift re-read the live `.AI` module/skill sources, Gardener and applicable
+policy authority before selecting a required gap. The module catalog remained structurally valid
+at 68 entries. OneDrive resynchronisation changed source-file hashes, but rewriting the canonical
+development-system bindings would have invalidated historic evidence through a broad hash cascade;
+that authority was therefore left unchanged for a separate, explicit migration.
+
+### Contract and implementation
+
+- `architecture/ocean-full-dev.component-bindings.v1.json` is a content-hashed integration overlay,
+  explicitly marked `runtime_authority: false`. It does not replace recipe or catalog authority.
+- The exact ref `module:software-endpoint-registry` is bound to catalog entry `system-explorer`,
+  repository `https://github.com/ellmos-ai/system-explorer.git`, commit
+  `ec50c92319ba8fc262d695b86818fc85666feff7`, placement `software-endpoint-registry`, provider
+  manifest `ellmos-module.v2.json`, and capability `software.endpoint.registry`.
+- Bound refs deliberately bypass fuzzy and case-folded alias matching. Resolution fails closed on
+  an invalid overlay hash, a repository mismatch, a non-full commit SHA, unsafe placement, wrong
+  Git HEAD, dirty checkout, wrong origin, wrong provider identity, or missing required capability.
+- Fetch/Place never overwrites a wrong existing placement. A correct placement is reported as
+  `present-pinned-provider`; a new exact checkout is reported as `fetched` only after provider
+  verification.
+- The activation log is now an append-preserving rollback ledger. Existing entries are validated
+  before any write, exact duplicate additions are idempotent, and malformed or conflicting entries
+  fail before activation.
+
+### Live acceptance evidence
+
+- The real Full Dev plan applied the overlay to exactly one ref while retaining all **29/29** valid
+  bundle pins. Required missing components fell from **10 to 9**; resolved modules rose from
+  **51 to 52** and unresolved module refs fell from **26 to 25**.
+- The provider placement has the exact pinned HEAD and expected Git origin. Its module manifest has
+  provider ID `system-explorer` and declares `software.endpoint.registry`.
+- A real `software-endpoints --refresh` run against a temporary OCEAN resource produced one
+  installed software record with two endpoints, one CLI and one HTTP. The temporary fixture was
+  then removed recoverably.
+- `ocean up --apply` returned a running `ellmos-core`; `/api/health` and `/` both returned HTTP 200,
+  and the runtime database check retained its 20-table result.
+- The rollback ledger grew from **62 skill entries to 63 total entries** (62 skills plus the bound
+  module), proving that the module cycle did not erase prior rollback information.
+- The paired English/German README and changelog, root CLI help, architecture plan and portable
+  suite were updated in the same cycle. The final portable suite is **126 passed**.
+
+### Post-sync authority gate
+
+After OneDrive resumed, the live `ellmos-development-fullsystem` authority advanced from the 29-ref
+snapshot used by the successful apply to **30 bundle refs**, adding `ellmos-therapy-bundle` and
+updating several pins. A fresh read-only OCEAN plan was therefore run again instead of assuming the
+installed snapshot still represented current source authority.
+
+- Against the current canonical OneDrive `.BUNDLES` projection, all 30 manifests are internally
+  self-consistent and **27/30** match the live system pins. The three mismatches are
+  `ellmos-core-discovery-bundle`, `ellmos-agent-orchestration-bundle`, and
+  `ellmos-dev-lifecycle-bundle`.
+- The older local recipe worktree is not a valid fallback: only **24/30** current refs verify there;
+  five use older valid hashes and the newly selected therapy manifest is absent at the expected
+  exported path.
+- OCEAN stopped before Resolve, Fetch/Place, Activate or runtime replacement, exactly as the
+  fail-closed verification contract requires. The existing installed snapshot remains running and
+  healthy at `http://127.0.0.1:8800`; its root and health endpoint still return HTTP 200, its DB
+  check still reports 20 tables, and the bound provider remains clean at the exact commit.
+
+The three authoritative pin mismatches must be reconciled in the recipe/system authority and then
+re-read through the section-start knowledge lift. OCEAN must not hide them with an ad-hoc local
+repin or a copied system manifest.
+
+This finishes the first usable OCEAN module integration, not the Full Dev composition or Public
+OCEAN release. The remaining required gaps are `audit-trail`, `automation-registry`,
+`automation-runtime`, `billing`, `entitlement-enforcement`, `hosted-operations`,
+`runtime-boundary-enforcement`, `sso-rbac`, and `tenant-isolation`. The next cycle repeats the
+knowledge lift and chooses among those live findings. No tag, release, merge, visibility change or
+`PRIVATE.txt` change belongs to this cycle.

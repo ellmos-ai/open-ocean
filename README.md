@@ -19,7 +19,7 @@ The free community full system of the ellmos ecosystem.
 **The released public full system is not here yet.** The private OCEAN Full Dev composition is now
 runnable on the development host: it can plan, install, start, inspect, bootstrap a user, stop and
 restart one declared `runtime.host`. This is the first usable OCEAN product slice, not a BACH-parity
-or public-release claim. The verified composition still reports ten missing required modules and
+or public-release claim. The verified composition still reports nine missing required modules and
 therefore marks itself `full_composition: false`.
 
 OCEAN consumes the recipes from their canonical repository instead of copying them here. The
@@ -61,6 +61,7 @@ archive remains an explicit product decision, never an automatic consequence of 
 ```
 architecture/
   open-ocean.skeleton.v1.json   which recipes the system intends to consume, pinned by hash
+  ocean-full-dev.component-bindings.v1.json  exact, non-authoritative per-module integration pins
   INSTALLER-TARGET.md           what the installer has to become, and what it must not do
   OCEAN-DEV-BUILD-PLAN_2026-08-18.md  staged build plan and verified foreign-host integration evidence
   BACH-EXTRACTION-ROADMAP.md    extraction order, parity gates and Cluster 9 kernel map
@@ -106,6 +107,12 @@ Without `--apply` this is a read-only dry-run. A system manifest cannot be combi
 ring; partial work is selected adaptively as a separate bundle cycle, not by silently truncating
 the declared Full Dev composition.
 
+The default `--component-bindings` overlay closes recipe-to-provider naming gaps without changing
+the canonical recipe or module catalog. Each binding is exact and fail-closed: component ref,
+repository, full commit SHA, placement, provider manifest ID and required capabilities must all
+match and the checkout must be clean before OCEAN treats the provider as resolved. The first such
+binding maps `module:software-endpoint-registry` to the verified `system-explorer` provider.
+
 The product lifecycle is exposed at the repository root:
 
 ```text
@@ -129,7 +136,7 @@ may use `--password-stdin`.
 | Architecture skeleton | present, 13 bundles referenced |
 | BACH extraction baseline | present — 114 source-declared names; historic 113-name runtime bar retained; re-audited 2026-08-18 (106 handler classes, +1 vs. the 2026-08-08 baseline — traced to a host-suffixed duplicate file in BACH, `upgrade-WORKSTATION-LG.py` alongside `upgrade.py`; not fixed here, BACH is out of scope for this repository's changes). `registered_names` unchanged at 114. |
 | K9-1 data/checkpoint gate | two carrier fixtures green; adapter and BACH equivalence remain open |
-| Installer and lifecycle | **Resolve, Verify, SHA-pinned Fetch/Place, sandboxed skill Activate, activation logging, target-validated Roll back, runtime start/status/stop/restart and delegated user bootstrap are implemented.** A live Windows Full Dev run on 2026-08-29 verified all 29 pinned bundles, resolved 51 modules and 62 skills, installed the skill set into an explicit sandbox and reached a healthy web login surface. Start → stop → restart was independently checked. The suite now contains 114 passing tests. Twenty-six module references remain unresolved; ten of them are required by the current Full Dev manifest. See the [staged build plan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
+| Installer and lifecycle | **Resolve, Verify, SHA-pinned Fetch/Place, exact provider bindings, sandboxed skill Activate, append-preserving activation logging, target-validated Roll back, runtime start/status/stop/restart and delegated user bootstrap are implemented.** An applied Windows Full Dev snapshot on 2026-08-29 verified all 29 then-declared bundle pins, resolved 52 modules and 62 skills, installed the skill set into an explicit sandbox and reached a healthy web login surface. The first adaptive provider cycle integrated `software-endpoint-registry` at the exact `system-explorer` commit and verified its real CLI/HTTP endpoint projection. Start → stop → restart was independently checked. The suite now contains 126 passing tests. Twenty-five module references remain unresolved; nine of them are required in the applied snapshot. After OneDrive resumed, the live system authority advanced to 30 bundle refs; a fresh read-only plan correctly stops on three recipe-pin mismatches and has not replaced the working installed snapshot. See the [staged build plan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
 | Runtime | **available for private Full Dev** through the declared `runtime.host` provider `ellmos-core`; a public OCEAN runtime is not shipped and the private provider is not a public dependency |
 | Recipes | maintained in the recipe repository, not here |
 
@@ -166,9 +173,11 @@ the gate is visible where visibility is switched). It opens when all four are de
    installer seam remains foreign-host integration-proven by the 2026-08-20 Mac Studio run. On
    2026-08-29 the development host additionally completed a real Full Dev plan/apply/start/status/
    stop/restart cycle and reached a healthy web login surface. That materially advances OCEAN, but
-   it is neither a fresh foreign-host full-system proof nor a complete composition: ten required
-   modules are still missing. See `architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md` for the exact
-   evidence and remaining breadth.
+   it is neither a fresh foreign-host full-system proof nor a complete composition: nine required
+   modules are still missing from the applied snapshot. A post-sync fresh plan also stops safely
+   because three of the now 30 authoritative bundle refs do not match their current recipe
+   manifests. See `architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md` for the exact evidence and
+   remaining breadth.
 3. **Parity for the release scope** — the system performs at the level it claims to cover. A
    smaller installable core is a build stage, not a release. The current source audit records
    114 reachable names while retaining the historic 113-name runtime snapshot as the minimum

@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 import secrets
+import socket
 import subprocess
 import sys
 import time
@@ -20,6 +21,7 @@ from datetime import datetime, timezone
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 
 TOOLS_DIR = Path(__file__).resolve().parent
@@ -29,6 +31,9 @@ RUNTIME_USER_CLI = TOOLS_DIR / "runtime_user.py"
 INSTALL_STATE = "ocean.install.json"
 RUNTIME_STATE = "ocean.runtime.json"
 RUNTIME_SPEC = "ocean.runtime-spec.json"
+OCEAN_OPERATOR_PREFIX = "/control"
+OCEAN_OPERATOR_TITLE = "OCEAN Full Dev"
+OCEAN_OPERATOR_CONFIG = "unified-gui.config.json"
 
 
 class LifecycleError(RuntimeError):
@@ -316,25 +321,60 @@ def _ellmos_core_runtime_spec(
     inherited = os.environ.get("PYTHONPATH")
     if inherited:
         python_paths.append(inherited)
-    runtime_url = f"http://{host}:{port}"
+    base_url = f"http://{host}:{port}"
+    operator_components = []
+    for component in components:
+        if component.get("kind") != "module" or component.get("status") != "resolved":
+            continue
+        detail = component.get("detail") or {}
+        provides = set(detail.get("provides") or [])
+        if "unified-gui.host" in provides:
+            operator_components.append(component)
+    if len(operator_components) > 1:
+        refs = ", ".join(sorted(str(item.get("ref")) for item in operator_components))
+        raise LifecycleError(
+            f"Die Komposition enthält mehrere Operator-Oberflächen ({refs}); Auswahl muss eindeutig sein."
+        )
+    operator_enabled = bool(operator_components)
+    if operator_enabled:
+        operator_detail = operator_components[0].get("detail") or {}
+        raw_operator_path = operator_detail.get("local_path")
+        if not isinstance(raw_operator_path, str) or not raw_operator_path:
+            raise LifecycleError("Die deklarierte OCEAN-Operator-Oberfläche hat keinen lokalen Quellpfad.")
+        operator_path = Path(raw_operator_path) / "src" / "unified_gui"
+        if not operator_path.is_dir():
+            raise LifecycleError(
+                f"Die deklarierte OCEAN-Operator-Oberfläche fehlt unter {operator_path}."
+            )
+    runtime_url = f"{base_url}{OCEAN_OPERATOR_PREFIX}/" if operator_enabled else base_url
+    runtime_env = {
+        "PYTHONPATH": os.pathsep.join(dict.fromkeys(python_paths)),
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONUTF8": "1",
+        "ELLMOS_CORE_DEBUG": "0",
+        "ELLMOS_CORE_SECRET_KEY": secrets.token_urlsafe(48),
+        "ELLMOS_CORE_SECURE_COOKIES": "0",
+        "ELLMOS_CORE_HOST": host,
+        "ELLMOS_CORE_PORT": str(port),
+        "ELLMOS_CORE_DB_PATH": str((workspace / "state" / "ellmos_core.db").resolve(strict=False)),
+        "ELLMOS_CORE_MANIFEST_PATH": str(manifest_path.resolve(strict=False)),
+    }
+    if operator_enabled:
+        _write_json_atomic(
+            workspace / OCEAN_OPERATOR_CONFIG,
+            {"title": OCEAN_OPERATOR_TITLE},
+        )
+        runtime_env.update({
+            "ELLMOS_CORE_CONSOLE_ENABLED": "1",
+            "ELLMOS_CORE_CONSOLE_PREFIX": OCEAN_OPERATOR_PREFIX,
+        })
     return {
         "runtime_id": provider.id,
         "command": [sys.executable, "-m", "ellmos_core.cli", "serve"],
-        "cwd": str(provider.local_path),
-        "env": {
-            "PYTHONPATH": os.pathsep.join(dict.fromkeys(python_paths)),
-            "PYTHONDONTWRITEBYTECODE": "1",
-            "PYTHONUTF8": "1",
-            "ELLMOS_CORE_DEBUG": "0",
-            "ELLMOS_CORE_SECRET_KEY": secrets.token_urlsafe(48),
-            "ELLMOS_CORE_SECURE_COOKIES": "0",
-            "ELLMOS_CORE_HOST": host,
-            "ELLMOS_CORE_PORT": str(port),
-            "ELLMOS_CORE_DB_PATH": str((workspace / "state" / "ellmos_core.db").resolve(strict=False)),
-            "ELLMOS_CORE_MANIFEST_PATH": str(manifest_path.resolve(strict=False)),
-        },
+        "cwd": str(workspace.resolve(strict=False) if operator_enabled else provider.local_path),
+        "env": runtime_env,
         "runtime_url": runtime_url,
-        "health_url": f"{runtime_url}/api/health",
+        "health_url": f"{base_url}/api/health",
     }
 
 
@@ -374,6 +414,25 @@ def _health(health_url: str, timeout: float = 1.0) -> bool:
         return False
 
 
+def _tcp_endpoint_open(host: str, port: int, timeout: float = 0.5) -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def _runtime_endpoint_open(state: dict[str, Any]) -> bool:
+    try:
+        parsed = urlsplit(str(state.get("runtime_url") or ""))
+        host, port = parsed.hostname, parsed.port
+    except ValueError as exc:
+        raise LifecycleError("Runtime-Status enthält keinen gültigen öffentlichen Endpunkt.", exit_code=3) from exc
+    if host not in {"127.0.0.1", "localhost"} or port is None:
+        raise LifecycleError("Runtime-Status enthält keinen gültigen lokalen öffentlichen Endpunkt.", exit_code=3)
+    return _tcp_endpoint_open(host, port)
+
+
 def start_runtime(
     provider: RuntimeProvider,
     components: list[dict[str, Any]],
@@ -396,9 +455,19 @@ def start_runtime(
             except LifecycleError as exc:
                 if "läuft bereits" in str(exc):
                     raise
-                raise LifecycleError(
-                    "Vorhandener Runtime-Status ist nicht kontrollierbar; kein zweiter Prozess wird gestartet."
-                ) from exc
+                if (
+                    _health(str(existing.get("health_url") or ""))
+                    or _runtime_endpoint_open(existing)
+                    or _tcp_endpoint_open(host, port)
+                ):
+                    raise LifecycleError(
+                        "Vorhandener Runtime-Status ist nicht kontrollierbar, aber der Runtime-Port ist belegt; "
+                        "kein zweiter Prozess wird gestartet."
+                    ) from exc
+    if _tcp_endpoint_open(host, port):
+        raise LifecycleError(
+            f"Der angeforderte OCEAN-Port {host}:{port} ist bereits belegt; Start abgebrochen."
+        )
 
     launch = _ellmos_core_runtime_spec(provider, components, workspace, manifest_path, host, port)
     token = secrets.token_urlsafe(32)
@@ -503,6 +572,78 @@ def up_from_paths(
             "health": "ok",
         },
         "workspace": str(workspace.resolve(strict=False)),
+    }
+
+
+def start_installed_runtime(
+    workspace: Path,
+    *,
+    host: str | None = None,
+    port: int | None = None,
+) -> dict[str, Any]:
+    """Start a verified installed snapshot without consulting live recipe authority."""
+    install = _read_json(workspace / INSTALL_STATE)
+    if install.get("schema") != "ellmos.open-ocean-install-state.v1":
+        raise LifecycleError("Die Sandbox enthält keinen unterstützten OCEAN-Installationsstand.", exit_code=3)
+    plan = install.get("plan") or {}
+    transaction = plan.get("transaction") or {}
+    components = transaction.get("components")
+    if not isinstance(components, list):
+        raise LifecycleError("Der installierte OCEAN-Stand enthält keine Komponentenauflösung.", exit_code=3)
+
+    previous_spec = _read_json(workspace / RUNTIME_SPEC)
+    previous_env = previous_spec.get("env") or {}
+    selected_host = host or str(previous_env.get("ELLMOS_CORE_HOST") or "127.0.0.1")
+    raw_port = port if port is not None else previous_env.get("ELLMOS_CORE_PORT")
+    try:
+        selected_port = int(raw_port)
+    except (TypeError, ValueError) as exc:
+        raise LifecycleError("Die installierte Runtime enthält keinen gültigen Port.", exit_code=3) from exc
+    if not 1 <= selected_port <= 65535:
+        raise LifecycleError(f"Ungültiger OCEAN-Port: {selected_port}", exit_code=2)
+
+    live = status_for_workspace(workspace)
+    if live["runtime"]["control"] == "running" and live["runtime"]["health"] == "ok":
+        current_url = str(live["runtime"].get("url") or "")
+        expected_base = f"http://{selected_host}:{selected_port}"
+        if not current_url.startswith(expected_base):
+            raise LifecycleError(
+                "OCEAN läuft bereits an einem anderen Endpunkt; vor einem Portwechsel zuerst 'ocean down' ausführen."
+            )
+        return {
+            "schema": "ellmos.open-ocean-lifecycle-start.v1",
+            "runtime": {
+                "id": live["runtime"]["id"],
+                "status": "running",
+                "url": current_url,
+                "health": "ok",
+            },
+            "workspace": str(workspace.resolve(strict=False)),
+            "reused": True,
+        }
+
+    provider = select_runtime_provider(components)
+    manifest_path = workspace / "sovereign.manifest.json"
+    if not manifest_path.is_file():
+        raise LifecycleError(f"Installierte Runtime-Projektion fehlt: {manifest_path}", exit_code=3)
+    runtime_state = start_runtime(
+        provider,
+        components,
+        workspace,
+        manifest_path,
+        host=selected_host,
+        port=selected_port,
+    )
+    return {
+        "schema": "ellmos.open-ocean-lifecycle-start.v1",
+        "runtime": {
+            "id": provider.id,
+            "status": runtime_state["status"],
+            "url": runtime_state["runtime_url"],
+            "health": "ok",
+        },
+        "workspace": str(workspace.resolve(strict=False)),
+        "reused": False,
     }
 
 

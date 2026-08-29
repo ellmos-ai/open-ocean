@@ -741,3 +741,62 @@ OCEAN release. The remaining required gaps are `audit-trail`, `automation-regist
 `runtime-boundary-enforcement`, `sso-rbac`, and `tenant-isolation`. The next cycle repeats the
 knowledge lift and chooses among those live findings. No tag, release, merge, visibility change or
 `PRIVATE.txt` change belongs to this cycle.
+
+## 9. Product-surface correction and installed-snapshot recovery — 2026-08-29
+
+This corrective section was selected by direct user-visible evidence, not by the remaining-module
+list: the address previously reported as OCEAN showed TerminPilot's offline page after the runtime
+process disappeared and showed TerminPilot's scheduling UI again when the provider was restarted.
+The earlier acceptance had asserted only HTTP 200 and a login-capable page. It had not asserted the
+identity of the product shown there, so that part of the evidence is withdrawn.
+
+### Section-start knowledge lift
+
+- **Current:** the installed transaction records both resolved `ellmos-core` capabilities and the
+  resolved optional `ellmos-unified-gui` provider with `operator.ui` and `unified-gui.host`. The
+  provider's own contract mounts that UI only when `ELLMOS_CORE_CONSOLE_ENABLED=1`; the prior OCEAN
+  runtime specification did not set the opt-in.
+- **Current:** the direct live response at the old port exposed a TerminPilot PWA manifest,
+  scheduling copy and a root-scoped service worker. When no process listened on port `8800`, that
+  worker could still render the cached TerminPilot offline shell.
+- **Historical/mixed:** Gardener returned OCEAN, TerminPilot and unified-GUI observations from
+  tickets, memories and transcripts, but its local checkout was two commits behind and the hits did
+  not establish newer runtime authority. They were treated as orientation only.
+- **Unavailable:** the federated ControlCenter governance query returned aggregate `UNKNOWN`, with
+  both decisions and policy registry unconfigured. No policy decision was inferred from that
+  absence. The applicable module release policy still leaves tags, publication and visibility out
+  of this private corrective cycle.
+
+### Corrected contract
+
+- A resolved `unified-gui.host` now selects exactly one OCEAN operator surface. OCEAN enables the
+  provider's console mount, writes only an OCEAN-owned workspace title override, and returns
+  `/control/` rather than treating the provider's domain root as the product.
+- New installs use dedicated default port `8810`. This gives OCEAN a different browser origin from
+  the provider's standalone TerminPilot PWA on port `8800`, so its root-scoped service worker cannot
+  substitute TerminPilot content for the OCEAN address.
+- `ocean start --workspace <sandbox>` starts the already installed transaction snapshot without
+  consulting changed live recipe authority. This is deliberately distinct from `ocean up --apply`:
+  the latter remains the transaction/apply boundary and still stops on the three current pin
+  mismatches.
+- A stale `running` state is recoverable only when its authenticated control channel, recorded
+  public runtime endpoint and requested port are all inactive. A live or foreign listener remains a
+  fail-closed conflict rather than being killed or overwritten.
+
+### Acceptance evidence
+
+- Portable suite: **128 passed**; Ruff and `compileall` also passed.
+- The retained 29-ref installed snapshot restarted without reapplying the now-mismatched 30-ref
+  live authority. Live status is `running/ok` at `http://127.0.0.1:8810/control/`; health is HTTP
+  200 and the database check still reports 20 tables.
+- Direct HTML inspection found `OCEAN Full Dev` and no `TerminPilot`, `Terminkoordination` or
+  `Terminabfragen` marker at the returned product URL.
+- A real Playwright browser loaded the overview with title `OCEAN Full Dev — Übersicht`, then
+  navigated to the Skills panel with title `OCEAN Full Dev — Skills`. Port `8800` had no listener.
+- One pre-existing cosmetic browser finding remains: the mounted UI does not declare a favicon, so
+  the browser requests `/favicon.ico` and receives 404. It does not affect navigation, health or
+  product identity and is not silently counted as fixed.
+
+This correction makes the current Full Dev surface usable and truthfully identifiable as OCEAN. It
+does not close the nine missing required modules, the three live recipe-pin mismatches, BACH parity,
+foreign-host full-system proof, Public OCEAN, release, tag, visibility or `PRIVATE.txt` gates.

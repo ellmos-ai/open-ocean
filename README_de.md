@@ -28,6 +28,10 @@ Transaktionsschicht löst auf, prüft, holt, platziert, aktiviert und rollt zur�
 Lebenszyklusschicht betreibt die ausgewählte Laufzeit in einer ausdrücklichen lokalen Sandbox. Der
 aktuelle Full-Dev-Host ist das private `ellmos-core`, über seine Fähigkeit ausgewählt und nicht als
 künftige öffentliche OCEAN-Laufzeit fest verdrahtet.
+Wenn die aufgelöste Komposition zusätzlich `unified-gui.host` bereitstellt, macht OCEAN diese
+Operator-Oberfläche zu seinem Produkteinstieg. Die aktuelle Entwicklungsadresse lautet
+`http://127.0.0.1:8810/control/`; der eigene Port trennt OCEAN vom eigenständigen
+TerminPilot-PWA-Ursprung des Laufzeitanbieters.
 
 | Repository | Was es ist | Zustand |
 |---|---|---|
@@ -124,6 +128,7 @@ Der Produktlebenszyklus liegt im Wurzelverzeichnis:
 ```text
 python ocean.py plan <composition arguments>
 python ocean.py up <composition arguments> --apply
+python ocean.py start --workspace <local-sandbox>
 python ocean.py status --workspace <local-sandbox>
 python ocean.py user add --workspace <local-sandbox> --username <name> --email <address>
 python ocean.py down --workspace <local-sandbox>
@@ -131,7 +136,11 @@ python ocean.py down --workspace <local-sandbox>
 
 `python ocean.py --help` und die Hilfe des jeweiligen Unterbefehls zeigen alle Argumente. Das
 Passwort wird verdeckt abgefragt und nie als Prozessargument übergeben; lokale Automatisierung kann
-`--password-stdin` verwenden.
+`--password-stdin` verwenden. `ocean up` verwendet standardmäßig den eigenen OCEAN-Port `8810`.
+`ocean start` startet den bereits installierten, geprüften Snapshot ohne erneute Abfrage einer
+inzwischen veränderten Live-Rezeptautorität. Nach einem Betriebssystem- oder Prozessverlust kann
+der Befehl außerdem einen veralteten `running`-Status wiederherstellen, sofern weder der
+authentifizierte Kontrollkanal noch der aufgezeichnete Runtime-Port aktiv ist.
 
 ## Status
 
@@ -142,8 +151,8 @@ Passwort wird verdeckt abgefragt und nie als Prozessargument übergeben; lokale 
 | Architektur-Gerüst | vorhanden, 13 Bundles referenziert |
 | BACH-Extraktionsbasis | vorhanden — 114 quellseitige Namen; historische 113er Runtime-Messlatte bleibt erhalten; erneut geprüft am 2026-08-18 (106 Handler-Klassen, +1 gegenüber der 2026-08-08-Basis — zurückverfolgt auf eine hostgebundene Duplikatdatei in BACH, `upgrade-WORKSTATION-LG.py` neben `upgrade.py`; hier NICHT behoben, BACH liegt außerhalb des Änderungsumfangs dieses Repositories). `registered_names` unverändert bei 114. |
 | K9-1 Daten-/Checkpoint-Gate | zwei Träger-Fixtures grün; Adapter und BACH-Äquivalenz bleiben offen |
-| Installer und Lebenszyklus | **Resolve, Verify, SHA-gepinnte Fetch/Place-Schritte, exakte Anbieterbindungen, erhaltende Aktivierungsprotokollierung, zielvalidiertes Rollback, Runtime-Start/Status/Stopp/Neustart und delegierte Benutzeranlage sind implementiert.** Ein angewandter Windows-Full-Dev-Snapshot vom 2026-08-29 bestätigte alle damals deklarierten 29 Bundle-Pins, löste 52 Module und 62 Skills auf, installierte die Skills in eine ausdrückliche Sandbox und erreichte eine gesunde Web-Anmeldeoberfläche. Der erste adaptive Anbieterzyklus integrierte `software-endpoint-registry` am exakten `system-explorer`-Commit und prüfte dessen echte CLI-/HTTP-Endpunktprojektion. Start → Stopp → Neustart wurde unabhängig geprüft. Die Suite umfasst jetzt 126 grüne Tests. 25 Modulreferenzen bleiben unaufgelöst; neun davon sind im angewandten Snapshot Pflicht. Nach dem Neustart von OneDrive rückte die aktuelle Systemautorität auf 30 Bundle-Referenzen vor; ein frischer rein lesender Plan stoppt korrekt bei drei Rezept-Pin-Abweichungen und hat den arbeitsfähigen Installations-Snapshot nicht ersetzt. Siehe [gestuften Bauplan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
-| Laufzeit | **für das private Full Dev verfügbar** über den deklarierten `runtime.host`-Anbieter `ellmos-core`; eine öffentliche OCEAN-Laufzeit wird noch nicht ausgeliefert, und der private Anbieter ist keine öffentliche Abhängigkeit |
+| Installer und Lebenszyklus | **Resolve, Verify, SHA-gepinnte Fetch/Place-Schritte, exakte Anbieterbindungen, erhaltende Aktivierungsprotokollierung, zielvalidiertes Rollback, Wiederherstellung des installierten Snapshots, Runtime-Start/Status/Stopp/Neustart und delegierte Benutzeranlage sind implementiert.** Ein angewandter Windows-Full-Dev-Snapshot vom 2026-08-29 bestätigte alle damals deklarierten 29 Bundle-Pins, löste 52 Module und 62 Skills auf und installierte die Skills in eine ausdrückliche Sandbox. Der erste adaptive Anbieterzyklus integrierte `software-endpoint-registry` am exakten `system-explorer`-Commit und prüfte dessen echte CLI-/HTTP-Endpunktprojektion. Eine spätere Prüfung der Produktidentität widerlegte den früheren Oberflächenbeleg über HTTP 200 am Wurzelpfad: Dort lief die TerminPilot-Fachoberfläche des Anbieters. OCEAN wählt jetzt die aufgelöste Operator-Oberfläche, gibt `http://127.0.0.1:8810/control/` zurück und stellt den installierten Snapshot nach Prozessverlust wieder her. HTTP- und echte Browser-Abnahme bestätigten den OCEAN-Titel sowie ein navigierbares Skills-Panel. Die Suite umfasst jetzt 128 grüne Tests. 25 Modulreferenzen bleiben unaufgelöst; neun davon sind im angewandten Snapshot Pflicht. Nach dem Neustart von OneDrive rückte die aktuelle Systemautorität auf 30 Bundle-Referenzen vor; ein frischer rein lesender Plan stoppt korrekt bei drei Rezept-Pin-Abweichungen und hat den installierten Snapshot nicht ersetzt. Siehe [gestuften Bauplan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
+| Laufzeit | **für das private Full Dev verfügbar** über den deklarierten `runtime.host`-Anbieter `ellmos-core`, mit dem aufgelösten `unified-gui.host` als OCEAN-Operator-Oberfläche; eine öffentliche OCEAN-Laufzeit wird noch nicht ausgeliefert, und der private Anbieter ist keine öffentliche Abhängigkeit |
 | Rezepte | im Rezept-Repository gepflegt, nicht hier |
 
 **Die Ampel** — Freigabebedingung 1 geht grün, wenn jedes referenzierte Bundle grün ist, also jede
@@ -181,7 +190,10 @@ Bedingungen nachweislich erfüllt sind:
    arbeitsfähigen Zustand. **Noch nicht erfüllt.** Die Installer-Naht bleibt durch den Mac-Studio-
    Lauf vom 2026-08-20 auf einem Fremdrechner integrationsgeprüft. Am 2026-08-29 absolvierte der
    Entwicklungsrechner zusätzlich einen echten Full-Dev-Zyklus aus Plan/Apply/Start/Status/Stopp/
-   Neustart und erreichte eine gesunde Web-Anmeldeoberfläche. Das bringt OCEAN substanziell voran,
+   Neustart. Die erste Abnahme des Wurzelpfads belegte nur den Transport und stellte sich später
+   als TerminPilot-Fachoberfläche des Anbieters statt OCEAN heraus. Der korrigierte Zyklus stellt
+   nun die aufgelöste Operator-Oberfläche unter `127.0.0.1:8810/control/` bereit und prüft sie im
+   echten Browser. Das bringt OCEAN substanziell voran,
    ist aber weder ein frischer Fremdrechner-Vollsystembeleg noch eine vollständige Komposition:
    Neun Pflichtmodule fehlen im angewandten Snapshot weiterhin. Ein frischer Plan nach der
    Synchronisierung stoppt außerdem sicher, weil drei der nun 30 autoritativen Bundle-Referenzen

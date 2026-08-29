@@ -6,7 +6,7 @@
 
 ### Hinzugefügt
 
-- Wurzel-CLI `ocean.py` mit `plan`, `up`, `status`, `down` und `user add`.
+- Wurzel-CLI `ocean.py` mit `plan`, `up`, `start`, `status`, `down` und `user add`.
 - Fähigkeitsgesteuerte Auswahl genau eines aufgelösten `runtime.host`.
 - Lokaler authentifizierter Runtime-Supervisor und Kompatibilitätsprojektionen für den
   ausgewählten Host.
@@ -18,12 +18,22 @@
 - Anbieterprüfung über Repository-Ursprung, exakten Git-HEAD, sauberen Checkout,
   Modulmanifest-Identität und deklarierte Fähigkeit, bevor eine gebundene Komponente als
   aufgelöst gelten kann.
+- Fähigkeitsgesteuerter OCEAN-Produkteinstieg: Ein aufgelöster `unified-gui.host` wird unter
+  `/control/` eingehängt, erhält den Bereitstellungstitel `OCEAN Full Dev` und läuft standardmäßig
+  auf dem eigenen Port `8810` statt auf dem eigenständigen TerminPilot-PWA-Ursprung des
+  Laufzeitanbieters.
 
 ### Behoben
 
 - Der Reload-Prozess des Runtime-Hosts ist abgeschaltet; jeder Start erhält einen eigenen lokalen
   Secret-Key, damit ein authentifizierter Stopp keinen Reload-Kindprozess zurücklässt.
 - Ein veralteter Stopp-Status der vorherigen Instanz löst beim Neustart keinen Fehlalarm mehr aus.
+- Ein installierter Snapshot lässt sich nach dem Verschwinden von Supervisor und Kindprozess aus
+  einem veralteten `running`-Status wiederherstellen, ohne eine veränderte Live-Rezeptautorität neu
+  anzuwenden; belegte alte oder angeforderte Ports stoppen weiterhin sicher.
+- Die falsche Produktadresse am Anbieter-Wurzelpfad wurde durch die aufgelöste
+  OCEAN-Operator-Oberfläche ersetzt. Die frühere HTTP-200-Prüfung hatte TerminPilots
+  Fachoberfläche akzeptiert, ohne die Produktidentität zu prüfen.
 - Die Wurzel-CLI erzwingt UTF-8-Ausgabe, damit deutsche Hilfetexte unter Windows echte Umlaute
   behalten.
 - Runtime-Importe schreiben kein Python-Bytecode mehr in externe Modulprojektionen.
@@ -32,8 +42,8 @@
 
 ### Geprüft
 
-- 126 Tests sind grün, einschließlich echter HTTP-Akzeptanz für Start, Status, Benutzeranlage,
-  Stopp und Neustart.
+- 128 Tests sind grün, einschließlich echter HTTP-Akzeptanz für Start, Status, Benutzeranlage,
+  Stopp, Neustart, Wiederherstellung veralteter Zustände und Auswahl der Produktoberfläche.
 - Eine echte private Full-Dev-Sandbox bestätigte 29 Bundle-Pins, löste 52 Module und 62 Skills auf
   und erreichte eine gesunde Web-Anmeldeoberfläche auf `127.0.0.1`.
 - Der echte Anbieter für `software-endpoint-registry` wurde am exakten Pin geholt, projizierte zwei
@@ -46,6 +56,9 @@
 - Nach dem Neustart von OneDrive rückte die aktuelle Full-Dev-Autorität von 29 auf 30
   Bundle-Referenzen vor. Ein frischer rein lesender Plan stoppte sicher bei drei
   Rezept-Pin-Abweichungen; kein neuer Apply-Lauf ersetzte den gesunden Installations-Snapshot.
+- Der installierte Snapshot wurde unter `http://127.0.0.1:8810/control/` neu gestartet. HTTP und
+  ein echter Playwright-Browser zeigten `OCEAN Full Dev`, keine TerminPilot-/
+  Terminkoordination-Marker und ein navigierbares Skills-Panel; Port `8800` lauschte nicht mehr.
 
 Dieser Eintrag enthält weder Release, Tag, Sichtbarkeitsänderung noch eine Änderung an
 `PRIVATE.txt`.

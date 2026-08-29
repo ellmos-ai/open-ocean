@@ -10,6 +10,7 @@ import textwrap
 import time
 from pathlib import Path
 
+from tools.ocean_lifecycle import RuntimeProvider, _ellmos_core_runtime_spec
 from tools.resolve_bundles import canonical_hash
 
 
@@ -31,6 +32,7 @@ def test_root_help_exposes_the_complete_first_usable_lifecycle():
     assert proc.returncode == 0, proc.stderr
     assert "plan" in proc.stdout
     assert "up" in proc.stdout
+    assert "start" in proc.stdout
     assert "status" in proc.stdout
     assert "down" in proc.stdout
     assert "user" in proc.stdout
@@ -212,6 +214,61 @@ def _run_ocean(*args: str, input_text: str | None = None) -> subprocess.Complete
     )
 
 
+def test_runtime_spec_exposes_resolved_operator_ui_as_the_ocean_surface(tmp_path):
+    """Catches accepting a domain app's HTTP 200 as the OCEAN product surface."""
+    core = tmp_path / "ellmos-core"
+    (core / "src" / "ellmos_core").mkdir(parents=True)
+    operator_ui = tmp_path / "ellmos-unified-gui"
+    (operator_ui / "src" / "unified_gui").mkdir(parents=True)
+    manifest = tmp_path / "sovereign.manifest.json"
+    manifest.write_text("{}", encoding="utf-8")
+    provider = RuntimeProvider(
+        id="ellmos-core",
+        ref="module:ellmos-core",
+        local_path=core,
+        entrypoints={"service": "ellmos-core serve"},
+        package="ellmos-core",
+        detail={},
+    )
+    components = [
+        {
+            "kind": "module",
+            "status": "resolved",
+            "ref": "module:ellmos-core",
+            "detail": {"local_path": str(core), "provides": ["runtime.host"]},
+        },
+        {
+            "kind": "module",
+            "status": "resolved",
+            "ref": "module:ellmos-unified-gui",
+            "detail": {
+                "catalog_id": "ellmos-unified-gui",
+                "local_path": str(operator_ui),
+                "provides": ["operator.ui", "unified-gui.host"],
+            },
+        },
+    ]
+
+    spec = _ellmos_core_runtime_spec(
+        provider,
+        components,
+        tmp_path / "workspace",
+        manifest,
+        "127.0.0.1",
+        8810,
+    )
+
+    assert spec["runtime_url"] == "http://127.0.0.1:8810/control/"
+    assert spec["health_url"] == "http://127.0.0.1:8810/api/health"
+    assert spec["env"]["ELLMOS_CORE_CONSOLE_ENABLED"] == "1"
+    assert spec["env"]["ELLMOS_CORE_CONSOLE_PREFIX"] == "/control"
+    assert str(operator_ui / "src") in spec["env"]["PYTHONPATH"]
+    assert Path(spec["cwd"]) == (tmp_path / "workspace").resolve(strict=False)
+    assert json.loads(
+        (tmp_path / "workspace" / "unified-gui.config.json").read_text(encoding="utf-8")
+    ) == {"title": "OCEAN Full Dev"}
+
+
 def test_plan_proves_one_runtime_host_without_creating_the_workspace(tmp_path):
     """Catches treating a verified recipe as usable without a runnable host."""
     fixture = _write_plan_fixture(tmp_path)
@@ -329,5 +386,54 @@ def test_up_status_down_runs_one_real_sandboxed_runtime_round_trip(tmp_path):
         restarted_report = json.loads(restarted.stdout)
         assert restarted_report["runtime"]["status"] == "running"
         assert restarted_report["runtime"]["health"] == "ok"
+    finally:
+        _run_ocean("down", "--workspace", str(fixture["workspace"]), "--json")
+
+
+def test_start_recovers_an_installed_runtime_from_stale_running_state(tmp_path):
+    """Catches an OS/process loss leaving OCEAN permanently blocked by stale JSON."""
+    fixture = _write_runnable_ellmos_core_fixture(tmp_path)
+    port = _free_tcp_port()
+    common = [
+        "--bundles-root", str(fixture["bundles_root"]),
+        "--system-manifest", str(fixture["system"]),
+        "--modules-catalog", str(fixture["catalog"]),
+        "--skills-registry", str(fixture["skills"]),
+        "--workspace", str(fixture["workspace"]),
+    ]
+    try:
+        up = _run_ocean(
+            "up", *common,
+            "--host", "127.0.0.1",
+            "--port", str(port),
+            "--apply",
+            "--json",
+        )
+        assert up.returncode == 0, up.stderr
+        down = _run_ocean("down", "--workspace", str(fixture["workspace"]), "--json")
+        assert down.returncode == 0, down.stderr
+
+        state_path = fixture["workspace"] / "ocean.runtime.json"
+        stale = json.loads(state_path.read_text(encoding="utf-8"))
+        stale["status"] = "running"
+        stale["control"]["port"] = _free_tcp_port()
+        state_path.write_text(json.dumps(stale), encoding="utf-8")
+
+        # Starting an installed snapshot must not consult changed/missing live recipe authority.
+        fixture["system"].unlink()
+        restarted = _run_ocean("start", "--workspace", str(fixture["workspace"]), "--json")
+
+        assert restarted.returncode == 0, restarted.stderr
+        report = json.loads(restarted.stdout)
+        assert report["schema"] == "ellmos.open-ocean-lifecycle-start.v1"
+        assert report["runtime"] == {
+            "id": "ellmos-core",
+            "status": "running",
+            "url": f"http://127.0.0.1:{port}",
+            "health": "ok",
+        }
+        status = _run_ocean("status", "--workspace", str(fixture["workspace"]), "--json")
+        assert status.returncode == 0, status.stderr
+        assert json.loads(status.stdout)["runtime"]["health"] == "ok"
     finally:
         _run_ocean("down", "--workspace", str(fixture["workspace"]), "--json")

@@ -13,11 +13,15 @@ from tools.ocean_lifecycle import (
     LifecycleError,
     down_for_workspace,
     plan_from_paths,
+    start_installed_runtime,
     status_for_workspace,
     up_from_paths,
     user_add_for_workspace,
 )
 from tools.resolve_bundles import DEFAULT_COMPONENT_BINDINGS
+
+
+DEFAULT_OCEAN_PORT = 8810
 
 
 def _configure_utf8_output() -> None:
@@ -53,8 +57,21 @@ def build_parser() -> argparse.ArgumentParser:
     up = commands.add_parser("up", help="OCEAN in einer lokalen Sandbox installieren und starten")
     _add_composition_arguments(up)
     up.add_argument("--host", default="127.0.0.1")
-    up.add_argument("--port", type=int, default=8800)
+    up.add_argument(
+        "--port",
+        type=int,
+        default=DEFAULT_OCEAN_PORT,
+        help=f"dedizierter OCEAN-Port (Standard: {DEFAULT_OCEAN_PORT}; getrennt von ellmos-core/TerminPilot)",
+    )
     up.add_argument("--apply", action="store_true", help="Transaktion und Laufzeit wirklich starten")
+    start = commands.add_parser(
+        "start",
+        help="bereits installierten OCEAN-Stand starten oder nach Prozessverlust wiederherstellen",
+    )
+    start.add_argument("--workspace", type=Path, required=True)
+    start.add_argument("--host", choices=["127.0.0.1", "localhost"])
+    start.add_argument("--port", type=int, help="optional neuer Port; sonst wird der installierte Port verwendet")
+    start.add_argument("--json", action="store_true")
     status = commands.add_parser("status", help="Installations- und Laufzeitstatus live prüfen")
     status.add_argument("--workspace", type=Path, required=True)
     status.add_argument("--json", action="store_true")
@@ -133,6 +150,18 @@ def main(argv: list[str] | None = None) -> int:
             return exc.exit_code
         print(json.dumps(report, indent=2, ensure_ascii=False) if args.json else f"OCEAN: {report['runtime']['control']} ({report['runtime']['health']})")
         return 0 if report["runtime"]["control"] == "running" and report["runtime"]["health"] == "ok" else 1
+    if args.command == "start":
+        try:
+            report = start_installed_runtime(
+                args.workspace,
+                host=args.host,
+                port=args.port,
+            )
+        except LifecycleError as exc:
+            print(str(exc), file=sys.stderr)
+            return exc.exit_code
+        print(json.dumps(report, indent=2, ensure_ascii=False) if args.json else report["runtime"]["url"])
+        return 0
     if args.command == "down":
         try:
             report = down_for_workspace(args.workspace)

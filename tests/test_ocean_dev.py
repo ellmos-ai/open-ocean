@@ -9,6 +9,7 @@ test_fetch_place.py, test_host_adapters.py) that this file does not repeat.
 """
 from __future__ import annotations
 
+import io
 import json
 import subprocess
 import tempfile
@@ -485,6 +486,19 @@ class OceanDevRealGitFetchIntegrationTests(unittest.TestCase):
         self.assertTrue((original_skill / "SKILL.md").is_file())
         self.assertTrue((foreign_module / "FOREIGN.txt").is_file())
         self.assertTrue((foreign_skill / "FOREIGN.txt").is_file())
+
+
+class SkillHostFlagTests(unittest.TestCase):
+    """`--skill-host` names the Activate adapter; `--host` stays a legacy alias.
+    Guards the rename that removed the name clash with `ocean.py up --host`
+    (a loopback network bind, unrelated) -- see TODO.md."""
+
+    def test_unknown_adapter_fails_closed_under_both_spellings(self):
+        for flag in ("--skill-host", "--host"):
+            with self.subTest(flag=flag), mock.patch("sys.stderr", new=io.StringIO()) as err:
+                code = main(["--bundles-root", "irrelevant", flag, "no-such-adapter"])
+            self.assertEqual(code, 3)
+            self.assertIn("unknown --skill-host 'no-such-adapter'", err.getvalue())
 
 
 if __name__ == "__main__":

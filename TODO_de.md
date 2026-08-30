@@ -16,9 +16,9 @@
   HTTP-Identität und die Full-Ocean-Bereitschaft nachlesen.
 - [x] `--host`-Argument bei `ocean.py up` korrigiert (7d4de09): `up` traegt jetzt
   dieselben `choices=["127.0.0.1", "localhost"]` wie `start`, ein falscher Wert scheitert
-  sofort am Parser statt tief im Lifecycle. OFFEN GEBLIEBEN und bewusst nicht miterledigt:
-  die Umbenennung des gleichnamigen `--host` in `tools/ocean_dev.py` (dort Skill-Host-Adapter,
-  nicht Netzwerk-Bind) — das bricht die dortige CLI und braucht eine eigene Entscheidung.
+  sofort am Parser statt tief im Lifecycle. Folgeschritt erledigt:
+  das gleichnamige `--host` in `tools/ocean_dev.py` (dort Skill-Host-Adapter,
+  nicht Netzwerk-Bind) heißt jetzt `--skill-host`; `--host` bleibt als Legacy-Alias gültig, kein Aufrufer bricht.
   Ursprungsbeschreibung: `--host`-Argument bei `ocean.py up` korrigieren: `ocean.py` und `tools/ocean_dev.py`
   besitzen jeweils einen eigenen, gleichnamigen `--host`-Parameter; `ocean.py` reicht sein
   `--host` nie an den `ocean_dev.py`-Subprozess weiter, der stattdessen immer seinen eigenen

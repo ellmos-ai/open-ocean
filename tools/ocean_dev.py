@@ -36,14 +36,14 @@ SAFETY -- read before changing defaults:
 
 Usage:
     python tools/ocean_dev.py --bundles-root <path> [--ring 1|2|all]
-        [--workspace <dir>] [--skills-dir <dir>] [--host claude-code]
+        [--workspace <dir>] [--skills-dir <dir>] [--skill-host claude-code]
         [--apply] [--json] [--report <path>] [--activation-log <path>]
 
     python tools/ocean_dev.py --bundles-root <path-to-recipe-projection>
         --system-manifest <path-to-system.v1.json> [--workspace <dir>]
 
     python tools/ocean_dev.py --rollback <path-to-activation-log.json>
-        [--workspace <dir>] [--skills-dir <dir>] [--host claude-code]
+        [--workspace <dir>] [--skills-dir <dir>] [--skill-host claude-code]
 
 Exit codes: 0 = success (including "nothing to do"). 2 = Verify failed
 (a bundle hash check did not pass). 3 = skeleton/manifest could not be read.
@@ -441,7 +441,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--workspace", type=Path, default=DEFAULT_WORKSPACE)
     parser.add_argument("--skills-dir", type=Path, default=None, help="write target for Activate; default <workspace>/skills, NEVER a live host directory unless given explicitly")
-    parser.add_argument("--host", default="claude-code")
+    parser.add_argument("--skill-host", "--host", dest="skill_host", default="claude-code", help="skill-host adapter for Activate (default claude-code); --host is a legacy alias and NOT the loopback bind of `ocean.py up`")
     parser.add_argument("--apply", action="store_true", help="perform real writes (default: dry-run/plan only)")
     parser.add_argument("--activation-log", type=Path, default=None, help="default <workspace>/ocean-dev.activation-log.json")
     parser.add_argument("--rollback", type=Path, default=None, metavar="LOG", help="undo the entries in this activation log instead of running Resolve->Activate")
@@ -450,9 +450,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     adapters = known_adapters()
-    adapter_cls = adapters.get(args.host)
+    adapter_cls = adapters.get(args.skill_host)
     if adapter_cls is None:
-        print(f"ERROR: unknown --host {args.host!r} (known: {sorted(adapters)})", file=sys.stderr)
+        print(f"ERROR: unknown --skill-host {args.skill_host!r} (known: {sorted(adapters)})", file=sys.stderr)
         return 3
     skills_dir = args.skills_dir or (args.workspace / "skills")
     adapter = adapter_cls(skills_dir=skills_dir)

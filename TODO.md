@@ -14,9 +14,9 @@
   exact tagged checkout, process tuple, port ownership, HTTP identity and Full Ocean readiness.
 - [x] Fixed the `--host` argument on `ocean.py up` (7d4de09): `up` now carries the
   same `choices=["127.0.0.1", "localhost"]` as `start`, so a wrong value fails at the parser
-  instead of deep inside the lifecycle. DELIBERATELY LEFT OPEN: renaming the same-named
-  `--host` in `tools/ocean_dev.py` (a skill-host adapter there, not a network bind) — that
-  breaks its CLI and needs its own decision. Original description:
+  instead of deep inside the lifecycle. Follow-up done: the same-named
+  `--host` in `tools/ocean_dev.py` (a skill-host adapter there, not a network bind) is now
+  `--skill-host`; `--host` stays accepted as a legacy alias, no caller breaks. Original description:
   Fix the `--host` argument on `ocean.py up`: `ocean.py` and `tools/ocean_dev.py` each define
   an independent `--host` parameter with the same name; `ocean.py` never forwards its `--host` to
   the `ocean_dev.py` subprocess, which always falls back to its own default `"claude-code"`. A

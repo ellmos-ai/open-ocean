@@ -452,6 +452,22 @@ class ResolveModuleSkillAccessSurfaceTests(unittest.TestCase):
         resolve_skill(comp, registry)
         self.assertEqual(comp.status, "unresolved")
 
+    def test_resolve_skill_rejects_crosswalk_as_install_registry(self):
+        crosswalk = self.root / "skills.registry.crosswalk.v1.json"
+        crosswalk.write_text(json.dumps({
+            "schema": "ellmos.skill-registry-crosswalk.v1",
+            "skills": {
+                "skill:decide": {"registry_component_id": "skill:dev:decide"},
+            },
+        }), encoding="utf-8")
+        comp = ResolvedComponent(ref="skill:decide", kind="skill")
+
+        resolve_skill(comp, crosswalk)
+
+        self.assertEqual(comp.status, "unresolved")
+        self.assertIn("top-level components array", comp.detail["reason"])
+        self.assertIn("separate identity source", comp.detail["note"])
+
     def test_access_surface_is_always_not_fetched_by_design(self):
         from tools.resolve_bundles import ResolvedComponent
         comp = ResolvedComponent(ref="access_surface:some-provider", kind="access_surface")

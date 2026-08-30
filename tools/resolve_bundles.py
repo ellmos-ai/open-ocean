@@ -28,12 +28,11 @@ What this script does (INSTALLER-TARGET.md "Resolve" + "Verify"):
   5. Classify and resolve each component by kind:
        module:<id>          -> .MODULES/_scripts/module_resolver.py's catalog
                                 (modules.catalog.json), same lookup logic
-       skill:<name>          -> the canonical public ellmos-ai/skills registry,
-                                matched by `name` (the skills crosswalk file the
-                                component-registry-bindings contract names,
-                                manifests/skills.registry.crosswalk.v1.json, does
-                                not exist in the bundles checkout yet -- documented
-                                as a follow-up, not silently assumed)
+       skill:<name>          -> the native ellmos-ai/skills `components.json`
+                                 registry, matched by `name`. The recipe provider's
+                                 `skills.registry.crosswalk.v1.json` is a separate
+                                 identity map used by its binding verifier; it is
+                                 not an install registry.
        access_surface:<id>   -> reported, never fetched (INSTALLER-TARGET.md
                                 "Not fetch access surfaces" -- commercial
                                 providers are reached through their own CLI/app)
@@ -488,17 +487,24 @@ def resolve_skill(component: ResolvedComponent, registry_path: Path) -> None:
         component.detail = {"reason": f"skills registry not found at {registry_path}"}
         return
     registry = read_json(registry_path)
-    entries = registry.get("components", registry) if isinstance(registry, dict) else registry
+    entries = registry.get("components") if isinstance(registry, dict) else registry
+    if not isinstance(entries, list) or any(not isinstance(entry, dict) for entry in entries):
+        component.status = "unresolved"
+        component.detail = {
+            "reason": "skills registry must contain a top-level components array",
+            "note": "the recipe provider's skills.registry.crosswalk.v1.json uses a "
+                    "top-level skills object and is a separate identity source, not the "
+                    "runtime install registry",
+        }
+        return
     matches = [e for e in entries if e.get("name") == name]
     if not matches:
         component.status = "unresolved"
         component.detail = {
             "reason": "no registry entry with this exact name",
             "note": "matched by name, not the id field (bundle refs use skill:<name>, "
-                    "the registry's own id is skill:<category>:<name>); the crosswalk file "
-                    "the component-registry-bindings contract names "
-                    "(manifests/skills.registry.crosswalk.v1.json) does not exist yet "
-                    "in the bundles checkout -- see the build plan follow-ups",
+                    "while the native registry has its own component id); the recipe "
+                    "provider's crosswalk maps these identities and is verified separately",
         }
         return
     entry = matches[0]

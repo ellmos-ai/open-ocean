@@ -37,14 +37,15 @@
   dem Start der Laufzeit — ein fehlgeschlagener Provider-Fetch startet trotzdem eine
   unvollständige Komposition (`ocean_lifecycle.py:546-596`; Readiness wird nur berichtet, nie
   durchgesetzt).
-- [ ] (Stand 2026-08-30 nicht mehr reproduzierbar — vor dem Bearbeiten neu messen:
-  `resolve_bundles.py` setzt `DEFAULT_SKILLS_REGISTRY` bereits auf `components.json` und
-  erklaert die fehlende Crosswalk-Datei im Text. Eintrag bleibt stehen, bis jemand die
-  Contract-Referenz selbst geprueft hat.)
-  Die Referenz `manifests/skills.registry.crosswalk.v1.json` im
-  component-registry-bindings-Contract korrigieren: Sie liegt im Bundles-Checkout nicht mit
-  nutzbarem `components`-Array vor; die tatsächlich nutzbare Quelle ist `components.json` aus der
-  Skills-Registry. Bereits als bekannte Lücke im Tool-Kommentar vermerkt.
+- [x] Am 2026-08-30 neu gemessen; die Referenz muss nicht korrigiert werden. Am Pin des
+  Recipe-Providers `1b461c9cb900ada15b8e104f2586a6b4a1ea5278` ist
+  `manifests/skills.registry.crosswalk.v1.json` eine Identitätsabbildung mit 81 Einträgen und der
+  deklarierten Top-Level-Sammlung `skills`. Derselbe Binding-Vertrag deklariert davon getrennt die
+  native Skills-Registry `components.json` mit ihrem Top-Level-Array `components`. OCEAN verwendet
+  letztere korrekt zum Auflösen/Installieren und schließt jetzt mit einer eindeutigen Schema-Ursache,
+  falls der Crosswalk stattdessen als Registry übergeben wird. Die exakte Quellenprüfung zeigte
+  zusätzlich veraltete Rohdatei-SHA-Pins; deren Re-Pin bleibt die eigene Folgearbeit
+  `T-20260830-702817310`.
 
 ## Freigabebreite
 

@@ -11,7 +11,9 @@
   Supervisoren den Laufzeitstatus schreibt. Der ASUS-GEI-Logon-Task vermeidet das durch
   deaktiviertes `StartWhenAvailable` und genau einen Trigger; der Lebenszyklus selbst muss bei
   gleichzeitigen Starts jedoch geschlossen fehlschlagen.
-- [ ] Ein OCEAN-Favicon ausliefern oder die Favicon-Anforderung entfernen. Die aktuelle
+- [x] Favicon ausgeliefert: `ellmos-core` beantwortet `/favicon.ico` mit seinem PWA-Icon
+  (ellmos-core `6185504`); wirkt auf einem Host, sobald dessen Runtime-Provider-Kopie diesen
+  Commit trägt. Ursprungsbeschreibung: Ein OCEAN-Favicon ausliefern oder die Favicon-Anforderung entfernen. Die aktuelle
   Browserabnahme ist gesund, protokolliert aber einen nicht funktionalen `/favicon.ico`-404.
 - [ ] ASUS-GEI tatsächlich neu starten und danach den unveränderten Task
   `EllmosOceanFullUserStart`, den exakten Tag-Checkout, das Prozess-Tupel, die Portbelegung, die

@@ -10,8 +10,10 @@
   currently pass the empty-state preflight before either supervisor writes runtime state. The
   ASUS-GEI logon task avoids this by disabling `StartWhenAvailable` and using one trigger, but the
   lifecycle itself must fail closed under simultaneous starts.
-- [ ] Serve an OCEAN favicon or remove the favicon request; current browser acceptance is healthy
-  but records one non-functional `/favicon.ico` 404.
+- [x] Favicon served: `ellmos-core` answers `/favicon.ico` with its PWA icon (ellmos-core
+  `6185504`); takes effect on hosts once their runtime provider copy carries that commit.
+  Original description: Serve an OCEAN favicon or remove the favicon request; current browser
+  acceptance is healthy but records one non-functional `/favicon.ico` 404.
 - [ ] Perform a real ASUS-GEI reboot and read back the unchanged `EllmosOceanFullUserStart` task,
   exact tagged checkout, process tuple, port ownership, HTTP identity and Full Ocean readiness.
 - [x] Fixed the `--host` argument on `ocean.py up` (7d4de09): `up` now carries the

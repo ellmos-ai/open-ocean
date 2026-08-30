@@ -543,6 +543,32 @@ def start_runtime(
     )
 
 
+def _assert_composition_complete(plan: dict[str, Any], workspace: Path) -> None:
+    """Fail before starting a runtime whose required components are missing.
+
+    ``lifecycle_plan`` already computes ``readiness.required_components_missing``
+    and ``readiness.full_composition``, but until T-20260830-639732633 nobody
+    read them on the ``up`` path: ``up_from_paths`` returned the readiness block
+    and started the runtime regardless. A failed provider fetch therefore left
+    the operator with a runtime that reports "running" while the composition is
+    incomplete -- the defect had to be found by reading the report afterwards.
+
+    The composition and the install state are written before this gate on
+    purpose: the artefacts and the report stay available for diagnosis, only the
+    runtime is withheld.
+    """
+    readiness = plan.get("readiness") or {}
+    missing = list(readiness.get("required_components_missing") or [])
+    if not missing:
+        return
+    raise LifecycleError(
+        "Komposition unvollständig -- Laufzeit wurde NICHT gestartet. "
+        f"Nicht aufgelöste Pflichtkomponenten ({len(missing)}): {', '.join(missing)}. "
+        f"Installationsstand und Bericht liegen in {workspace / INSTALL_STATE}; "
+        "nach dem Beheben startet 'ocean start --workspace <dir>' die Laufzeit."
+    )
+
+
 def up_from_paths(
     *,
     bundles_root: Path,
@@ -575,6 +601,7 @@ def up_from_paths(
         "projection": {"manifest": str(manifest_path), "lock": str(lock_path)},
     }
     _write_json_atomic(workspace / INSTALL_STATE, install)
+    _assert_composition_complete(plan, workspace)
     runtime_state = start_runtime(
         provider,
         transaction["components"],

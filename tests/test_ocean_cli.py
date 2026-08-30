@@ -10,7 +10,14 @@ import textwrap
 import time
 from pathlib import Path
 
-from tools.ocean_lifecycle import RuntimeProvider, _ellmos_core_runtime_spec
+import pytest
+
+from tools.ocean_lifecycle import (
+    LifecycleError,
+    RuntimeProvider,
+    _assert_composition_complete,
+    _ellmos_core_runtime_spec,
+)
 from tools.resolve_bundles import canonical_hash
 
 
@@ -518,3 +525,66 @@ def test_start_recovers_an_installed_runtime_from_stale_running_state(tmp_path):
         assert json.loads(status.stdout)["runtime"]["health"] == "ok"
     finally:
         _run_ocean("down", "--workspace", str(fixture["workspace"]), "--json")
+
+
+def test_up_rejects_a_non_loopback_host_at_the_parser():
+    """Catches accepting --host values the lifecycle will refuse anyway.
+
+    `up` used to declare --host without choices while `start` already had them,
+    so a wrong value was accepted by the parser and only died deep inside
+    _assert_runtime_start_available. The realistic wrong value is
+    `--host claude-code`: tools/ocean_dev.py has a same-named flag that means a
+    skill-host adapter, not a network bind (T-20260830-639732633).
+    """
+    proc = subprocess.run(
+        [sys.executable, str(OCEAN), "up", "--host", "claude-code"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+
+    assert proc.returncode == 2, proc.stdout + proc.stderr
+    assert "--host" in proc.stderr
+    assert "claude-code" in proc.stderr
+    assert "127.0.0.1" in proc.stderr
+
+
+def test_up_withholds_the_runtime_when_required_components_are_missing(tmp_path):
+    """Catches starting a runtime on an incomplete composition.
+
+    lifecycle_plan always computed readiness.required_components_missing, but
+    up_from_paths never read it and called start_runtime unconditionally -- a
+    failed provider fetch produced a runtime that reports "running" while the
+    composition is incomplete (T-20260830-639732633).
+    """
+    unvollstaendig = {
+        "readiness": {
+            "runtime_host": True,
+            "required_components_missing": ["module:ellmos-core", "skill:assist:buero"],
+            "full_composition": False,
+        }
+    }
+
+    with pytest.raises(LifecycleError) as fehler:
+        _assert_composition_complete(unvollstaendig, tmp_path)
+
+    meldung = str(fehler.value)
+    assert "NICHT gestartet" in meldung
+    assert "module:ellmos-core" in meldung
+    assert "skill:assist:buero" in meldung
+    assert "ocean start" in meldung
+
+
+def test_up_starts_normally_when_the_composition_is_complete(tmp_path):
+    """The gate must not fire on a healthy composition -- otherwise it blocks every up."""
+    vollstaendig = {
+        "readiness": {
+            "runtime_host": True,
+            "required_components_missing": [],
+            "full_composition": True,
+        }
+    }
+
+    assert _assert_composition_complete(vollstaendig, tmp_path) is None

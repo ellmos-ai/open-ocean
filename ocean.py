@@ -56,7 +56,13 @@ def build_parser() -> argparse.ArgumentParser:
     _add_composition_arguments(plan)
     up = commands.add_parser("up", help="OCEAN in einer lokalen Sandbox installieren und starten")
     _add_composition_arguments(up)
-    up.add_argument("--host", default="127.0.0.1")
+    # choices bewusst identisch zu `start` (siehe unten): die Laufzeit bindet
+    # ausschliesslich an Loopback (_assert_runtime_start_available). Ohne choices
+    # nahm der Parser jeden Wert an und der Lauf starb erst tief im Lifecycle --
+    # z.B. bei `--host claude-code`, das aus der Verwechslung mit dem
+    # gleichnamigen, aber voellig anderen `--host` in tools/ocean_dev.py stammt
+    # (dort: Skill-Host-Adapter, nicht Netzwerk-Bind). T-20260830-639732633.
+    up.add_argument("--host", default="127.0.0.1", choices=["127.0.0.1", "localhost"])
     up.add_argument(
         "--port",
         type=int,

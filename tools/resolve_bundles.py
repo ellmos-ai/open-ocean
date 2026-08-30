@@ -480,13 +480,17 @@ def resolve_module(
             )
 
 
-def resolve_skill(component: ResolvedComponent, registry_path: Path) -> None:
+def resolve_skill(
+    component: ResolvedComponent,
+    registry_path: Path,
+    registry_data: dict[str, Any] | None = None,
+) -> None:
     name = component.ref.split(":", 1)[1]
-    if not registry_path.is_file():
+    if registry_data is None and not registry_path.is_file():
         component.status = "unresolved"
         component.detail = {"reason": f"skills registry not found at {registry_path}"}
         return
-    registry = read_json(registry_path)
+    registry = registry_data if registry_data is not None else read_json(registry_path)
     entries = registry.get("components") if isinstance(registry, dict) else registry
     if not isinstance(entries, list) or any(not isinstance(entry, dict) for entry in entries):
         component.status = "unresolved"

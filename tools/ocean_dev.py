@@ -78,6 +78,7 @@ from resolve_bundles import (  # noqa: E402
     resolve_skill,
     verify_bundle,
 )
+from source_pins import SourcePinError, verify_source_pins  # noqa: E402
 
 DEFAULT_WORKSPACE = Path.home() / "ocean-dev"
 
@@ -100,6 +101,8 @@ def _skills_source_root(skills_registry: Path) -> Path:
 
 def resolve_and_verify(
     args: argparse.Namespace,
+    *,
+    verified_skills_registry: dict[str, Any] | None = None,
 ) -> tuple[list[Any], list[Any], str, dict[str, str] | None, dict[str, Any]]:
     """Runs Resolve + Verify via resolve_bundles.py's own functions. Returns
     (verifications, components, selection, composition metadata, component
@@ -129,7 +132,7 @@ def resolve_and_verify(
         if comp.kind == "module":
             resolve_module(comp, args.modules_catalog, component_bindings)
         elif comp.kind == "skill":
-            resolve_skill(comp, args.skills_registry)
+            resolve_skill(comp, args.skills_registry, verified_skills_registry)
         elif comp.kind == "access_surface":
             resolve_access_surface(comp)
         else:
@@ -401,6 +404,14 @@ def do_rollback(log_path: Path, adapter: Any, workspace: Path) -> int:
 
 def render_text(report: dict[str, Any]) -> str:
     lines = [f"ocean-dev up -- ring {report['ring']} -- {'APPLY' if report['apply'] else 'DRY-RUN'}", ""]
+    if "source_pins" in report:
+        source_pins = report["source_pins"]
+        lines.extend([
+            f"Source pins: {source_pins['status']} "
+            f"(recipe {source_pins['recipe']['commit'][:12]}, "
+            f"registry {source_pins['skills_registry']['sha256'][:12]})",
+            "",
+        ])
     if "composition" in report:
         composition = report["composition"]
         lines.extend([
@@ -439,6 +450,12 @@ def main(argv: list[str] | None = None) -> int:
         default=DEFAULT_COMPONENT_BINDINGS,
         help="exact OCEAN integration overlay for declared component aliases",
     )
+    parser.add_argument(
+        "--source-pins",
+        type=Path,
+        default=None,
+        help="content-hashed recipe/registry provenance contract checked before Resolve and Fetch",
+    )
     parser.add_argument("--workspace", type=Path, default=DEFAULT_WORKSPACE)
     parser.add_argument("--skills-dir", type=Path, default=None, help="write target for Activate; default <workspace>/skills, NEVER a live host directory unless given explicitly")
     parser.add_argument("--skill-host", "--host", dest="skill_host", default="claude-code", help="skill-host adapter for Activate (default claude-code); --host is a legacy alias and NOT the loopback bind of `ocean.py up`")
@@ -464,15 +481,28 @@ def main(argv: list[str] | None = None) -> int:
         print("ERROR: --bundles-root is required (unless --rollback)", file=sys.stderr)
         return 3
 
+    source_pin_receipt = None
+    verified_skills_registry = None
     try:
+        if args.source_pins is not None:
+            source_pin_verification = verify_source_pins(
+                args.source_pins,
+                args.bundles_root,
+                args.skills_registry,
+            )
+            source_pin_receipt = source_pin_verification.receipt
+            verified_skills_registry = source_pin_verification.skills_registry
         (
             verifications,
             components,
             selection,
             composition_metadata,
             component_bindings,
-        ) = resolve_and_verify(args)
-    except ResolveError as exc:
+        ) = resolve_and_verify(
+            args,
+            verified_skills_registry=verified_skills_registry,
+        )
+    except (ResolveError, SourcePinError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 3
 
@@ -528,6 +558,8 @@ def main(argv: list[str] | None = None) -> int:
     }
     if composition_metadata is not None:
         report["composition"] = composition_metadata
+    if source_pin_receipt is not None:
+        report["source_pins"] = source_pin_receipt
     bindings_summary = component_bindings_summary(component_bindings, components)
     if bindings_summary is not None:
         report["component_bindings"] = bindings_summary

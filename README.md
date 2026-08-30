@@ -82,6 +82,7 @@ archive remains an explicit product decision, never an automatic consequence of 
 architecture/
   open-ocean.skeleton.v1.json   which recipes the system intends to consume, pinned by hash
   ocean-full-dev.component-bindings.v1.json  exact, non-authoritative per-module integration pins
+  ocean-full-dev.source-pins.v1.json  reviewed recipe, binding, crosswalk and Skills Registry pins
   INSTALLER-TARGET.md           what the installer has to become, and what it must not do
   OCEAN-DEV-BUILD-PLAN_2026-08-18.md  staged build plan and verified foreign-host integration evidence
   BACH-EXTRACTION-ROADMAP.md    extraction order, parity gates and Cluster 9 kernel map
@@ -100,6 +101,7 @@ tools/
   ocean_dev.py                  single entry point: Resolve -> Verify -> Fetch/Place -> Activate for
                                  one ring or a complete system manifest; dry-run by default,
                                  --apply for real writes, --rollback
+  source_pins.py                fail-closed source-provenance verification before Resolve/Fetch
   ocean_lifecycle.py            capability-driven plan/up/status/down/user lifecycle
   runtime_supervisor.py         authenticated loopback supervisor for one runtime instance
   runtime_user.py               password-safe user bootstrap delegated to the runtime
@@ -120,7 +122,8 @@ repository moves on, and would make this repository look further along than it i
 
 ```text
 python tools/ocean_dev.py --bundles-root <recipe-projection> \
-  --system-manifest <ellmos-development-fullsystem/system.v1.json>
+  --system-manifest <ellmos-development-fullsystem/system.v1.json> \
+  --source-pins architecture/ocean-full-dev.source-pins.v1.json
 ```
 
 Without `--apply` this is a read-only dry-run. A system manifest cannot be combined with a numbered
@@ -134,6 +137,13 @@ match and the checkout must be clean before OCEAN treats the provider as resolve
 overlay currently binds `module:software-endpoint-registry` to `system-explorer` and the distinct
 logical roles `module:automation-registry` and `module:automation-runtime` to independently pinned
 placements of `automation-master`.
+
+`ocean.py plan` and `ocean.py up` also pass the shipped `--source-pins` contract by default. Before
+Resolve — and therefore before Fetch, Place or Activate — OCEAN requires the recipe input to be the
+clean root checkout of the exact pinned Git origin and commit. It then verifies the recipe's native
+component-registry binding self-hash, the raw Skills Crosswalk SHA-256, and the caller-supplied
+Skills Registry URI/SHA-256 against one content-hashed contract. Any mismatch is an error, never an
+implicit re-pin. Installed-snapshot `start` remains independent of changed live recipe authority.
 
 The product lifecycle is exposed at the repository root:
 
@@ -169,7 +179,7 @@ then stopped through BACH's own CLI.
 | Architecture skeleton | present, 13 bundles referenced |
 | BACH extraction baseline | present — 114 source-declared names; historic 113-name runtime bar retained; re-audited 2026-08-18 (106 handler classes, +1 vs. the 2026-08-08 baseline — traced to a host-suffixed duplicate file in BACH, `upgrade-WORKSTATION-LG.py` alongside `upgrade.py`; not fixed here, BACH is out of scope for this repository's changes). `registered_names` unchanged at 114. |
 | K9-1 data/checkpoint gate | two carrier fixtures green; adapter and BACH equivalence remain open |
-| Installer and lifecycle | **Resolve, Verify, SHA-pinned Fetch/Place, exact provider bindings, sandboxed skill Activate, append-preserving activation logging, target-validated Roll back, installed-snapshot recovery, runtime start/status/stop/restart and delegated user bootstrap are implemented.** The accepted Windows Full Ocean workspace is `C:\_Local_DEV\ocean-full`. It verifies **28/28** OCEAN-family bundle pins, resolves **54 of 65 module references and all 80 skills**, has no missing required component, reports `full_composition: true`, and runs at `http://127.0.0.1:8810/control/`. The eleven unresolved module references are optional. The separately placed `automation-runtime` provider passed native provider/scheduler readback, immutable-receipt, redaction and bounded-statistics acceptance at commit `c2de7188626510b181c4ecf2708c15f2395e32aa`. The active-runtime preflight stops a second `up --apply` before Fetch/Activate can write. The product-owned origin redirects Root to OCEAN and clears legacy provider PWA workers/caches without clearing cookies or other browser storage. Live HTTP and a real browser confirm `307 / → /control/`, the `OCEAN Full Dev` surface and no TerminPilot product markers. A real stop/start/stop/start cycle proves the Windows state-file fix. The suite now contains **137 passing tests**. This is a composition-complete private Full Dev build for its declared required scope, not an OPEN OCEAN release or BACH-parity claim. Full Ocean selection commit `1b461c9cb900ada15b8e104f2586a6b4a1ea5278` is adopted in canonical recipe `main`, whose post-adoption readback is `b13f1b11626141d6dc6927028dc10008bc406866`. See the [staged build plan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
+| Installer and lifecycle | **Resolve, Verify, source-provenance pins, SHA-pinned Fetch/Place, exact provider bindings, sandboxed skill Activate, append-preserving activation logging, target-validated Roll back, installed-snapshot recovery, runtime start/status/stop/restart and delegated user bootstrap are implemented.** The accepted Windows Full Ocean workspace is `C:\_Local_DEV\ocean-full`. It verifies **28/28** OCEAN-family bundle pins, resolves **54 of 65 module references and all 80 skills**, has no missing required component, reports `full_composition: true`, and runs at `http://127.0.0.1:8810/control/`. The eleven unresolved module references are optional. The separately placed `automation-runtime` provider passed native provider/scheduler readback, immutable-receipt, redaction and bounded-statistics acceptance at commit `c2de7188626510b181c4ecf2708c15f2395e32aa`. The active-runtime preflight stops a second `up --apply` before Fetch/Activate can write. The product-owned origin redirects Root to OCEAN and clears legacy provider PWA workers/caches without clearing cookies or other browser storage. Live HTTP and a real browser confirm `307 / → /control/`, the `OCEAN Full Dev` surface and no TerminPilot product markers. A real stop/start/stop/start cycle proves the Windows state-file fix. The suite now contains **150 passing tests plus 2 passing subtests**. This is a composition-complete private Full Dev build for its declared required scope, not an OPEN OCEAN release or BACH-parity claim. Full Ocean selection commit `1b461c9cb900ada15b8e104f2586a6b4a1ea5278` is adopted in canonical recipe `main`, whose post-adoption readback is `b13f1b11626141d6dc6927028dc10008bc406866`. See the [staged build plan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
 | Runtime | **available for private Full Dev** through the declared `runtime.host` provider `ellmos-core`, with the resolved `unified-gui.host` exposed as the OCEAN operator surface; an OPEN OCEAN runtime is not shipped and the private provider is not a public dependency |
 | Recipes | maintained in the recipe repository, not here |
 

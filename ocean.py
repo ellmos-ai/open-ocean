@@ -19,6 +19,7 @@ from tools.ocean_lifecycle import (
     user_add_for_workspace,
 )
 from tools.resolve_bundles import DEFAULT_COMPONENT_BINDINGS
+from tools.source_pins import DEFAULT_SOURCE_PINS
 
 
 DEFAULT_OCEAN_PORT = 8810
@@ -41,6 +42,12 @@ def _add_composition_arguments(parser: argparse.ArgumentParser) -> None:
         type=Path,
         default=DEFAULT_COMPONENT_BINDINGS,
         help="exaktes OCEAN-Integrations-Overlay für deklarierte Komponenten",
+    )
+    parser.add_argument(
+        "--source-pins",
+        type=Path,
+        default=DEFAULT_SOURCE_PINS,
+        help="selbst gehashter Quellenvertrag; wird vor Resolve und Fetch geprüft",
     )
     parser.add_argument("--workspace", type=Path, required=True)
     parser.add_argument("--json", action="store_true")
@@ -117,6 +124,7 @@ def main(argv: list[str] | None = None) -> int:
                 skills_registry=args.skills_registry,
                 workspace=args.workspace,
                 component_bindings=args.component_bindings,
+                source_pins=args.source_pins,
             )
         except LifecycleError as exc:
             print(str(exc), file=sys.stderr)
@@ -140,6 +148,7 @@ def main(argv: list[str] | None = None) -> int:
                 skills_registry=args.skills_registry,
                 workspace=args.workspace,
                 component_bindings=args.component_bindings,
+                source_pins=args.source_pins,
                 host=args.host,
                 port=args.port,
             )

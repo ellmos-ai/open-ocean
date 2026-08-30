@@ -1,0 +1,26 @@
+{
+  "schema": "ellmos.open-ocean-source-pins.v1",
+  "id": "ocean-full-dev-source-pins",
+  "version": "1.0.0",
+  "authority": {
+    "kind": "integration-pin",
+    "runtime_authority": false
+  },
+  "recipe": {
+    "repository": "https://github.com/ellmos-ai/ellmos-development-system.git",
+    "commit": "b368206209cb290135681a1c6ac9790a38048641",
+    "component_bindings": {
+      "path": "manifests/component.registry.bindings.v1.json",
+      "content_hash": "164ddcc766b5123927470cec1617918f58b3dc36e1d740bec4d6353726e31747"
+    },
+    "skills_crosswalk": {
+      "path": "manifests/skills.registry.crosswalk.v1.json",
+      "sha256": "8a30799b9e7c02a25c98208e5ff9d3a136b5192966ac137ba3e10895e9fd1fc9"
+    }
+  },
+  "skills_registry": {
+    "uri": "repo://ellmos-ai/skills@08e1fe212d58075bc00e2f8403c104a507857c05/registry/components.json",
+    "sha256": "869120155e1242cba8febbd978e15b60721f27deea304d92d2e3496a9a243e0a"
+  },
+  "content_hash": "d0488fdbb57cb0905119d725a66545a49c41b373a2bbb37c99fcd0fe454484ec"
+}

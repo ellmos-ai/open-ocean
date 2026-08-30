@@ -193,6 +193,41 @@ outside this repository's scope (`core-discovery`, `prompt-workflow`, `runtime-o
 actually references, is met as of 2026-08-18. What still blocks publication is conditions 2 and 3
 below, not condition 1.
 
+### WORKSTATION-LG fresh install (2026-08-30)
+
+A second, independent Windows host completed the same Full Dev composition on 2026-08-30:
+`WORKSTATION-LG`, workspace `C:\_Local_DEV\ocean-full`, target directory absent beforehand (a
+genuine fresh install). Input worktrees: `open-ocean` at tag
+`ocean-full-laptop-hafenlicht-20260829` (`243a703c60e295f050a2dc68bdde13ef8e847d29`),
+`ellmos-development-system` at `1b461c9cb900ada15b8e104f2586a6b4a1ea5278` — both detached and
+clean. Pre-install tests: pytest 137/137, unittest 125/125, ruff clean, `compileall` exit 0.
+
+The plan before apply reported 28/28 bundles (`all_ok`), 80/80 skills, but only 51/65 modules
+(`full_composition: false`) — three required providers were not yet local. Apply fetched them by
+git-fetch-at-SHA into `<workspace>\modules\`: `automation-registry@ad40de721615518e409b53b00ed4b2a49840db28`
+and `automation-runtime@c2de7188626510b181c4ecf2708c15f2395e32aa` (both from
+`dev-bricks/automation-master.git`), and `software-endpoint-registry@ec50c92319ba8fc262d695b86818fc85666feff7`
+(from `ellmos-ai/system-explorer`) — all three then clean, detached checkouts. After apply: 28/28
+bundles, 54/65 modules, 80/80 skills, no missing required component, `full_composition: true`,
+runtime `ellmos-core` at `http://127.0.0.1:8810/control/`.
+
+A full `down`/`start` lifecycle cycle was exercised (stopped, port freed, no stale processes, then
+running again with no state reuse), followed by the same HTTP/browser/process checks as above.
+
+The hidden limited-user logon task `EllmosOceanFullUserStart` (trigger `AtLogOn`, principal
+`lukas`, `LogonType Interactive`, `RunLevel Limited`, hidden) launches `pythonw.exe` against the
+pinned input worktree's `ocean.py start --workspace "C:\_Local_DEV\ocean-full"`. One controlled
+on-demand start on 2026-08-30 returned `LastTaskResult 267009` (`SCHED_S_TASK_RUNNING`, the
+expected code for an intentionally still-running server process, not `0`) with one supervisor
+(PID 6460) and one child (PID 37676), both under `pythonw.exe`, the child being the sole listener
+on `8810`; `full_composition: true` and the product identity held afterward. No actual device
+reboot was tested.
+
+No BACH session sidecar was ever running on this host (`service.running: false`, `pid: null`), so
+none was stopped; BACH code, databases, tasks and configuration are unchanged. No user account was
+created for OCEAN on this host — a deliberate decision, not an installation gap; see TODO for the
+device-bound OS-account coupling this is meant to become.
+
 ## Release conditions
 
 This repository carries a conditional publication gate (`PRIVATE.txt`, committed on purpose so

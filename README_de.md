@@ -206,6 +206,47 @@ sperren Bundles außerhalb dieses Umfangs (`core-discovery`, `prompt-workflow`, 
 Repository tatsächlich referenziert, ist zum 2026-08-18 erfüllt. Was die Veröffentlichung noch
 blockiert, sind die Bedingungen 2 und 3 unten, nicht Bedingung 1.
 
+### WORKSTATION-LG-Fresh-Install (2026-08-30)
+
+Ein zweiter, unabhängiger Windows-Host hat dieselbe Full-Dev-Komposition am 2026-08-30
+durchlaufen: `WORKSTATION-LG`, Workspace `C:\_Local_DEV\ocean-full`, Zielverzeichnis existierte
+vorher nicht (ein echter Fresh-Install). Eingangs-Worktrees: `open-ocean` am Tag
+`ocean-full-laptop-hafenlicht-20260829` (`243a703c60e295f050a2dc68bdde13ef8e847d29`),
+`ellmos-development-system` an `1b461c9cb900ada15b8e104f2586a6b4a1ea5278` — beide detached und
+sauber. Tests vor der Installation: pytest 137/137, unittest 125/125, ruff ohne Befunde,
+`compileall` Exit 0.
+
+Der Plan vor dem Apply meldete 28/28 Bundles (`all_ok`), 80/80 Skills, aber nur 51/65 Module
+(`full_composition: false`) — drei Pflicht-Provider waren noch nicht lokal vorhanden. Der Apply
+holte sie per Git-Fetch-at-SHA nach `<workspace>\modules\`:
+`automation-registry@ad40de721615518e409b53b00ed4b2a49840db28` und
+`automation-runtime@c2de7188626510b181c4ecf2708c15f2395e32aa` (beide aus
+`dev-bricks/automation-master.git`) sowie
+`software-endpoint-registry@ec50c92319ba8fc262d695b86818fc85666feff7` (aus
+`ellmos-ai/system-explorer`) — anschließend alle drei als saubere, detached Checkouts. Nach dem
+Apply: 28/28 Bundles, 54/65 Module, 80/80 Skills, keine fehlende Pflichtkomponente,
+`full_composition: true`, Laufzeit `ellmos-core` unter `http://127.0.0.1:8810/control/`.
+
+Ein vollständiger `down`/`start`-Lebenszyklus wurde durchlaufen (gestoppt, Port frei, keine
+verwaisten Prozesse, danach erneut laufend ohne Zustandswiederverwendung), gefolgt von denselben
+HTTP-/Browser-/Prozessprüfungen wie oben.
+
+Der verborgene Logon-Task mit eingeschränkten Benutzerrechten `EllmosOceanFullUserStart` (Trigger
+`AtLogOn`, Principal `lukas`, `LogonType Interactive`, `RunLevel Limited`, verborgen) startet
+`pythonw.exe` gegen `ocean.py start --workspace "C:\_Local_DEV\ocean-full"` im gepinnten
+Eingangs-Worktree. Ein kontrollierter Bedarfsstart am 2026-08-30 lieferte `LastTaskResult 267009`
+(`SCHED_S_TASK_RUNNING`, der erwartete Code für einen absichtlich dauerhaft laufenden
+Serverprozess, nicht `0`), mit genau einem Supervisor (PID 6460) und einem Kind (PID 37676), beide
+unter `pythonw.exe`, wobei das Kind der einzige Listener auf `8810` ist; `full_composition: true`
+und die Produktidentität blieben danach bestätigt. Ein tatsächlicher Geräte-Neustart wurde nicht
+getestet.
+
+Auf diesem Host lief zu keinem Zeitpunkt ein BACH-Session-Sidecar (`service.running: false`,
+`pid: null`), daher wurde keiner gestoppt; BACH-Code, -Datenbanken, -Tasks und -Konfiguration sind
+unverändert. Für OCEAN wurde auf diesem Host kein Benutzerkonto angelegt — eine bewusste
+Entscheidung, keine Installationslücke; siehe TODO zur geräteseitigen OS-Konto-Kopplung, auf die
+das hinauslaufen soll.
+
 ## Freigabebedingungen
 
 Dieses Repository trägt ein bedingtes Publikations-Gate (`PRIVATE.txt`, bewusst committet, damit

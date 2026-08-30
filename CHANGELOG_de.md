@@ -2,6 +2,37 @@
 
 *[English](CHANGELOG.md)*
 
+## Unveröffentlicht — 2026-08-30
+
+### Geprüft
+
+- Ein zweiter, unabhängiger Fresh-Install-Host, `WORKSTATION-LG`, erreichte dasselbe Ergebnis:
+  Eingangs-Worktrees `open-ocean@243a703c` (Tag `ocean-full-laptop-hafenlicht-20260829`) und
+  `ellmos-development-system@1b461c9c`, beide detached und sauber; Suite vor der Installation
+  pytest 137/137, unittest 125/125, ruff ohne Befunde, `compileall` Exit 0.
+- Der Plan vor dem Apply meldete 28/28 Bundles, 80/80 Skills, aber nur 51/65 Module
+  (`full_composition: false`) — drei Pflicht-Provider waren noch nicht lokal vorhanden. Der Apply
+  holte `automation-registry@ad40de721615518e409b53b00ed4b2a49840db28` und
+  `automation-runtime@c2de7188626510b181c4ecf2708c15f2395e32aa` (beide aus
+  `dev-bricks/automation-master.git`) sowie
+  `software-endpoint-registry@ec50c92319ba8fc262d695b86818fc85666feff7` (aus
+  `ellmos-ai/system-explorer`) als saubere, detached Checkouts.
+- Nach dem Apply: 28/28 Bundles, 54/65 Module, 80/80 Skills, keine fehlende Pflichtkomponente,
+  `full_composition: true`, unter `http://127.0.0.1:8810/control/`.
+- Ein vollständiger `down`/`start`-Lebenszyklus bestand (gestoppt, Port frei, keine verwaisten
+  Prozesse, danach erneut laufend ohne Zustandswiederverwendung), gefolgt von denselben
+  HTTP-/Browser-/Prozessidentitätsprüfungen.
+- Der verborgene Logon-Task mit eingeschränkten Benutzerrechten `EllmosOceanFullUserStart`
+  startete den gepinnten Checkout bei der Bedarfsabnahme: `LastTaskResult 267009`
+  (`SCHED_S_TASK_RUNNING` — der erwartete Code für einen absichtlich dauerhaft laufenden
+  Serverprozess, nicht `0`), genau ein Supervisor (PID 6460) und ein Kind (PID 37676) unter
+  `pythonw.exe`, wobei das Kind der einzige Listener auf `8810` ist; `full_composition: true`
+  blieb danach bestätigt. Ein physischer Neustart wurde nicht getestet.
+- Auf diesem Host lief kein BACH-Session-Sidecar (`service.running: false`, `pid: null`), daher
+  wurde keiner gestoppt; BACH-Code, -Datenbanken, -Tasks und -Konfiguration sind unverändert.
+- Auf diesem Host wurde kein Benutzer angelegt — eine bewusste Entscheidung (geräteseitige
+  OS-Konto-Kopplung statt eines zusätzlichen App-Passworts), keine Installationslücke.
+
 ## Unveröffentlicht — 2026-08-29
 
 ### Hinzugefügt

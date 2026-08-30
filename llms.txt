@@ -11,13 +11,17 @@
 
 ## Current private Full Ocean development state
 
-- Accepted workspace on ASUS-GEI: `C:\_Local_DEV\ocean-full`
+- Accepted workspaces:
+  - ASUS-GEI: `C:\_Local_DEV\ocean-full`
+  - WORKSTATION-LG: `C:\_Local_DEV\ocean-full` (fresh install, 2026-08-30)
 - Product URL: `http://127.0.0.1:8810/control/`
 - Composition: 28/28 verified bundles, 54/65 resolved modules, 80/80 resolved skills
 - Required gaps: 0; optional unresolved module references: 11
 - Product identity: `OCEAN Full Dev`; no TerminPilot product surface on the OCEAN origin
-- Logon task: `EllmosOceanFullUserStart`, hidden limited-user action pinned to the accepted tag
-- BACH session sidecar: stopped after OCEAN/autostart acceptance
+- Logon task `EllmosOceanFullUserStart`, hidden limited-user action pinned to the accepted tag,
+  verified on both ASUS-GEI and WORKSTATION-LG
+- BACH session sidecar: stopped on ASUS-GEI after OCEAN/autostart acceptance; never running on
+  WORKSTATION-LG, so nothing was stopped there
 - This is not an OPEN OCEAN release, BACH-parity claim, visibility change or permission to remove
   `PRIVATE.txt`.
 

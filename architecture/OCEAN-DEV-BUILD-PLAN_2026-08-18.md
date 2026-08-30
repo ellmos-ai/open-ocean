@@ -1167,3 +1167,103 @@ started in parallel.
 The code-and-cutover checkpoint is `ocean-full-laptop-hafenlicht-20260829`; the final documented
 host-activation checkpoint is `ocean-full-laptop-leuchtfeuer-20260829`. Neither is an OPEN OCEAN
 release, and neither changes repository visibility or `PRIVATE.txt`.
+
+## 15. WORKSTATION-LG Full Ocean fresh install — 2026-08-30
+
+This cycle repeated the section-start lift through `.AI`, Gardener, USMC and the applicable
+release/visibility policies, then reproduced the same Full Ocean composition as an independent
+fresh install on a second Windows host, `WORKSTATION-LG`.
+
+### Input worktrees and pins
+
+- Two detached, clean input worktrees were used: `open-ocean` at tag
+  `ocean-full-laptop-hafenlicht-20260829` (`243a703c60e295f050a2dc68bdde13ef8e847d29`), and
+  `ellmos-development-system` at `1b461c9cb900ada15b8e104f2586a6b4a1ea5278`.
+- The target workspace `C:\_Local_DEV\ocean-full` did not exist beforehand — a genuine fresh
+  install, not a re-apply onto an existing snapshot.
+
+### Tests
+
+- Before installation: pytest 137/137 passed, unittest 125/125 OK, Ruff reported no findings,
+  `compileall` exited `0`.
+
+### Plan before apply
+
+- The read-only plan reported 28/28 verified bundle pins and 80/80 skills, but only 51 of 65
+  module references, with `full_composition: false` — the same three required providers as the
+  ASUS-GEI cutover (§14) were not yet local on this host.
+
+### Apply and provider fetch
+
+- `up --apply` fetched the three required providers by git-fetch-at-SHA into
+  `<workspace>\modules\`: `automation-registry@ad40de721615518e409b53b00ed4b2a49840db28` and
+  `automation-runtime@c2de7188626510b181c4ecf2708c15f2395e32aa` (both from
+  `dev-bricks/automation-master.git`), and
+  `software-endpoint-registry@ec50c92319ba8fc262d695b86818fc85666feff7` (from
+  `ellmos-ai/system-explorer`). All three placements were clean, detached checkouts with no local
+  changes afterward.
+- The installed state then verified 28/28 bundles, resolved 54 of 65 module references and all
+  80 skills, left the same eleven optional module references unresolved, had no missing required
+  component and reported `full_composition: true`, running at
+  `http://127.0.0.1:8810/control/`.
+
+### Lifecycle acceptance
+
+- A full `down`/`start` cycle was exercised: `down` left the runtime `stopped`, the port free and
+  no processes remaining; `start` returned to `running` without reusing stale state.
+- After the cycle, live HTTP again returned `307 / -> /control/`, both `/control/` and
+  `/api/health` answered `200`, the product title was unchanged, and process inventory showed
+  exactly one supervisor, one child and one listener on port `8810`.
+
+### Host activation
+
+- The hidden limited-user logon task `EllmosOceanFullUserStart` (trigger `AtLogOn`, principal
+  `lukas`, `LogonType Interactive`, `RunLevel Limited`, hidden, `StartWhenAvailable` false,
+  `MultipleInstances IgnoreNew`) launches `pythonw.exe` against the pinned input worktree's
+  `ocean.py start --workspace "C:\_Local_DEV\ocean-full"`.
+- One controlled on-demand start on 2026-08-30 returned `LastTaskResult 267009`
+  (`SCHED_S_TASK_RUNNING`), the expected code for a task whose launched process is intentionally
+  still running as a server — not `0`, which would only occur for a process that had already
+  exited. Afterward, exactly one supervisor (PID `6460`) and one child (PID `37676`) were present,
+  both under `pythonw.exe`, with the child as the sole listener on port `8810`; runtime state was
+  `running/ok` with `full_composition: true` and unchanged product identity.
+- This is proof of the configured logon path and its controlled demand-start acceptance, not a
+  claim that the device was physically rebooted. No reboot was performed or tested in this cycle.
+
+### BACH negative finding
+
+- Unlike the ASUS-GEI cutover (§14), no BACH session sidecar was ever running on this host
+  (`service.running: false`, `pid: null`) at any point before, during or after the OCEAN
+  installation. Nothing was stopped, because nothing was running. BACH code, databases, tasks and
+  configuration on this host are unchanged.
+- No OCEAN user account was created on this host. This was a deliberate decision, not an
+  installation gap: the intended design couples OCEAN identity to the device-bound OS account
+  (a Windows/macOS account per device) rather than a separate app password; `/control/` and
+  `/api/health` remain reachable without authentication, and operating without an OCEAN user does
+  not block the composition or lifecycle acceptance above.
+
+### Open items from this cycle
+
+- The `--host` argument on `ocean.py up` is misleading: `ocean.py` and `tools/ocean_dev.py` each
+  define an independent `--host` parameter with the same name, and `ocean.py` never forwards its
+  `--host` to the `ocean_dev.py` subprocess, which always falls back to its own default
+  `"claude-code"`. A prescribed `--host claude-code` on `up` therefore aborts deterministically
+  with `LifecycleError`; every successful run recorded in this plan, including this one, omits
+  `--host` on `up` and relies on its default `127.0.0.1`.
+- `up --apply` has no readiness gate: it does not verify provider completeness before starting
+  the runtime, so a failed provider fetch would still start an incomplete composition
+  (`ocean_lifecycle.py:546-596`; readiness is only reported, never enforced).
+- The component-registry-bindings contract references
+  `manifests/skills.registry.crosswalk.v1.json`, which is not present with a usable `components`
+  array in the bundles checkout; the actually usable source is `components.json` from the Skills
+  Registry. This is already flagged as a known gap in the tool's own comment.
+- Governance PRs `policy-registry` #3, `gardener` #4 and `ellmos-controlcenter-mcp` #9 remain
+  open, mergeable and CI-green as of this cycle; none has been merged, so the Phase-J governance
+  follow-up (host-local registry init, Gardener system sources, ControlCenter configuration) is
+  pending, not performed.
+- See `TODO.md` / `TODO_de.md` for the tracked form of these items.
+
+The checkpoint names for this cycle are `ocean-full-workstation-mondmuschel-20260830` (fresh
+install and manual cutover) and `ocean-full-workstation-kuestenlicht-20260830` (logon-task/host
+activation). Neither is an OPEN OCEAN release, and neither changes repository visibility or
+`PRIVATE.txt`.

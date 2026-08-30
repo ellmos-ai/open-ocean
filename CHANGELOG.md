@@ -2,6 +2,35 @@
 
 *[Deutsch](CHANGELOG_de.md)*
 
+## Unreleased — 2026-08-30
+
+### Verified
+
+- A second, independent fresh-install host, `WORKSTATION-LG`, reached the same result:
+  input worktrees `open-ocean@243a703c` (tag `ocean-full-laptop-hafenlicht-20260829`) and
+  `ellmos-development-system@1b461c9c`, both detached and clean; pre-install suite pytest
+  137/137, unittest 125/125, ruff clean, `compileall` exit 0.
+- The plan before apply reported 28/28 bundles, 80/80 skills, but only 51/65 modules
+  (`full_composition: false`) — three required providers not yet local. Apply fetched
+  `automation-registry@ad40de721615518e409b53b00ed4b2a49840db28` and
+  `automation-runtime@c2de7188626510b181c4ecf2708c15f2395e32aa` (both from
+  `dev-bricks/automation-master.git`) and
+  `software-endpoint-registry@ec50c92319ba8fc262d695b86818fc85666feff7` (from
+  `ellmos-ai/system-explorer`) as clean detached checkouts.
+- After apply: 28/28 bundles, 54/65 modules, 80/80 skills, no missing required component,
+  `full_composition: true`, at `http://127.0.0.1:8810/control/`.
+- A full `down`/`start` lifecycle cycle passed (stopped, port freed, no stale processes, then
+  running again with no state reuse), followed by the same HTTP/browser/process identity checks.
+- The hidden limited-user logon task `EllmosOceanFullUserStart` demand-started the pinned
+  checkout: `LastTaskResult 267009` (`SCHED_S_TASK_RUNNING` — the expected code for an
+  intentionally still-running server process, not `0`), one supervisor (PID 6460) and one child
+  (PID 37676) under `pythonw.exe`, the child the sole listener on `8810`; `full_composition: true`
+  held afterward. No physical reboot was tested.
+- No BACH session sidecar was running on this host (`service.running: false`, `pid: null`), so
+  none was stopped; BACH code, databases, tasks and configuration are unchanged.
+- No user was created on this host — a deliberate decision (device-bound OS-account coupling
+  instead of an additional app password), not an installation gap.
+
 ## Unreleased — 2026-08-29
 
 ### Added

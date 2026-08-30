@@ -7,6 +7,7 @@ the missing product concern: selecting and operating one declared ``runtime.host
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import secrets
@@ -32,6 +33,7 @@ OCEAN_RUNTIME_CLI = TOOLS_DIR / "ocean_runtime.py"
 INSTALL_STATE = "ocean.install.json"
 RUNTIME_STATE = "ocean.runtime.json"
 RUNTIME_SPEC = "ocean.runtime-spec.json"
+START_LOCK = "ocean.start.lock"
 OCEAN_OPERATOR_PREFIX = "/control"
 OCEAN_OPERATOR_TITLE = "OCEAN Full Dev"
 OCEAN_OPERATOR_CONFIG = "unified-gui.config.json"
@@ -477,7 +479,75 @@ def _assert_runtime_start_available(workspace: Path, *, host: str, port: int) ->
         )
 
 
+@contextlib.contextmanager
+def _start_lock(workspace: Path):
+    """Exclusive, OS-held start lock for one workspace.
+
+    Two direct lifecycle invocations could both pass the empty-state preflight
+    before either supervisor wrote ``ocean.runtime.json`` and end up with two
+    supervisors on one sandbox. The lock closes that window: it is taken before
+    the preflight and held until the runtime state is green or the start failed.
+    It is a byte-range/flock lock on an open handle, so the OS drops it when the
+    holder dies -- a crashed starter never leaves a stale lock behind.
+    """
+    workspace.mkdir(parents=True, exist_ok=True)
+    handle = (workspace / START_LOCK).open("a+b")
+    try:
+        handle.seek(0)
+        try:
+            if os.name == "nt":
+                import msvcrt
+
+                msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as exc:
+            raise LifecycleError(
+                "In dieser Sandbox läuft bereits ein OCEAN-Start; kein zweiter Prozess wird gestartet."
+            ) from exc
+        yield
+    finally:
+        try:
+            handle.seek(0)
+            if os.name == "nt":
+                import msvcrt
+
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        except OSError:
+            pass  # closing the handle releases the lock anyway
+        handle.close()
+
+
 def start_runtime(
+    provider: RuntimeProvider,
+    components: list[dict[str, Any]],
+    workspace: Path,
+    manifest_path: Path,
+    *,
+    host: str,
+    port: int,
+    startup_timeout: float = 20.0,
+) -> dict[str, Any]:
+    """Spawn the supervisor under the workspace start lock (see ``_start_lock``)."""
+    with _start_lock(workspace):
+        return _start_runtime_locked(
+            provider,
+            components,
+            workspace,
+            manifest_path,
+            host=host,
+            port=port,
+            startup_timeout=startup_timeout,
+        )
+
+
+def _start_runtime_locked(
     provider: RuntimeProvider,
     components: list[dict[str, Any]],
     workspace: Path,

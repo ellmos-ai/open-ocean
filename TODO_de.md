@@ -4,7 +4,9 @@
 
 ## Unmittelbare Zuverlässigkeitsaufgaben
 
-- [ ] Eine workspacegebundene Interprozess-Startsperre ergänzen. Zwei direkte
+- [x] Workspacegebundene Interprozess-Startsperre ergänzt (`_start_lock`, `ocean.start.lock`,
+  vom OS gehaltene Byte-Range-/flock-Sperre, wird beim Tod des Starters vom OS freigegeben;
+  ein zweiter gleichzeitiger Start scheitert an der CLI geschlossen). Ursprungsbeschreibung: Zwei direkte
   Lebenszyklusaufrufe können derzeit die Leerer-Zustand-Vorprüfung passieren, bevor einer der
   Supervisoren den Laufzeitstatus schreibt. Der ASUS-GEI-Logon-Task vermeidet das durch
   deaktiviertes `StartWhenAvailable` und genau einen Trigger; der Lebenszyklus selbst muss bei

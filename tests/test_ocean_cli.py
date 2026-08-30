@@ -17,6 +17,7 @@ from tools.ocean_lifecycle import (
     RuntimeProvider,
     _assert_composition_complete,
     _ellmos_core_runtime_spec,
+    _start_lock,
 )
 from tools.resolve_bundles import canonical_hash
 
@@ -523,6 +524,49 @@ def test_start_recovers_an_installed_runtime_from_stale_running_state(tmp_path):
         status = _run_ocean("status", "--workspace", str(fixture["workspace"]), "--json")
         assert status.returncode == 0, status.stderr
         assert json.loads(status.stdout)["runtime"]["health"] == "ok"
+    finally:
+        _run_ocean("down", "--workspace", str(fixture["workspace"]), "--json")
+
+
+def test_start_lock_is_exclusive_per_workspace(tmp_path):
+    """Two starters on one workspace: the second fails closed instead of racing the
+    empty-state preflight; once the first releases, a later start proceeds."""
+    with _start_lock(tmp_path):
+        with pytest.raises(LifecycleError, match="läuft bereits ein OCEAN-Start"):
+            with _start_lock(tmp_path):
+                pass
+    with _start_lock(tmp_path):
+        pass
+
+
+def test_start_fails_closed_while_another_process_holds_the_workspace_lock(tmp_path):
+    """End to end: `ocean start` in a second process must not spawn a supervisor while
+    a starter holds the workspace lock, and must succeed once it is released."""
+    fixture = _write_runnable_ellmos_core_fixture(tmp_path)
+    port = _free_tcp_port()
+    common = [
+        "--bundles-root", str(fixture["bundles_root"]),
+        "--system-manifest", str(fixture["system"]),
+        "--modules-catalog", str(fixture["catalog"]),
+        "--skills-registry", str(fixture["skills"]),
+        "--workspace", str(fixture["workspace"]),
+    ]
+    try:
+        up = _run_ocean("up", *common, "--host", "127.0.0.1", "--port", str(port), "--apply", "--json")
+        assert up.returncode == 0, up.stderr
+        down = _run_ocean("down", "--workspace", str(fixture["workspace"]), "--json")
+        assert down.returncode == 0, down.stderr
+
+        with _start_lock(fixture["workspace"]):
+            blocked = _run_ocean("start", "--workspace", str(fixture["workspace"]), "--json")
+        assert blocked.returncode != 0
+        assert "läuft bereits ein OCEAN-Start" in blocked.stderr
+        state = json.loads((fixture["workspace"] / "ocean.runtime.json").read_text(encoding="utf-8"))
+        assert state["status"] == "stopped"
+
+        restarted = _run_ocean("start", "--workspace", str(fixture["workspace"]), "--json")
+        assert restarted.returncode == 0, restarted.stderr
+        assert json.loads(restarted.stdout)["runtime"]["health"] == "ok"
     finally:
         _run_ocean("down", "--workspace", str(fixture["workspace"]), "--json")
 

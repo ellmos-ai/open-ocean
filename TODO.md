@@ -4,7 +4,9 @@
 
 ## Immediate reliability follow-ups
 
-- [ ] Add a workspace-scoped interprocess start lock. Two direct lifecycle invocations can
+- [x] Added a workspace-scoped interprocess start lock (`_start_lock`, `ocean.start.lock`,
+  OS-held byte-range/flock lock, released by the OS if the starter dies; second concurrent
+  start fails closed at the CLI). Original description: Two direct lifecycle invocations can
   currently pass the empty-state preflight before either supervisor writes runtime state. The
   ASUS-GEI logon task avoids this by disabling `StartWhenAvailable` and using one trigger, but the
   lifecycle itself must fail closed under simultaneous starts.

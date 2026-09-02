@@ -39,14 +39,15 @@
   missing required components. Composition and install state are written BEFORE the gate on
   purpose, so artefacts and the report stay available for diagnosis. (This item existed only
   in TODO_de.md until 2026-08-30 — the two language versions had drifted apart.)
-- [ ] (No longer reproducible as of 2026-08-30 — re-measure before acting: `resolve_bundles.py`
-  already points `DEFAULT_SKILLS_REGISTRY` at `components.json` and explains the missing
-  crosswalk file in its own text. Kept until someone has checked the contract reference
-  itself.)
-  Correct the `manifests/skills.registry.crosswalk.v1.json` reference in the
-  component-registry-bindings contract: it is not present with a usable `components` array in the
-  bundles checkout; the actually usable source is `components.json` from the Skills Registry.
-  Already flagged as a known gap in the tool's own comment.
+- [x] Re-measured on 2026-08-30; no reference correction is required. At recipe-provider pin
+  `1b461c9cb900ada15b8e104f2586a6b4a1ea5278`,
+  `manifests/skills.registry.crosswalk.v1.json` is an 81-record identity map whose declared
+  collection is the top-level `skills` object. The same binding contract separately declares the
+  native Skills Registry's `components.json` and its top-level `components` array. OCEAN correctly
+  uses the latter to resolve/install skills and now fails closed with an explicit schema reason if
+  the crosswalk is supplied as that registry. Exact source verification also exposed stale raw-file
+  SHA pins; re-pinning those mutable/provider sources remains the separate follow-up
+  `T-20260830-702817310`.
 
 ## Release breadth
 

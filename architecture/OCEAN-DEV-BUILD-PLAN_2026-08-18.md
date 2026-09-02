@@ -96,11 +96,12 @@ side of Activate, and Roll back are explicitly NOT in this pass — see Sec. 5.*
   `modules.catalog.json` (same lookup `ModuleResolver` performs, re-implemented here rather than
   imported so this repository does not depend on an OneDrive path being importable — the *catalog
   file* is still read from there via `--modules-catalog`, only the code is not shared);
-  `skill:<name>` against the public `ellmos-ai/skills` registry, matched by `name` (the crosswalk
-  file the component-registry-bindings contract names,
-  `bundles/manifests/skills.registry.crosswalk.v1.json`, does not exist in the bundles checkout
-  yet — documented as a gap, not silently assumed to match); `access_surface:<id>` is reported and
-  **never fetched**, per `INSTALLER-TARGET.md`'s explicit "must not do".
+  `skill:<name>` against the native `ellmos-ai/skills` `components.json` registry, matched by
+  `name`. This source is distinct from the recipe provider's
+  `manifests/skills.registry.crosswalk.v1.json`: the latter maps recipe identities to native
+  registry component IDs for binding verification and is not an install registry.
+  `access_surface:<id>` is reported and **never fetched**, per `INSTALLER-TARGET.md`'s explicit
+  "must not do".
 - 26 unit/integration tests, synthetic fixtures throughout (same convention as
   `test_audit_bach_handlers.py`) so the suite is host-independent — it must pass with no OneDrive
   present at all.
@@ -1253,10 +1254,15 @@ fresh install on a second Windows host, `WORKSTATION-LG`.
 - `up --apply` has no readiness gate: it does not verify provider completeness before starting
   the runtime, so a failed provider fetch would still start an incomplete composition
   (`ocean_lifecycle.py:546-596`; readiness is only reported, never enforced).
-- The component-registry-bindings contract references
-  `manifests/skills.registry.crosswalk.v1.json`, which is not present with a usable `components`
-  array in the bundles checkout; the actually usable source is `components.json` from the Skills
-  Registry. This is already flagged as a known gap in the tool's own comment.
+- The Crosswalk premise was re-measured on 2026-08-30 against recipe-provider pin
+  `1b461c9cb900ada15b8e104f2586a6b4a1ea5278` and System Explorer pin
+  `b3e1986b24085d4b0083facbdc38c06cb633ba05`: the contract intentionally binds the Crosswalk's
+  81-entry `skills` object separately from the native Registry's `components` array. The structural
+  contract is valid. Exact raw-file verification nevertheless finds pin drift: the Crosswalk source
+  declares `4b322295…` while the pinned file hashes to `8a30799b…`, and the external Registry
+  declares `5555e267…` while the current source hashes to `86912015…`. Regenerating/reviewing these
+  pins without silently blocking the current installer remains follow-up
+  `T-20260830-702817310`.
 - Governance PRs `policy-registry` #3, `gardener` #4 and `ellmos-controlcenter-mcp` #9 remain
   open, mergeable and CI-green as of this cycle; none has been merged, so the Phase-J governance
   follow-up (host-local registry init, Gardener system sources, ControlCenter configuration) is

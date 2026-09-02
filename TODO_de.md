@@ -62,7 +62,7 @@
   ableiten und testen.
 - [ ] Die funktionale BACH-Parität weiterführen; neu entdeckte BACH-Eigenheiten nur ausnahmsweise
   und wertgebunden in einem eigenen Modulzyklus extrahieren.
-- [ ] Die offenen Governance-PRs mergen und übernehmen (`policy-registry` #3, `gardener` #4,
+- [x] (2026-09-02) Gemergt: `gardener` #4 (master ddd3a84), `ellmos-controlcenter-mcp` #9 (main 34cd95d); `policy-registry` #3 zugunsten des Decision-Index-Pfad-Slices geschlossen (https://github.com/ellmos-ai/policy-registry/pull/4). Übernahme (hostlokaler Registry-Seed, ControlCenter-Konfiguration, ccm-0.6.0-npm-Release) bleibt offen. Ursprünglich: Die offenen Governance-PRs mergen und übernehmen (`policy-registry` #3, `gardener` #4,
   `ellmos-controlcenter-mcp` #9) — alle offen, mergefähig, CI grün zum Stand 2026-08-30, keiner
   gemergt. Hostlokale Registry-Initialisierung, Gardener-Systemquellen und
   ControlCenter-Konfiguration werden erst danach relevant.

@@ -55,7 +55,7 @@
 - [ ] Derive and test the default-deny OPEN OCEAN public allowlist independently from FULL OCEAN.
 - [ ] Continue BACH functional-parity work; treat newly discovered BACH-only extraction as an
   exceptional, value-gated module cycle.
-- [ ] Merge and adopt the pending governance PRs (`policy-registry` #3, `gardener` #4,
+- [x] (2026-09-02) Merged: `gardener` #4 (master ddd3a84), `ellmos-controlcenter-mcp` #9 (main 34cd95d); `policy-registry` #3 closed in favour of the decision-index path slice (https://github.com/ellmos-ai/policy-registry/pull/4). Adoption (host-local registry seed, ControlCenter config, ccm 0.6.0 npm release) is still open. Original: Merge and adopt the pending governance PRs (`policy-registry` #3, `gardener` #4,
   `ellmos-controlcenter-mcp` #9) — all open, mergeable, CI green as of 2026-08-30, none merged
   yet; host-local registry init, Gardener system sources and ControlCenter configuration only
   become relevant afterward.

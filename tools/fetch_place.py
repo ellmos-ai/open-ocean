@@ -122,8 +122,15 @@ _ACTIONS = {
     "fetched": "git fetch+checkout at the pinned SHA succeeded",
     "present-pinned-provider": "the exact OCEAN-bound provider commit, identity, repository, and capabilities are already present",
     "skipped-present-in-workspace": "the workspace destination for this module already exists -- never overwrite",
+    "placed": "a Resolve-found module with no exact binding was copied into this workspace's modules/ tree so "
+              "the runtime never has to import it from wherever Resolve originally found it "
+              "(e.g. an OneDrive mirror -- T-20260902-313385481)",
     "failed": "a git command failed; any partial destination directory was removed",
 }
+
+_PLACE_IGNORE = shutil.ignore_patterns(
+    ".git", "__pycache__", "*.pyc", ".venv", "venv", "node_modules", ".pytest_cache",
+)
 
 
 def resolve_pin_for_module(catalog_entry: dict[str, Any]) -> tuple[str | None, Any]:
@@ -263,6 +270,47 @@ def fetch_module_at_sha(repository_url: str, sha: str, dest: Path, *, dry_run: b
     return FetchOutcome("", "fetched", {"repository": repository_url, "sha": sha, "dest": str(dest), "head": landed_sha})
 
 
+def _place_resolved_module(comp: Any, dest_root: Path, *, apply: bool) -> FetchOutcome:
+    """A `module` component Resolve found already present on disk with no exact
+    binding -- typically via the shared modules catalog's `resolved_source`,
+    which for most modules still points into the OneDrive mirror rather than a
+    local clone (Plan D: OneDrive is a read copy, never a runtime path).
+    Importing straight from there makes the OCEAN runtime depend on OneDrive
+    being mounted and hydrated at every process start -- the exact failure
+    this function removes (T-20260902-313385481: a logon-time start hit
+    OneDrive not yet ready and the child died ~21s later). Copies the
+    resolved source into this workspace's own modules/ tree -- the same
+    destination shape plan_and_fetch already uses for exact-bound providers
+    just below -- and repoints comp.detail["local_path"] there, so a runtime
+    built from this component's PYTHONPATH never touches the original
+    source again. A destination that already exists is left untouched
+    (never-overwrite, same policy as the bound-provider and unbound-git
+    branches of plan_and_fetch)."""
+    catalog_id = comp.detail.get("catalog_id")
+    raw_local_path = comp.detail.get("local_path")
+    if not catalog_id or not raw_local_path:
+        return FetchOutcome(comp.ref, "present", {"present_locally": True})
+    dest = dest_root / catalog_id
+    if not apply:
+        return FetchOutcome(comp.ref, "present", {"present_locally": True, "would_place_at": str(dest)})
+    if not dest.exists():
+        source = Path(raw_local_path)
+        if not source.is_dir():
+            return FetchOutcome(
+                comp.ref, "failed", {"reason": f"resolved source vanished before Place: {source}"},
+            )
+        try:
+            shutil.copytree(source, dest, ignore=_PLACE_IGNORE)
+        except OSError as exc:
+            try:
+                force_rmtree(dest)
+            except OSError:
+                pass
+            return FetchOutcome(comp.ref, "failed", {"error": str(exc)})
+    comp.detail["local_path"] = str(dest.resolve(strict=False))
+    return FetchOutcome(comp.ref, "placed", {"source": raw_local_path, "dest": comp.detail["local_path"]})
+
+
 def plan_and_fetch(
     components: list[Any], catalog_path: Path, workspace: Path, *, apply: bool,
 ) -> list[FetchOutcome]:
@@ -395,7 +443,7 @@ def plan_and_fetch(
             outcomes.append(outcome)
             continue
         if comp.status == "resolved":
-            outcomes.append(FetchOutcome(comp.ref, "present", {"present_locally": True}))
+            outcomes.append(_place_resolved_module(comp, dest_root, apply=apply))
             continue
         catalog_id = comp.detail.get("catalog_id")
         if not catalog_id:

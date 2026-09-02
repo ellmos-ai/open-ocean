@@ -310,6 +310,50 @@ class PlanAndFetchTests(unittest.TestCase):
         outcomes = plan_and_fetch([comp], self.catalog_path, self.workspace, apply=False)
         self.assertEqual(outcomes[0].action, "present")
 
+    def test_dry_run_reports_present_without_touching_disk_for_a_resolved_module(self):
+        """T-20260902-313385481: a resolved-but-unbound module (e.g. the
+        shared catalog's `resolved_source` pointing into an OneDrive mirror)
+        must not be copied anywhere during a dry run."""
+        source = Path(self.temp.name) / "mirror" / "some-module"
+        (source / "src").mkdir(parents=True)
+        comp = _component("module:some-module", "resolved", {
+            "catalog_id": "some-module", "present_locally": True, "local_path": str(source),
+        })
+        outcomes = plan_and_fetch([comp], self.catalog_path, self.workspace, apply=False)
+        self.assertEqual(outcomes[0].action, "present")
+        self.assertFalse((self.workspace / "modules" / "some-module").exists())
+        self.assertEqual(comp.detail["local_path"], str(source))
+
+    def test_apply_places_a_resolved_module_without_binding_into_the_workspace(self):
+        source = Path(self.temp.name) / "mirror" / "some-module"
+        (source / "src").mkdir(parents=True)
+        (source / "src" / "marker.py").write_text("x = 1", encoding="utf-8")
+        comp = _component("module:some-module", "resolved", {
+            "catalog_id": "some-module", "present_locally": True, "local_path": str(source),
+        })
+
+        outcomes = plan_and_fetch([comp], self.catalog_path, self.workspace, apply=True)
+
+        dest = self.workspace / "modules" / "some-module"
+        self.assertEqual(outcomes[0].action, "placed")
+        self.assertTrue((dest / "src" / "marker.py").is_file())
+        self.assertEqual(comp.detail["local_path"], str(dest.resolve(strict=False)))
+
+    def test_second_apply_of_a_resolved_module_is_a_noop_not_an_overwrite(self):
+        source = Path(self.temp.name) / "mirror" / "some-module"
+        source.mkdir(parents=True)
+        dest = self.workspace / "modules" / "some-module"
+        dest.mkdir(parents=True)
+        (dest / "already-here.txt").write_text("do not touch", encoding="utf-8")
+        comp = _component("module:some-module", "resolved", {
+            "catalog_id": "some-module", "present_locally": True, "local_path": str(source),
+        })
+
+        outcomes = plan_and_fetch([comp], self.catalog_path, self.workspace, apply=True)
+
+        self.assertEqual(outcomes[0].action, "placed")
+        self.assertEqual((dest / "already-here.txt").read_text(encoding="utf-8"), "do not touch")
+
     def test_bound_alias_uses_overlay_pin_and_placement_even_when_catalog_mirror_is_present(self):
         self._write_catalog([{
             "id": "system-explorer",

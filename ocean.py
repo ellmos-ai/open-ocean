@@ -7,6 +7,7 @@ import argparse
 import getpass
 import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 from tools.ocean_lifecycle import (
@@ -29,6 +30,56 @@ def _configure_utf8_output() -> None:
         reconfigure = getattr(stream, "reconfigure", None)
         if callable(reconfigure):
             reconfigure(encoding="utf-8", errors="replace")
+
+
+class _TeeWriter:
+    """Writes to both an original stream and a log file, tolerating either
+    one being unusable. Exists for one reason: under the headless launcher
+    that starts OCEAN at logon (pythonw.exe, no console -- see
+    EllmosOceanFullUserStart), sys.stderr is a silent sink. A startup
+    failure -- the handled LifecycleError print() in main() below, or an
+    unhandled traceback via Python's default excepthook, which also writes
+    to sys.stderr -- would otherwise vanish, leaving only a bare process
+    exit code with no diagnostic (T-20260902-313385481)."""
+
+    def __init__(self, original, log_handle) -> None:
+        self._original = original
+        self._log = log_handle
+
+    def write(self, data: str) -> int:
+        for stream in (self._original, self._log):
+            if stream is None:
+                continue
+            try:
+                stream.write(data)
+                stream.flush()
+            except OSError:
+                pass
+        return len(data)
+
+    def flush(self) -> None:
+        for stream in (self._original, self._log):
+            if stream is None:
+                continue
+            try:
+                stream.flush()
+            except OSError:
+                pass
+
+
+def _attach_stderr_log(workspace: Path) -> None:
+    """Tee sys.stderr into <workspace>/logs/runtime.log -- the same file
+    tools/runtime_supervisor.py already redirects the supervised runtime
+    child's own stdout/stderr to -- so a headless 'ocean.py start' failure
+    is findable after the fact. Scoped to the 'start' command only: that is
+    the one Scheduled Tasks actually invoke unattended (via pythonw.exe);
+    every other command still runs interactively with a real console."""
+    log_path = workspace / "logs" / "runtime.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_handle = log_path.open("a", encoding="utf-8", errors="replace")
+    log_handle.write(f"\n=== ocean.py start stderr @ {datetime.now(timezone.utc).isoformat()} ===\n")
+    log_handle.flush()
+    sys.stderr = _TeeWriter(sys.stderr, log_handle)
 
 
 def _add_composition_arguments(parser: argparse.ArgumentParser) -> None:
@@ -157,6 +208,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(report, indent=2, ensure_ascii=False) if args.json else f"OCEAN: {report['runtime']['control']} ({report['runtime']['health']})")
         return 0 if report["runtime"]["control"] == "running" and report["runtime"]["health"] == "ok" else 1
     if args.command == "start":
+        _attach_stderr_log(args.workspace)
         try:
             report = start_installed_runtime(
                 args.workspace,

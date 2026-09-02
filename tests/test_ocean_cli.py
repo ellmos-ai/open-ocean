@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import socket
 import subprocess
@@ -62,9 +63,64 @@ def test_plan_help_exposes_the_exact_component_binding_overlay():
 
     assert proc.returncode == 0, proc.stderr
     assert "--component-bindings" in proc.stdout
+    assert "--source-pins" in proc.stdout
     assert "exaktes OCEAN-Integrations-Overlay" in proc.stdout
     assert "\ufffd" not in proc.stdout
     assert "\ufffd" not in proc.stderr
+
+
+def _sha256(payload: bytes) -> str:
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _git_fixture(recipe: Path, *args: str) -> str:
+    proc = subprocess.run(
+        ["git", *args],
+        cwd=recipe,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=True,
+    )
+    return proc.stdout.strip()
+
+
+def _seal_recipe_fixture(fixture: dict[str, Path]) -> None:
+    recipe = fixture["bundles_root"]
+    if not (recipe / ".git").exists():
+        _git_fixture(recipe, "init", "--initial-branch=main")
+        _git_fixture(recipe, "config", "user.name", "OCEAN Test")
+        _git_fixture(recipe, "config", "user.email", "ocean-test@example.invalid")
+        _git_fixture(recipe, "remote", "add", "origin", "https://example.invalid/recipe.git")
+    _git_fixture(recipe, "add", ".")
+    _git_fixture(recipe, "commit", "--no-gpg-sign", "-m", "seal fixture recipe")
+    commit = _git_fixture(recipe, "rev-parse", "HEAD")
+    bindings = json.loads(fixture["provider_bindings"].read_text(encoding="utf-8"))
+    crosswalk_hash = _sha256(fixture["crosswalk"].read_bytes())
+    registry_hash = _sha256(fixture["skills"].read_bytes())
+    registry_uri = bindings["sources"]["registry:skills-components"]["uri"]
+    contract = {
+        "schema": "ellmos.open-ocean-source-pins.v1",
+        "id": "fixture-source-pins",
+        "version": "1.0.0",
+        "authority": {"kind": "integration-pin", "runtime_authority": False},
+        "recipe": {
+            "repository": "https://example.invalid/recipe.git",
+            "commit": commit,
+            "component_bindings": {
+                "path": "manifests/component.registry.bindings.v1.json",
+                "content_hash": bindings["content_hash"],
+            },
+            "skills_crosswalk": {
+                "path": "manifests/skills.registry.crosswalk.v1.json",
+                "sha256": crosswalk_hash,
+            },
+        },
+        "skills_registry": {"uri": registry_uri, "sha256": registry_hash},
+    }
+    contract["content_hash"] = canonical_hash(contract)
+    fixture["source_pins"].write_text(json.dumps(contract), encoding="utf-8")
 
 
 def _write_plan_fixture(root: Path, *, runtime_providers: int = 1) -> dict[str, Path]:
@@ -117,13 +173,40 @@ def _write_plan_fixture(root: Path, *, runtime_providers: int = 1) -> dict[str, 
     skills = root / "skills" / "registry" / "components.json"
     skills.parent.mkdir(parents=True)
     skills.write_text(json.dumps({"components": []}), encoding="utf-8")
-    return {
+    crosswalk = bundles_root / "manifests" / "skills.registry.crosswalk.v1.json"
+    crosswalk.write_text(json.dumps({"skills": []}), encoding="utf-8")
+    registry_uri = (
+        "repo://ellmos-ai/skills@"
+        "08e1fe212d58075bc00e2f8403c104a507857c05/registry/components.json"
+    )
+    provider_bindings = bundles_root / "manifests" / "component.registry.bindings.v1.json"
+    provider_binding = {
+        "schema": "ellmos.component-registry-bindings.v1",
+        "sources": {
+            "registry:skills-components": {
+                "uri": registry_uri,
+                "sha256": _sha256(skills.read_bytes()),
+            },
+            "crosswalk:skills": {
+                "uri": "repo://manifests/skills.registry.crosswalk.v1.json",
+                "sha256": _sha256(crosswalk.read_bytes()),
+            },
+        },
+    }
+    provider_binding["content_hash"] = canonical_hash(provider_binding)
+    provider_bindings.write_text(json.dumps(provider_binding), encoding="utf-8")
+    fixture = {
         "bundles_root": bundles_root,
         "system": system,
         "catalog": catalog,
         "skills": skills,
         "workspace": root / "workspace",
+        "provider_bindings": provider_bindings,
+        "crosswalk": crosswalk,
+        "source_pins": root / "source-pins.json",
     }
+    _seal_recipe_fixture(fixture)
+    return fixture
 
 
 def _write_runnable_ellmos_core_fixture(root: Path) -> dict[str, Path]:
@@ -201,6 +284,7 @@ def _write_runnable_ellmos_core_fixture(root: Path) -> dict[str, Path]:
         if __name__ == "__main__":
             main()
     """), encoding="utf-8")
+    _seal_recipe_fixture(fixture)
     return fixture
 
 
@@ -288,6 +372,7 @@ def test_plan_proves_one_runtime_host_without_creating_the_workspace(tmp_path):
         "--system-manifest", str(fixture["system"]),
         "--modules-catalog", str(fixture["catalog"]),
         "--skills-registry", str(fixture["skills"]),
+        "--source-pins", str(fixture["source_pins"]),
         "--workspace", str(fixture["workspace"]),
         "--json",
     )
@@ -304,6 +389,33 @@ def test_plan_proves_one_runtime_host_without_creating_the_workspace(tmp_path):
     assert report["runtime"]["capability"] == "runtime.host"
     assert report["readiness"]["runtime_host"] is True
     assert report["readiness"]["required_components_missing"] == []
+    assert report["transaction"]["source_pins"]["status"] == "verified"
+    assert not fixture["workspace"].exists()
+
+
+def test_up_rejects_registry_drift_before_fetch_or_workspace_writes(tmp_path):
+    """The product lifecycle must never turn a stale registry pin into an apply."""
+    fixture = _write_runnable_ellmos_core_fixture(tmp_path)
+    fixture["skills"].write_text(
+        json.dumps({"components": [{"id": "unreviewed-drift"}]}),
+        encoding="utf-8",
+    )
+
+    proc = _run_ocean(
+        "up",
+        "--bundles-root", str(fixture["bundles_root"]),
+        "--system-manifest", str(fixture["system"]),
+        "--modules-catalog", str(fixture["catalog"]),
+        "--skills-registry", str(fixture["skills"]),
+        "--source-pins", str(fixture["source_pins"]),
+        "--workspace", str(fixture["workspace"]),
+        "--port", str(_free_tcp_port()),
+        "--apply",
+        "--json",
+    )
+
+    assert proc.returncode == 3
+    assert "Skills Registry SHA-256 mismatch" in proc.stderr
     assert not fixture["workspace"].exists()
 
 
@@ -316,6 +428,7 @@ def test_up_status_down_runs_one_real_sandboxed_runtime_round_trip(tmp_path):
         "--system-manifest", str(fixture["system"]),
         "--modules-catalog", str(fixture["catalog"]),
         "--skills-registry", str(fixture["skills"]),
+        "--source-pins", str(fixture["source_pins"]),
         "--workspace", str(fixture["workspace"]),
     ]
     try:
@@ -408,6 +521,7 @@ def test_second_up_rejects_a_running_runtime_before_fetch_or_activate(tmp_path):
         "--system-manifest", str(fixture["system"]),
         "--modules-catalog", str(fixture["catalog"]),
         "--skills-registry", str(fixture["skills"]),
+        "--source-pins", str(fixture["source_pins"]),
         "--workspace", str(fixture["workspace"]),
     ]
     try:
@@ -488,6 +602,7 @@ def test_start_recovers_an_installed_runtime_from_stale_running_state(tmp_path):
         "--system-manifest", str(fixture["system"]),
         "--modules-catalog", str(fixture["catalog"]),
         "--skills-registry", str(fixture["skills"]),
+        "--source-pins", str(fixture["source_pins"]),
         "--workspace", str(fixture["workspace"]),
     ]
     try:
@@ -549,6 +664,7 @@ def test_start_fails_closed_while_another_process_holds_the_workspace_lock(tmp_p
         "--system-manifest", str(fixture["system"]),
         "--modules-catalog", str(fixture["catalog"]),
         "--skills-registry", str(fixture["skills"]),
+        "--source-pins", str(fixture["source_pins"]),
         "--workspace", str(fixture["workspace"]),
     ]
     try:

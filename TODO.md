@@ -67,9 +67,14 @@
   collection is the top-level `skills` object. The same binding contract separately declares the
   native Skills Registry's `components.json` and its top-level `components` array. OCEAN correctly
   uses the latter to resolve/install skills and now fails closed with an explicit schema reason if
-  the crosswalk is supplied as that registry. Exact source verification also exposed stale raw-file
-  SHA pins; re-pinning those mutable/provider sources remains the separate follow-up
-  `T-20260830-702817310`.
+  the crosswalk is supplied as that registry.
+- [x] Closed the reproducibility implementation for `T-20260830-702817310` in a bounded review
+  slice. Recipe-provider PR `ellmos-development-system#91` refreshes only the independently
+  re-measured Skills Registry and Crosswalk pins and records the Registry's immutable repository
+  URI. OCEAN now ships a content-hashed source-pin contract and rejects a dirty/wrong recipe
+  checkout, provider-binding drift, Crosswalk drift or Skills Registry drift before Resolve/Fetch.
+  The review branches are not merged or released by this item; unrelated module/MCP source drift
+  remains outside its scope.
 
 ## Release breadth
 

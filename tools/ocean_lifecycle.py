@@ -24,6 +24,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+from tools.source_pins import DEFAULT_SOURCE_PINS
+
 
 TOOLS_DIR = Path(__file__).resolve().parent
 TRANSACTION_CLI = TOOLS_DIR / "ocean_dev.py"
@@ -75,6 +77,7 @@ def run_transaction(
     skills_registry: Path,
     workspace: Path,
     component_bindings: Path | None = None,
+    source_pins: Path = DEFAULT_SOURCE_PINS,
     apply: bool = False,
 ) -> dict[str, Any]:
     """Run the existing transaction CLI and return its JSON report."""
@@ -86,6 +89,7 @@ def run_transaction(
         "--modules-catalog", str(modules_catalog),
         "--skills-registry", str(skills_registry),
         "--workspace", str(workspace),
+        "--source-pins", str(source_pins),
         "--json",
     ]
     if component_bindings is not None:
@@ -191,6 +195,7 @@ def plan_from_paths(
     skills_registry: Path,
     workspace: Path,
     component_bindings: Path | None = None,
+    source_pins: Path = DEFAULT_SOURCE_PINS,
 ) -> dict[str, Any]:
     return lifecycle_plan(run_transaction(
         bundles_root=bundles_root,
@@ -199,6 +204,7 @@ def plan_from_paths(
         skills_registry=skills_registry,
         workspace=workspace,
         component_bindings=component_bindings,
+        source_pins=source_pins,
         apply=False,
     ))
 
@@ -647,6 +653,7 @@ def up_from_paths(
     skills_registry: Path,
     workspace: Path,
     component_bindings: Path | None = None,
+    source_pins: Path = DEFAULT_SOURCE_PINS,
     host: str,
     port: int,
 ) -> dict[str, Any]:
@@ -658,6 +665,7 @@ def up_from_paths(
         skills_registry=skills_registry,
         workspace=workspace,
         component_bindings=component_bindings,
+        source_pins=source_pins,
         apply=True,
     )
     plan = lifecycle_plan(transaction)

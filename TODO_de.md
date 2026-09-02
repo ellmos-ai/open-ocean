@@ -75,9 +75,14 @@
   deklarierten Top-Level-Sammlung `skills`. Derselbe Binding-Vertrag deklariert davon getrennt die
   native Skills-Registry `components.json` mit ihrem Top-Level-Array `components`. OCEAN verwendet
   letztere korrekt zum Auflösen/Installieren und schließt jetzt mit einer eindeutigen Schema-Ursache,
-  falls der Crosswalk stattdessen als Registry übergeben wird. Die exakte Quellenprüfung zeigte
-  zusätzlich veraltete Rohdatei-SHA-Pins; deren Re-Pin bleibt die eigene Folgearbeit
-  `T-20260830-702817310`.
+  falls der Crosswalk stattdessen als Registry übergeben wird.
+- [x] Die Reproduzierbarkeits-Implementierung für `T-20260830-702817310` ist als begrenzte
+  Review-Einheit geschlossen. Der Recipe-Provider-PR `ellmos-development-system#91` aktualisiert
+  ausschließlich die unabhängig nachgemessenen Skills-Registry- und Crosswalk-Pins und hält die
+  unveränderliche Repository-URI der Registry fest. OCEAN liefert jetzt einen inhaltsgehashten
+  Quellen-Pin-Vertrag aus und verwirft einen schmutzigen/falschen Recipe-Checkout sowie Binding-,
+  Crosswalk- oder Skills-Registry-Drift vor Resolve/Fetch. Die Review-Branches werden durch diese
+  Einheit weder gemergt noch veröffentlicht; andere Modul-/MCP-Quellendriften bleiben außerhalb.
 
 ## Freigabebreite
 

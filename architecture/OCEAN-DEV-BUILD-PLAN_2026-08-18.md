@@ -1273,3 +1273,35 @@ The checkpoint names for this cycle are `ocean-full-workstation-mondmuschel-2026
 install and manual cutover) and `ocean-full-workstation-kuestenlicht-20260830` (logon-task/host
 activation). Neither is an OPEN OCEAN release, and neither changes repository visibility or
 `PRIVATE.txt`.
+
+## 16. Reproducible Skills Registry and Crosswalk source pins — 2026-08-30
+
+Follow-up `T-20260830-702817310` was handled as one review-only source-provenance slice. A common-time
+readback confirmed that the external Skills Registry bytes are identical to
+`ellmos-ai/skills@08e1fe212d58075bc00e2f8403c104a507857c05:registry/components.json` with SHA-256
+`869120155e1242cba8febbd978e15b60721f27deea304d92d2e3496a9a243e0a`, while the recipe's Skills
+Crosswalk hashes to `8a30799b9e7c02a25c98208e5ff9d3a136b5192966ac137ba3e10895e9fd1fc9`.
+
+The recipe-provider fix is commit `b368206209cb290135681a1c6ac9790a38048641` in
+`ellmos-development-system` PR #91. It adds a check-only-by-default pin refresher whose write mode
+requires an explicit source path; a Skills Registry refresh additionally requires an exact Git
+checkout, matching origin, full commit and byte-identical blob. The refreshed provider binding has
+content hash `164ddcc766b5123927470cec1617918f58b3dc36e1d740bec4d6353726e31747`.
+
+OCEAN adopts those reviewed inputs through `architecture/ocean-full-dev.source-pins.v1.json`. The
+product lifecycle supplies this contract by default and, before Resolve or any Fetch/Place/Activate
+action, verifies:
+
+- the source-pin contract's own canonical content hash;
+- an exact, clean recipe repository root, origin and commit;
+- the recipe provider binding's canonical content hash;
+- the Crosswalk's raw SHA-256 and its provider-binding declaration; and
+- the supplied Skills Registry URI/SHA-256 and its provider-binding declaration.
+
+The verification receipt is carried into the transaction and installed plan. A regression test
+changes the Registry immediately before `up --apply` and proves deterministic Exit 3 with no
+workspace creation. The complete repository suite passes with 150 tests and 2 subtests; Ruff and
+the Git whitespace check are also green. This is not a silent re-pin, merge, tag, release,
+deployment or new live Full Ocean acceptance run. The simultaneously observed module-catalog and
+ControlCenter/Homebase source
+drifts remain separate work; the foreign active module-catalog lock was not touched.

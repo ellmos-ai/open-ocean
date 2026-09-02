@@ -26,6 +26,30 @@
   platzieren; kein OneDrive-Laufzeitpfad; Kind-stderr nach `logs/runtime.log`). Übergangsweise
   auf ASUS-GEI: Task-Neustart bei Fehler 5× alle 2 min (XML-Backup in `logs/`). Bleibt offen,
   bis ein Reboot-Readback grün ist.
+  **2026-09-02, später am selben Tag: beide Code-Fixes gelandet (b59d1ee).**
+  `fetch_place.plan_and_fetch()` kopiert ("placed") jetzt jedes von Resolve gefundene Modul ohne
+  exakte Bindung bei `--apply` nach `<workspace>/modules/<catalog_id>` und setzt dessen
+  `local_path` dorthin um — genau wie die bereits bestehende Platzierung exakt gebundener
+  Provider; `ocean.py start` spiegelt `sys.stderr` zusätzlich nach
+  `<workspace>/logs/runtime.log` (pythonw hat keine Konsole, ein headless `LifecycleError`-Print
+  — oder jede unbehandelte Ausnahme, da Pythons Default-Excepthook ebenfalls nach stderr
+  schreibt — verschwand bisher spurlos, übrig blieb nur der nackte Exitcode). Auf ASUS-GEI ohne
+  Neustart nachgeprüft: der gepinnte Runtime-Checkout wurde auf `b59d1ee` vorgespult, `ocean.py
+  down` + `up --apply` (mit denselben bundles-root/system-manifest/catalog/skills-registry wie
+  bei der ursprünglichen Installation) lief sauber durch, und das entstandene
+  `ocean.runtime-spec.json` enthält jetzt **null** OneDrive-Einträge unter allen 14
+  PYTHONPATH-Pfaden (alle unter `C:\_Local_DEV\ocean-full\modules\`).
+  `Start-ScheduledTask EllmosOceanFullUserStart` nach einem `ocean.py down` hat die reale
+  Logon-Aktion Ende-zu-Ende nachgestellt: `LastTaskResult 0`, Prozessabstammung `pythonw
+  ocean.py start` → `pythonw runtime_supervisor.py` → `pythonw ocean_runtime.py` (PID 26608)
+  lauscht auf 8810, `/api/health` → `{"ok":true,...}`, und sowohl die Stderr-Tee-Kopfzeile als
+  auch die eigene Uvicorn-Ausgabe des Kindes landeten wie vorgesehen in `logs/runtime.log`.
+  **Das ist NICHT der oben verlangte Reboot-Readback** — OneDrive lief während dieses Tests
+  durchgehend, kann also das eigentliche Wettrennen (OneDrive beim Logon noch nicht eingehängt)
+  nicht reproduzieren; es belegt nur, dass der Fix dieses Wettrennen konstruktiv beseitigt (kein
+  OneDrive-Pfad mehr, gegen den gelaufen werden könnte) und dass die Kette
+  Task/Prozess/Port/Health auf dem reparierten Checkout Ende-zu-Ende funktioniert. Bleibt offen,
+  bis ein echter ASUS-GEI-Neustart es live bestätigt.
 - [x] `--host`-Argument bei `ocean.py up` korrigiert (7d4de09): `up` traegt jetzt
   dieselben `choices=["127.0.0.1", "localhost"]` wie `start`, ein falscher Wert scheitert
   sofort am Parser statt tief im Lifecycle. Folgeschritt erledigt:

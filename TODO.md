@@ -23,6 +23,28 @@
   green. Ticket T-20260902-313385481 (place providers into the workspace; no OneDrive runtime path;
   child stderr into `logs/runtime.log`). Interim on ASUS-GEI: task restart-on-failure 5× every
   2 min (XML backup in `logs/`). Stays open until a reboot readback is green.
+  **2026-09-02, later same day: both code fixes landed (b59d1ee).**
+  `fetch_place.plan_and_fetch()` now copies ("places") every Resolve-found module with no exact
+  binding into `<workspace>/modules/<catalog_id>` on `--apply` and repoints its `local_path`
+  there, exactly like the pre-existing exact-bound-provider placement; `ocean.py start` tees
+  `sys.stderr` into `<workspace>/logs/runtime.log` (pythonw has no console, so a headless
+  `LifecycleError` print — or any unhandled traceback, since Python's default excepthook also
+  writes to stderr — used to vanish with nothing but the bare exit code). Re-verified on
+  ASUS-GEI without a reboot: the pinned runtime checkout was fast-forwarded to `b59d1ee`,
+  `ocean.py down` + `up --apply` (same bundles-root/system-manifest/catalog/skills-registry as
+  the original install) re-ran cleanly, and the resulting `ocean.runtime-spec.json` now carries
+  **zero** OneDrive entries across all 14 PYTHONPATH paths (all under
+  `C:\_Local_DEV\ocean-full\modules\`). `Start-ScheduledTask EllmosOceanFullUserStart` after an
+  `ocean.py down` reproduced the real logon action end-to-end: `LastTaskResult 0`, process
+  ancestry `pythonw ocean.py start` → `pythonw runtime_supervisor.py` → `pythonw
+  ocean_runtime.py` (PID 26608) listening on 8810, `/api/health` → `{"ok":true,...}`, and the
+  stderr-tee header line plus the child's own uvicorn output both landed in
+  `logs/runtime.log` as designed. **This is not the reboot readback the checkbox above asks
+  for** — OneDrive was already running throughout this test, so it cannot reproduce the actual
+  race (OneDrive not yet mounted at logon); it only proves the fix removes that race by
+  construction (no OneDrive path left to race against) and that the task/process/port/health
+  chain works end-to-end on the fixed checkout. Stays open until an actual ASUS-GEI reboot
+  confirms it live.
 - [x] Fixed the `--host` argument on `ocean.py up` (7d4de09): `up` now carries the
   same `choices=["127.0.0.1", "localhost"]` as `start`, so a wrong value fails at the parser
   instead of deep inside the lifecycle. Follow-up done: the same-named

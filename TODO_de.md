@@ -18,6 +18,14 @@
 - [ ] ASUS-GEI tatsächlich neu starten und danach den unveränderten Task
   `EllmosOceanFullUserStart`, den exakten Tag-Checkout, das Prozess-Tupel, die Portbelegung, die
   HTTP-Identität und die Full-Ocean-Bereitschaft nachlesen.
+  **2026-09-02: de facto geschehen und FEHLGESCHLAGEN.** Nach dem Boot um 21:04 lief der
+  Logon-Task um 21:07:23 und endete mit Exit 4 (Runtime-Kind Exit 1 nach 21 s, Port 8810 nie
+  gebunden). Ursache: 12 von 14 Runtime-Providern auf dem Spec-PYTHONPATH sind OneDrive-
+  Lesekopien, und OneDrive.exe startete erst um 21:14:27 — sieben Minuten nach dem Task. Ein
+  manueller `ocean.py start` danach ist grün. Ticket T-20260902-313385481 (Provider in den Workspace
+  platzieren; kein OneDrive-Laufzeitpfad; Kind-stderr nach `logs/runtime.log`). Übergangsweise
+  auf ASUS-GEI: Task-Neustart bei Fehler 5× alle 2 min (XML-Backup in `logs/`). Bleibt offen,
+  bis ein Reboot-Readback grün ist.
 - [x] `--host`-Argument bei `ocean.py up` korrigiert (7d4de09): `up` traegt jetzt
   dieselben `choices=["127.0.0.1", "localhost"]` wie `start`, ein falscher Wert scheitert
   sofort am Parser statt tief im Lifecycle. Folgeschritt erledigt:

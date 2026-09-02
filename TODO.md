@@ -16,6 +16,13 @@
   acceptance is healthy but records one non-functional `/favicon.ico` 404.
 - [ ] Perform a real ASUS-GEI reboot and read back the unchanged `EllmosOceanFullUserStart` task,
   exact tagged checkout, process tuple, port ownership, HTTP identity and Full Ocean readiness.
+  **2026-09-02: happened de facto and FAILED.** After the 21:04 boot the logon task ran at
+  21:07:23 and exited 4 (runtime child exit 1 after 21 s, port 8810 never bound). Cause: 12 of
+  14 runtime providers on the spec PYTHONPATH are OneDrive read copies, and OneDrive.exe only
+  started at 21:14:27 — seven minutes after the task. A manual `ocean.py start` afterwards is
+  green. Ticket T-20260902-313385481 (place providers into the workspace; no OneDrive runtime path;
+  child stderr into `logs/runtime.log`). Interim on ASUS-GEI: task restart-on-failure 5× every
+  2 min (XML backup in `logs/`). Stays open until a reboot readback is green.
 - [x] Fixed the `--host` argument on `ocean.py up` (7d4de09): `up` now carries the
   same `choices=["127.0.0.1", "localhost"]` as `start`, so a wrong value fails at the parser
   instead of deep inside the lifecycle. Follow-up done: the same-named
@@ -27,9 +34,6 @@
   prescribed `--host claude-code` on `up` therefore aborts deterministically with
   `LifecycleError`; omit `--host` on `up` (default `127.0.0.1`), as every successful run in the
   build plan does.
-- [ ] Add a readiness gate to `up --apply`: it does not verify provider completeness before
-  starting the runtime — a failed provider fetch still starts an incomplete composition
-  (`ocean_lifecycle.py:546-596`; readiness is only reported, never enforced).
 - [x] Added the readiness gate for `up --apply` (7d4de09): the new
   `_assert_composition_complete` in `ocean_lifecycle.py` withholds the runtime and names the
   missing required components. Composition and install state are written BEFORE the gate on

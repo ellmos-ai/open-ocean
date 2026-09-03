@@ -13,12 +13,17 @@ from pathlib import Path
 
 import pytest
 
+import tools.ocean_lifecycle as ocean_lifecycle
 from tools.ocean_lifecycle import (
+    RUNTIME_STATE,
     LifecycleError,
     RuntimeProvider,
     _assert_composition_complete,
+    _assert_runtime_start_available,
     _ellmos_core_runtime_spec,
     _start_lock,
+    _write_json_atomic,
+    down_for_workspace,
 )
 from tools.resolve_bundles import canonical_hash
 
@@ -512,6 +517,38 @@ def test_up_status_down_runs_one_real_sandboxed_runtime_round_trip(tmp_path):
         _run_ocean("down", "--workspace", str(fixture["workspace"]), "--json")
 
 
+def test_health_timeout_is_configurable_and_names_an_empty_runtime_log(tmp_path):
+    """T-20260903-224229063 Fall 2: a fixed 20s health window destroyed a
+    runtime that only needed more time on a loaded host, and the failure
+    pointed at supervisor.log instead of the log that actually shows what
+    the child did (or didn't) do. --health-timeout must be reachable from
+    the CLI, and giving up must say plainly that the child never even wrote
+    its first log line -- the exact signal that distinguishes "slow" from
+    "not starting at all"."""
+    fixture = _write_runnable_ellmos_core_fixture(tmp_path)
+    port = _free_tcp_port()
+    common = [
+        "--bundles-root", str(fixture["bundles_root"]),
+        "--system-manifest", str(fixture["system"]),
+        "--modules-catalog", str(fixture["catalog"]),
+        "--skills-registry", str(fixture["skills"]),
+        "--source-pins", str(fixture["source_pins"]),
+        "--workspace", str(fixture["workspace"]),
+    ]
+    try:
+        up = _run_ocean(
+            "up", *common,
+            "--host", "127.0.0.1", "--port", str(port),
+            "--apply", "--health-timeout", "0.01", "--json",
+        )
+        assert up.returncode != 0
+        assert "keinen grünen Health-Status" in up.stderr
+        assert "ist leer" in up.stderr
+        assert "runtime.log" in up.stderr
+    finally:
+        _run_ocean("down", "--workspace", str(fixture["workspace"]), "--json")
+
+
 def test_second_up_rejects_a_running_runtime_before_fetch_or_activate(tmp_path):
     """A running sandbox is a write preflight gate, not a late start error."""
     fixture = _write_runnable_ellmos_core_fixture(tmp_path)
@@ -652,6 +689,137 @@ def test_start_lock_is_exclusive_per_workspace(tmp_path):
                 pass
     with _start_lock(tmp_path):
         pass
+
+
+def _fast_forward_deadline_polls(monkeypatch) -> None:
+    """Replace time.monotonic()/time.sleep() with an in-process fake clock so
+    a `while time.monotonic() < deadline: ...; time.sleep(x)` loop in
+    ocean_lifecycle runs to its real conclusion without actually blocking for
+    wall-clock seconds -- deadlines are computed from time.monotonic(), so
+    mocking only sleep() (as done elsewhere in this file) does not speed
+    these up."""
+    clock = {"now": 0.0}
+    monkeypatch.setattr(ocean_lifecycle.time, "monotonic", lambda: clock["now"])
+    monkeypatch.setattr(ocean_lifecycle.time, "sleep", lambda seconds: clock.__setitem__("now", clock["now"] + seconds))
+
+
+def _write_running_state(workspace: Path, *, port: int) -> None:
+    _write_json_atomic(workspace / RUNTIME_STATE, {
+        "schema": "ellmos.open-ocean-runtime-state.v1",
+        "instance_id": "fixture",
+        "runtime_id": "ellmos-core",
+        "status": "running",
+        "supervisor_pid": 0,
+        "child_pid": 0,
+        "control": {"host": "127.0.0.1", "port": port, "token": "fixture"},
+        "runtime_url": f"http://127.0.0.1:{port}",
+        "health_url": f"http://127.0.0.1:{port}/api/health",
+        "started_at": "2026-01-01T00:00:00+00:00",
+    })
+
+
+def test_down_treats_a_lost_stop_response_as_success_when_the_state_flips_anyway(
+    tmp_path, monkeypatch
+):
+    """T-20260903-224229063 Fall 1: the supervisor can process /stop -- and go
+    on to write the final "stopped" state -- while a slow/loaded client still
+    loses the HTTP response. down_for_workspace() must not fail closed on
+    that lost reply alone; it already polls the state file for confirmation
+    after a successful request, so a failed one must reach that same poll
+    instead of raising immediately."""
+    port = _free_tcp_port()
+    _write_running_state(tmp_path, port=port)
+
+    def fake_control_request(state, action, timeout=2.0):
+        assert action == "stop"
+        # The real supervisor writes "stopped" right after attempting to
+        # answer -- simulate that landing despite the client-side timeout.
+        _write_json_atomic(tmp_path / RUNTIME_STATE, {**state, "status": "stopped"})
+        raise LifecycleError("Authentifizierter OCEAN-Kontrollkanal nicht erreichbar: timed out")
+
+    monkeypatch.setattr(ocean_lifecycle, "_control_request", fake_control_request)
+
+    report = down_for_workspace(tmp_path)
+
+    assert report["stopped"] is True
+
+
+def test_down_falls_back_to_a_closed_port_when_the_state_file_never_flips(
+    tmp_path, monkeypatch
+):
+    """Same lost-response race, but this time the state file genuinely stays
+    stale (e.g. the supervisor process was already gone). A closed port is
+    still proof of "stopped" -- down_for_workspace() must trust it and
+    correct the stale state file instead of failing closed."""
+    port = _free_tcp_port()
+    _write_running_state(tmp_path, port=port)
+
+    def fake_control_request(state, action, timeout=2.0):
+        raise LifecycleError("Authentifizierter OCEAN-Kontrollkanal nicht erreichbar: timed out")
+
+    monkeypatch.setattr(ocean_lifecycle, "_control_request", fake_control_request)
+    _fast_forward_deadline_polls(monkeypatch)
+
+    report = down_for_workspace(tmp_path)
+
+    assert report["stopped"] is True
+    corrected = json.loads((tmp_path / RUNTIME_STATE).read_text(encoding="utf-8"))
+    assert corrected["status"] == "stopped"
+
+
+def test_down_still_fails_closed_when_neither_state_nor_port_confirm_a_stop(
+    tmp_path, monkeypatch
+):
+    """The genuinely-stuck case must still raise: a lost response, a state
+    file that never flips, AND something still answering on the port is not
+    a resolvable ambiguity -- it is the real "not controllable" failure the
+    other two tests must not accidentally swallow."""
+    listener = socket.socket()
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(1)
+    port = listener.getsockname()[1]
+    try:
+        _write_running_state(tmp_path, port=port)
+
+        def fake_control_request(state, action, timeout=2.0):
+            raise LifecycleError("Authentifizierter OCEAN-Kontrollkanal nicht erreichbar: timed out")
+
+        monkeypatch.setattr(ocean_lifecycle, "_control_request", fake_control_request)
+        _fast_forward_deadline_polls(monkeypatch)
+
+        with pytest.raises(LifecycleError, match="Statusdatei blieb aber aktiv"):
+            down_for_workspace(tmp_path)
+    finally:
+        listener.close()
+
+
+def test_assert_runtime_start_available_settles_a_momentarily_busy_reading(
+    tmp_path, monkeypatch
+):
+    """A stop that just landed can still look "busy" for a beat (socket
+    teardown in flight, OS scheduling under load) even though the runtime is
+    already gone. _assert_runtime_start_available() must re-check a few
+    times before treating one snapshot reading as a real blocker
+    (T-20260903-224229063: this exact race refused a legitimate restart)."""
+    port = _free_tcp_port()
+    _write_running_state(tmp_path, port=port)
+
+    def fake_control_request(state, action, timeout=2.0):
+        raise LifecycleError("Authentifizierter OCEAN-Kontrollkanal nicht erreichbar: timed out")
+
+    # Two "still busy" readings, then clear -- and clear from then on: the
+    # retry loop consumes the first three, the unconditional final port
+    # check just below it (a separate, always-run guard) consumes a fourth.
+    readings = iter([True, True, False, False])
+    monkeypatch.setattr(ocean_lifecycle, "_control_request", fake_control_request)
+    monkeypatch.setattr(ocean_lifecycle, "_health", lambda *_a, **_k: False)
+    monkeypatch.setattr(ocean_lifecycle, "_runtime_endpoint_open", lambda *_a, **_k: False)
+    monkeypatch.setattr(
+        ocean_lifecycle, "_tcp_endpoint_open", lambda *_a, **_k: next(readings, False)
+    )
+    _fast_forward_deadline_polls(monkeypatch)
+
+    _assert_runtime_start_available(tmp_path, host="127.0.0.1", port=port)  # must not raise
 
 
 def test_start_fails_closed_while_another_process_holds_the_workspace_lock(tmp_path):

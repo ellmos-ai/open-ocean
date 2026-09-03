@@ -19,6 +19,7 @@ Two kinds of tests here, deliberately:
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -310,17 +311,19 @@ class PlanAndFetchTests(unittest.TestCase):
         outcomes = plan_and_fetch([comp], self.catalog_path, self.workspace, apply=False)
         self.assertEqual(outcomes[0].action, "present")
 
-    def test_dry_run_reports_present_without_touching_disk_for_a_resolved_module(self):
+    def test_dry_run_reports_planned_without_touching_disk_for_a_resolved_module(self):
         """T-20260902-313385481: a resolved-but-unbound module (e.g. the
         shared catalog's `resolved_source` pointing into an OneDrive mirror)
-        must not be copied anywhere during a dry run."""
+        must not be copied anywhere during a dry run. Action is "planned"
+        (T-20260903-113508213 Blocker 2), the same vocabulary every other
+        prospective-write outcome in this module uses."""
         source = Path(self.temp.name) / "mirror" / "some-module"
         (source / "src").mkdir(parents=True)
         comp = _component("module:some-module", "resolved", {
             "catalog_id": "some-module", "present_locally": True, "local_path": str(source),
         })
         outcomes = plan_and_fetch([comp], self.catalog_path, self.workspace, apply=False)
-        self.assertEqual(outcomes[0].action, "present")
+        self.assertEqual(outcomes[0].action, "planned")
         self.assertFalse((self.workspace / "modules" / "some-module").exists())
         self.assertEqual(comp.detail["local_path"], str(source))
 
@@ -340,6 +343,31 @@ class PlanAndFetchTests(unittest.TestCase):
         self.assertEqual(comp.detail["local_path"], str(dest.resolve(strict=False)))
 
     def test_second_apply_of_a_resolved_module_is_a_noop_not_an_overwrite(self):
+        """A destination that already matches the resolved source (e.g. an
+        earlier apply already placed it) is reused, not re-copied -- its
+        existing bytes on disk are left exactly as they are, not replaced
+        by a fresh copytree."""
+        source = Path(self.temp.name) / "mirror" / "some-module"
+        (source / "src").mkdir(parents=True)
+        marker = source / "src" / "marker.py"
+        marker.write_text("x = 1", encoding="utf-8")
+        dest = self.workspace / "modules" / "some-module"
+        shutil.copytree(source, dest)
+        comp = _component("module:some-module", "resolved", {
+            "catalog_id": "some-module", "present_locally": True, "local_path": str(source),
+        })
+
+        outcomes = plan_and_fetch([comp], self.catalog_path, self.workspace, apply=True)
+
+        self.assertEqual(outcomes[0].action, "placed")
+        self.assertEqual((dest / "src" / "marker.py").read_text(encoding="utf-8"), "x = 1")
+
+    def test_apply_fails_closed_when_a_pre_existing_placement_no_longer_matches_its_source(self):
+        """T-20260903-113508213 Blocker 3: an existing destination used to be
+        accepted unverified. If it no longer matches the resolved source --
+        the source moved on, or the workspace copy was modified -- Place
+        must fail closed instead of silently running whatever is already
+        there."""
         source = Path(self.temp.name) / "mirror" / "some-module"
         source.mkdir(parents=True)
         dest = self.workspace / "modules" / "some-module"
@@ -351,7 +379,8 @@ class PlanAndFetchTests(unittest.TestCase):
 
         outcomes = plan_and_fetch([comp], self.catalog_path, self.workspace, apply=True)
 
-        self.assertEqual(outcomes[0].action, "placed")
+        self.assertEqual(outcomes[0].action, "failed")
+        self.assertIn("no longer matches", outcomes[0].detail["reason"])
         self.assertEqual((dest / "already-here.txt").read_text(encoding="utf-8"), "do not touch")
 
     def test_bound_alias_uses_overlay_pin_and_placement_even_when_catalog_mirror_is_present(self):

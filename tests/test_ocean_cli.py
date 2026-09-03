@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import socket
+import stat
 import subprocess
 import sys
 import textwrap
 import time
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -18,7 +21,9 @@ from tools.ocean_lifecycle import (
     RuntimeProvider,
     _assert_composition_complete,
     _ellmos_core_runtime_spec,
+    _restrict_to_current_user_windows,
     _start_lock,
+    _write_json_private,
 )
 from tools.resolve_bundles import canonical_hash
 
@@ -362,6 +367,40 @@ def test_runtime_spec_exposes_resolved_operator_ui_as_the_ocean_surface(tmp_path
     ) == {"title": "OCEAN Full Dev"}
 
 
+def test_write_json_private_sets_owner_only_permissions_at_creation(tmp_path):
+    """T-20260903-113508213 Blocker 1: a secret-bearing file must never
+    exist, even briefly, with default/wider permissions. On POSIX the mode
+    comes from the os.open() syscall that creates the file. On Windows,
+    where that mode is meaningless, icacls.exe must be invoked instead."""
+    target = tmp_path / "ocean.runtime-spec.json"
+
+    with patch("tools.ocean_lifecycle._restrict_to_current_user_windows") as restrict:
+        _write_json_private(target, {"token": "secret"})
+
+    assert json.loads(target.read_text(encoding="utf-8")) == {"token": "secret"}
+    if os.name == "nt":
+        restrict.assert_called_once()
+    else:
+        restrict.assert_not_called()
+        assert stat.S_IMODE(target.stat().st_mode) == 0o600
+
+
+def test_restrict_to_current_user_windows_invokes_icacls_with_an_owner_only_grant(tmp_path):
+    target = tmp_path / "ocean.runtime-spec.json"
+    target.write_text("{}", encoding="utf-8")
+
+    with patch.dict(os.environ, {"USERNAME": "tester"}), \
+            patch("tools.ocean_lifecycle.subprocess.run") as run:
+        _restrict_to_current_user_windows(target)
+
+    run.assert_called_once()
+    command = run.call_args.args[0]
+    assert command[0] == "icacls"
+    assert command[1] == str(target)
+    assert "/inheritance:r" in command
+    assert "tester:F" in command
+
+
 def test_plan_proves_one_runtime_host_without_creating_the_workspace(tmp_path):
     """Catches treating a verified recipe as usable without a runnable host."""
     fixture = _write_plan_fixture(tmp_path)
@@ -447,6 +486,14 @@ def test_up_status_down_runs_one_real_sandboxed_runtime_round_trip(tmp_path):
         assert runtime_spec["env"]["PYTHONUTF8"] == "1"
         assert len(runtime_spec["env"]["ELLMOS_CORE_SECRET_KEY"]) >= 32
         assert runtime_spec["env"]["ELLMOS_CORE_SECRET_KEY"] != "CHANGE-ME-IN-PRODUCTION"
+        # T-20260903-113508213 Blocker 1: the control-channel bearer token
+        # used to live in this file too. It is handed to the supervisor via
+        # an env var instead -- if that handoff were broken, status/down/
+        # user-add below (all authenticated over that channel) would fail.
+        assert "token" not in runtime_spec
+        if os.name != "nt":
+            spec_path = fixture["workspace"] / "ocean.runtime-spec.json"
+            assert stat.S_IMODE(spec_path.stat().st_mode) == 0o600
 
         status = _run_ocean("status", "--workspace", str(fixture["workspace"]), "--json")
         assert status.returncode == 0, status.stderr

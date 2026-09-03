@@ -276,7 +276,12 @@ def write_activation_log(path: Path, module_outcomes: list[Any], skill_outcomes:
     entries = _activation_log_entries(
         module_outcomes,
         skill_outcomes,
-        module_actions=frozenset({"fetched"}),
+        # "placed" (fetch_place._place_resolved_module) copies an unbound
+        # module into the workspace exactly like a "fetched" one -- it must
+        # be rollback-able the same way, or `--rollback` silently leaves
+        # those directories behind despite promising to undo every write
+        # this ran (T-20260903-113508213 Blocker 2).
+        module_actions=frozenset({"fetched", "placed"}),
         skill_actions=frozenset({"activated"}),
     )
     if not entries:

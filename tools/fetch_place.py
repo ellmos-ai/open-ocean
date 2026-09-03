@@ -50,7 +50,7 @@ import shutil
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeGuard
 
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 
@@ -59,7 +59,11 @@ class FetchError(RuntimeError):
     """A git operation failed after a valid SHA pin was already accepted."""
 
 
-def is_git_sha(value: Any) -> bool:
+def is_git_sha(value: Any) -> TypeGuard[str]:
+    """`bool` return already made every `if is_git_sha(x): ...` branch
+    correct at runtime; typed as a TypeGuard so a type checker knows it too
+    -- `x` narrows to `str` in the guarded branch instead of staying
+    `Unknown | None` all the way to a later call that requires `str`."""
     return isinstance(value, str) and bool(SHA_RE.match(value))
 
 

@@ -275,4 +275,3 @@ def test_repin_refuses_a_dirty_recipe_and_registry_bytes_that_disagree_with_the_
     registry.write_bytes(b'{"components": ["drift"]}\n')
     with pytest.raises(SourcePinError, match="differ from the provider binding pin"):
         repin_source_pins(fixture["contract_path"], recipe, registry)
-

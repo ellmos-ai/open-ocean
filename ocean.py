@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from tools.ocean_lifecycle import (
+    DEFAULT_HEALTH_TIMEOUT,
     LifecycleError,
     down_for_workspace,
     plan_from_paths,
@@ -128,6 +129,16 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"dedizierter OCEAN-Port (Standard: {DEFAULT_OCEAN_PORT}; getrennt von ellmos-core/TerminPilot)",
     )
     up.add_argument("--apply", action="store_true", help="Transaktion und Laufzeit wirklich starten")
+    up.add_argument(
+        "--health-timeout",
+        type=float,
+        default=DEFAULT_HEALTH_TIMEOUT,
+        help=(
+            "Sekunden bis zum gruenen Health-Status, bevor die Laufzeit wieder "
+            f"abgebaut wird (Standard: {DEFAULT_HEALTH_TIMEOUT:g}s; T-20260903-224229063: "
+            "ein belasteter Host kann laenger brauchen, ohne dass der Start wirklich haengt)"
+        ),
+    )
     start = commands.add_parser(
         "start",
         help="bereits installierten OCEAN-Stand starten oder nach Prozessverlust wiederherstellen",
@@ -135,6 +146,12 @@ def build_parser() -> argparse.ArgumentParser:
     start.add_argument("--workspace", type=Path, required=True)
     start.add_argument("--host", choices=["127.0.0.1", "localhost"])
     start.add_argument("--port", type=int, help="optional neuer Port; sonst wird der installierte Port verwendet")
+    start.add_argument(
+        "--health-timeout",
+        type=float,
+        default=DEFAULT_HEALTH_TIMEOUT,
+        help="siehe 'ocean up --health-timeout'",
+    )
     start.add_argument("--json", action="store_true")
     status = commands.add_parser("status", help="Installations- und Laufzeitstatus live prüfen")
     status.add_argument("--workspace", type=Path, required=True)
@@ -202,6 +219,7 @@ def main(argv: list[str] | None = None) -> int:
                 source_pins=args.source_pins,
                 host=args.host,
                 port=args.port,
+                health_timeout=args.health_timeout,
             )
         except LifecycleError as exc:
             print(str(exc), file=sys.stderr)
@@ -223,6 +241,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.workspace,
                 host=args.host,
                 port=args.port,
+                health_timeout=args.health_timeout,
             )
         except LifecycleError as exc:
             print(str(exc), file=sys.stderr)

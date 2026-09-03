@@ -221,6 +221,48 @@ def _write_json_atomic(path: Path, value: dict[str, Any]) -> None:
     temporary.replace(path)
 
 
+def _restrict_to_current_user_windows(path: Path) -> None:
+    """Best-effort ACL lockdown for a secret-bearing file on Windows, where
+    chmod()/Path.chmod() only ever toggle the read-only attribute bit and
+    grant no real access control. Uses the platform's own icacls.exe (no new
+    dependency): drop inherited ACEs and grant only the current user access.
+    (T-20260903-113508213 Blocker 1)"""
+    username = os.environ.get("USERNAME")
+    if not username:
+        return
+    try:
+        subprocess.run(
+            ["icacls", str(path), "/inheritance:r", "/grant:r", f"{username}:F"],
+            capture_output=True, check=False,
+        )
+    except OSError:
+        pass
+
+
+def _write_json_private(path: Path, value: dict[str, Any]) -> None:
+    """Like _write_json_atomic, but for a file whose content is a secret:
+    permissions are set AT CREATION, not after the fact -- a chmod() called
+    once write_text() has already created the file leaves a window where it
+    briefly carries the default, wider permissions. POSIX gets the mode from
+    the os.open() syscall itself; Windows (where that mode is meaningless)
+    gets an owner-only ACL. (T-20260903-113508213 Blocker 1)"""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    try:
+        temporary.unlink()
+    except FileNotFoundError:
+        pass
+    payload = json.dumps(value, indent=2, ensure_ascii=False) + "\n"
+    fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        os.write(fd, payload.encode("utf-8"))
+    finally:
+        os.close(fd)
+    if os.name == "nt":
+        _restrict_to_current_user_windows(temporary)
+    temporary.replace(path)
+
+
 def write_runtime_projection(
     workspace: Path,
     transaction_report: dict[str, Any],
@@ -615,21 +657,31 @@ def _start_runtime_locked(
         "schema": "ellmos.open-ocean-runtime-spec.v1",
         "instance_id": str(uuid.uuid4()),
         **launch,
-        "token": token,
         "state_path": str(state_path.resolve(strict=False)),
         "log_path": str((workspace / "logs" / "runtime.log").resolve(strict=False)),
     }
+    # The bearer token used to be written into the spec file too, but nothing
+    # else ever reads it from there -- only the supervisor we are about to
+    # spawn, and only once, right after start. Handing it over as an env var
+    # to that direct child means the control-channel secret never touches
+    # disk at all here (T-20260903-113508213 Blocker 1). ELLMOS_CORE_SECRET_KEY
+    # (inside `launch["env"]`) stays in the file: a later, independent
+    # `ocean user add` invocation reads it back from RUNTIME_SPEC with no
+    # process relationship to this one to inherit an env var from.
     spec_path = workspace / RUNTIME_SPEC
-    _write_json_atomic(spec_path, spec)
+    _write_json_private(spec_path, spec)
     supervisor_log = workspace / "logs" / "supervisor.log"
     supervisor_log.parent.mkdir(parents=True, exist_ok=True)
     creationflags = 0
     if os.name == "nt":
         creationflags = subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
+    supervisor_env = os.environ.copy()
+    supervisor_env["OCEAN_RUNTIME_TOKEN"] = token
     with supervisor_log.open("ab", buffering=0) as log_handle:
         subprocess.Popen(
             [sys.executable, str(SUPERVISOR_CLI), "--spec", str(spec_path)],
             cwd=TOOLS_DIR.parent,
+            env=supervisor_env,
             stdin=subprocess.DEVNULL,
             stdout=log_handle,
             stderr=log_handle,

@@ -42,6 +42,7 @@ Deliberately NOT this module's job:
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -49,7 +50,7 @@ import shutil
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeGuard
 
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 
@@ -58,7 +59,11 @@ class FetchError(RuntimeError):
     """A git operation failed after a valid SHA pin was already accepted."""
 
 
-def is_git_sha(value: Any) -> bool:
+def is_git_sha(value: Any) -> TypeGuard[str]:
+    """`bool` return already made every `if is_git_sha(x): ...` branch
+    correct at runtime; typed as a TypeGuard so a type checker knows it too
+    -- `x` narrows to `str` in the guarded branch instead of staying
+    `Unknown | None` all the way to a later call that requires `str`."""
     return isinstance(value, str) and bool(SHA_RE.match(value))
 
 
@@ -131,6 +136,31 @@ _ACTIONS = {
 _PLACE_IGNORE = shutil.ignore_patterns(
     ".git", "__pycache__", "*.pyc", ".venv", "venv", "node_modules", ".pytest_cache",
 )
+
+
+def _tree_hash(root: Path) -> str:
+    """Deterministic content hash of a directory tree: every non-ignored
+    file's relative path and bytes, in sorted order, over the exact same
+    _PLACE_IGNORE filter shutil.copytree() applies -- what is hashed is
+    exactly what would have been copied. Independent of mtimes, permission
+    bits, or filesystem walk order; two trees with equal hashes are
+    byte-identical (ignored paths aside). Used to prove a pre-existing
+    workspace placement still matches its resolved source instead of
+    trusting it unverified (T-20260903-113508213 Blocker 3)."""
+    digest = hashlib.sha256()
+    for current_dir, dirnames, filenames in os.walk(root):
+        ignored = _PLACE_IGNORE(current_dir, dirnames + filenames)
+        dirnames[:] = sorted(name for name in dirnames if name not in ignored)
+        for name in sorted(filenames):
+            if name in ignored:
+                continue
+            file_path = Path(current_dir) / name
+            relative = file_path.relative_to(root).as_posix()
+            digest.update(relative.encode("utf-8"))
+            digest.update(b"\x00")
+            digest.update(file_path.read_bytes())
+            digest.update(b"\x00")
+    return digest.hexdigest()
 
 
 def resolve_pin_for_module(catalog_entry: dict[str, Any]) -> tuple[str | None, Any]:
@@ -292,9 +322,16 @@ def _place_resolved_module(comp: Any, dest_root: Path, *, apply: bool) -> FetchO
         return FetchOutcome(comp.ref, "present", {"present_locally": True})
     dest = dest_root / catalog_id
     if not apply:
-        return FetchOutcome(comp.ref, "present", {"present_locally": True, "would_place_at": str(dest)})
+        # "planned" (not "present"), and "dest" (not "would_place_at"): this
+        # IS a prospective write, in the same family as the bound-provider
+        # and unbound-git "planned" outcomes below -- using their vocabulary
+        # is what lets preflight_activation_log()'s existing
+        # module_actions={"planned"} filter (ocean_dev.py) already cover
+        # this branch too, instead of a second, parallel filter someone has
+        # to remember to keep in sync (T-20260903-113508213 Blocker 2).
+        return FetchOutcome(comp.ref, "planned", {"present_locally": True, "dest": str(dest)})
+    source = Path(raw_local_path)
     if not dest.exists():
-        source = Path(raw_local_path)
         if not source.is_dir():
             return FetchOutcome(
                 comp.ref, "failed", {"reason": f"resolved source vanished before Place: {source}"},
@@ -307,6 +344,24 @@ def _place_resolved_module(comp: Any, dest_root: Path, *, apply: bool) -> FetchO
             except OSError:
                 pass
             return FetchOutcome(comp.ref, "failed", {"error": str(exc)})
+    else:
+        # T-20260903-113508213 Blocker 3: a pre-existing destination used to
+        # be accepted unverified -- a "verified" transaction could then run
+        # stale or modified code without anyone noticing. Tree-hash both
+        # sides (same _PLACE_IGNORE filter the copy itself uses, so what is
+        # compared is exactly what would have been copied) and fail closed
+        # on any mismatch instead of trusting whatever is already there.
+        if not source.is_dir():
+            return FetchOutcome(
+                comp.ref, "failed", {"reason": f"resolved source vanished before Place: {source}"},
+            )
+        source_hash = _tree_hash(source)
+        dest_hash = _tree_hash(dest)
+        if source_hash != dest_hash:
+            return FetchOutcome(
+                comp.ref, "failed",
+                {"reason": f"workspace placement at {dest} no longer matches its resolved source {source}"},
+            )
     comp.detail["local_path"] = str(dest.resolve(strict=False))
     return FetchOutcome(comp.ref, "placed", {"source": raw_local_path, "dest": comp.detail["local_path"]})
 

@@ -28,14 +28,44 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _restrict_to_current_user_windows(path: Path) -> None:
+    """Best-effort ACL lockdown for this state file on Windows, where
+    chmod() only ever toggles the read-only attribute and grants no real
+    access control. Uses the platform's own icacls.exe (no new dependency).
+    (T-20260903-113508213 Blocker 1 -- this state file's own docstring above
+    already calls it "the private local runtime-state file"; it carries the
+    same control.token the spec file used to carry.)"""
+    username = os.environ.get("USERNAME")
+    if not username:
+        return
+    try:
+        subprocess.run(
+            ["icacls", str(path), "/inheritance:r", "/grant:r", f"{username}:F"],
+            capture_output=True, check=False,
+        )
+    except OSError:
+        pass
+
+
 def _write_json_atomic(path: Path, value: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
-    temporary.write_text(json.dumps(value, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     try:
-        temporary.chmod(0o600)
-    except OSError:
+        temporary.unlink()
+    except FileNotFoundError:
         pass
+    payload = json.dumps(value, indent=2, ensure_ascii=False) + "\n"
+    # Permissions are set AT CREATION via the os.open() mode, not via a
+    # chmod() after write_text() already created the file with default
+    # permissions -- that used to leave a window where it was briefly
+    # world-readable (T-20260903-113508213 Blocker 1).
+    fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        os.write(fd, payload.encode("utf-8"))
+    finally:
+        os.close(fd)
+    if os.name == "nt":
+        _restrict_to_current_user_windows(temporary)
     for attempt in range(ATOMIC_REPLACE_ATTEMPTS):
         try:
             temporary.replace(path)
@@ -108,10 +138,19 @@ def supervise(spec_path: Path) -> int:
     spec = json.loads(spec_path.read_text(encoding="utf-8"))
     if spec.get("schema") != "ellmos.open-ocean-runtime-spec.v1":
         raise ValueError("unsupported runtime specification")
+    # The control-channel bearer token is handed to us via the environment,
+    # not the spec file (T-20260903-113508213 Blocker 1) -- nothing else
+    # ever needs to read it back from disk. Pop it before deriving the
+    # child's environment so it doesn't leak into the runtime it has no use
+    # for there.
+    token = os.environ.get("OCEAN_RUNTIME_TOKEN")
+    if not token:
+        raise ValueError("OCEAN_RUNTIME_TOKEN is missing from the environment")
     state_path = Path(spec["state_path"])
     log_path = Path(spec["log_path"])
     log_path.parent.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
+    env.pop("OCEAN_RUNTIME_TOKEN", None)
     env.update({str(k): str(v) for k, v in (spec.get("env") or {}).items()})
     creationflags = 0
     if os.name == "nt":
@@ -127,7 +166,7 @@ def supervise(spec_path: Path) -> int:
             creationflags=creationflags,
         )
         server = ThreadingHTTPServer(("127.0.0.1", 0), lambda *args: None)
-        server.RequestHandlerClass = _handler(server, spec["token"], child)
+        server.RequestHandlerClass = _handler(server, token, child)
         server.timeout = 0.2
         state = {
             "schema": STATE_SCHEMA,
@@ -136,7 +175,7 @@ def supervise(spec_path: Path) -> int:
             "status": "running",
             "supervisor_pid": os.getpid(),
             "child_pid": child.pid,
-            "control": {"host": "127.0.0.1", "port": server.server_address[1], "token": spec["token"]},
+            "control": {"host": "127.0.0.1", "port": server.server_address[1], "token": token},
             "runtime_url": spec["runtime_url"],
             "health_url": spec["health_url"],
             "started_at": _now(),

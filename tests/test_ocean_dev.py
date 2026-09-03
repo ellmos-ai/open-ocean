@@ -157,7 +157,7 @@ class OceanDevIntegrationTests(unittest.TestCase):
         activate = {o["ref"]: o for o in report["activate"]}
         self.assertEqual(activate["skill:decide"]["action"], "planned")
         fetch = {o["ref"]: o for o in report["fetch"]}
-        self.assertEqual(fetch["module:present-module"]["action"], "present")
+        self.assertEqual(fetch["module:present-module"]["action"], "planned")
 
     def test_report_exposes_resolved_runtime_metadata_for_lifecycle_consumers(self):
         report_path = self.root / "report.json"
@@ -289,6 +289,33 @@ class OceanDevIntegrationTests(unittest.TestCase):
         ])
         self.assertEqual(code, 0)
         self.assertFalse((skills_dir / "decide").exists())
+
+    def test_rollback_also_removes_a_placed_unbound_module(self):
+        """T-20260903-113508213 Blocker 2: a "placed" module (an unbound
+        component copied into the workspace by fetch_place._place_resolved_
+        module, distinct from a "fetched" exact-bound one) used to be left
+        out of the activation log entirely -- rollback could not undo it,
+        contradicting the "undo every write this ran" promise."""
+        code = main(self._common_args(apply=True))
+        self.assertEqual(code, 0)
+        module_dir = self.workspace / "modules" / "present-module"
+        self.assertTrue(module_dir.is_dir())
+        log = json.loads(
+            (self.workspace / "ocean-dev.activation-log.json").read_text(encoding="utf-8")
+        )
+        self.assertIn(
+            ("module", "module:present-module"),
+            {(e["type"], e["ref"]) for e in log["entries"]},
+        )
+
+        code = main([
+            "--rollback", str(self.workspace / "ocean-dev.activation-log.json"),
+            "--workspace", str(self.workspace),
+            "--skills-dir", str(self.workspace / "skills"),
+        ])
+
+        self.assertEqual(code, 0)
+        self.assertFalse(module_dir.exists())
 
     def test_rollback_with_different_skill_target_fails_closed(self):
         main(self._common_args(apply=True))

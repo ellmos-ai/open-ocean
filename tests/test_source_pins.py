@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from tools.resolve_bundles import canonical_hash
-from tools.source_pins import SourcePinError, verify_source_pins
+from tools.source_pins import SourcePinError, repin_source_pins, verify_source_pins
 
 
 def _sha256(payload: bytes) -> str:
@@ -205,3 +205,73 @@ def test_missing_recipe_path_is_a_controlled_source_pin_failure(tmp_path: Path):
             fixture["recipe"],
             fixture["registry"],
         )
+
+def _advance_fixture(fixture: dict[str, Path | dict]) -> str:
+    """Move the recipe one commit forward with a new registry, like a real re-pin trigger."""
+    recipe = fixture["recipe"]
+    registry = fixture["registry"]
+    assert isinstance(recipe, Path) and isinstance(registry, Path)
+    registry.write_bytes(b'{"components": [{"id": "skill:new"}]}\n')
+    bindings_path = recipe / "manifests" / "component.registry.bindings.v1.json"
+    bindings = json.loads(bindings_path.read_text(encoding="utf-8"))
+    source = bindings["sources"]["registry:skills-components"]
+    source["uri"] = "repo://ellmos-ai/skills@" + "1" * 40 + "/registry/components.json"
+    source["sha256"] = _sha256(registry.read_bytes())
+    bindings.pop("content_hash", None)
+    bindings["content_hash"] = canonical_hash(bindings)
+    _write_json(bindings_path, bindings)
+    _git(recipe, "add", ".")
+    _git(recipe, "commit", "-m", "fixture recipe: registry moved")
+    return _git(recipe, "rev-parse", "HEAD")
+
+
+def test_repin_is_check_only_by_default_and_reports_the_move(tmp_path: Path):
+    fixture = _fixture(tmp_path)
+    new_commit = _advance_fixture(fixture)
+    contract_path = fixture["contract_path"]
+    assert isinstance(contract_path, Path)
+    before = contract_path.read_bytes()
+
+    report = repin_source_pins(contract_path, fixture["recipe"], fixture["registry"])
+
+    assert report["status"] == "would-update"
+    assert report["written"] is False
+    assert report["current"]["recipe_commit"] == new_commit
+    assert report["current"]["skills_registry"]["uri"].endswith("@" + "1" * 40 + "/registry/components.json")
+    assert contract_path.read_bytes() == before
+    with pytest.raises(SourcePinError, match="recipe commit mismatch"):
+        verify_source_pins(contract_path, fixture["recipe"], fixture["registry"])
+
+
+def test_repin_write_rewrites_the_contract_and_the_gate_accepts_it(tmp_path: Path):
+    fixture = _fixture(tmp_path)
+    new_commit = _advance_fixture(fixture)
+    contract_path = fixture["contract_path"]
+    assert isinstance(contract_path, Path)
+
+    report = repin_source_pins(contract_path, fixture["recipe"], fixture["registry"], write=True)
+
+    assert report["status"] == "updated" and report["written"] is True
+    contract = json.loads(contract_path.read_text(encoding="utf-8"))
+    assert contract["recipe"]["commit"] == new_commit
+    assert contract["content_hash"] == canonical_hash(contract)
+    assert contract["skills_registry"]["sha256"] == _sha256(fixture["registry"].read_bytes())
+    verification = verify_source_pins(contract_path, fixture["recipe"], fixture["registry"])
+    assert verification.receipt["status"] == "verified"
+    again = repin_source_pins(contract_path, fixture["recipe"], fixture["registry"])
+    assert again["status"] == "unchanged"
+
+
+def test_repin_refuses_a_dirty_recipe_and_registry_bytes_that_disagree_with_the_binding(tmp_path: Path):
+    fixture = _fixture(tmp_path)
+    recipe = fixture["recipe"]
+    registry = fixture["registry"]
+    assert isinstance(recipe, Path) and isinstance(registry, Path)
+    (recipe / "manifests" / "scratch.json").write_text("{}\n", encoding="utf-8")
+    with pytest.raises(SourcePinError, match="not clean"):
+        repin_source_pins(fixture["contract_path"], recipe, registry)
+    (recipe / "manifests" / "scratch.json").unlink()
+
+    registry.write_bytes(b'{"components": ["drift"]}\n')
+    with pytest.raises(SourcePinError, match="differ from the provider binding pin"):
+        repin_source_pins(fixture["contract_path"], recipe, registry)

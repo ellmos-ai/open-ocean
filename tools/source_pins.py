@@ -9,8 +9,10 @@ no network call and no sibling-repository Python import is required.
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
+import os
 import re
 import subprocess
 from dataclasses import dataclass
@@ -338,3 +340,143 @@ def verify_source_pins(
         },
     }
     return SourcePinVerification(receipt=receipt, skills_registry=verified_registry)
+
+def repin_source_pins(
+    source_pins_path: Path,
+    bundles_root: Path,
+    skills_registry_path: Path,
+    *,
+    write: bool = False,
+) -> dict[str, Any]:
+    """Re-pin the contract to the current clean recipe checkout and registry bytes.
+
+    Check-only by default: the report says what would change.  With ``write`` the
+    contract is rewritten atomically and immediately re-verified with
+    :func:`verify_source_pins`, so a re-pin can never leave a contract behind that
+    the gate itself would reject.  The recipe checkout must be clean, at its
+    repository root and on the declared origin; the Skills Registry bytes must
+    match the provider binding's own pin (the binding is the recipe's source of
+    truth for the registry URI, this command only follows it).
+    """
+
+    contract = _load_contract(source_pins_path)
+    recipe_pin = contract["recipe"]
+
+    try:
+        recipe_root = bundles_root.resolve(strict=True)
+    except OSError as exc:
+        raise ResolveError(f"recipe checkout does not exist: {bundles_root}") from exc
+    git_root = Path(_git(recipe_root, "rev-parse", "--show-toplevel")).resolve(strict=True)
+    if git_root != recipe_root:
+        raise ResolveError(
+            f"bundles root must be the recipe repository root: got {recipe_root}, Git root is {git_root}"
+        )
+    dirty = _git(recipe_root, "status", "--porcelain=v1", "--untracked-files=all")
+    if dirty:
+        first = dirty.splitlines()[0]
+        raise ResolveError(f"recipe checkout is not clean (first change: {first})")
+    commit = _git(recipe_root, "rev-parse", "HEAD")
+    observed_repository = _git(recipe_root, "remote", "get-url", "origin")
+    if _normalized_repository(observed_repository) != _normalized_repository(recipe_pin["repository"]):
+        raise ResolveError(
+            "recipe origin mismatch: "
+            f"expected {recipe_pin['repository']!r}, observed {observed_repository!r}"
+        )
+
+    binding_pin = recipe_pin["component_bindings"]
+    binding_path = _recipe_file(recipe_root, binding_pin["path"], "component_bindings path")
+    binding, _ = _read_json_bytes(binding_path, "provider binding")
+    declared_binding_hash = _sha256_pin(binding.get("content_hash"), "provider binding content_hash")
+    if declared_binding_hash != canonical_hash(binding):
+        raise ResolveError("provider binding self-hash mismatch; refresh the recipe first")
+    sources = _object(binding.get("sources"), "provider binding sources")
+    skills_source = _object(
+        sources.get("registry:skills-components"), "provider binding registry:skills-components"
+    )
+    registry_uri = _string(skills_source.get("uri"), "provider binding Skills Registry uri")
+    if not _PINNED_REPO_URI_RE.fullmatch(registry_uri):
+        raise ResolveError("provider binding Skills Registry uri is not an exact repo pin")
+    try:
+        registry_bytes = skills_registry_path.read_bytes()
+    except OSError as exc:
+        raise ResolveError(f"cannot read Skills Registry {skills_registry_path}: {exc}") from exc
+    registry_sha = _sha256(registry_bytes)
+    if registry_sha != skills_source.get("sha256"):
+        raise ResolveError(
+            "Skills Registry bytes differ from the provider binding pin: "
+            f"binding {skills_source.get('sha256')!r}, observed {registry_sha}"
+        )
+    crosswalk_pin = recipe_pin["skills_crosswalk"]
+    crosswalk_path = _recipe_file(recipe_root, crosswalk_pin["path"], "skills_crosswalk path")
+    try:
+        crosswalk_sha = _sha256(crosswalk_path.read_bytes())
+    except OSError as exc:
+        raise ResolveError(f"cannot read skills crosswalk {crosswalk_path}: {exc}") from exc
+
+    updated = json.loads(json.dumps(contract))
+    updated["recipe"]["commit"] = commit
+    updated["recipe"]["component_bindings"]["content_hash"] = declared_binding_hash
+    updated["recipe"]["skills_crosswalk"]["sha256"] = crosswalk_sha
+    updated["skills_registry"] = {"uri": registry_uri, "sha256": registry_sha}
+    updated["content_hash"] = canonical_hash(updated)
+    changed = updated != contract
+
+    report: dict[str, Any] = {
+        "status": "unchanged" if not changed else ("updated" if write else "would-update"),
+        "contract": str(source_pins_path.resolve(strict=True)),
+        "previous": {
+            "recipe_commit": recipe_pin["commit"],
+            "component_bindings_content_hash": binding_pin["content_hash"],
+            "skills_crosswalk_sha256": crosswalk_pin["sha256"],
+            "skills_registry": dict(contract["skills_registry"]),
+            "content_hash": contract["content_hash"],
+        },
+        "current": {
+            "recipe_commit": commit,
+            "component_bindings_content_hash": declared_binding_hash,
+            "skills_crosswalk_sha256": crosswalk_sha,
+            "skills_registry": dict(updated["skills_registry"]),
+            "content_hash": updated["content_hash"],
+        },
+        "written": False,
+    }
+    if changed and write:
+        payload = (json.dumps(updated, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
+        tmp = source_pins_path.with_name(source_pins_path.name + ".tmp")
+        tmp.write_bytes(payload)
+        os.replace(tmp, source_pins_path)
+        verify_source_pins(source_pins_path, bundles_root, skills_registry_path)
+        report["written"] = True
+    return report
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Re-pin the OCEAN source-pin contract to the current clean recipe checkout "
+            "and Skills Registry bytes. Check-only unless --write is given."
+        )
+    )
+    parser.add_argument(
+        "--repin",
+        nargs=2,
+        metavar=("RECIPE_ROOT", "SKILLS_REGISTRY"),
+        required=True,
+        help="recipe repository root (clean checkout at the target commit) and the registry components.json",
+    )
+    parser.add_argument("--contract", type=Path, default=DEFAULT_SOURCE_PINS)
+    parser.add_argument("--write", action="store_true", help="atomically write and re-verify; default is check-only")
+    args = parser.parse_args(argv)
+    try:
+        report = repin_source_pins(
+            args.contract, Path(args.repin[0]), Path(args.repin[1]), write=args.write
+        )
+    except (SourcePinError, OSError, ValueError) as exc:
+        print(json.dumps({"status": "error", "error": str(exc)}, indent=2))
+        return 2
+    print(json.dumps(report, indent=2))
+    return 0 if report["status"] in {"unchanged", "updated"} else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

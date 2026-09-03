@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import math
 import os
 import secrets
 import socket
@@ -611,6 +612,20 @@ def start_runtime(
     startup_timeout: float = DEFAULT_HEALTH_TIMEOUT,
 ) -> dict[str, Any]:
     """Spawn the supervisor under the workspace start lock (see ``_start_lock``)."""
+    # A non-positive or non-finite startup_timeout (0, negative, NaN, +-inf)
+    # makes `deadline = time.monotonic() + startup_timeout` already-past (or,
+    # for inf, never-past) before the poll loop's first iteration -- the loop
+    # then never runs even once, so it never attempts the stop-and-report
+    # path either. The supervisor is spawned unconditionally before that loop
+    # starts, so the result was a live orphaned process while the caller was
+    # told the start failed (T-20260903-224229063 Blocker 1). Reject here,
+    # before the lock is even taken and nothing has been started yet, rather
+    # than adding a cleanup path in the timeout branch.
+    if not (math.isfinite(startup_timeout) and startup_timeout > 0):
+        raise LifecycleError(
+            f"--health-timeout muss eine positive, endliche Zahl sein, nicht {startup_timeout!r}.",
+            exit_code=2,
+        )
     with _start_lock(workspace):
         return _start_runtime_locked(
             provider,

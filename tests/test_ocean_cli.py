@@ -596,6 +596,44 @@ def test_health_timeout_is_configurable_and_names_an_empty_runtime_log(tmp_path)
         _run_ocean("down", "--workspace", str(fixture["workspace"]), "--json")
 
 
+@pytest.mark.parametrize("bad_timeout", ["-1", "0", "nan", "inf", "-inf"])
+def test_up_rejects_a_non_positive_or_non_finite_health_timeout_before_starting_anything(
+    tmp_path, bad_timeout
+):
+    """T-20260903-224229063 Blocker 1: `deadline = time.monotonic() +
+    startup_timeout` is already in the past (or, for +inf, never in the
+    past) before the poll loop's first check for a negative/zero/NaN/+-inf
+    timeout -- the loop body then never runs even once, so it can't reach
+    its own stop-and-report path either. The supervisor is spawned
+    unconditionally *before* that loop, so the previous behaviour was: a
+    live orphaned supervisor+child process tree, while the caller was told
+    (Exit 4) that nothing was running. Fixed by rejecting the value before
+    anything is started at all -- this proves nothing gets an install/spec/
+    state file or a listening port out of it."""
+    fixture = _write_runnable_ellmos_core_fixture(tmp_path)
+    port = _free_tcp_port()
+    up = _run_ocean(
+        "up",
+        "--bundles-root", str(fixture["bundles_root"]),
+        "--system-manifest", str(fixture["system"]),
+        "--modules-catalog", str(fixture["catalog"]),
+        "--skills-registry", str(fixture["skills"]),
+        "--source-pins", str(fixture["source_pins"]),
+        "--workspace", str(fixture["workspace"]),
+        "--host", "127.0.0.1", "--port", str(port),
+        "--apply", "--health-timeout", bad_timeout, "--json",
+    )
+
+    assert up.returncode == 2, up.stdout + up.stderr
+    assert "--health-timeout" in up.stderr
+    assert not (fixture["workspace"] / "ocean.runtime-spec.json").exists()
+    assert not (fixture["workspace"] / "ocean.runtime.json").exists()
+    with socket.socket() as probe:
+        probe.settimeout(0.2)
+        with pytest.raises(OSError):
+            probe.connect(("127.0.0.1", port))
+
+
 def test_second_up_rejects_a_running_runtime_before_fetch_or_activate(tmp_path):
     """A running sandbox is a write preflight gate, not a late start error."""
     fixture = _write_runnable_ellmos_core_fixture(tmp_path)

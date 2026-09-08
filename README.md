@@ -8,6 +8,22 @@ The free community full system of the ellmos ecosystem.
 
 *[Deutsch](README_de.md)*
 
+[![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](pyproject.toml)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
+[![CI](https://github.com/ellmos-ai/open-ocean/actions/workflows/ci.yml/badge.svg)](https://github.com/ellmos-ai/open-ocean/actions/workflows/ci.yml)
+[![Pytest](https://img.shields.io/badge/pytest-107%20passed-brightgreen.svg)](tests/)
+[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows%20%7C%20macOS-informational.svg)](https://github.com/ellmos-ai/open-ocean)
+[![Security Policy](https://img.shields.io/badge/security-48h%20SLA-blue.svg)](SECURITY.md)
+[![Privacy](https://img.shields.io/badge/privacy-100%25%20Local--First-brightgreen.svg)](SECURITY.md)
+[![License MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![LLM Ready](https://img.shields.io/badge/LLM--Ready-llms.txt-orange.svg)](llms.txt)
+[![Changelog](https://img.shields.io/badge/changelog-v0.1.0-orange.svg)](CHANGELOG.md)
+[![ellmos](https://img.shields.io/badge/ellmos-community%20full%20system-4b5563.svg)](https://github.com/ellmos-ai)
+[![open-bricks](https://img.shields.io/badge/open--bricks-ecosystem-0284c7.svg)](https://github.com/open-bricks)
+
+> [!NOTE]
+> For machine-readable architecture maps and LLM context, see [`llms.txt`](llms.txt). Security policy and invariants are documented in [`SECURITY.md`](SECURITY.md). Release changes are tracked in [`CHANGELOG.md`](CHANGELOG.md).
+
 > **Private build, and early on purpose.** This repository exists before the system does, so the
 > architecture has somewhere to live while it is being decided. It opens when the water reaches
 > the ocean — see *[Release conditions](#release-conditions)*.

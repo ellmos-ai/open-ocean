@@ -40,6 +40,8 @@ START_LOCK = "ocean.start.lock"
 OCEAN_OPERATOR_PREFIX = "/control"
 OCEAN_OPERATOR_TITLE = "OCEAN Full Dev"
 OCEAN_OPERATOR_CONFIG = "unified-gui.config.json"
+JSON_READ_ATTEMPTS = 20
+JSON_READ_RETRY_SECONDS = 0.05
 
 
 class LifecycleError(RuntimeError):
@@ -454,10 +456,22 @@ def _ellmos_core_runtime_spec(
 
 
 def _read_json(path: Path) -> dict[str, Any]:
-    try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise LifecycleError(f"Lokaler OCEAN-Status ist nicht lesbar: {path}: {exc}", exit_code=3) from exc
+    for attempt in range(JSON_READ_ATTEMPTS):
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+            break
+        except PermissionError as exc:
+            if attempt == JSON_READ_ATTEMPTS - 1:
+                raise LifecycleError(
+                    f"Lokaler OCEAN-Status ist nicht lesbar: {path}: {exc}", exit_code=3
+                ) from exc
+            # Atomic state replacement can briefly deny a concurrent reader on Windows.
+            # Retry only that transient condition; all other read/JSON failures stay closed.
+            time.sleep(JSON_READ_RETRY_SECONDS)
+        except (OSError, json.JSONDecodeError) as exc:
+            raise LifecycleError(
+                f"Lokaler OCEAN-Status ist nicht lesbar: {path}: {exc}", exit_code=3
+            ) from exc
     if not isinstance(value, dict):
         raise LifecycleError(f"Lokaler OCEAN-Status ist kein JSON-Objekt: {path}", exit_code=3)
     return value

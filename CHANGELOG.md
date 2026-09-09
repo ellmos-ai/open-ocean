@@ -2,6 +2,16 @@
 
 *[Deutsch](CHANGELOG_de.md)*
 
+## Unreleased — 2026-09-09
+
+### Added
+
+- Pinned the accounts-core projection publisher and sqlite-transit-sync verifier for Finance
+  Assist, and added an OCEAN consumer that verifies a closed projection before selecting only its
+  allowlisted account fields through immutable, read-only SQLite access.
+- Added fail-closed tests for projection changes and newly appearing SQLite sidecars. No live data,
+  transport activation, checkpoint persistence, rollout, or cutover is included.
+
 ## Unreleased — 2026-08-30
 
 ### Verified

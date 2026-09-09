@@ -19,6 +19,67 @@ FULL_DEV_BINDINGS = REPO_ROOT / "architecture" / "ocean-full-dev.component-bindi
 
 
 class ShippedFullDevBindingTests(unittest.TestCase):
+    def test_account_projection_pipeline_has_exact_publish_and_verify_pins(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            catalog = Path(temporary) / "modules.catalog.json"
+            catalog.write_text(
+                json.dumps(
+                    {
+                        "modules": [
+                            {
+                                "id": "accounts-core",
+                                "source_of_truth": {
+                                    "type": "git-repository",
+                                    "repository": "https://github.com/ellmos-ai/accounts-core",
+                                },
+                                "resolved_source": "accounts-core",
+                                "provides": ["accounts.transit.projection"],
+                            },
+                            {
+                                "id": "sqlite-transit-sync",
+                                "source_of_truth": {
+                                    "type": "git-repository",
+                                    "repository": "https://github.com/ellmos-ai/sqlite-transit-sync",
+                                },
+                                "resolved_source": "sqlite-transit-sync",
+                                "provides": ["projection.readonly.verify"],
+                            },
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            bindings = load_component_bindings(FULL_DEV_BINDINGS)
+            accounts = ResolvedComponent(
+                ref="module:accounts-core", kind="module", requirement="recommended"
+            )
+            verifier = ResolvedComponent(
+                ref="module:sqlite-transit-sync",
+                kind="module",
+                requirement="recommended",
+            )
+            resolve_module(accounts, catalog, bindings)
+            resolve_module(verifier, catalog, bindings)
+
+        self.assertTrue(accounts.detail["catalog_repository_matches_binding"])
+        self.assertTrue(verifier.detail["catalog_repository_matches_binding"])
+        self.assertEqual(
+            accounts.detail["binding"]["commit"],
+            "588ab7d2db274621c5982a3234f2fb540627f664",
+        )
+        self.assertEqual(
+            verifier.detail["binding"]["commit"],
+            "2cdace94406a795d21290dbc61a45e4e4ba2c563",
+        )
+        self.assertEqual(
+            accounts.detail["binding"]["required_provides"],
+            ["accounts.transit.projection"],
+        )
+        self.assertEqual(
+            verifier.detail["binding"]["required_provides"],
+            ["projection.readonly.verify"],
+        )
+
     def test_automation_registry_resolves_through_automation_master_provider(self):
         """Removing the explicit crosswalk must reopen the required Full Dev gap."""
         with tempfile.TemporaryDirectory() as temporary:

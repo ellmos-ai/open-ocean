@@ -102,6 +102,7 @@ tools/
                                  one ring or a complete system manifest; dry-run by default,
                                  --apply for real writes, --rollback
   source_pins.py                fail-closed source-provenance verification before Resolve/Fetch
+  accounts_projection.py       verify/read the minimal account projection without state writes
   ocean_lifecycle.py            capability-driven plan/up/status/down/user lifecycle
   runtime_supervisor.py         authenticated loopback supervisor for one runtime instance
   runtime_user.py               password-safe user bootstrap delegated to the runtime
@@ -137,6 +138,19 @@ match and the checkout must be clean before OCEAN treats the provider as resolve
 overlay currently binds `module:software-endpoint-registry` to `system-explorer` and the distinct
 logical roles `module:automation-registry` and `module:automation-runtime` to independently pinned
 placements of `automation-master`.
+
+The Finance Assist path also pins `accounts-core` as the sole publisher and
+`sqlite-transit-sync` as the read-only contract verifier. OCEAN's bounded consumer is separate:
+
+```text
+python tools/accounts_projection.py --database <closed-accounts.sqlite> \
+  --consumer-id ocean-accounts-consumer --minimum-offline-seconds 2592000 \
+  --previous-checkpoint <last-seen-checkpoint>
+```
+
+It verifies first, rejects sidecars or a file that changes across verification/readback, opens
+SQLite with `mode=ro&immutable=1`, and returns only the contract's six consumer fields. It does not
+persist a checkpoint, schedule transport, activate a live path, or write either database.
 
 `ocean.py plan` and `ocean.py up` also pass the shipped `--source-pins` contract by default. Before
 Resolve — and therefore before Fetch, Place or Activate — OCEAN requires the recipe input to be the

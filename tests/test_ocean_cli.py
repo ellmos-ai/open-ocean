@@ -396,6 +396,7 @@ def test_restrict_to_current_user_windows_invokes_icacls_with_an_owner_only_gran
 
     with patch.dict(os.environ, {"USERNAME": "tester"}), \
             patch("tools.ocean_lifecycle.subprocess.run") as run:
+        run.return_value.returncode = 0
         _restrict_to_current_user_windows(target)
 
     run.assert_called_once()
@@ -404,6 +405,38 @@ def test_restrict_to_current_user_windows_invokes_icacls_with_an_owner_only_gran
     assert command[1] == str(target)
     assert "/inheritance:r" in command
     assert "tester:F" in command
+
+
+def test_restrict_to_current_user_windows_fails_closed_on_icacls_error(tmp_path):
+    target = tmp_path / "ocean.runtime-spec.json"
+    target.write_text("{}", encoding="utf-8")
+
+    with patch.dict(os.environ, {"USERNAME": "tester"}), \
+            patch("tools.ocean_lifecycle.subprocess.run") as run:
+        run.return_value.returncode = 5
+        run.return_value.stderr = "Access is denied"
+        run.return_value.stdout = ""
+        with pytest.raises(OSError, match="icacls exited 5: Access is denied"):
+            _restrict_to_current_user_windows(target)
+
+    with patch.dict(os.environ, {}, clear=True):
+        with pytest.raises(OSError, match="USERNAME is unavailable"):
+            _restrict_to_current_user_windows(target)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows ACL failure path")
+def test_write_json_private_removes_temporary_file_when_acl_lockdown_fails(tmp_path):
+    target = tmp_path / "ocean.runtime-spec.json"
+
+    with patch(
+        "tools.ocean_lifecycle._restrict_to_current_user_windows",
+        side_effect=OSError("simulated ACL failure"),
+    ):
+        with pytest.raises(OSError, match="simulated ACL failure"):
+            _write_json_private(target, {"token": "secret"})
+
+    assert not target.exists()
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_plan_proves_one_runtime_host_without_creating_the_workspace(tmp_path):

@@ -222,21 +222,31 @@ def _write_json_atomic(path: Path, value: dict[str, Any]) -> None:
 
 
 def _restrict_to_current_user_windows(path: Path) -> None:
-    """Best-effort ACL lockdown for a secret-bearing file on Windows, where
+    """Fail-closed ACL lockdown for a secret-bearing file on Windows, where
     chmod()/Path.chmod() only ever toggle the read-only attribute bit and
     grant no real access control. Uses the platform's own icacls.exe (no new
     dependency): drop inherited ACEs and grant only the current user access.
     (T-20260903-113508213 Blocker 1)"""
     username = os.environ.get("USERNAME")
     if not username:
-        return
+        raise OSError("cannot restrict private file ACL: USERNAME is unavailable")
     try:
-        subprocess.run(
+        completed = subprocess.run(
             ["icacls", str(path), "/inheritance:r", "/grant:r", f"{username}:F"],
-            capture_output=True, check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
         )
-    except OSError:
-        pass
+    except OSError as exc:
+        raise OSError(f"cannot restrict private file ACL for {path}: {exc}") from exc
+    if completed.returncode != 0:
+        detail = completed.stderr.strip() or completed.stdout.strip() or "no diagnostic"
+        raise OSError(
+            f"cannot restrict private file ACL for {path}: icacls exited "
+            f"{completed.returncode}: {detail}"
+        )
 
 
 def _write_json_private(path: Path, value: dict[str, Any]) -> None:
@@ -258,9 +268,16 @@ def _write_json_private(path: Path, value: dict[str, Any]) -> None:
         os.write(fd, payload.encode("utf-8"))
     finally:
         os.close(fd)
-    if os.name == "nt":
-        _restrict_to_current_user_windows(temporary)
-    temporary.replace(path)
+    try:
+        if os.name == "nt":
+            _restrict_to_current_user_windows(temporary)
+        temporary.replace(path)
+    except BaseException:
+        try:
+            temporary.unlink()
+        except OSError:
+            pass
+        raise
 
 
 def write_runtime_projection(

@@ -2,6 +2,22 @@
 
 *[English](CHANGELOG.md)*
 
+## Unveröffentlicht — 2026-09-09
+
+### Behoben
+
+- Der Full-Ocean-Lifecycle-Branch wurde mit der unabhängigen Path-A-Metadaten-/CI-Baseline
+  integriert; beide Änderungshistorien bleiben bei der Auflösung der add/add-Konflikte in
+  `CHANGELOG.md` und `llms.txt` erhalten.
+- Beide geheimnistragenden Windows-Writer brechen jetzt geschlossen ab, wenn `icacls` die
+  ausschließlich dem Eigentümer gewährte ACL nicht setzen kann, und entfernen ihre temporäre
+  Datei bei ACL- oder atomaren Ersetzungsfehlern.
+
+### Geprüft
+
+- Der integrierte Baum von PR #2 besteht unter Windows 180 Tests und 2 Subtests; Ruff und
+  `compileall` sind ohne Befund.
+
 ## Unveröffentlicht — 2026-08-30
 
 ### Geprüft

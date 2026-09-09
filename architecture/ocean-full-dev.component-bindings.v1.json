@@ -46,7 +46,7 @@
       "component_type": "module",
       "catalog_id": "sqlite-transit-sync",
       "repository": "https://github.com/ellmos-ai/sqlite-transit-sync.git",
-      "commit": "2cdace94406a795d21290dbc61a45e4e4ba2c563",
+      "commit": "d9d517d6711fa9597c960c127cf6476f3af9d072",
       "placement_id": "sqlite-transit-sync",
       "required_provides": [
         "projection.readonly.verify"
@@ -65,5 +65,5 @@
       "provider_manifest": "ellmos-module.v2.json"
     }
   },
-  "content_hash": "c3ecd6b9a11d9900802c204527fe2bae9a28ee5e593d1c1e0f9657d7f8ee02dd"
+  "content_hash": "9308aced3aeac549580b9cf6213526643698277a3f88ab4a40e5879280963474"
 }

@@ -69,7 +69,7 @@ class ShippedFullDevBindingTests(unittest.TestCase):
         )
         self.assertEqual(
             verifier.detail["binding"]["commit"],
-            "2cdace94406a795d21290dbc61a45e4e4ba2c563",
+            "d9d517d6711fa9597c960c127cf6476f3af9d072",
         )
         self.assertEqual(
             accounts.detail["binding"]["required_provides"],

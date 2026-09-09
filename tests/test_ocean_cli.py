@@ -212,7 +212,11 @@ def _free_tcp_port() -> int:
         return int(sock.getsockname()[1])
 
 
-def _run_ocean(*args: str, input_text: str | None = None) -> subprocess.CompletedProcess[str]:
+def _run_ocean(
+    *args: str,
+    input_text: str | None = None,
+    timeout: float | None = None,
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, str(OCEAN), *args],
         cwd=REPO_ROOT,
@@ -221,6 +225,7 @@ def _run_ocean(*args: str, input_text: str | None = None) -> subprocess.Complete
         encoding="utf-8",
         errors="replace",
         input=input_text,
+        timeout=timeout,
     )
 
 
@@ -237,15 +242,124 @@ def _workspace_snapshot(workspace: Path) -> dict[str, bytes]:
 
 def _down_fixture(workspace: Path) -> None:
     """Finish a fixture runtime despite a short Windows state-file handoff."""
-    deadline = time.monotonic() + 5
-    last = None
-    while time.monotonic() < deadline:
-        last = _run_ocean("down", "--workspace", str(workspace), "--json")
+    deadline = time.monotonic() + 5.0
+    last_error = "kein Down-Ergebnis"
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            pytest.fail(
+                "Fixture-Cleanup hat keine Restzeit im 5-s-Gesamtbudget; "
+                f"letzter Fehler: {last_error}"
+            )
+        try:
+            last = _run_ocean(
+                "down", "--workspace", str(workspace), "--json", timeout=remaining,
+            )
+        except subprocess.TimeoutExpired as exc:
+            pytest.fail(
+                "Fixture-Cleanup Zeitüberschreitung im 5-s-Gesamtbudget; "
+                f"verbleibende Frist: {remaining:.3f}s ({exc})"
+            )
         if last.returncode == 0:
             return
-        time.sleep(0.05)
-    assert last is not None
-    pytest.fail(last.stderr)
+        last_error = last.stderr or f"ocean down endete mit Exit {last.returncode}"
+        remaining = deadline - time.monotonic()
+        if remaining > 0:
+            time.sleep(min(0.05, remaining))
+
+
+def test_run_ocean_forwards_an_optional_timeout_to_subprocess(monkeypatch):
+    """The fixture runner must pass its remaining budget to the real child."""
+    observed = {}
+
+    def fake_run(command, **kwargs):
+        observed["timeout"] = kwargs.get("timeout")
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    result = _run_ocean("down", "--workspace", "fixture", timeout=1.25)
+
+    assert result.returncode == 0
+    assert observed["timeout"] == 1.25
+
+
+def test_down_fixture_uses_an_absolute_budget_for_slow_failed_attempts(tmp_path, monkeypatch):
+    """Two slow failed attempts may never consume more than the 5-s total budget."""
+    clock = {"now": 0.0}
+    timeouts = []
+
+    def slow_down(*args, timeout=None, **_kwargs):
+        timeouts.append(timeout)
+        duration = 3.0 if timeout is None else min(3.0, timeout)
+        clock["now"] += duration
+        if timeout is not None and timeout < 3.0:
+            raise subprocess.TimeoutExpired(args, timeout)
+        return subprocess.CompletedProcess(args, 3, "", "fixture state temporarily locked")
+
+    monkeypatch.setattr(time, "monotonic", lambda: clock["now"])
+    monkeypatch.setattr(time, "sleep", lambda seconds: clock.__setitem__("now", clock["now"] + seconds))
+    monkeypatch.setattr(sys.modules[__name__], "_run_ocean", slow_down)
+
+    with pytest.raises(pytest.fail.Exception) as failed:
+        _down_fixture(tmp_path)
+
+    assert all(timeout is not None for timeout in timeouts)
+    assert timeouts[0] == pytest.approx(5.0)
+    assert clock["now"] <= 5.0
+    assert "Gesamtbudget" in str(failed.value)
+
+
+def test_down_fixture_reports_a_hanging_child_timeout_within_the_budget(tmp_path, monkeypatch):
+    """TimeoutExpired is a visible cleanup failure, never an unbounded hang."""
+    clock = {"now": 0.0}
+    timeouts = []
+
+    def hanging_down(*args, timeout=None, **_kwargs):
+        timeouts.append(timeout)
+        clock["now"] += timeout
+        raise subprocess.TimeoutExpired(args, timeout)
+
+    monkeypatch.setattr(time, "monotonic", lambda: clock["now"])
+    monkeypatch.setattr(sys.modules[__name__], "_run_ocean", hanging_down)
+
+    with pytest.raises(pytest.fail.Exception) as failed:
+        _down_fixture(tmp_path)
+
+    assert timeouts == [pytest.approx(5.0)]
+    assert clock["now"] <= 5.0
+    assert "Zeitüberschreitung" in str(failed.value)
+
+
+def test_down_fixture_does_not_start_a_call_without_remaining_budget(tmp_path, monkeypatch):
+    """An exhausted deadline fails visibly before a new subprocess is started."""
+    moments = iter([0.0, 5.0])
+    calls = []
+
+    monkeypatch.setattr(time, "monotonic", lambda: next(moments))
+    monkeypatch.setattr(sys.modules[__name__], "_run_ocean", lambda *_a, **_k: calls.append(True))
+
+    with pytest.raises(pytest.fail.Exception) as failed:
+        _down_fixture(tmp_path)
+
+    assert calls == []
+    assert "keine Restzeit" in str(failed.value)
+
+
+def test_down_fixture_accepts_a_successful_child_within_the_budget(tmp_path, monkeypatch):
+    """A real zero exit remains the sole successful fixture-cleanup outcome."""
+    clock = {"now": 0.0}
+    timeouts = []
+
+    def successful_down(*args, timeout=None, **_kwargs):
+        timeouts.append(timeout)
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    monkeypatch.setattr(time, "monotonic", lambda: clock["now"])
+    monkeypatch.setattr(sys.modules[__name__], "_run_ocean", successful_down)
+
+    _down_fixture(tmp_path)
+
+    assert timeouts == [pytest.approx(5.0)]
 
 
 def test_runtime_spec_exposes_resolved_operator_ui_as_the_ocean_surface(tmp_path):

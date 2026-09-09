@@ -18,16 +18,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Reclassified `architecture/INSTALLER-TARGET.md` from a pre-implementation placeholder to the
+  implemented supported-path contract, while keeping additional host adapters, upgrades and BACH
+  setup parity explicitly open; aligned both BACH roadmaps and READMEs with that boundary.
 - Integrated the Full Ocean lifecycle branch with the independent Path A metadata/CI baseline;
   preserved both change histories while resolving the `CHANGELOG.md` and `llms.txt` add/add
   conflicts.
 - Made both secret-bearing Windows writers fail closed when `icacls` cannot apply the owner-only
   ACL, and remove their temporary file on ACL or atomic-replace failure instead of leaving secret
   material behind.
+- Retry only transient `PermissionError` state reads while the Windows supervisor atomically
+  replaces its runtime state; malformed JSON and all other read failures still fail closed.
 
 ### Verified
 
-- The integrated PR #2 tree passes 180 tests and 2 subtests on Windows; Ruff and `compileall` are
+- The integrated PR #2 tree passes 181 tests and 2 subtests on Windows; Ruff and `compileall` are
   clean.
 
 ## Unreleased — 2026-08-30

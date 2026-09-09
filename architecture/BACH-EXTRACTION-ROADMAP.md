@@ -89,7 +89,7 @@ candidate-partial until the BACH collector, output translation and old/new equiv
 | **K9-0 Contract and inventory** | registry, alias drift, operation surfaces, catalogue fingerprint | `system-explorer` as a later import carrier | baseline and reproducible audit; **created in this revision** |
 | **K9-1 Data and continuity** | `db`, `dbsync`, `sync`, `backup`, `restore`; `snapshot` as a separate session-checkpoint seam | `sqlite-transit-sync`, `session-checkpoint`, `system-gap-master`, `system-explorer`, planned `mac-backup` | portable data API, backup format, restore proof, session-checkpoint carrier and BACH adapter |
 | **K9-2 Observation and quality** | `status`, `healthcheck`, `logs`, `tokens`, `maintain`, `tuev`, `scan`, `watcher` | `system-explorer`, `ellmos-tests`, `project-docs-template`, `ellmos-unified-gui` | common state/event model, health probes and maintainable checks |
-| **K9-3 Lifecycle and distribution** | `update`, `upgrade`, `setup`, `settings`, `session`, `shutdown`, `path`, `mount`, `dist` | `policy-registry`, private `ellmos-core`, `bundles`; installer is documentation only | transactional installer core, migration, rollback and host-neutral paths |
+| **K9-3 Lifecycle and distribution** | `update`, `upgrade`, `setup`, `settings`, `session`, `shutdown`, `path`, `mount`, `dist` | `policy-registry`, private `ellmos-core`, `bundles`; supported OCEAN installer lifecycle implemented, BACH parity open | transactional installer core, migration, rollback and host-neutral paths |
 | **K9-4 Boundaries and operation** | `fs`, `trash`, `sandbox`, `lang`, `gui`, `help` | `system-explorer`, `lock-master`, `ellmos-unified-gui`, `project-docs-template` | filesystem policy, quarantine/trash, real isolation, i18n and help interface |
 | **K9-5 BACH reintegration** | thin adapters for all 29 canonical profiles plus `health` | outputs of K9-1 through K9-4 | BACH calls external contracts and disables old internal write paths |
 | **K9-6 Bundle and sluice** | kernel recipe, installer resolution, fresh installation | `bundles`, open-ocean installer | hash-pinned recipe and successful off-host test |
@@ -121,7 +121,7 @@ the beginning of each contract, not its full semantics.
 | `watcher` | `status`, `start`, `stop`, `events`, `logs`, `classify` | **gap** |
 | `update` | `check`, `apply`, `status`, `rollback`, `verify`, `migrations` | **gap** |
 | `upgrade` | status/check plus upgrade or repair of core, hub, skills, tools, GUI and templates | **gap** |
-| `setup` | preflight, user, language, secrets, MCP, hooks, n8n, ProSync, full install | **gap**; `INSTALLER-TARGET.md` is architecture only |
+| `setup` | preflight, user, language, secrets, MCP, hooks, n8n, ProSync, full install | **gap for BACH parity**; OCEAN's supported installer path is implemented |
 | `settings` | `list`, `get`, `set`, `reset`, `export`, `import`, `categories` | partial: `policy-registry` |
 | `session` | `start`, `end`, `status`, `check`, `next` | **gap** |
 | `shutdown` | `complete`, `quick`, `emergency` | **gap** |

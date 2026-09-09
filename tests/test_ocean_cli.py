@@ -12,6 +12,8 @@ from pathlib import Path
 
 import pytest
 
+import ocean as ocean_cli
+import tools.ocean_lifecycle as ocean_lifecycle
 from tools.ocean_lifecycle import (
     LifecycleError,
     RuntimeProvider,
@@ -397,6 +399,177 @@ def test_up_status_down_runs_one_real_sandboxed_runtime_round_trip(tmp_path):
         assert restarted_report["runtime"]["health"] == "ok"
     finally:
         _run_ocean("down", "--workspace", str(fixture["workspace"]), "--json")
+
+
+def test_health_timeout_is_configurable_and_names_an_empty_runtime_log(tmp_path):
+    """T-20260903-224229063 Fall 2: a fixed 20s health window destroyed a
+    runtime that only needed more time on a loaded host, and the failure
+    pointed at supervisor.log instead of the log that actually shows what
+    the child did (or didn't) do. --health-timeout must be reachable from
+    the CLI, and giving up must say plainly that the child never even wrote
+    its first log line -- the exact signal that distinguishes "slow" from
+    "not starting at all"."""
+    fixture = _write_runnable_ellmos_core_fixture(tmp_path)
+    port = _free_tcp_port()
+    common = [
+        "--bundles-root", str(fixture["bundles_root"]),
+        "--system-manifest", str(fixture["system"]),
+        "--modules-catalog", str(fixture["catalog"]),
+        "--skills-registry", str(fixture["skills"]),
+        "--workspace", str(fixture["workspace"]),
+    ]
+    try:
+        up = _run_ocean(
+            "up", *common,
+            "--host", "127.0.0.1", "--port", str(port),
+            "--apply", "--health-timeout", "0.01", "--json",
+        )
+        assert up.returncode != 0
+        assert "keinen grünen Health-Status" in up.stderr
+        assert "ist leer" in up.stderr
+        assert "runtime.log" in up.stderr
+    finally:
+        _run_ocean("down", "--workspace", str(fixture["workspace"]), "--json")
+
+
+def test_up_and_start_share_the_health_timeout_cli_option():
+    """Both lifecycle entry points must expose the same explicit override."""
+    parser = ocean_cli.build_parser()
+    up = parser.parse_args([
+        "up",
+        "--bundles-root", "bundles",
+        "--system-manifest", "system.json",
+        "--modules-catalog", "catalog.json",
+        "--skills-registry", "skills.json",
+        "--workspace", "workspace",
+        "--apply",
+        "--health-timeout", "27.5",
+    ])
+    start = parser.parse_args([
+        "start", "--workspace", "workspace", "--health-timeout", "27.5",
+    ])
+
+    assert up.health_timeout == 27.5
+    assert start.health_timeout == 27.5
+
+
+def _mock_supervisor_receipt(monkeypatch, workspace: Path, *, status: str) -> None:
+    """Use a process-free supervisor double that writes only a test receipt."""
+    launch = {
+        "command": [sys.executable, "-c", "raise SystemExit(0)"],
+        "cwd": str(workspace),
+        "env": {},
+        "runtime_url": "http://127.0.0.1:18991",
+        "health_url": "http://127.0.0.1:18991/api/health",
+    }
+    monkeypatch.setattr(ocean_lifecycle, "_assert_runtime_start_available", lambda *_a, **_k: None)
+    monkeypatch.setattr(ocean_lifecycle, "_ellmos_core_runtime_spec", lambda *_a, **_k: launch)
+
+    def fake_popen(command, **_kwargs):
+        spec = json.loads(Path(command[-1]).read_text(encoding="utf-8"))
+        ocean_lifecycle._write_json_atomic(workspace / ocean_lifecycle.RUNTIME_STATE, {
+            "schema": "ellmos.open-ocean-runtime-state.v1",
+            "instance_id": spec["instance_id"],
+            "runtime_id": "fixture-runtime",
+            "status": status,
+            "supervisor_pid": 0,
+            "child_pid": 0,
+            "control": {"host": "127.0.0.1", "port": 18991, "token": "fixture"},
+            "runtime_url": launch["runtime_url"],
+            "health_url": launch["health_url"],
+        })
+        return object()
+
+    monkeypatch.setattr(ocean_lifecycle.subprocess, "Popen", fake_popen)
+
+
+def test_default_timeout_allows_a_slow_but_living_fixture_child(tmp_path, monkeypatch):
+    """A running child reaching health after 20 s must remain eligible before 60 s."""
+    clock = {"now": 0.0}
+    _mock_supervisor_receipt(monkeypatch, tmp_path, status="running")
+    monkeypatch.setattr(ocean_lifecycle, "_control_request", lambda *_a, **_k: {"status": "running"})
+    monkeypatch.setattr(ocean_lifecycle, "_health", lambda *_a, **_k: clock["now"] >= 20.1)
+    monkeypatch.setattr(ocean_lifecycle.time, "monotonic", lambda: clock["now"])
+    monkeypatch.setattr(
+        ocean_lifecycle.time,
+        "sleep",
+        lambda seconds: clock.__setitem__("now", clock["now"] + seconds),
+    )
+
+    state = ocean_lifecycle.start_runtime(
+        RuntimeProvider("fixture-runtime", "fixture", tmp_path, {}, None, {}),
+        [],
+        tmp_path,
+        tmp_path / "manifest.json",
+        host="127.0.0.1",
+        port=18991,
+    )
+
+    assert state["status"] == "running"
+    assert 20.0 < clock["now"] < ocean_lifecycle.DEFAULT_HEALTH_TIMEOUT
+
+
+def test_default_timeout_fails_fast_when_the_fixture_child_is_already_stopped(tmp_path, monkeypatch):
+    """A stopped receipt is an immediate failure signal, not a 60-s wait."""
+    clock = {"now": 0.0}
+    _mock_supervisor_receipt(monkeypatch, tmp_path, status="stopped")
+    monkeypatch.setattr(ocean_lifecycle, "_control_request", lambda *_a, **_k: {"status": "stopped"})
+    monkeypatch.setattr(ocean_lifecycle, "_health", lambda *_a, **_k: pytest.fail("stopped child was polled"))
+    monkeypatch.setattr(ocean_lifecycle.time, "monotonic", lambda: clock["now"])
+    monkeypatch.setattr(
+        ocean_lifecycle.time,
+        "sleep",
+        lambda seconds: clock.__setitem__("now", clock["now"] + seconds),
+    )
+
+    with pytest.raises(LifecycleError, match="60s keinen grünen Health-Status"):
+        ocean_lifecycle.start_runtime(
+            RuntimeProvider("fixture-runtime", "fixture", tmp_path, {}, None, {}),
+            [],
+            tmp_path,
+            tmp_path / "manifest.json",
+            host="127.0.0.1",
+            port=18991,
+        )
+
+    assert clock["now"] == 0.0
+
+
+@pytest.mark.parametrize("bad_timeout", ["-1", "0", "nan", "inf", "-inf"])
+def test_up_rejects_a_non_positive_or_non_finite_health_timeout_before_starting_anything(
+    tmp_path, bad_timeout
+):
+    """T-20260903-224229063 Blocker 1: `deadline = time.monotonic() +
+    startup_timeout` is already in the past (or, for +inf, never in the
+    past) before the poll loop's first check for a negative/zero/NaN/+-inf
+    timeout -- the loop body then never runs even once, so it can't reach
+    its own stop-and-report path either. The supervisor is spawned
+    unconditionally *before* that loop, so the previous behaviour was: a
+    live orphaned supervisor+child process tree, while the caller was told
+    (Exit 4) that nothing was running. Fixed by rejecting the value before
+    anything is started at all -- this proves nothing gets an install/spec/
+    state file or a listening port out of it."""
+    fixture = _write_runnable_ellmos_core_fixture(tmp_path)
+    port = _free_tcp_port()
+    up = _run_ocean(
+        "up",
+        "--bundles-root", str(fixture["bundles_root"]),
+        "--system-manifest", str(fixture["system"]),
+        "--modules-catalog", str(fixture["catalog"]),
+        "--skills-registry", str(fixture["skills"]),
+        "--workspace", str(fixture["workspace"]),
+        "--host", "127.0.0.1", "--port", str(port),
+        "--apply", "--health-timeout", bad_timeout, "--json",
+    )
+
+    assert up.returncode == 2, up.stdout + up.stderr
+    assert "--health-timeout" in up.stderr
+    assert not (fixture["workspace"] / "ocean.runtime-spec.json").exists()
+    assert not (fixture["workspace"] / "ocean.runtime.json").exists()
+    with socket.socket() as probe:
+        probe.settimeout(0.2)
+        with pytest.raises(OSError):
+            probe.connect(("127.0.0.1", port))
 
 
 def test_second_up_rejects_a_running_runtime_before_fetch_or_activate(tmp_path):

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import math
 import os
 import secrets
 import socket
@@ -524,6 +525,20 @@ def _start_lock(workspace: Path):
         handle.close()
 
 
+DEFAULT_HEALTH_TIMEOUT = 60.0
+"""How long start_runtime() waits for a green health status before giving up
+and tearing the child back down. Was 20.0 -- too tight for a real Python
+interpreter start (imports, DB init, uvicorn boot) on a host doing anything
+else at the same time: an `up --apply` on a laptop already running two other
+agent processes plus pytest missed a 20s window and destroyed a runtime that
+`ocean.py start` then brought up cleanly moments later on the identical,
+unchanged install (T-20260903-224229063). 60s is a deliberate, overridable
+default (--health-timeout), not a silent bump -- a process that is truly
+dead fails fast regardless (see the `status == "stopped"` break below), so a
+generous ceiling only matters for the genuinely-just-slow case this exists
+to stop misdiagnosing as broken."""
+
+
 def start_runtime(
     provider: RuntimeProvider,
     components: list[dict[str, Any]],
@@ -532,9 +547,23 @@ def start_runtime(
     *,
     host: str,
     port: int,
-    startup_timeout: float = 20.0,
+    startup_timeout: float = DEFAULT_HEALTH_TIMEOUT,
 ) -> dict[str, Any]:
     """Spawn the supervisor under the workspace start lock (see ``_start_lock``)."""
+    # A non-positive or non-finite startup_timeout (0, negative, NaN, +-inf)
+    # makes `deadline = time.monotonic() + startup_timeout` already-past (or,
+    # for inf, never-past) before the poll loop's first iteration -- the loop
+    # then never runs even once, so it never attempts the stop-and-report
+    # path either. The supervisor is spawned unconditionally before that loop
+    # starts, so the result was a live orphaned process while the caller was
+    # told the start failed (T-20260903-224229063 Blocker 1). Reject here,
+    # before the lock is even taken and nothing has been started yet, rather
+    # than adding a cleanup path in the timeout branch.
+    if not (math.isfinite(startup_timeout) and startup_timeout > 0):
+        raise LifecycleError(
+            f"--health-timeout muss eine positive, endliche Zahl sein, nicht {startup_timeout!r}.",
+            exit_code=2,
+        )
     with _start_lock(workspace):
         return _start_runtime_locked(
             provider,
@@ -555,7 +584,7 @@ def _start_runtime_locked(
     *,
     host: str,
     port: int,
-    startup_timeout: float = 20.0,
+    startup_timeout: float = DEFAULT_HEALTH_TIMEOUT,
 ) -> dict[str, Any]:
     _assert_runtime_start_available(workspace, host=host, port=port)
     state_path = workspace / RUNTIME_STATE
@@ -608,8 +637,23 @@ def _start_runtime_locked(
             _control_request(runtime_state, "stop")
         except LifecycleError:
             pass
+    runtime_log = workspace / "logs" / "runtime.log"
+    try:
+        runtime_log_size = runtime_log.stat().st_size
+    except OSError:
+        runtime_log_size = 0
+    # A completely silent runtime.log after `startup_timeout` (child never got
+    # to its first line of output) is a materially different situation from
+    # one that is actively logging -- distinguishes "not even initializing"
+    # from "slow, but making progress" (T-20260903-224229063).
+    child_diagnosis = (
+        f"{runtime_log} ist leer (Kindprozess kam nicht bis zur ersten Log-Zeile)"
+        if runtime_log_size == 0
+        else f"siehe {runtime_log}"
+    )
     raise LifecycleError(
-        f"OCEAN-Laufzeit erreichte innerhalb von {startup_timeout:g}s keinen grünen Health-Status; siehe {supervisor_log}."
+        f"OCEAN-Laufzeit erreichte innerhalb von {startup_timeout:g}s keinen grünen Health-Status; "
+        f"{child_diagnosis}; Supervisor-Log: {supervisor_log}."
     )
 
 
@@ -649,6 +693,7 @@ def up_from_paths(
     component_bindings: Path | None = None,
     host: str,
     port: int,
+    health_timeout: float = DEFAULT_HEALTH_TIMEOUT,
 ) -> dict[str, Any]:
     _assert_runtime_start_available(workspace, host=host, port=port)
     transaction = run_transaction(
@@ -679,6 +724,7 @@ def up_from_paths(
         manifest_path,
         host=host,
         port=port,
+        startup_timeout=health_timeout,
     )
     return {
         "schema": "ellmos.open-ocean-lifecycle-up.v1",
@@ -699,6 +745,7 @@ def start_installed_runtime(
     *,
     host: str | None = None,
     port: int | None = None,
+    health_timeout: float = DEFAULT_HEALTH_TIMEOUT,
 ) -> dict[str, Any]:
     """Start a verified installed snapshot without consulting live recipe authority."""
     install = _read_json(workspace / INSTALL_STATE)
@@ -752,6 +799,7 @@ def start_installed_runtime(
         manifest_path,
         host=selected_host,
         port=selected_port,
+        startup_timeout=health_timeout,
     )
     return {
         "schema": "ellmos.open-ocean-lifecycle-start.v1",

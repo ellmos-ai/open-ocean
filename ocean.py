@@ -13,6 +13,7 @@ from pathlib import Path
 from tools.ocean_lifecycle import (
     DEFAULT_HEALTH_TIMEOUT,
     LifecycleError,
+    _validate_health_timeout,
     down_for_workspace,
     plan_from_paths,
     start_installed_runtime,
@@ -226,6 +227,11 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(report, indent=2, ensure_ascii=False) if args.json else f"OCEAN: {report['runtime']['control']} ({report['runtime']['health']})")
         return 0 if report["runtime"]["control"] == "running" and report["runtime"]["health"] == "ok" else 1
     if args.command == "start":
+        try:
+            _validate_health_timeout(args.health_timeout)
+        except LifecycleError as exc:
+            print(str(exc), file=sys.stderr)
+            return exc.exit_code
         _attach_stderr_log(args.workspace)
         try:
             report = start_installed_runtime(

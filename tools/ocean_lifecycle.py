@@ -539,6 +539,15 @@ generous ceiling only matters for the genuinely-just-slow case this exists
 to stop misdiagnosing as broken."""
 
 
+def _validate_health_timeout(startup_timeout: float) -> None:
+    """Reject values that cannot define a finite, future health deadline."""
+    if not (math.isfinite(startup_timeout) and startup_timeout > 0):
+        raise LifecycleError(
+            f"--health-timeout muss eine positive, endliche Zahl sein, nicht {startup_timeout!r}.",
+            exit_code=2,
+        )
+
+
 def start_runtime(
     provider: RuntimeProvider,
     components: list[dict[str, Any]],
@@ -559,11 +568,7 @@ def start_runtime(
     # told the start failed (T-20260903-224229063 Blocker 1). Reject here,
     # before the lock is even taken and nothing has been started yet, rather
     # than adding a cleanup path in the timeout branch.
-    if not (math.isfinite(startup_timeout) and startup_timeout > 0):
-        raise LifecycleError(
-            f"--health-timeout muss eine positive, endliche Zahl sein, nicht {startup_timeout!r}.",
-            exit_code=2,
-        )
+    _validate_health_timeout(startup_timeout)
     with _start_lock(workspace):
         return _start_runtime_locked(
             provider,
@@ -695,6 +700,7 @@ def up_from_paths(
     port: int,
     health_timeout: float = DEFAULT_HEALTH_TIMEOUT,
 ) -> dict[str, Any]:
+    _validate_health_timeout(health_timeout)
     _assert_runtime_start_available(workspace, host=host, port=port)
     transaction = run_transaction(
         bundles_root=bundles_root,
@@ -748,6 +754,7 @@ def start_installed_runtime(
     health_timeout: float = DEFAULT_HEALTH_TIMEOUT,
 ) -> dict[str, Any]:
     """Start a verified installed snapshot without consulting live recipe authority."""
+    _validate_health_timeout(health_timeout)
     install = _read_json(workspace / INSTALL_STATE)
     if install.get("schema") != "ellmos.open-ocean-install-state.v1":
         raise LifecycleError("Die Sandbox enthält keinen unterstützten OCEAN-Installationsstand.", exit_code=3)

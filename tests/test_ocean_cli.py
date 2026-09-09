@@ -224,6 +224,30 @@ def _run_ocean(*args: str, input_text: str | None = None) -> subprocess.Complete
     )
 
 
+def _workspace_snapshot(workspace: Path) -> dict[str, bytes]:
+    """Return the entire fixture workspace without exposing its contents."""
+    if not workspace.is_dir():
+        return {}
+    return {
+        str(path.relative_to(workspace)): path.read_bytes()
+        for path in sorted(workspace.rglob("*"))
+        if path.is_file()
+    }
+
+
+def _down_fixture(workspace: Path) -> None:
+    """Finish a fixture runtime despite a short Windows state-file handoff."""
+    deadline = time.monotonic() + 5
+    last = None
+    while time.monotonic() < deadline:
+        last = _run_ocean("down", "--workspace", str(workspace), "--json")
+        if last.returncode == 0:
+            return
+        time.sleep(0.05)
+    assert last is not None
+    pytest.fail(last.stderr)
+
+
 def test_runtime_spec_exposes_resolved_operator_ui_as_the_ocean_surface(tmp_path):
     """Catches accepting a domain app's HTTP 200 as the OCEAN product surface."""
     core = tmp_path / "ellmos-core"
@@ -432,6 +456,30 @@ def test_health_timeout_is_configurable_and_names_an_empty_runtime_log(tmp_path)
         _run_ocean("down", "--workspace", str(fixture["workspace"]), "--json")
 
 
+def test_valid_start_still_tees_lifecycle_errors_to_the_runtime_log(tmp_path, monkeypatch):
+    """Input validation must not remove the scheduled start's error record."""
+    original_stderr = sys.stderr
+
+    def fail_start(*_args, **_kwargs):
+        raise LifecycleError("fixture valid start failure", exit_code=4)
+
+    monkeypatch.setattr(ocean_cli, "start_installed_runtime", fail_start)
+    try:
+        exit_code = ocean_cli.main([
+            "start", "--workspace", str(tmp_path), "--health-timeout", "1",
+        ])
+    finally:
+        tee = sys.stderr
+        sys.stderr = original_stderr
+        if isinstance(tee, ocean_cli._TeeWriter):
+            tee._log.close()
+
+    assert exit_code == 4
+    log = (tmp_path / "logs" / "runtime.log").read_text(encoding="utf-8")
+    assert "ocean.py start stderr" in log
+    assert "fixture valid start failure" in log
+
+
 def test_up_and_start_share_the_health_timeout_cli_option():
     """Both lifecycle entry points must expose the same explicit override."""
     parser = ocean_cli.build_parser()
@@ -543,13 +591,13 @@ def test_up_rejects_a_non_positive_or_non_finite_health_timeout_before_starting_
     startup_timeout` is already in the past (or, for +inf, never in the
     past) before the poll loop's first check for a negative/zero/NaN/+-inf
     timeout -- the loop body then never runs even once, so it can't reach
-    its own stop-and-report path either. The supervisor is spawned
-    unconditionally *before* that loop, so the previous behaviour was: a
-    live orphaned supervisor+child process tree, while the caller was told
-    (Exit 4) that nothing was running. Fixed by rejecting the value before
-    anything is started at all -- this proves nothing gets an install/spec/
-    state file or a listening port out of it."""
+    its own stop-and-report path either. The public `up` entry point must
+    reject the value before its transaction creates installation, projection,
+    activation, spec, or state files."""
     fixture = _write_runnable_ellmos_core_fixture(tmp_path)
+    fixture["workspace"].mkdir()
+    (fixture["workspace"] / "preexisting.marker").write_bytes(b"preserve this fixture workspace")
+    before = _workspace_snapshot(fixture["workspace"])
     port = _free_tcp_port()
     up = _run_ocean(
         "up",
@@ -559,17 +607,51 @@ def test_up_rejects_a_non_positive_or_non_finite_health_timeout_before_starting_
         "--skills-registry", str(fixture["skills"]),
         "--workspace", str(fixture["workspace"]),
         "--host", "127.0.0.1", "--port", str(port),
-        "--apply", "--health-timeout", bad_timeout, "--json",
+        "--apply", f"--health-timeout={bad_timeout}", "--json",
     )
 
     assert up.returncode == 2, up.stdout + up.stderr
     assert "--health-timeout" in up.stderr
-    assert not (fixture["workspace"] / "ocean.runtime-spec.json").exists()
-    assert not (fixture["workspace"] / "ocean.runtime.json").exists()
+    assert _workspace_snapshot(fixture["workspace"]) == before
     with socket.socket() as probe:
         probe.settimeout(0.2)
         with pytest.raises(OSError):
             probe.connect(("127.0.0.1", port))
+
+
+@pytest.mark.parametrize("bad_timeout", ["-1", "0", "nan", "inf", "-inf"])
+def test_start_rejects_a_non_positive_or_non_finite_health_timeout_before_healthy_reuse(
+    tmp_path, bad_timeout
+):
+    """An invalid timeout must not be accepted merely because a live runtime is reusable."""
+    fixture = _write_runnable_ellmos_core_fixture(tmp_path)
+    port = _free_tcp_port()
+    common = [
+        "--bundles-root", str(fixture["bundles_root"]),
+        "--system-manifest", str(fixture["system"]),
+        "--modules-catalog", str(fixture["catalog"]),
+        "--skills-registry", str(fixture["skills"]),
+        "--workspace", str(fixture["workspace"]),
+    ]
+    try:
+        initial = _run_ocean(
+            "up", *common,
+            "--host", "127.0.0.1", "--port", str(port),
+            "--apply", "--json",
+        )
+        assert initial.returncode == 0, initial.stderr
+        before = _workspace_snapshot(fixture["workspace"])
+
+        start = _run_ocean(
+            "start", "--workspace", str(fixture["workspace"]),
+            f"--health-timeout={bad_timeout}", "--json",
+        )
+
+        assert start.returncode == 2, start.stdout + start.stderr
+        assert "--health-timeout" in start.stderr
+        assert _workspace_snapshot(fixture["workspace"]) == before
+    finally:
+        _down_fixture(fixture["workspace"])
 
 
 def test_second_up_rejects_a_running_runtime_before_fetch_or_activate(tmp_path):

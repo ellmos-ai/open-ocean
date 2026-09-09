@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-09-09
+
+### Added
+- **Bilingual README Architecture & Discoverability**: Full structural and anchor parity across `README.md` and `README_de.md`, integrated 14-point Quick Navigation, modern Shields.io badges, and enriched documentation.
+- **Dual-Mermaid Diagrams**: Interactive system architecture flowchart (`flowchart TD`) and end-to-end package resolution, verification, staging, and transactional rollback lifecycle diagram (`sequenceDiagram` with autonumbering) in both language editions.
+- **Governance & Runtime Invariants Matrix**: 10 core architectural invariants (`INV-LOCAL-01` through `INV-SLA-10`) detailing offline guarantees, fail-closed verification, transactional rollbacks, sandboxed activations, non-elevation, and SLA bounds.
+- **Sibling Ecosystem & Partner Repositories**: Cross-referencing 16+ partner repositories across `ellmos-ai`, `dev-bricks`, `file-bricks`, `doc-bricks`, `entertain-and-more`, and `open-bricks`.
+- **Security Policy Hardening (`SECURITY.md`)**: Added `security@open-bricks.org` and a binding 5-business-day triage guarantee in both German and English sections.
+- **Third-Party Licenses Inventory (`THIRD_PARTY_LICENSES.md`)**: Documented zero-external-runtime-dependencies invariant and permissive licensing of development tooling.
+- **Local Marketing Log (`MARKETING-LOG.txt`)**: Documented discoverability status, SEO keywords, and post-sluice directory listings strategy.
+- **Automated Contract Tests (`tests/test_metadata.py`)**: Expanded test suite verifying 14-point navigation anchors, Mermaid syntax, invariants completeness, and licenses.
+- **LLM Context Synchronization (`llms.txt`)**: Bumped version to 0.1.1 and refreshed timestamp to 2026-09-09.
+
 ## [0.1.0] - 2026-09-08
 
 ### Added

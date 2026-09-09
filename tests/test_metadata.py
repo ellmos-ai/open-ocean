@@ -35,14 +35,14 @@ def test_ci_workflow_integrity():
 
 
 def test_pyproject_pep621_metadata():
-    """Verify PEP 621 pyproject.toml declares standard metadata, URLs, and pytest pythonpath."""
+    """Verify PEP 621 pyproject.toml declares standard metadata, URLs, and pytest options."""
     pyproject_path = ROOT / "pyproject.toml"
     assert pyproject_path.is_file(), "pyproject.toml must exist"
 
     data = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
     project = data.get("project", {})
     assert project.get("name") == "open-ocean"
-    assert project.get("version") == "0.1.0"
+    assert project.get("version") == "0.1.1"
     assert project.get("license") == "MIT"
 
     urls = project.get("urls", {})
@@ -57,6 +57,7 @@ def test_pyproject_pep621_metadata():
 
     pytest_opts = data.get("tool", {}).get("pytest", {}).get("ini_options", {})
     assert "." in pytest_opts.get("pythonpath", [])
+    assert "-ra -v" in pytest_opts.get("addopts", "")
 
 
 def test_security_policy_contract():
@@ -74,7 +75,9 @@ def test_security_policy_contract():
     assert "Non-Elevation & Least Privilege" in content
     assert "0.1.x" in content
     assert "48 hours" in content or "48 Stunden" in content
+    assert "5 business days" in content or "5-Werktage" in content
     assert "security@ellmos.ai" in content
+    assert "security@open-bricks.org" in content
     assert "support@lukasgeiger.com" in content
     assert "lukas@open-bricks.org" in content
     assert "https://github.com/ellmos-ai/open-ocean/security/advisories" in content
@@ -91,17 +94,150 @@ def test_readme_badges_and_parity():
     assert "[English](README.md)" in readme_de
 
     for doc, name in [(readme_en, "README.md"), (readme_de, "README_de.md")]:
-        assert "version-0.1.0" in doc, f"{name} missing version badge"
+        assert "version-0.1.1" in doc, f"{name} missing version badge"
         assert "python-3.10" in doc, f"{name} missing python badge"
         assert "license-MIT" in doc, f"{name} missing license badge"
         assert "SECURITY.md" in doc, f"{name} missing SECURITY.md reference"
         assert "CHANGELOG.md" in doc, f"{name} missing CHANGELOG.md reference"
         assert "llms.txt" in doc, f"{name} missing llms.txt reference"
         assert "ci.yml" in doc, f"{name} missing CI badge reference"
+        assert "THIRD_PARTY_LICENSES.md" in doc, f"{name} missing THIRD_PARTY_LICENSES reference"
+        assert "MARKETING-LOG.txt" in doc, f"{name} missing MARKETING-LOG reference"
+
+
+def test_readme_quick_navigation_anchors():
+    """Verify 14-point quick navigation menu and headings in both READMEs."""
+    readme_en = (ROOT / "README.md").read_text(encoding="utf-8")
+    readme_de = (ROOT / "README_de.md").read_text(encoding="utf-8")
+
+    assert "Quick Navigation:" in readme_en
+    assert "Schnellnavigation:" in readme_de
+
+    en_headings = [
+        "## Read this first: this repository is a building site",
+        "## The name, and the architecture it carries",
+        "## System Architecture",
+        "## Installation & Rollback Lifecycle",
+        "## What is actually in here",
+        "## Governance & Runtime Invariants",
+        "## Status",
+        "## Release conditions",
+        "## Quickstart & Usage",
+        "## Sibling Ecosystem & Partner Repositories",
+        "## Verification & Test Suite",
+        "## Security Policy",
+        "## Licence",
+        "## LLM Context & Discovery",
+    ]
+
+    for heading in en_headings:
+        assert heading in readme_en, f"English README missing heading: {heading}"
+
+    de_headings = [
+        "## Zuerst lesen: dieses Repository ist eine Baustelle",
+        "## Der Name und die Architektur, die er trägt",
+        "## Systemarchitektur",
+        "## Installations- und Rollback-Lebenszyklus",
+        "## Was sich tatsächlich hier befindet",
+        "## Governance- und Laufzeit-Invarianten",
+        "## Status",
+        "## Freigabebedingungen",
+        "## Schnellstart und CLI-Nutzung",
+        "## Geschwister-Ökosystem und Partner-Repositories",
+        "## Verifikation und Testsuite",
+        "## Sicherheitsrichtlinie",
+        "## Lizenz",
+        "## LLM-Kontext und Discovery",
+    ]
+
+    for heading in de_headings:
+        assert heading in readme_de, f"German README missing heading: {heading}"
+
+
+def test_readme_dual_mermaid_diagrams():
+    """Verify presence of flowchart and sequence diagram in both READMEs."""
+    for filename in ["README.md", "README_de.md"]:
+        content = (ROOT / filename).read_text(encoding="utf-8")
+        assert "```mermaid" in content
+        assert "flowchart TD" in content
+        assert "sequenceDiagram" in content
+        assert "autonumber" in content
+        assert "ocean_dev.py" in content
+        assert "resolve_bundles.py" in content
+        assert "fetch_place.py" in content
+        assert "host_adapters.py" in content
+        assert "ocean-dev.activation-log.json" in content
+
+
+def test_readme_governance_invariants_matrix():
+    """Verify that all 10 governance and runtime invariants are documented in both READMEs."""
+    invariants = [
+        "INV-LOCAL-01",
+        "INV-TRANS-02",
+        "INV-DRY-03",
+        "INV-PIN-04",
+        "INV-SAND-05",
+        "INV-PRIV-06",
+        "INV-GATE-07",
+        "INV-PARITY-08",
+        "INV-PLAT-09",
+        "INV-SLA-10",
+    ]
+
+    for filename in ["README.md", "README_de.md"]:
+        content = (ROOT / filename).read_text(encoding="utf-8")
+        for inv_id in invariants:
+            assert inv_id in content, f"{filename} missing invariant: {inv_id}"
+
+
+def test_readme_sibling_ecosystem_table():
+    """Verify that sibling ecosystem repos across orgs are represented in both READMEs."""
+    siblings = [
+        "ellmos-ai/ellmos-core",
+        "ellmos-ai/policy-registry",
+        "ellmos-ai/system-explorer",
+        "ellmos-ai/sqlite-transit-sync",
+        "ellmos-ai/decision-clicker",
+        "dev-bricks/DevCenter",
+        "file-bricks/ExplorerPro",
+        "doc-bricks/CleanMarkdown",
+        "entertain-and-more/BattleStage",
+        "open-bricks/open-bricks",
+    ]
+
+    for filename in ["README.md", "README_de.md"]:
+        content = (ROOT / filename).read_text(encoding="utf-8")
+        for sib in siblings:
+            assert sib in content, f"{filename} missing sibling repository: {sib}"
+
+
+def test_third_party_licenses_inventory():
+    """Verify THIRD_PARTY_LICENSES.md documents runtime and development dependencies."""
+    lic_file = ROOT / "THIRD_PARTY_LICENSES.md"
+    assert lic_file.is_file(), "THIRD_PARTY_LICENSES.md must exist"
+
+    content = lic_file.read_text(encoding="utf-8")
+    assert "Zero external runtime dependencies" in content
+    assert "Python Standard Library" in content
+    assert "pytest" in content
+    assert "ruff" in content
+    assert "setuptools" in content
+
+
+def test_marketing_log_audit():
+    """Verify MARKETING-LOG.txt is present, up to date, and documents discoverability."""
+    log_file = ROOT / "MARKETING-LOG.txt"
+    assert log_file.is_file(), "MARKETING-LOG.txt must exist"
+
+    content = log_file.read_text(encoding="utf-8")
+    assert "MARKETING & DISCOVERABILITY AUDIT LOG: ellmos-ai/open-ocean" in content
+    assert "2026-09-09" in content
+    assert "PRIVATE.txt" in content
+    assert "INV-LOCAL-01" in content or "INV-LOCAL" in content or "Invariants" in content
 
 
 def test_llms_txt_contract():
-    """Verify llms.txt machine-readable documentation and timestamp."""
+    """Verify llms.txt machine-readable documentation, version, and timestamp."""
     llms_path = ROOT / "llms.txt"
     assert llms_path.is_file(), "llms.txt must exist"
 
@@ -112,7 +248,10 @@ def test_llms_txt_contract():
     assert "## Safety & Invariants" in content
     assert "## Repository Structure" in content
     assert "## Usage" in content
-    assert "2026-09-08" in content
+    assert "2026-09-09" in content
+    assert "v0.1.1" in content
+    assert "INV-LOCAL-01" in content
+    assert "INV-SLA-10" in content
     assert "https://github.com/ellmos-ai/open-ocean" in content
 
 

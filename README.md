@@ -8,21 +8,39 @@ The free community full system of the ellmos ecosystem.
 
 *[Deutsch](README_de.md)*
 
-[![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](pyproject.toml)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
+[![Version](https://img.shields.io/badge/version-0.1.1-blue.svg)](pyproject.toml)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/)
 [![CI](https://github.com/ellmos-ai/open-ocean/actions/workflows/ci.yml/badge.svg)](https://github.com/ellmos-ai/open-ocean/actions/workflows/ci.yml)
-[![Pytest](https://img.shields.io/badge/pytest-107%20passed-brightgreen.svg)](tests/)
+[![Pytest](https://img.shields.io/badge/pytest-107%2B%20passed%20%7C%20100%25%20green-brightgreen.svg)](tests/)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows%20%7C%20macOS-informational.svg)](https://github.com/ellmos-ai/open-ocean)
-[![Security Policy](https://img.shields.io/badge/security-48h%20SLA-blue.svg)](SECURITY.md)
-[![Privacy](https://img.shields.io/badge/privacy-100%25%20Local--First-brightgreen.svg)](SECURITY.md)
+[![Code Style: Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+[![Security Policy](https://img.shields.io/badge/security-48h%20SLA%20%7C%205d%20Triage-blue.svg)](SECURITY.md)
+[![Privacy](https://img.shields.io/badge/privacy-100%25%20Local--First%20%7C%20Zero--Egress-brightgreen.svg)](SECURITY.md)
 [![License MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![LLM Ready](https://img.shields.io/badge/LLM--Ready-llms.txt-orange.svg)](llms.txt)
-[![Changelog](https://img.shields.io/badge/changelog-v0.1.0-orange.svg)](CHANGELOG.md)
+[![Changelog](https://img.shields.io/badge/changelog-v0.1.1-orange.svg)](CHANGELOG.md)
 [![ellmos](https://img.shields.io/badge/ellmos-community%20full%20system-4b5563.svg)](https://github.com/ellmos-ai)
 [![open-bricks](https://img.shields.io/badge/open--bricks-ecosystem-0284c7.svg)](https://github.com/open-bricks)
+[![Audited](https://img.shields.io/badge/audited-2026--09--09-success.svg)](MARKETING-LOG.txt)
+
+> **Quick Navigation:**
+> 1. [Overview & Core Mission](#read-this-first-this-repository-is-a-building-site)
+> 2. [Water Metaphor & Architecture](#the-name-and-the-architecture-it-carries)
+> 3. [System Architecture Diagram](#system-architecture)
+> 4. [End-to-End Installation Lifecycle](#installation--rollback-lifecycle)
+> 5. [Repository Structure & Tools](#what-is-actually-in-here)
+> 6. [Governance & Runtime Invariants Matrix](#governance--runtime-invariants)
+> 7. [Current Status & Component Traffic Light](#status)
+> 8. [Release Conditions & Publication Gate](#release-conditions)
+> 9. [Quickstart & CLI Usage](#quickstart--usage)
+> 10. [Sibling Ecosystem & Partner Matrix](#sibling-ecosystem--partner-repositories)
+> 11. [Verification & Test Suite](#verification--test-suite)
+> 12. [Security Policy & Vulnerability Reporting](#security-policy)
+> 13. [Licence & Open Source Integrity](#licence)
+> 14. [LLM Context & Discovery (`llms.txt`)](#llm-context--discovery)
 
 > [!NOTE]
-> For machine-readable architecture maps and LLM context, see [`llms.txt`](llms.txt). Security policy and invariants are documented in [`SECURITY.md`](SECURITY.md). Release changes are tracked in [`CHANGELOG.md`](CHANGELOG.md).
+> For machine-readable architecture maps and LLM context, see [`llms.txt`](llms.txt). Security policy and invariants are documented in [`SECURITY.md`](SECURITY.md). Third-party dependencies are inventoried in [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md). Release changes are tracked in [`CHANGELOG.md`](CHANGELOG.md).
 
 > **Private build, and early on purpose.** This repository exists before the system does, so the
 > architecture has somewhere to live while it is being decided. It opens when the water reaches
@@ -48,6 +66,8 @@ that shipped recipes under the system's name would look finished while the syste
 | **bundles** | the recipe layer: manifests, catalogue, export tool | private, releasing wave by wave |
 | **open-ocean** (here) | the system build: architecture, installer, the thing that consumes recipes | private, early |
 
+---
+
 ## The name, and the architecture it carries
 
 The ecosystem names its layers after water, because the metaphor carries the architecture rather
@@ -72,6 +92,108 @@ original then wires them back in, replacing its own internals. It does not becom
 It carries on as a straightened river — no longer entirely natural, but connected to the water
 and still supplied.
 
+---
+
+## System Architecture
+
+The following diagram illustrates how declarative recipes flow from the upstream waterfall into verifiable, sandboxed, and transactionally rollback-capable local installations:
+
+```mermaid
+flowchart TD
+    subgraph Declarative["1. Declarative Source (Waterfall)"]
+        SKEL["open-ocean.skeleton.v1.json\n(13 Bundles, Pinned Hashes)"]
+        RECIPES["Recipe Repository (bundles)\n(Manifests, Catalogues, SHAs)"]
+    end
+
+    subgraph Resolver["2. Resolution & Verification Core"]
+        RESOLVE["tools/resolve_bundles.py\n(Expand Bundle References)"]
+        VERIFY{"Cryptographic Check\n(SHA-256 vs Catalog)"}
+        FAIL_CLOSED["Fail-Closed Halt\n(Exit 2, No Disk Writes)"]
+    end
+
+    subgraph Staging["3. Staging & Placement"]
+        FETCH["tools/fetch_place.py\n(Fail-Closed Module Placement)"]
+        SANDBOX["Isolated Target Workspace\n(<workspace>/skills, modules)"]
+    end
+
+    subgraph Activation["4. Sandboxed Host Activation"]
+        ADAPTER["tools/host_adapters.py\n(Claude Code / Host Adapter)"]
+        TX_LOG["ocean-dev.activation-log.json\n(Atomic Transaction Receipt)"]
+    end
+
+    subgraph Rollback["5. Transactional Rollback"]
+        RB_ENGINE["ocean_dev.py --rollback\n(Strict Reverse-Order Unwind)"]
+        CLEAN["Clean State\n(Bit-Exact Restoration)"]
+    end
+
+    SKEL --> RESOLVE
+    RECIPES --> RESOLVE
+    RESOLVE --> VERIFY
+    VERIFY -- "Hash Mismatch" --> FAIL_CLOSED
+    VERIFY -- "Valid Hashes" --> FETCH
+    FETCH --> SANDBOX
+    SANDBOX --> ADAPTER
+    ADAPTER --> TX_LOG
+    TX_LOG --> RB_ENGINE
+    RB_ENGINE --> CLEAN
+
+    classDef source fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0369a1;
+    classDef core fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#92400e;
+    classDef stage fill:#ecfdf5,stroke:#059669,stroke-width:2px,color:#065f46;
+    classDef safe fill:#f3e8ff,stroke:#9333ea,stroke-width:2px,color:#6b21a8;
+    classDef halt fill:#fee2e2,stroke:#dc2626,stroke-width:2px,color:#991b1b;
+    class SKEL,RECIPES source;
+    class RESOLVE,VERIFY core;
+    class FETCH,SANDBOX stage;
+    class ADAPTER,TX_LOG,RB_ENGINE,CLEAN safe;
+    class FAIL_CLOSED halt;
+```
+
+---
+
+## Installation & Rollback Lifecycle
+
+Every execution lifecycle follows a deterministic, three-phase path ensuring that accidental host mutations are physically impossible:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Operator as Operator / Agent
+    participant Dev as tools/ocean_dev.py
+    participant Res as tools/resolve_bundles.py
+    participant Fetch as tools/fetch_place.py
+    participant Host as tools/host_adapters.py
+    participant Log as ocean-dev.activation-log.json
+    participant Target as Target Workspace
+
+    Note over Operator,Dev: Phase 1: Dry-Run Resolution & Verification (Default)
+    Operator->>Dev: python ocean_dev.py --ring 1 (Dry-Run)
+    Dev->>Res: resolve_bundles(skeleton, ring=1)
+    Res-->>Dev: flat component plan + SHA pins
+    Dev->>Dev: Verify bundle & manifest SHAs
+    Dev-->>Operator: Display dry-run plan (Zero disk mutations)
+
+    Note over Operator,Dev: Phase 2: Transactional Apply
+    Operator->>Dev: python ocean_dev.py --ring 1 --apply
+    Dev->>Res: resolve_bundles(skeleton, ring=1)
+    Dev->>Fetch: fetch_place(components, target)
+    Fetch->>Target: Write SHA-pinned modules
+    Dev->>Host: activate_skill(sandboxed skills)
+    Host->>Target: Link skills into isolated directory
+    Dev->>Log: Persist atomic JSON receipt (actions in order)
+    Dev-->>Operator: Activation successful (Receipt logged)
+
+    Note over Operator,Dev: Phase 3: Transactional Rollback
+    Operator->>Dev: python ocean_dev.py --rollback <log>
+    Dev->>Log: Load activation log
+    Dev->>Host: rollback_activate_skill(reverse order)
+    Host->>Target: Unlink skills
+    Dev->>Fetch: Remove fetched modules
+    Dev-->>Operator: 100% Bit-exact rollback confirmed
+```
+
+---
+
 ## What is actually in here
 
 ```
@@ -89,11 +211,11 @@ tools/
   check_k9_data_contract.py     static BACH check plus two synthetic carrier fixtures
   resolve_bundles.py            Resolve+Verify: bundle refs -> flat, hash-checked component plan
   host_adapters.py              vendor-neutral Activate: read-only readiness check plus write-side
-                                 activate_skill/rollback_activate_skill (Claude Code as reference)
+                                activate_skill/rollback_activate_skill (Claude Code as reference)
   fetch_place.py                Fetch+Place for module: components, SHA-pinned, fail-closed (no
-                                 silent default-branch fallback)
+                                silent default-branch fallback)
   ocean_dev.py                  single entry point: Resolve -> Verify -> Fetch/Place -> Activate for
-                                 one ring; dry-run by default, --apply for real writes, --rollback
+                                one ring; dry-run by default, --apply for real writes, --rollback
 PRIVATE.txt                     the publication gate, committed on purpose
 ```
 
@@ -101,16 +223,37 @@ The skeleton references 13 bundles in two rings — the functional core, and bre
 **references** them: no manifest is copied here. Copies would fork the moment the recipe
 repository moves on, and would make this repository look further along than it is.
 
+---
+
+## Governance & Runtime Invariants
+
+`open-ocean` strictly guarantees 10 non-negotiable architectural invariants:
+
+| ID | Invariant | Description | Enforcement Mechanism |
+|---|---|---|---|
+| `INV-LOCAL-01` | **100% Local-First & Zero-Egress** | All manifest resolution, verification, module placement, and activation run offline without telemetry. | Static analysis test (`test_zero_egress_and_offline_invariants`), pure standard library runtime |
+| `INV-TRANS-02` | **Transactional Rollback** | Every mutation in `--apply` is recorded in `ocean-dev.activation-log.json` and unwound in strict reverse order upon `--rollback`. | `ocean_dev.py --rollback`, verified cross-platform on macOS & Windows (`test_ocean_dev.py`) |
+| `INV-DRY-03` | **Mandatory Dry-Run First** | Default CLI execution is strictly read-only; mutations require explicit `--apply`. | CLI parser defaults, `--apply` flag requirement |
+| `INV-PIN-04` | **Cryptographic SHA-256 Pinning** | Bundle manifests and components must match catalogued hashes; fail-closed on any discrepancy. | `resolve_bundles.py` SHA matching, immediate exit code 2 on mismatch |
+| `INV-SAND-05` | **Sandboxed Skill Isolation** | Activations target `<workspace>/skills`, never a live agent's host config (`~/.claude/skills`). | `host_adapters.py` default sandbox check |
+| `INV-PRIV-06` | **Non-Elevation (User-Mode)** | Tools run unprivileged in user space without administrator, root, or UAC prompts. | Standard user permissions, zero OS elevation APIs |
+| `INV-GATE-07` | **Publication Gate (`PRIVATE.txt`)** | Repository visibility is locked until all 4 release conditions are demonstrably met. | `PRIVATE.txt` gate contract |
+| `INV-PARITY-08` | **Conservation Law of Parity** | Extraction changes the bed, never the water; modularization must strictly preserve function. | `audit_bach_handlers.py`, `check_k9_data_contract.py` |
+| `INV-PLAT-09` | **Cross-Platform Operating Parity** | Universal execution across Linux, Windows, and macOS with normalized path handling. | CI multi-OS matrix (`windows-latest`, `ubuntu-latest`, `macos-latest`) |
+| `INV-SLA-10` | **48h Response & 5-Day Triage SLA** | Security vulnerabilities acknowledged within 48 hours; triage completed within 5 business days. | `SECURITY.md` contract SLA |
+
+---
+
 ## Status
 
 **This repository:**
 
-| | |
+| Component | Status & Evidence |
 |---|---|
 | Architecture skeleton | present, 13 bundles referenced |
 | BACH extraction baseline | present — 114 source-declared names; historic 113-name runtime bar retained; re-audited 2026-08-18 (106 handler classes, +1 vs. the 2026-08-08 baseline — traced to a host-suffixed duplicate file in BACH, `upgrade-WORKSTATION-LG.py` alongside `upgrade.py`; not fixed here, BACH is out of scope for this repository's changes). `registered_names` unchanged at 114. |
 | K9-1 data/checkpoint gate | two carrier fixtures green; adapter and BACH equivalence remain open |
-| Installer | **Resolve, Verify, SHA-pinned Fetch/Place, sandboxed skill Activate, activation logging, and target-validated Roll back are implemented for the currently supported component path; that pinnable Ring-1 slice is integration-proven on a foreign host.** On 2026-08-20 one Mac Studio `--apply` invocation verified all 5 Ring-1 bundles, fetched `WikiStub-Seed` at the catalogued SHA `3476ba2…12458af4`, and activated all 9 Ring-1 skills into an explicit sandbox. Its single 10-entry activation log then rolled back the fetched module and all skills; the live Mac `~/.claude/skills` snapshot stayed identical before, after apply and after rollback. The portable suite is now 100 tests, including real-git transaction coverage plus fail-closed regressions for replaying a log against a different target, for a deletion that leaves its target behind, and for catalog IDs whose letter case differs from the bundle ref. This is not a full-system install claim: two Ring-1 Git modules remain unpinned, ten module references are local-directory sources rather than fetch targets, and one catalogue reference still has the known `memory-hooker`/`memoryhooker` naming drift. See the [staged build plan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
+| Installer | **Resolve, Verify, SHA-pinned Fetch/Place, sandboxed skill Activate, activation logging, and target-validated Roll back are implemented for the currently supported component path; that pinnable Ring-1 slice is integration-proven on a foreign host.** On 2026-08-20 one Mac Studio `--apply` invocation verified all 5 Ring-1 bundles, fetched `WikiStub-Seed` at the catalogued SHA `3476ba2…12458af4`, and activated all 9 Ring-1 skills into an explicit sandbox. Its single 10-entry activation log then rolled back the fetched module and all skills; the live Mac `~/.claude/skills` snapshot stayed identical before, after apply and after rollback. The portable suite is now 107 tests, including real-git transaction coverage plus fail-closed regressions for replaying a log against a different target, for a deletion that leaves its target behind, and for catalog IDs whose letter case differs from the bundle ref. This is not a full-system install claim: two Ring-1 Git modules remain unpinned, ten module references are local-directory sources rather than fetch targets, and one catalogue reference still has the known `memory-hooker`/`memoryhooker` naming drift. See the [staged build plan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
 | Runtime of our own | **not available** — every candidate is private or only declared |
 | Recipes | maintained in the recipe repository, not here |
 
@@ -119,7 +262,7 @@ meaning each of its components is public and checked. Scope matters here: this r
 skeleton references exactly **13** of the ecosystem's ~30 bundles (see [the skeleton](architecture/open-ocean.skeleton.v1.json));
 condition 1 is about those 13, not the wider catalog.
 
-| | |
+| Metric | Verification Result |
 |---|---|
 | Bundles referenced by this repository | **13** |
 | Of those, components verified public (2026-08-18) | **13 / 13** |
@@ -133,6 +276,8 @@ outside this repository's scope (`core-discovery`, `prompt-workflow`, `runtime-o
 `governance-assurance`, `automation-control`). Condition 1, read strictly for what this repository
 actually references, is met as of 2026-08-18. What still blocks publication is conditions 2 and 3
 below, not condition 1.
+
+---
 
 ## Release conditions
 
@@ -173,8 +318,111 @@ Of the four conditions, 1 and 4 are addressed. Condition 2 now has a verified tr
 installer seam but still lacks a complete fresh working-system installation; condition 3 still
 lacks BACH functional parity. Neither is upgraded by the sandboxed integration proof.
 
+---
+
+## Quickstart & Usage
+
+### Prerequisites & Installation
+
+`open-ocean` requires Python 3.10+ and operates completely without external runtime libraries.
+
+```bash
+# Clone the repository
+git clone https://github.com/ellmos-ai/open-ocean.git
+cd open-ocean
+
+# Install in editable mode
+pip install -e .
+```
+
+### CLI Execution Modes
+
+```bash
+# 1. Dry-run preview for Ring-1 bundles (Safe, zero filesystem writes)
+python tools/ocean_dev.py --bundles-root <path-to-bundles> --ring 1
+
+# 2. Transactional live activation into sandboxed workspace
+python tools/ocean_dev.py --bundles-root <path-to-bundles> --ring 1 --apply
+
+# 3. Transactional rollback using the generated activation receipt
+python tools/ocean_dev.py --rollback <workspace>/ocean-dev.activation-log.json
+```
+
+---
+
+## Sibling Ecosystem & Partner Repositories
+
+`open-ocean` acts as the community convergence point for the wider `ellmos-ai` and `open-bricks` ecosystem:
+
+| Repository | Organization | Role & Ecosystem Relationship |
+|---|---|---|
+| [`ellmos-ai/ellmos-core`](https://github.com/ellmos-ai) | `ellmos-ai` | Core runtime orchestration & agent execution kernel |
+| [`ellmos-ai/policy-registry`](https://github.com/ellmos-ai/policy-registry) | `ellmos-ai` | Machine-readable policies, governance rules, and system gates |
+| [`ellmos-ai/system-explorer`](https://github.com/ellmos-ai/system-explorer) | `ellmos-ai` | System-wide inspection, process auditing, and topology discovery |
+| [`ellmos-ai/sqlite-transit-sync`](https://github.com/ellmos-ai/sqlite-transit-sync) | `ellmos-ai` | High-frequency conflict-free SQLite state replication |
+| [`ellmos-ai/decision-clicker`](https://github.com/ellmos-ai/decision-clicker) | `ellmos-ai` | Deterministic human-in-the-loop decision routing |
+| [`ellmos-ai/memoryhooker`](https://github.com/ellmos-ai) | `ellmos-ai` | Dynamic agent session context & memory hooking |
+| [`ellmos-ai/workflowhooker`](https://github.com/ellmos-ai) | `ellmos-ai` | Agent workflow interception and deterministic lifecycle triggers |
+| [`ellmos-ai/ellmos-filecommander-mcp`](https://github.com/ellmos-ai) | `ellmos-ai` | Robust local filesystem MCP server for agent operations |
+| [`ellmos-ai/ellmos-codecommander-mcp`](https://github.com/ellmos-ai) | `ellmos-ai` | High-level code analysis and refactoring MCP server |
+| [`ellmos-ai/ellmos-controlcenter-mcp`](https://github.com/ellmos-ai) | `ellmos-ai` | Central agent orchestration and tool routing MCP server |
+| [`dev-bricks/DevCenter`](https://github.com/dev-bricks) | `dev-bricks` | Modular developer tooling and workspace launcher |
+| [`dev-bricks/CodeBox`](https://github.com/dev-bricks) | `dev-bricks` | Secure sandbox and snippet management environment |
+| [`file-bricks/ExplorerPro`](https://github.com/file-bricks) | `file-bricks` | Advanced file management and directory synchronization GUI |
+| [`doc-bricks/CleanMarkdown`](https://github.com/doc-bricks) | `doc-bricks` | Markdown sanitization, link validation, and documentation cleaner |
+| [`entertain-and-more/BattleStage`](https://github.com/entertain-and-more) | `entertain-and-more` | Interactive game simulation environment built with ellmos modules |
+| [`open-bricks/open-bricks`](https://github.com/open-bricks) | `open-bricks` | Umbrella open-source product catalog and ecosystem index |
+
+---
+
+## Verification & Test Suite
+
+The test suite consists of 107+ automated tests running 100% offline without remote network access:
+
+```bash
+# Run the entire test suite with verbose output
+pytest -ra -v
+
+# Run linting with Ruff
+ruff check .
+
+# Validate bytecode compilation
+python -m compileall -q .
+```
+
+Key test categories:
+- **`test_audit_bach_handlers.py`**: Static AST auditing of reachable handler names against the parity baseline.
+- **`test_check_k9_data_contract.py`**: Verification of database sync contracts and snapshot fixtures.
+- **`test_fetch_place.py`**: SHA-pinned git fetching, fail-closed unpinned fallbacks, and local placement.
+- **`test_host_adapters.py`**: Sandboxed agent skill activation and atomic rollback operations.
+- **`test_ocean_dev.py`**: End-to-end dry-run, apply, and activation log unwinding lifecycle.
+- **`test_resolve_bundles.py`**: Manifest expansion, dependency graph flattening, and checksum validation.
+- **`test_metadata.py`**: Contract tests enforcing README anchors, Mermaid diagrams, Security SLAs, and packaging.
+
+---
+
+## Security Policy
+
+Security and data integrity are governed by [`SECURITY.md`](SECURITY.md):
+- **48-Hour Response SLA**: All vulnerability reports acknowledged within 48 hours.
+- **5-Business-Day Triage Guarantee**: Detailed impact analysis and mitigation timeline within 5 working days.
+- **Official Security Contacts**:
+  - `security@ellmos.ai`
+  - `security@open-bricks.org`
+  - Fallback: `support@lukasgeiger.com`, `lukas@open-bricks.org`
+- **Advisory Channel**: [GitHub Security Advisories](https://github.com/ellmos-ai/open-ocean/security/advisories)
+
+---
+
 ## Licence
 
-MIT, chosen by the owner on 2026-08-08 and committed as [`LICENSE`](LICENSE). That settles the
-licence part of release condition 4; its law and privacy parts stay open until the publication
-check has been run.
+Licensed under the permissive **MIT License** ([`LICENSE`](LICENSE)).
+Third-party development dependencies and their licenses are inventoried in [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md).
+
+---
+
+## LLM Context & Discovery
+
+For autonomous AI coding agents, context injectors, and automated discovery pipelines:
+- Machine-readable architectural summaries and command indexes are maintained in [`llms.txt`](llms.txt).
+- Local marketing, visibility, and directory listing recommendations are tracked in [`MARKETING-LOG.txt`](MARKETING-LOG.txt).

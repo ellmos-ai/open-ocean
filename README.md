@@ -167,6 +167,7 @@ The product lifecycle is exposed at the repository root:
 python ocean.py plan <composition arguments>
 python ocean.py up <composition arguments> --apply
 python ocean.py start --workspace <local-sandbox>
+python ocean.py start <role> --manifest <ellmos-module.v2.json> [--provider <name>]
 python ocean.py status --workspace <local-sandbox>
 python ocean.py user add --workspace <local-sandbox> --username <name> --email <address>
 python ocean.py down --workspace <local-sandbox>
@@ -178,6 +179,12 @@ may use `--password-stdin`. `ocean up` uses the dedicated OCEAN port `8810` by d
 start` restarts the already installed, verified snapshot without consulting changed live recipe
 authority; it also recovers a stale `running` state after an OS or process loss when both the
 authenticated control channel and the recorded runtime port are no longer active.
+With a positional role, `ocean start <role>` instead forwards to the same
+`python -m unified_gui.console start` entry used by Wheelhouse Lower Decks. It
+does not enter the runtime lifecycle or touch the installed workspace. If that
+optional console is absent, OCEAN prints `[FALLBACK]` and uses the same manifest
+record through task-master, COMA or the module starter. `--dry-run` proves the
+resolved chain without starting a provider.
 On Windows, the supervisor also retries transient atomic state-file replacement contention within
 a bounded one-second window, so a successful stop cannot leave a stale `running` record behind.
 On ASUS-GEI, the hidden limited-user logon task `EllmosOceanFullUserStart` now launches the exact

@@ -4,6 +4,14 @@
 
 ## Unveröffentlicht — 2026-09-09
 
+### Ergänzt
+
+- `ocean start <rolle>` leitet einen autoritativen `roles[]`-Manifesteintrag an
+  das Konsolenstartfenster der Unified GUI weiter. Der bestehende Runtime-Pfad
+  `ocean start --workspace ...` bleibt unverändert. Fehlt die optionale Konsole,
+  fällt der Befehl sichtbar auf task-master, COMA und den Modulstarter zurück;
+  `--dry-run` startet keinen Anbieter.
+
 ### Behoben
 
 - Der Full-Ocean-Lifecycle-Branch wurde mit der unabhängigen Path-A-Metadaten-/CI-Baseline

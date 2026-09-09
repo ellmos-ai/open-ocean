@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased — 2026-09-09
 
+### Added
+
+- `ocean start <role>` forwards an authoritative module `roles[]` entry to the
+  Unified GUI console start window. The existing `ocean start --workspace ...`
+  runtime path is unchanged. Missing optional console code degrades visibly to
+  task-master, COMA and the module starter; `--dry-run` starts no provider.
+
 ### Fixed
 
 - Integrated the Full Ocean lifecycle branch with the independent Path A metadata/CI baseline;

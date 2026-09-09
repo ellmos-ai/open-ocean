@@ -31,12 +31,16 @@
 python ocean.py plan <composition arguments>
 python ocean.py up <composition arguments> --apply
 python ocean.py start --workspace <local-sandbox>
+python ocean.py start <role> --manifest <ellmos-module.v2.json> [--provider <name>]
 python ocean.py status --workspace <local-sandbox>
 python ocean.py user add --workspace <local-sandbox> --username <name> --email <address>
 python ocean.py down --workspace <local-sandbox>
 ```
 
 Use `python ocean.py --help` and subcommand help for the complete argument surface.
+The positional role path delegates to `python -m unified_gui.console start` and
+never enters the installed-runtime lifecycle. Its explicit fallback order is
+task-master, COMA, then the module-declared starter.
 
 ## Primary documents
 

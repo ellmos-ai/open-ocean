@@ -5,7 +5,10 @@ from __future__ import annotations
 
 import argparse
 import getpass
+import importlib.util
 import json
+import os
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -25,6 +28,7 @@ from tools.source_pins import DEFAULT_SOURCE_PINS
 
 
 DEFAULT_OCEAN_PORT = 8810
+ROLE_MANIFEST_ENV = "UNIFIED_GUI_ROLE_MANIFESTS"
 
 
 def _configure_utf8_output() -> None:
@@ -141,9 +145,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     start = commands.add_parser(
         "start",
-        help="bereits installierten OCEAN-Stand starten oder nach Prozessverlust wiederherstellen",
+        help="installierten OCEAN-Stand oder eine deklarierte Modulrolle starten",
     )
-    start.add_argument("--workspace", type=Path, required=True)
+    start.add_argument("role", nargs="?", help="optionale Rollen-ID fuer das Konsolenstartfenster")
+    start.add_argument("--workspace", type=Path)
     start.add_argument("--host", choices=["127.0.0.1", "localhost"])
     start.add_argument("--port", type=int, help="optional neuer Port; sonst wird der installierte Port verwendet")
     start.add_argument(
@@ -153,6 +158,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="siehe 'ocean up --health-timeout'",
     )
     start.add_argument("--json", action="store_true")
+    start.add_argument("--manifest", action="append", default=[], help="roles[]-Modulmanifest; wiederholbar")
+    start.add_argument("--provider", help="Anbieter fuer den Rollenstart")
+    start.add_argument("--model", default="", help="optionales Modell nur fuer diesen Rollenstart")
+    start.add_argument("--effort", default="", help="optionaler Effort nur fuer diesen Rollenstart")
+    start.add_argument("--request", default="", help="optionaler Nutzerauftrag statt Manifest-Default")
+    start.add_argument("--cwd", type=Path, help="Arbeitsverzeichnis der Rolle")
+    start.add_argument("--name", default="", help="Name des Rollenprozesses")
+    start.add_argument("--dry-run", action="store_true", help="Rollenstart nur anzeigen")
     status = commands.add_parser("status", help="Installations- und Laufzeitstatus live prüfen")
     status.add_argument("--workspace", type=Path, required=True)
     status.add_argument("--json", action="store_true")
@@ -174,6 +187,132 @@ def build_parser() -> argparse.ArgumentParser:
     )
     user_add.add_argument("--json", action="store_true")
     return parser
+
+
+def _role_console_command(args: argparse.Namespace) -> list[str]:
+    command = [sys.executable, "-m", "unified_gui.console", "start", args.role]
+    for manifest in args.manifest:
+        command.extend(["--manifest", str(Path(manifest).expanduser().resolve())])
+    for flag, value in (
+        ("--provider", args.provider),
+        ("--model", args.model),
+        ("--effort", args.effort),
+        ("--request", args.request),
+        ("--cwd", args.cwd),
+        ("--name", args.name),
+    ):
+        if value:
+            command.extend([flag, str(value)])
+    if args.dry_run:
+        command.append("--dry-run")
+    return command
+
+
+def _module_available(name: str) -> bool:
+    try:
+        return importlib.util.find_spec(name) is not None
+    except (ImportError, ModuleNotFoundError, ValueError):
+        return False
+
+
+def _fallback_role_command(args: argparse.Namespace) -> tuple[list[str], list[str]]:
+    """Enger Notweg ohne unified-gui; liest nur denselben roles[]-Datensatz."""
+    raw_manifests = list(args.manifest)
+    if not raw_manifests:
+        raw_manifests = [
+            value for value in os.environ.get(ROLE_MANIFEST_ENV, "").split(os.pathsep)
+            if value
+        ]
+    matches: list[tuple[str, dict, Path]] = []
+    wanted = str(args.role).strip().lower()
+    for raw_path in raw_manifests:
+        path = Path(raw_path).expanduser().resolve()
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise ValueError(f"Rollenmanifest nicht lesbar: {path}: {exc}") from exc
+        module_id = str(payload.get("id") or "").strip()
+        for role in payload.get("roles", []):
+            if not isinstance(role, dict):
+                continue
+            role_id = str(role.get("id") or "").strip().lower()
+            label = str(role.get("label") or "").strip().lower()
+            key = f"{module_id}:{role_id}".lower()
+            if wanted in {role_id, label, key}:
+                matches.append((module_id, role, path))
+    if len(matches) != 1:
+        detail = "nicht gefunden" if not matches else "mehrdeutig; modul:rolle verwenden"
+        raise ValueError(f"Rolle {args.role!r} {detail}")
+    module_id, role, manifest = matches[0]
+    prompt = (manifest.parent / str(role.get("prompt") or "")).resolve()
+    if not prompt.is_file():
+        raise ValueError(f"Prompt-Datei nicht gefunden: {prompt}")
+    request = str(args.request or role.get("request") or "").strip()
+    providers = [str(value).strip().lower() for value in role.get("providers", [])]
+    provider = str(args.provider or (providers[0] if providers else "")).strip().lower()
+    if not provider or provider not in providers:
+        raise ValueError(f"Provider {provider!r} ist fuer {module_id}:{role.get('id')} nicht erlaubt")
+    cwd = Path(args.cwd).expanduser().resolve() if args.cwd else Path.cwd().resolve()
+    notices = ["[FALLBACK] unified-gui-Konsole fehlt; verwende den nächsten Startweg."]
+
+    if _module_available("taskplan"):
+        command = [
+            sys.executable, "-m", "taskplan", "launch",
+            "--label", f"{module_id}:{role.get('id')}",
+            "--prompt-file", str(prompt),
+            "--request", request,
+            "--provider", provider,
+        ]
+    elif _module_available("coma.session"):
+        notices.append("[FALLBACK] task-master fehlt; verwende COMA direkt.")
+        command = [
+            sys.executable, "-m", "coma", "session",
+            "--provider", provider,
+            "--prompt-file", str(prompt),
+            "--request", request,
+            "--cwd", str(cwd),
+        ]
+    else:
+        notices.extend((
+            "[FALLBACK] task-master fehlt; COMA wird geprüft.",
+            "[FALLBACK] COMA fehlt; verwende den modul-eigenen Starter.",
+        ))
+        starter = (manifest.parent / str(role.get("starter") or "")).resolve()
+        if not starter.is_file():
+            raise ValueError("Kein Startweg und kein vorhandener modul-eigener Starter")
+        command = [str(starter)]
+    if command[0] == sys.executable:
+        if args.model and "--model" not in command:
+            command.extend(["--model", args.model])
+        if args.effort and "--effort" not in command:
+            command.extend(["--effort", args.effort])
+        if args.dry_run and "coma" in command:
+            command.append("--dry-run")
+    return command, notices
+
+
+def _start_role(args: argparse.Namespace, *, run=None) -> int:
+    runner = subprocess.run if run is None else run
+    if _module_available("unified_gui.console"):
+        command = _role_console_command(args)
+        notices: list[str] = []
+    else:
+        command, notices = _fallback_role_command(args)
+    for notice in notices:
+        print(notice)
+    if args.dry_run and command[0] != sys.executable:
+        print(subprocess.list2cmdline(command))
+        return 0
+    env = None
+    if args.dry_run and command[1:4] == ["-m", "taskplan", "launch"]:
+        env = dict(os.environ, TASKPLAN_STARTER_DRY_RUN="1")
+    completed = runner(
+        command,
+        cwd=str(args.cwd.resolve()) if args.cwd else None,
+        env=env,
+        check=False,
+    )
+    return int(completed.returncode)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -235,6 +374,15 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(report, indent=2, ensure_ascii=False) if args.json else f"OCEAN: {report['runtime']['control']} ({report['runtime']['health']})")
         return 0 if report["runtime"]["control"] == "running" and report["runtime"]["health"] == "ok" else 1
     if args.command == "start":
+        if args.role:
+            try:
+                return _start_role(args)
+            except ValueError as exc:
+                print(f"[FEHLER] {exc}", file=sys.stderr)
+                return 2
+        if args.workspace is None:
+            print("[FEHLER] 'ocean start' ohne Rolle benötigt --workspace.", file=sys.stderr)
+            return 2
         _attach_stderr_log(args.workspace)
         try:
             report = start_installed_runtime(

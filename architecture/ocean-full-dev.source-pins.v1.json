@@ -8,10 +8,10 @@
   },
   "recipe": {
     "repository": "https://github.com/ellmos-ai/ellmos-development-system.git",
-    "commit": "a6fd89fc40be28c8899b6666320da5121bc72267",
+    "commit": "42f837a1454e99a7d2e5172d839a3243a489931e",
     "component_bindings": {
       "path": "manifests/component.registry.bindings.v1.json",
-      "content_hash": "043762b12b1ac6f38fad7ed61a2ebdf9c7efae31dd9819586409c683fd547db3"
+      "content_hash": "657fd61d5f2723c1823e0306f87ca99e0c3d94ea91bfbeecbee5643480ce2f40"
     },
     "skills_crosswalk": {
       "path": "manifests/skills.registry.crosswalk.v1.json",
@@ -22,5 +22,5 @@
     "uri": "repo://ellmos-ai/skills@3f87a456a18282ed8d07bd5634587c4da261dea3/registry/components.json",
     "sha256": "6fed91bf040258cd785878918029fd6c70bb3a5e00c2e8f5610e8aeeba7ce687"
   },
-  "content_hash": "462392da4fded09d3b58c8d3fc0d971313484073f3486bacab7f73f50abe7725"
+  "content_hash": "9d06d825bcb26ec0237bb68ecbc53c26f75de2b260423606a0b8e95e087523af"
 }

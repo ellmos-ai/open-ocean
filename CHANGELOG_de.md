@@ -4,6 +4,14 @@
 
 ## Unveröffentlicht — 2026-09-09
 
+### Hinzugefügt
+
+- Den accounts-core-Projektionspublisher und sqlite-transit-sync-Verifier für Finance Assist
+  gepinnt und einen OCEAN-Consumer ergänzt, der eine geschlossene Projektion vor der Auswahl der
+  erlaubten Kontofelder über unveränderlichen read-only SQLite-Zugriff prüft.
+- Fail-closed Tests für Projektionsänderungen und neu auftauchende SQLite-Sidecars ergänzt. Es sind
+  weder Live-Daten noch Transportaktivierung, Checkpoint-Speicherung, Rollout oder Cutover enthalten.
+
 ### Behoben
 
 - `architecture/INSTALLER-TARGET.md` wurde vom Platzhalter vor der Implementierung zum Vertrag des

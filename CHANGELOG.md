@@ -1,5 +1,10 @@
 # Changelog
 
+All notable changes to this project are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 *[Deutsch](CHANGELOG_de.md)*
 
 ## Unreleased — 2026-09-09
@@ -11,6 +16,25 @@
   allowlisted account fields through immutable, read-only SQLite access.
 - Added fail-closed tests for projection changes and newly appearing SQLite sidecars. No live data,
   transport activation, checkpoint persistence, rollout, or cutover is included.
+
+### Fixed
+
+- Reclassified `architecture/INSTALLER-TARGET.md` from a pre-implementation placeholder to the
+  implemented supported-path contract, while keeping additional host adapters, upgrades and BACH
+  setup parity explicitly open; aligned both BACH roadmaps and READMEs with that boundary.
+- Integrated the Full Ocean lifecycle branch with the independent Path A metadata/CI baseline;
+  preserved both change histories while resolving the `CHANGELOG.md` and `llms.txt` add/add
+  conflicts.
+- Made both secret-bearing Windows writers fail closed when `icacls` cannot apply the owner-only
+  ACL, and remove their temporary file on ACL or atomic-replace failure instead of leaving secret
+  material behind.
+- Retry only transient `PermissionError` state reads while the Windows supervisor atomically
+  replaces its runtime state; malformed JSON and all other read failures still fail closed.
+
+### Verified
+
+- The integrated PR #2 tree passes 181 tests and 2 subtests on Windows; Ruff and `compileall` are
+  clean.
 
 ## Unreleased — 2026-08-30
 
@@ -139,3 +163,15 @@
 
 An integration-checkpoint tag is not a public release. No visibility or `PRIVATE.txt` change is
 part of this entry.
+
+## [0.1.0] - 2026-09-08
+
+### Added
+
+- **GitHub Actions CI Workflow**: Multi-OS (`ubuntu-latest`, `windows-latest`, `macos-latest`) and multi-version Python matrix (`3.10`, `3.11`, `3.12`, `3.13`) in `.github/workflows/ci.yml` with concurrency control (`cancel-in-progress: true`), ruff linting, bytecode compilation check, and pytest execution.
+- **PEP 621 Standard Packaging & Metadata (`pyproject.toml`)**: Standardized project metadata with classifiers (Python 3.10-3.13, OS Independent, Linux, Windows, macOS), pytest configuration (`pythonpath = ["."]`), ruff configuration, and complete ecosystem URLs (`Homepage`, `Repository`, `Issues`, `Changelog`, `Documentation`, `Security`, `Parent Organization`, `Umbrella Ecosystem`).
+- **Bilingual Security Policy (`SECURITY.md`)**: Detailed security and privacy invariants covering Local-First & Zero-Egress, Fail-Closed Verification & Transactional Rollback, Mandatory Dry-Run-First Safety Gate, Sandboxed Activation Isolation, and Non-Elevation; includes supported versions table (`0.1.x`), 48-hour response SLA, and official security reporting channels.
+- **Automated Metadata & Contract Test Suite (`tests/test_metadata.py`)**: 7 new contract tests validating CI workflow integrity, PEP 621 metadata declarations, bilingual security policy invariants, README badges & documentation parity, llms.txt context synchronization, `.gitignore` hygiene, and offline zero-egress invariants.
+- **Machine-Readable Project Context (`llms.txt`)**: Overview of architecture, invariants, repository structure, and verified test suites.
+- **Gitignore Hardening**: Enhanced `.gitignore` with synchronization conflict patterns (`*.sync-conflict-*`, `*.conflict`, `*-CONFLIT-*`), test/linter caches (`.ruff_cache/`, `.mypy_cache/`), and temporary backup files.
+- **README Status & Shields.io Badges**: Integrated standard ecosystem badges for CI status, test suite passing count, Python versions, platforms, MIT license, Security Policy, Privacy, and ecosystem links in both `README.md` and `README_de.md`.

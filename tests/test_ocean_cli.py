@@ -396,6 +396,7 @@ def test_restrict_to_current_user_windows_invokes_icacls_with_an_owner_only_gran
 
     with patch.dict(os.environ, {"USERNAME": "tester"}), \
             patch("tools.ocean_lifecycle.subprocess.run") as run:
+        run.return_value.returncode = 0
         _restrict_to_current_user_windows(target)
 
     run.assert_called_once()
@@ -404,6 +405,38 @@ def test_restrict_to_current_user_windows_invokes_icacls_with_an_owner_only_gran
     assert command[1] == str(target)
     assert "/inheritance:r" in command
     assert "tester:F" in command
+
+
+def test_restrict_to_current_user_windows_fails_closed_on_icacls_error(tmp_path):
+    target = tmp_path / "ocean.runtime-spec.json"
+    target.write_text("{}", encoding="utf-8")
+
+    with patch.dict(os.environ, {"USERNAME": "tester"}), \
+            patch("tools.ocean_lifecycle.subprocess.run") as run:
+        run.return_value.returncode = 5
+        run.return_value.stderr = "Access is denied"
+        run.return_value.stdout = ""
+        with pytest.raises(OSError, match="icacls exited 5: Access is denied"):
+            _restrict_to_current_user_windows(target)
+
+    with patch.dict(os.environ, {}, clear=True):
+        with pytest.raises(OSError, match="USERNAME is unavailable"):
+            _restrict_to_current_user_windows(target)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows ACL failure path")
+def test_write_json_private_removes_temporary_file_when_acl_lockdown_fails(tmp_path):
+    target = tmp_path / "ocean.runtime-spec.json"
+
+    with patch(
+        "tools.ocean_lifecycle._restrict_to_current_user_windows",
+        side_effect=OSError("simulated ACL failure"),
+    ):
+        with pytest.raises(OSError, match="simulated ACL failure"):
+            _write_json_private(target, {"token": "secret"})
+
+    assert not target.exists()
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_plan_proves_one_runtime_host_without_creating_the_workspace(tmp_path):
@@ -801,6 +834,36 @@ def _write_running_state(workspace: Path, *, port: int) -> None:
         "health_url": f"http://127.0.0.1:{port}/api/health",
         "started_at": "2026-01-01T00:00:00+00:00",
     })
+
+
+def test_read_json_retries_transient_windows_file_contention(tmp_path, monkeypatch):
+    """A supervisor atomic replace may briefly deny a concurrent Windows reader."""
+    state_path = tmp_path / RUNTIME_STATE
+    state_path.write_text('{"status":"stopped"}\n', encoding="utf-8")
+    original_read_text = Path.read_text
+    attempts = 0
+
+    def read_with_one_transient_failure(path: Path, *args, **kwargs):
+        nonlocal attempts
+        if path == state_path:
+            attempts += 1
+            if attempts == 1:
+                raise PermissionError("simulated Windows writer contention")
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_with_one_transient_failure)
+    monkeypatch.setattr(ocean_lifecycle.time, "sleep", lambda _seconds: None)
+
+    assert ocean_lifecycle._read_json(state_path) == {"status": "stopped"}
+    assert attempts == 2
+
+    def read_with_persistent_failure(_path: Path, *args, **kwargs):
+        raise PermissionError("persistent Windows reader denial")
+
+    monkeypatch.setattr(Path, "read_text", read_with_persistent_failure)
+    monkeypatch.setattr(ocean_lifecycle, "JSON_READ_ATTEMPTS", 2)
+    with pytest.raises(LifecycleError, match="persistent Windows reader denial"):
+        ocean_lifecycle._read_json(state_path)
 
 
 def test_down_treats_a_lost_stop_response_as_success_when_the_state_flips_anyway(

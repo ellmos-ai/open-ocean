@@ -40,6 +40,8 @@ START_LOCK = "ocean.start.lock"
 OCEAN_OPERATOR_PREFIX = "/control"
 OCEAN_OPERATOR_TITLE = "OCEAN Full Dev"
 OCEAN_OPERATOR_CONFIG = "unified-gui.config.json"
+JSON_READ_ATTEMPTS = 20
+JSON_READ_RETRY_SECONDS = 0.05
 
 
 class LifecycleError(RuntimeError):
@@ -222,21 +224,31 @@ def _write_json_atomic(path: Path, value: dict[str, Any]) -> None:
 
 
 def _restrict_to_current_user_windows(path: Path) -> None:
-    """Best-effort ACL lockdown for a secret-bearing file on Windows, where
+    """Fail-closed ACL lockdown for a secret-bearing file on Windows, where
     chmod()/Path.chmod() only ever toggle the read-only attribute bit and
     grant no real access control. Uses the platform's own icacls.exe (no new
     dependency): drop inherited ACEs and grant only the current user access.
     (T-20260903-113508213 Blocker 1)"""
     username = os.environ.get("USERNAME")
     if not username:
-        return
+        raise OSError("cannot restrict private file ACL: USERNAME is unavailable")
     try:
-        subprocess.run(
+        completed = subprocess.run(
             ["icacls", str(path), "/inheritance:r", "/grant:r", f"{username}:F"],
-            capture_output=True, check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
         )
-    except OSError:
-        pass
+    except OSError as exc:
+        raise OSError(f"cannot restrict private file ACL for {path}: {exc}") from exc
+    if completed.returncode != 0:
+        detail = completed.stderr.strip() or completed.stdout.strip() or "no diagnostic"
+        raise OSError(
+            f"cannot restrict private file ACL for {path}: icacls exited "
+            f"{completed.returncode}: {detail}"
+        )
 
 
 def _write_json_private(path: Path, value: dict[str, Any]) -> None:
@@ -258,9 +270,16 @@ def _write_json_private(path: Path, value: dict[str, Any]) -> None:
         os.write(fd, payload.encode("utf-8"))
     finally:
         os.close(fd)
-    if os.name == "nt":
-        _restrict_to_current_user_windows(temporary)
-    temporary.replace(path)
+    try:
+        if os.name == "nt":
+            _restrict_to_current_user_windows(temporary)
+        temporary.replace(path)
+    except BaseException:
+        try:
+            temporary.unlink()
+        except OSError:
+            pass
+        raise
 
 
 def write_runtime_projection(
@@ -437,10 +456,22 @@ def _ellmos_core_runtime_spec(
 
 
 def _read_json(path: Path) -> dict[str, Any]:
-    try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise LifecycleError(f"Lokaler OCEAN-Status ist nicht lesbar: {path}: {exc}", exit_code=3) from exc
+    for attempt in range(JSON_READ_ATTEMPTS):
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+            break
+        except PermissionError as exc:
+            if attempt == JSON_READ_ATTEMPTS - 1:
+                raise LifecycleError(
+                    f"Lokaler OCEAN-Status ist nicht lesbar: {path}: {exc}", exit_code=3
+                ) from exc
+            # Atomic state replacement can briefly deny a concurrent reader on Windows.
+            # Retry only that transient condition; all other read/JSON failures stay closed.
+            time.sleep(JSON_READ_RETRY_SECONDS)
+        except (OSError, json.JSONDecodeError) as exc:
+            raise LifecycleError(
+                f"Lokaler OCEAN-Status ist nicht lesbar: {path}: {exc}", exit_code=3
+            ) from exc
     if not isinstance(value, dict):
         raise LifecycleError(f"Lokaler OCEAN-Status ist kein JSON-Objekt: {path}", exit_code=3)
     return value

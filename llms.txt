@@ -50,3 +50,73 @@ Use `python ocean.py --help` and subcommand help for the complete argument surfa
 - Publication gate: `PRIVATE.txt`
 - Current tasks: `TODO.md`
 - Current tasks (German): `TODO_de.md`
+
+## Project Information
+
+- **Repository**: https://github.com/ellmos-ai/open-ocean
+- **Organization**: ellmos-ai
+- **License**: MIT
+- **Last Checked**: 2026-09-09
+- **Language**: Python 3.10+
+- **Package / CLI**: `open-ocean` (v0.1.0)
+- **Security & Privacy**: Local-first, zero egress, fail-closed verification, transactional rollback, unprivileged user mode. Full policy in [`SECURITY.md`](SECURITY.md).
+- **CI / Testing**: Multi-OS & multi-version GitHub Actions workflow in [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+- **Verified Suite**: 180 tests and 2 subtests passed on Windows on the integrated PR #2 tree on 2026-09-09; Ruff and `compileall` passed. POSIX skips the Windows-only temporary-file cleanup regression while exercising the same fail-closed `icacls` result handling through mocks.
+
+## Overview
+
+`open-ocean` carries the architecture and first executable system-building layer of the ellmos community full system. It orchestrates the four-stage lifecycle:
+1. **Resolve**: Expand bundle references from `open-ocean.skeleton.v1.json` into component manifests.
+2. **Verify**: Cryptographically verify bundle manifests against pinned SHA-256 hashes before any write operation.
+3. **Fetch & Place**: Securely fetch SHA-pinned components into a designated workspace without silent unpinned fallbacks.
+4. **Activate & Roll Back**: Deploy sandboxed skill adapters and log all atomic operations to `ocean-dev.activation-log.json`, enabling strict reverse-order rollbacks.
+
+## Safety & Invariants
+
+- **Local-First & Zero Egress**: All manifest parsing, SHA validation, module placement, and skill activation occur entirely offline without external telemetry.
+- **Fail-Closed Verification**: Hash verification failure terminates execution immediately (exit code 2) before writing anything to disk.
+- **Mandatory Dry-Run-First Safety Gate**: Dry-run preview is the enforced default; file modification requires `--apply`.
+- **Sandboxed Skill Isolation**: `--skills-dir` defaults to `<workspace>/skills` (never a live agent's active configuration directory like `~/.claude/skills`).
+- **Non-Elevation**: All tools run strictly in user space without requiring administrative elevation.
+
+## Repository Structure
+
+```
+architecture/
+  open-ocean.skeleton.v1.json          Declarative recipe consumption specification pinned by hash
+  INSTALLER-TARGET.md                  Installer invariant rules and anti-patterns
+  OCEAN-DEV-BUILD-PLAN_2026-08-18.md   Staged build plan and verification evidence
+  BACH-EXTRACTION-ROADMAP.md           Extraction roadmap, parity gates, and Cluster 9 map
+  bach-parity-baseline.v1.json         Machine-readable registry baseline
+  bach-k9-data-contract.v1.json        Data snapshot and transaction contract
+  bach-k9-dbsync-adapter.v1.json       Lifecycle-adapter specification
+  session-checkpoint-capability.v1.json Snapshot carrier boundary
+tools/
+  ocean_dev.py                         Single entry point: Resolve -> Verify -> Fetch/Place -> Activate / Rollback
+  resolve_bundles.py                   Resolve & Verify: bundle references -> flat, hash-checked component plan
+  fetch_place.py                       Fetch & Place: SHA-pinned module placement
+  host_adapters.py                     Vendor-neutral host activation (Claude Code reference adapter)
+  audit_bach_handlers.py               Side-effect-free source audit against baseline
+  check_k9_data_contract.py            Static data contract verification & carrier fixtures
+tests/
+  test_audit_bach_handlers.py          Handler audit tests
+  test_check_k9_data_contract.py       K9 data contract tests
+  test_fetch_place.py                  Fetch and place tests
+  test_host_adapters.py                Host adapter activation and rollback tests
+  test_ocean_dev.py                    Lifecycle and CLI integration tests
+  test_resolve_bundles.py              Bundle resolution and hash validation tests
+  test_metadata.py                     Automated contract tests for CI, metadata, security, and documentation
+```
+
+## Usage
+
+```bash
+# Dry-run preview (default)
+python tools/ocean_dev.py --bundles-root <path-to-bundles> --ring 1
+
+# Execute live activation into sandboxed workspace
+python tools/ocean_dev.py --bundles-root <path-to-bundles> --ring 1 --apply
+
+# Roll back all changes recorded in activation log
+python tools/ocean_dev.py --rollback <path-to-workspace>/ocean-dev.activation-log.json
+```

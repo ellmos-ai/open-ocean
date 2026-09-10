@@ -29,7 +29,7 @@ def _now() -> str:
 
 
 def _restrict_to_current_user_windows(path: Path) -> None:
-    """Best-effort ACL lockdown for this state file on Windows, where
+    """Fail-closed ACL lockdown for this state file on Windows, where
     chmod() only ever toggles the read-only attribute and grants no real
     access control. Uses the platform's own icacls.exe (no new dependency).
     (T-20260903-113508213 Blocker 1 -- this state file's own docstring above
@@ -37,14 +37,24 @@ def _restrict_to_current_user_windows(path: Path) -> None:
     same control.token the spec file used to carry.)"""
     username = os.environ.get("USERNAME")
     if not username:
-        return
+        raise OSError("cannot restrict private state-file ACL: USERNAME is unavailable")
     try:
-        subprocess.run(
+        completed = subprocess.run(
             ["icacls", str(path), "/inheritance:r", "/grant:r", f"{username}:F"],
-            capture_output=True, check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
         )
-    except OSError:
-        pass
+    except OSError as exc:
+        raise OSError(f"cannot restrict private state-file ACL for {path}: {exc}") from exc
+    if completed.returncode != 0:
+        detail = completed.stderr.strip() or completed.stdout.strip() or "no diagnostic"
+        raise OSError(
+            f"cannot restrict private state-file ACL for {path}: icacls exited "
+            f"{completed.returncode}: {detail}"
+        )
 
 
 def _write_json_atomic(path: Path, value: dict[str, Any]) -> None:
@@ -64,18 +74,25 @@ def _write_json_atomic(path: Path, value: dict[str, Any]) -> None:
         os.write(fd, payload.encode("utf-8"))
     finally:
         os.close(fd)
-    if os.name == "nt":
-        _restrict_to_current_user_windows(temporary)
-    for attempt in range(ATOMIC_REPLACE_ATTEMPTS):
+    try:
+        if os.name == "nt":
+            _restrict_to_current_user_windows(temporary)
+        for attempt in range(ATOMIC_REPLACE_ATTEMPTS):
+            try:
+                temporary.replace(path)
+                return
+            except PermissionError:
+                if attempt == ATOMIC_REPLACE_ATTEMPTS - 1:
+                    raise
+                # Windows can briefly deny replace while the lifecycle process is
+                # reading the old state file. Keep the write atomic and bounded.
+                time.sleep(ATOMIC_REPLACE_RETRY_SECONDS)
+    except BaseException:
         try:
-            temporary.replace(path)
-            return
-        except PermissionError:
-            if attempt == ATOMIC_REPLACE_ATTEMPTS - 1:
-                raise
-            # Windows can briefly deny replace while the lifecycle process is
-            # reading the old state file. Keep the write atomic and bounded.
-            time.sleep(ATOMIC_REPLACE_RETRY_SECONDS)
+            temporary.unlink()
+        except OSError:
+            pass
+        raise
 
 
 def _terminate_child(child: subprocess.Popen[Any], timeout: float = 5.0) -> None:

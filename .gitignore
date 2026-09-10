@@ -5,14 +5,43 @@
 # Local locks
 LOCK.txt
 LOCK.*.txt
+LOCK*.txt
+*.lock
+
+# Synchronization and conflict copies
+*.sync-conflict-*
+*.conflict
+*-CONFLIT-*
 
 # Python
 __pycache__/
 *.py[cod]
+*$py.class
 .venv/
 venv/
+env/
+
+# Build & packaging
+build/
+dist/
+*.egg-info/
+
+# Testing, linting, and coverage
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Temporary and backup files
+*.tmp
+*.bak
+*~
 
 # OS / editor
 .DS_Store
 Thumbs.db
 *.swp
+*.swo
+.vscode/
+.idea/

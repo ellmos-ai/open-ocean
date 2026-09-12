@@ -39,9 +39,9 @@
 If you discover a security vulnerability or unexpected privilege escalation in `open-ocean`:
 
 1. **Do not open a public issue.**
-2. Report the vulnerability privately via [GitHub Security Advisories](https://github.com/ellmos-ai/open-ocean/security/advisories) or directly to the security team at [security@ellmos.ai](mailto:security@ellmos.ai) (fallback: [support@lukasgeiger.com](mailto:support@lukasgeiger.com), [lukas@open-bricks.org](mailto:lukas@open-bricks.org)).
+2. Report the vulnerability privately via [GitHub Security Advisories](https://github.com/ellmos-ai/open-ocean/security/advisories) or directly to the security team at [security@ellmos.ai](mailto:security@ellmos.ai) and [security@open-bricks.org](mailto:security@open-bricks.org) (fallback: [support@lukasgeiger.com](mailto:support@lukasgeiger.com), [lukas@open-bricks.org](mailto:lukas@open-bricks.org)).
 3. Please include detailed reproduction steps, environment details, relevant activation logs, and expected versus observed behavior.
-4. We acknowledge receipt within 48 hours and coordinate remediation releases promptly.
+4. We acknowledge receipt within 48 hours and coordinate remediation releases promptly with a 5 business days triage guarantee.
 
 ---
 
@@ -80,6 +80,6 @@ If you discover a security vulnerability or unexpected privilege escalation in `
 Wenn Sie eine Sicherheitslücke oder unerwartete Rechteausweitung in `open-ocean` entdecken:
 
 1. **Eröffnen Sie kein öffentliches Issue.**
-2. Melden Sie die Schwachstelle vertraulich über [GitHub Security Advisories](https://github.com/ellmos-ai/open-ocean/security/advisories) oder direkt per E-Mail an [security@ellmos.ai](mailto:security@ellmos.ai) (Fallback: [support@lukasgeiger.com](mailto:support@lukasgeiger.com), [lukas@open-bricks.org](mailto:lukas@open-bricks.org)).
+2. Melden Sie die Schwachstelle vertraulich über [GitHub Security Advisories](https://github.com/ellmos-ai/open-ocean/security/advisories) oder direkt per E-Mail an [security@ellmos.ai](mailto:security@ellmos.ai) und [security@open-bricks.org](mailto:security@open-bricks.org) (Fallback: [support@lukasgeiger.com](mailto:support@lukasgeiger.com), [lukas@open-bricks.org](mailto:lukas@open-bricks.org)).
 3. Bitte fügen Sie Reproduktionsschritte, Umgebungsdetails, relevante Aktivierungsprotokolle sowie das erwartete und beobachtete Verhalten bei.
-4. Wir bestätigen den Eingang innerhalb von 48 Stunden und koordinieren umgehend eine Fehlerbehebung.
+4. Wir bestätigen den Eingang innerhalb von 48 Stunden und koordinieren eine Fehlerbehebung mit einer verbindlichen 5-Werktage-Triage-Zusage.

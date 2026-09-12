@@ -62,7 +62,7 @@ task-master, COMA, then the module-declared starter.
 - **License**: MIT
 - **Last Checked**: 2026-09-09
 - **Language**: Python 3.10+
-- **Package / CLI**: `open-ocean` (v0.1.0)
+- **Package / CLI**: `open-ocean` (v0.1.1)
 - **Security & Privacy**: Local-first, zero egress, fail-closed verification, transactional rollback, unprivileged user mode. Full policy in [`SECURITY.md`](SECURITY.md).
 - **CI / Testing**: Multi-OS & multi-version GitHub Actions workflow in [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 - **Verified Suite**: 180 tests and 2 subtests passed on Windows on the integrated PR #2 tree on 2026-09-09; Ruff and `compileall` passed. POSIX skips the Windows-only temporary-file cleanup regression while exercising the same fail-closed `icacls` result handling through mocks.
@@ -77,11 +77,16 @@ task-master, COMA, then the module-declared starter.
 
 ## Safety & Invariants
 
-- **Local-First & Zero Egress**: All manifest parsing, SHA validation, module placement, and skill activation occur entirely offline without external telemetry.
-- **Fail-Closed Verification**: Hash verification failure terminates execution immediately (exit code 2) before writing anything to disk.
-- **Mandatory Dry-Run-First Safety Gate**: Dry-run preview is the enforced default; file modification requires `--apply`.
-- **Sandboxed Skill Isolation**: `--skills-dir` defaults to `<workspace>/skills` (never a live agent's active configuration directory like `~/.claude/skills`).
-- **Non-Elevation**: All tools run strictly in user space without requiring administrative elevation.
+- **INV-LOCAL-01 (Zero Egress)**: Manifest parsing, SHA validation, module placement, and skill activation occur entirely offline without external telemetry.
+- **INV-TRANS-02 (Transactional Rollback)**: All filesystem mutations are recorded in an activation log and rolled back in exact reverse order without heuristic guessing.
+- **INV-DRY-03 (Dry-Run First)**: Dry-run preview is the enforced default; file modification requires explicit `--apply`.
+- **INV-PIN-04 (SHA-256 Pinning)**: Every bundle manifest and component reference is cryptographically verified; fails closed on any mismatch.
+- **INV-SAND-05 (Sandboxed Activation)**: `--skills-dir` defaults to `<workspace>/skills` (never a live agent's active configuration directory like `~/.claude/skills`).
+- **INV-PRIV-06 (Non-Elevation)**: All tools run strictly in user space without requiring administrative or root elevation.
+- **INV-GATE-07 (Publication Gate)**: Four explicit release conditions documented in `PRIVATE.txt` must be satisfied before public visibility.
+- **INV-PARITY-08 (Conservation Law)**: Extraction changes the bed, never the water; strict functional parity against BACH baseline.
+- **INV-PLAT-09 (Cross-Platform Parity)**: Universal execution across Linux, Windows, and macOS with normalized path handling.
+- **INV-SLA-10 (48h / 5d Security SLA)**: Vulnerability reports acknowledged within 48 hours with a 5-business-day triage guarantee.
 
 ## Repository Structure
 

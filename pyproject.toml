@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "open-ocean"
-version = "0.1.0"
+version = "0.1.1"
 description = "Free community full system architecture and installer layer of the ellmos ecosystem"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -49,6 +49,7 @@ include = ["tools*"]
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+addopts = "-ra -v"
 
 [tool.ruff]
 target-version = "py310"

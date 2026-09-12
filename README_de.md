@@ -182,6 +182,7 @@ Der Produktlebenszyklus liegt im Wurzelverzeichnis:
 python ocean.py plan <composition arguments>
 python ocean.py up <composition arguments> --apply
 python ocean.py start --workspace <local-sandbox>
+python ocean.py start <rolle> --manifest <ellmos-module.v2.json> [--provider <name>]
 python ocean.py status --workspace <local-sandbox>
 python ocean.py user add --workspace <local-sandbox> --username <name> --email <address>
 python ocean.py down --workspace <local-sandbox>
@@ -194,6 +195,12 @@ Passwort wird verdeckt abgefragt und nie als Prozessargument übergeben; lokale 
 inzwischen veränderten Live-Rezeptautorität. Nach einem Betriebssystem- oder Prozessverlust kann
 der Befehl außerdem einen veralteten `running`-Status wiederherstellen, sofern weder der
 authentifizierte Kontrollkanal noch der aufgezeichnete Runtime-Port aktiv ist.
+Mit einer positionalen Rolle leitet `ocean start <rolle>` stattdessen an
+denselben Einstieg `python -m unified_gui.console start` aus Wheelhouse Lower
+Decks weiter. Der Befehl betritt dabei den Runtime-Lifecycle nicht und verändert
+den installierten Workspace nicht. Fehlt die optionale Konsole, meldet OCEAN
+`[FALLBACK]` und verwendet denselben Manifesteintrag über task-master, COMA oder
+den Modulstarter. `--dry-run` belegt die aufgelöste Kette ohne Anbieterstart.
 Unter Windows wiederholt der Supervisor außerdem eine vorübergehend blockierte atomare Ersetzung
 der Statusdatei innerhalb eines begrenzten Ein-Sekunden-Fensters. Damit kann ein erfolgreicher
 Stopp keinen veralteten `running`-Eintrag zurücklassen.

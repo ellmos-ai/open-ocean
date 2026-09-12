@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `ocean start <role>` forwards an authoritative module `roles[]` entry to the
+  Unified GUI console start window. The existing `ocean start --workspace ...`
+  runtime path is unchanged. Missing optional console code degrades visibly to
+  task-master, COMA and the module starter; `--dry-run` starts no provider.
+
 - Pinned the accounts-core projection publisher and sqlite-transit-sync verifier for Finance
   Assist, and added an OCEAN consumer that verifies a closed projection before selecting only its
   allowlisted account fields through immutable, read-only SQLite access.

@@ -121,6 +121,8 @@ tools/
   ocean_dev.py                  single entry point: Resolve -> Verify -> Fetch/Place -> Activate for
                                  one ring or a complete system manifest; dry-run by default,
                                  --apply for real writes, --rollback
+  source_pins.py                fail-closed Prüfung der Quellprovenienz vor Resolve/Fetch
+  accounts_projection.py       minimale Kontoprojektion ohne Zustandswrites prüfen/lesen
   ocean_lifecycle.py            capability-driven plan/up/status/down/user lifecycle
   runtime_supervisor.py         authenticated loopback supervisor for one runtime instance
   runtime_user.py               password-safe user bootstrap delegated to the runtime
@@ -159,6 +161,20 @@ Checkout muss sauber sein, bevor OCEAN den Anbieter als aufgelöst wertet. Das a
 bindet derzeit `module:software-endpoint-registry` an `system-explorer` und die getrennten logischen
 Rollen `module:automation-registry` und `module:automation-runtime` an unabhängig gepinnte
 Platzierungen von `automation-master`.
+
+Der Finance-Assist-Pfad pinnt zusätzlich `accounts-core` als alleinigen Publisher und
+`sqlite-transit-sync` als read-only Vertragsprüfer. OCEANs begrenzter Consumer bleibt getrennt:
+
+```text
+python tools/accounts_projection.py --database <closed-accounts.sqlite> \
+  --consumer-id ocean-accounts-consumer --minimum-offline-seconds 2592000 \
+  --previous-checkpoint <zuletzt-gesehener-checkpoint>
+```
+
+Er prüft zuerst, weist Sidecars oder eine während Prüfung/Readback veränderte Datei zurück, öffnet
+SQLite mit `mode=ro&immutable=1` und gibt nur die sechs Consumer-Felder des Vertrags aus. Er
+speichert keinen Checkpoint, plant keinen Transport, aktiviert keinen Live-Pfad und schreibt in
+keine der Datenbanken.
 
 Der Produktlebenszyklus liegt im Wurzelverzeichnis:
 

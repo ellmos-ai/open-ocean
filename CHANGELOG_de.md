@@ -4,13 +4,18 @@
 
 ## Unveröffentlicht — 2026-09-09
 
-### Ergänzt
+### Hinzugefügt
 
 - `ocean start <rolle>` leitet einen autoritativen `roles[]`-Manifesteintrag an
   das Konsolenstartfenster der Unified GUI weiter. Der bestehende Runtime-Pfad
   `ocean start --workspace ...` bleibt unverändert. Fehlt die optionale Konsole,
   fällt der Befehl sichtbar auf task-master, COMA und den Modulstarter zurück;
   `--dry-run` startet keinen Anbieter.
+- Den accounts-core-Projektionspublisher und sqlite-transit-sync-Verifier für Finance Assist
+  gepinnt und einen OCEAN-Consumer ergänzt, der eine geschlossene Projektion vor der Auswahl der
+  erlaubten Kontofelder über unveränderlichen read-only SQLite-Zugriff prüft.
+- Fail-closed Tests für Projektionsänderungen und neu auftauchende SQLite-Sidecars ergänzt. Es sind
+  weder Live-Daten noch Transportaktivierung, Checkpoint-Speicherung, Rollout oder Cutover enthalten.
 
 ### Behoben
 

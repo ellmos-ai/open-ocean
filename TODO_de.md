@@ -50,6 +50,44 @@
   OneDrive-Pfad mehr, gegen den gelaufen werden könnte) und dass die Kette
   Task/Prozess/Port/Health auf dem reparierten Checkout Ende-zu-Ende funktioniert. Bleibt offen,
   bis ein echter ASUS-GEI-Neustart es live bestätigt.
+  **2026-09-10: Der echte Neustart hat endlich stattgefunden — und ist ERNEUT FEHLGESCHLAGEN,
+  aus einem anderen Grund.** `LastBootUpTime 2026-09-10T19:42:24+02:00`; der Logon-Task lief um
+  19:42:38 und endete wieder mit Exit 4. Die OneDrive-Ursache war beseitigt
+  (`ocean.runtime-spec.json`: null OneDrive-Einträge, alle 14 PYTHONPATH-Verzeichnisse lokal),
+  und der angeheftete Checkout trug bereits die 60-Sekunden-Frist (`bb12d541`). Das Kind lebte
+  57,5 s (`started_at 17:43:27,8Z` → `stopped_at 17:44:25,4Z`), ohne eine einzige Uvicorn-Zeile
+  auszugeben — bei jedem erfolgreichen Start erscheint `Started server process` binnen Sekunden,
+  es kam also nie über seine Importe hinaus.
+  **2026-09-12, Ursache gemessen: Der Start ist dateicache-dominiert, und 60 s liegen genau
+  zwischen dem warmen und dem kalten Wert.** Zwei Läufe desselben unveränderten Installs, selber
+  Task, selber Checkout: Der erste Start nach zwei Tagen Inaktivität erreichte `/api/health` 200
+  nach **209,8 s**, ein unmittelbar folgender zweiter Start nach **38,9 s** — Faktor 5,4 allein
+  durch den Cache-Zustand. Diese eine Zahl erklärt die ganze Vorgeschichte: Jeder Demand-Start
+  und jede Staging-Probe war warm und grün (49,6 s am 2026-09-09), jeder Start zur Bootzeit war
+  kalt und starb an der Frist. Bemerkenswert: Der 209,8-s-Lauf war selbst ein *Demand*-Start — er
+  wäre auch unter der alten 60-s-Frist gescheitert. Das ist der erste direkte Beleg dafür, dass
+  die Frist und nicht ein Defekt den Kaltstart tötet. Die Importe erklären es nicht (gemessen mit
+  der echten Spec-Umgebung: `import ellmos_core.app` + `OceanOriginApp()` + beide Validatoren =
+  10,8 s warm, 23,3 s bei kaltem Dateicache; `init_db()` läuft gegen eine 139-KB-SQLite-Datei).
+  **Reparatur (host-lokal, keine Codeänderung): Der Logon-Task übergibt jetzt
+  `--health-timeout 600`** — genau dafür wurde die Option geschaffen (`43072b1`/`b59d1ee`: „eine
+  großzügige Obergrenze zählt nur für den wirklich-nur-langsamen Fall"). Ein tatsächlich toter
+  Prozess scheitert weiterhin sofort über den `status == "stopped"`-Abbruch; die Obergrenze
+  kostet also weder im Erfolgs- noch im Absturzfall etwas, sie kauft nur im Fall „lebt, aber
+  langsam" Zeit. Der 60-s-Standard bleibt für interaktive Nutzung unverändert. Task-XML-Backup:
+  `logs/EllmosOceanFullUserStart.before-health-timeout-20260912.xml`.
+  **Ende-zu-Ende mit dem finalen Wert verifiziert** (2026-09-12 09:00:28, aus gestoppter
+  Laufzeit): `LastTaskResult 0`, einziger Listener `127.0.0.1:8810` (PID 5184), `/api/health` 200
+  nach 38,9 s, Receipt `running`. **Bleibt offen, bis ein echter Neustart es bestätigt** — der
+  Kaltstartpfad selbst ist ohne Neustart nicht reproduzierbar. WORKSTATION-LG braucht sehr
+  wahrscheinlich dasselbe Task-Argument (dort prüfen, nicht unterstellen).
+- [ ] Klären, warum ein OCEAN-Start überhaupt 39 s warm und 210 s kalt braucht. Durch Messung am
+  2026-09-12 ausgeschlossen (siehe Reboot-Punkt oben): Modulimporte, `OceanOriginApp()`,
+  `validate_production_security()`, `validate_model_locality()` und `init_db()` machen zusammen
+  ~11 s warm aus. Der Rest liegt zwischen dem Spawn des Kindes und seiner ersten Health-Antwort,
+  also innerhalb von `uvicorn.run()` bzw. im ASGI-Lifespan des `ellmos-core`-Providers — ein
+  anderes Modul, daher eine eigene Untersuchung. Solange das ungeklärt ist, ist die
+  Health-Frist des Logon-Tasks eine Kompensation, keine Heilung.
 - [x] `--host`-Argument bei `ocean.py up` korrigiert (7d4de09): `up` traegt jetzt
   dieselben `choices=["127.0.0.1", "localhost"]` wie `start`, ein falscher Wert scheitert
   sofort am Parser statt tief im Lifecycle. Folgeschritt erledigt:

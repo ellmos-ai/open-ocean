@@ -45,6 +45,42 @@
   construction (no OneDrive path left to race against) and that the task/process/port/health
   chain works end-to-end on the fixed checkout. Stays open until an actual ASUS-GEI reboot
   confirms it live.
+  **2026-09-10, a real boot finally happened — and it FAILED AGAIN, for a different reason.**
+  `LastBootUpTime 2026-09-10T19:42:24+02:00`; the logon task ran at 19:42:38 and exited 4 once
+  more. The OneDrive cause was gone (`ocean.runtime-spec.json`: zero OneDrive entries, all 14
+  PYTHONPATH directories local) and the pinned checkout already carried the 60 s health budget
+  (`bb12d541`). The child lived 57.5 s (`started_at 17:43:27.8Z` → `stopped_at 17:44:25.4Z`)
+  without emitting a single uvicorn line — on every successful start `Started server process`
+  appears within seconds, so it never got past its imports.
+  **2026-09-12 root cause, measured: the start is file-cache dominated, and 60 s sits right
+  between the warm and the cold figure.** Two runs of the same unchanged install, same task,
+  same checkout: the first start after two days of inactivity reached `/api/health` 200 after
+  **209.8 s**; a second start immediately afterwards reached it after **38.9 s** — a factor of
+  5.4 from cache state alone. That single number explains the whole history: every demand start
+  and every staging probe was warm and green (49.6 s on 2026-09-09), every boot-time start was
+  cold and died at the budget. Note the 209.8 s run was itself a *demand* start — it would have
+  failed under the old 60 s budget too, which is the first direct proof that the budget, not a
+  defect, is what kills the cold start. Imports do not explain it (measured with the real spec
+  env: `import ellmos_core.app` + `OceanOriginApp()` + both validators = 10.8 s warm, 23.3 s on
+  a cold file cache; `init_db()` runs against a 139 KB SQLite file).
+  **Fix (host-local, no code change): the logon task now passes `--health-timeout 600`**, which
+  is what that option was added for (`43072b1`/`b59d1ee`: "a generous ceiling only matters for
+  the genuinely-just-slow case"). A truly dead process still fails fast via the `status ==
+  "stopped"` break, so the ceiling costs nothing on success or on crash; it only buys time in
+  the "alive but slow" case. The 60 s default stays as-is for interactive use. Task XML backup:
+  `logs/EllmosOceanFullUserStart.before-health-timeout-20260912.xml`.
+  **Verified end-to-end with the final value** (2026-09-12 09:00:28, from a stopped runtime):
+  `LastTaskResult 0`, sole listener `127.0.0.1:8810` (PID 5184), `/api/health` 200 after 38.9 s,
+  receipt `running`. **Still open until a real reboot confirms it** — the cold path itself cannot
+  be reproduced without one. WORKSTATION-LG most likely needs the same task argument (check
+  there, do not assume).
+- [ ] Find out why an OCEAN start needs 39 s warm and 210 s cold at all. Ruled out by
+  measurement on 2026-09-12 (see the reboot item above): module imports, `OceanOriginApp()`,
+  `validate_production_security()`, `validate_model_locality()` and `init_db()` together account
+  for ~11 s warm. The remainder sits between the child spawn and its first health answer, i.e.
+  inside `uvicorn.run()` / the ASGI lifespan of the `ellmos-core` provider — a different module,
+  so this belongs to its own investigation. Until it is understood, the logon task's health
+  budget is a compensation, not a cure.
 - [x] Fixed the `--host` argument on `ocean.py up` (7d4de09): `up` now carries the
   same `choices=["127.0.0.1", "localhost"]` as `start`, so a wrong value fails at the parser
   instead of deep inside the lifecycle. Follow-up done: the same-named

@@ -7,6 +7,17 @@
     "runtime_authority": false
   },
   "bindings": {
+    "module:accounts-core": {
+      "component_type": "module",
+      "catalog_id": "accounts-core",
+      "repository": "https://github.com/ellmos-ai/accounts-core.git",
+      "commit": "588ab7d2db274621c5982a3234f2fb540627f664",
+      "placement_id": "accounts-core",
+      "required_provides": [
+        "accounts.transit.projection"
+      ],
+      "provider_manifest": "ellmos-module.v2.json"
+    },
     "module:automation-registry": {
       "component_type": "module",
       "catalog_id": "automation-master",
@@ -31,6 +42,17 @@
       ],
       "provider_manifest": "ellmos-module.v2.json"
     },
+    "module:sqlite-transit-sync": {
+      "component_type": "module",
+      "catalog_id": "sqlite-transit-sync",
+      "repository": "https://github.com/ellmos-ai/sqlite-transit-sync.git",
+      "commit": "d9d517d6711fa9597c960c127cf6476f3af9d072",
+      "placement_id": "sqlite-transit-sync",
+      "required_provides": [
+        "projection.readonly.verify"
+      ],
+      "provider_manifest": "ellmos-module.v2.json"
+    },
     "module:software-endpoint-registry": {
       "component_type": "module",
       "catalog_id": "system-explorer",
@@ -43,5 +65,5 @@
       "provider_manifest": "ellmos-module.v2.json"
     }
   },
-  "content_hash": "516169be3dcbdf5814fbbec285fbfffa33fcef095c8ab4ee2b2b038a2cc43873"
+  "content_hash": "9308aced3aeac549580b9cf6213526643698277a3f88ab4a40e5879280963474"
 }

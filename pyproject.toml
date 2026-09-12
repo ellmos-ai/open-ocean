@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "open-ocean"
-version = "0.1.1"
+version = "0.1.2"
 description = "Free community full system architecture and installer layer of the ellmos ecosystem"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -31,6 +31,12 @@ classifiers = [
     "Topic :: Utilities",
 ]
 dependencies = []
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.0.0",
+    "ruff>=0.5.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/ellmos-ai/open-ocean"

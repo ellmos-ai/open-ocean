@@ -22,6 +22,8 @@ def test_ci_workflow_integrity():
     assert "cancel-in-progress: true" in content
     assert "actions/checkout@v4" in content
     assert "actions/setup-python@v5" in content
+    assert "cache: 'pip'" in content
+    assert "timeout-minutes: 15" in content
     assert "ubuntu-latest" in content
     assert "windows-latest" in content
     assert "macos-latest" in content
@@ -34,16 +36,33 @@ def test_ci_workflow_integrity():
     assert "pytest" in content
 
 
+def test_stale_workflow_integrity():
+    """Verify standard GitHub Actions stale issue and PR management workflow."""
+    stale_path = ROOT / ".github" / "workflows" / "stale.yml"
+    assert stale_path.is_file(), "stale.yml workflow must exist"
+
+    content = stale_path.read_text(encoding="utf-8")
+    assert "actions/stale@v9" in content
+    assert "stale-issue-message:" in content
+    assert "stale-pr-message:" in content
+    assert "days-before-stale: 30" in content
+    assert "days-before-close: 7" in content
+
+
 def test_pyproject_pep621_metadata():
-    """Verify PEP 621 pyproject.toml declares standard metadata, URLs, and pytest options."""
+    """Verify PEP 621 pyproject.toml declares standard metadata, URLs, optional-dependencies, and pytest options."""
     pyproject_path = ROOT / "pyproject.toml"
     assert pyproject_path.is_file(), "pyproject.toml must exist"
 
     data = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
     project = data.get("project", {})
     assert project.get("name") == "open-ocean"
-    assert project.get("version") == "0.1.1"
+    assert project.get("version") == "0.1.2"
     assert project.get("license") == "MIT"
+
+    opt_deps = project.get("optional-dependencies", {})
+    assert "test" in opt_deps
+    assert any("pytest" in dep for dep in opt_deps["test"])
 
     urls = project.get("urls", {})
     assert urls.get("Homepage") == "https://github.com/ellmos-ai/open-ocean"
@@ -94,9 +113,10 @@ def test_readme_badges_and_parity():
     assert "[English](README.md)" in readme_de
 
     for doc, name in [(readme_en, "README.md"), (readme_de, "README_de.md")]:
-        assert "version-0.1.1" in doc, f"{name} missing version badge"
+        assert "version-0.1.2" in doc, f"{name} missing version badge"
         assert "python-3.10" in doc, f"{name} missing python badge"
         assert "license-MIT" in doc, f"{name} missing license badge"
+        assert "changelog-v0.1.2" in doc, f"{name} missing changelog badge"
         assert "SECURITY.md" in doc, f"{name} missing SECURITY.md reference"
         assert "CHANGELOG.md" in doc, f"{name} missing CHANGELOG.md reference"
         assert "llms.txt" in doc, f"{name} missing llms.txt reference"
@@ -248,8 +268,8 @@ def test_llms_txt_contract():
     assert "## Safety & Invariants" in content
     assert "## Repository Structure" in content
     assert "## Usage" in content
-    assert "2026-09-09" in content
-    assert "v0.1.1" in content
+    assert "2026-09-12" in content
+    assert "v0.1.2" in content
     assert "INV-LOCAL-01" in content
     assert "INV-SLA-10" in content
     assert "https://github.com/ellmos-ai/open-ocean" in content
@@ -274,7 +294,13 @@ def test_gitignore_hygiene():
     assert "*.sync-conflict-*" in content
     assert "*.conflict" in content
     assert "*-CONFLIT-*" in content
+    assert "*-conflict-*" in content
+    assert "*-WORKSTATION*" in content
+    assert "*-ASUS-GEI*" in content
+    assert "LOCK" in content
     assert "LOCK*.txt" in content
+    assert "LOCK.permissions.json" in content
+    assert "wheelhouse/" in content
     assert ".pytest_cache/" in content
     assert ".ruff_cache/" in content
     assert ".coverage" in content

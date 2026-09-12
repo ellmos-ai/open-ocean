@@ -8,20 +8,20 @@ Das kostenlose Community-System des ellmos-Ökosystems.
 
 *[English](README.md)*
 
-[![Version](https://img.shields.io/badge/version-0.1.1-blue.svg)](pyproject.toml)
+[![Version](https://img.shields.io/badge/version-0.1.2-blue.svg)](pyproject.toml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/)
 [![CI](https://github.com/ellmos-ai/open-ocean/actions/workflows/ci.yml/badge.svg)](https://github.com/ellmos-ai/open-ocean/actions/workflows/ci.yml)
-[![Pytest](https://img.shields.io/badge/pytest-197%20bestanden-brightgreen.svg)](tests/)
+[![Pytest](https://img.shields.io/badge/pytest-198%20bestanden-brightgreen.svg)](tests/)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows%20%7C%20macOS-informational.svg)](https://github.com/ellmos-ai/open-ocean)
 [![Code Style: Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![Security Policy](https://img.shields.io/badge/security-48h%20SLA%20%7C%205d%20Triage-blue.svg)](SECURITY.md)
 [![Privacy](https://img.shields.io/badge/privacy-100%25%20Local--First%20%7C%20Zero--Egress-brightgreen.svg)](SECURITY.md)
 [![License MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![LLM Ready](https://img.shields.io/badge/LLM--Ready-llms.txt-orange.svg)](llms.txt)
-[![Changelog](https://img.shields.io/badge/changelog-v0.1.1-orange.svg)](CHANGELOG.md)
+[![Changelog](https://img.shields.io/badge/changelog-v0.1.2-orange.svg)](CHANGELOG.md)
 [![ellmos](https://img.shields.io/badge/ellmos-community%20full%20system-4b5563.svg)](https://github.com/ellmos-ai)
 [![open-bricks](https://img.shields.io/badge/open--bricks-ecosystem-0284c7.svg)](https://github.com/open-bricks)
-[![Geprüft](https://img.shields.io/badge/gepr%C3%BCft-2026--09--09-success.svg)](MARKETING-LOG.txt)
+[![Geprüft](https://img.shields.io/badge/gepr%C3%BCft-2026--09--12-success.svg)](MARKETING-LOG.txt)
 
 > **Schnellnavigation:**
 > 1. [Überblick und Kernmission](#zuerst-lesen-dieses-repository-ist-eine-baustelle)
@@ -270,7 +270,7 @@ Rezept-Repository weiterzieht, und ließen dieses Repository weiter aussehen, al
 | `INV-PIN-04` | **Kryptografisches SHA-256-Pinning** | Bundle-Manifeste und Komponenten müssen exakt mit den Katalog-Hashes übereinstimmen; Fail-Closed bei jeder Abweichung. | `resolve_bundles.py` SHA-Prüfung, sofortiger Exit-Code 2 |
 | `INV-SAND-05` | **Sandkasten-Isolation bei Aktivierung** | Aktivierungen zielen auf `<workspace>/skills`, niemals auf produktive Agenten-Verzeichnisse (`~/.claude/skills`). | `host_adapters.py` Standardziel-Sicherheitsprüfung |
 | `INV-PRIV-06` | **Keine Rechteausweitung (User-Mode)** | Alle Werkzeuge laufen ohne administrative Rechte im Standard-Benutzerkontext. | Normale Benutzerrechte, keine OS-Elevation-APIs |
-| `INV-GATE-07` | **Publikations-Gate (`PRIVATE.txt`)** | Die Sichtbarkeit bleibt gesperrt, bis alle 4 Freigabebedingungen nachweisbar erfüllt sind. | `PRIVATE.txt` Vertragsspezifikation |
+| `INV-GATE-07` | **Publikations-Gate (Geöffnet)** | Publikations-Gate per D-20260909-003 und Nutzeranweisung formell geöffnet; historische Freigabebedingungen dokumentiert. | Historische Freigabeprüfung |
 | `INV-PARITY-08` | **Erhaltungssatz der Parität** | Extraktion ändert das Bett, nie das Wasser; Modularisierung muss die Funktion strikt erhalten. | `audit_bach_handlers.py`, `check_k9_data_contract.py` |
 | `INV-PLAT-09` | **Plattformübergreifende Parität** | Einheitliches Verhalten und normalisierte Pfadbehandlung unter Linux, Windows und macOS. | CI-Matrix auf GitHub Actions (`windows-latest`, `ubuntu-latest`, `macos-latest`) |
 | `INV-SLA-10` | **48h Reaktions- & 5-Tage-Triage-SLA** | Schwachstellenmeldungen werden innerhalb von 48 Stunden bestätigt; Triage erfolgt verbindlich innerhalb von 5 Werktagen. | `SECURITY.md` Sicherheitsrichtlinie |

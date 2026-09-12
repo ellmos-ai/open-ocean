@@ -179,3 +179,38 @@
 
 Ein Integrations-Checkpoint-Tag ist kein öffentliches Release. Dieser Eintrag enthält weder eine
 Sichtbarkeitsänderung noch eine Änderung an `PRIVATE.txt`.
+
+## [0.1.2] - 2026-09-12
+
+### Geändert
+- **CI-Matrix und Workflow-Härtung**: pip-Caching (`cache: 'pip'`) für `actions/setup-python@v5` ergänzt und `timeout-minutes: 15` als Ausreißerschutz für die Test-Jobs in `.github/workflows/ci.yml` gesetzt.
+- **Automatisierte Lifecycle-Workflows**: Den ökosystemweiten Standard-Workflow für veraltete Issues und PRs in `.github/workflows/stale.yml` ausgerollt.
+- **Packaging- und Testabhängigkeiten**: `[project.optional-dependencies]` mit den Testabhängigkeiten (`pytest`, `ruff`) in `pyproject.toml` ergänzt und die Version auf `0.1.2` angehoben.
+- **Multi-Host-Gitignore-Absicherung**: `.gitignore` gegen Multi-Host-Sync-Konflikte (`*-WORKSTATION*`, `*-ASUS-GEI*`, `* (kopie)*`, `* (copy)*`, `*-conflict-*`, `*.sync-temp-*`), Multi-Agenten-Locks (`LOCK`, `LOCK.*`, `*.lock`, `LOCK.permissions.json`) und Wheel-Packaging-Artefakte (`wheelhouse/`, `.wheel-smoke/`) gehärtet.
+- **Statusabgleich des Publikationsgatters**: Die formale Aufhebung des Publikationsgatters `PRIVATE.txt` gemäß Entscheidung D-20260909-003 und Nutzeranweisung in `README.md`, `README_de.md` und `llms.txt` dokumentiert.
+- **Vertrags- und Metadatentests**: `tests/test_metadata.py` um Tests für die Integrität des Stale-Workflows, das pip-Caching, die optionalen Testabhängigkeiten und die Multi-Host-Gitignore-Muster erweitert; die Testzahlen der Suite abgeglichen (113 bestandene Tests).
+
+## [0.1.1] - 2026-09-09
+
+### Hinzugefügt
+- **Zweisprachige README-Architektur und Auffindbarkeit**: Vollständige Struktur- und Ankerparität zwischen `README.md` und `README_de.md`, integrierte 14-Punkte-Schnellnavigation, moderne Shields.io-Badges und angereicherte Dokumentation.
+- **Zwei Mermaid-Diagramme**: Interaktives Systemarchitektur-Flussdiagramm (`flowchart TD`) und ein Ende-zu-Ende-Diagramm des Lebenszyklus aus Paketauflösung, Verifikation, Staging und transaktionalem Rollback (`sequenceDiagram` mit Autonummerierung) in beiden Sprachfassungen.
+- **Matrix der Governance- und Laufzeit-Invarianten**: 10 zentrale Architektur-Invarianten (`INV-LOCAL-01` bis `INV-SLA-10`), die Offline-Garantien, Fail-Closed-Verifikation, transaktionale Rollbacks, sandkasten-isolierte Aktivierungen, Nicht-Privilegierung und SLA-Grenzen beschreiben.
+- **Geschwister-Ökosystem und Partner-Repositories**: Querverweise auf 16+ Partner-Repositories in `ellmos-ai`, `dev-bricks`, `file-bricks`, `doc-bricks`, `entertain-and-more` und `open-bricks`.
+- **Härtung der Sicherheitsrichtlinie (`SECURITY.md`)**: `security@open-bricks.org` und eine verbindliche Triage-Zusage von 5 Werktagen in beiden Sprachabschnitten ergänzt.
+- **Inventar der Drittlizenzen (`THIRD_PARTY_LICENSES.md`)**: Die Invariante „keine externen Laufzeitabhängigkeiten" und die permissive Lizenzierung der Entwicklungswerkzeuge dokumentiert.
+- **Lokales Marketing-Log (`MARKETING-LOG.txt`)**: Stand der Auffindbarkeit, SEO-Schlüsselwörter und die Strategie für Verzeichniseinträge nach der Schleuse dokumentiert.
+- **Automatisierte Vertragstests (`tests/test_metadata.py`)**: Testsuite erweitert; sie prüft die 14 Navigationsanker, die Mermaid-Syntax, die Vollständigkeit der Invarianten und die Lizenzen.
+- **Synchronisierung des LLM-Kontexts (`llms.txt`)**: Version auf 0.1.1 angehoben und Zeitstempel auf 2026-09-09 aktualisiert.
+
+## [0.1.0] - 2026-09-08
+
+### Hinzugefügt
+
+- **GitHub-Actions-CI-Workflow**: Multi-OS- (`ubuntu-latest`, `windows-latest`, `macos-latest`) und Multi-Version-Python-Matrix (`3.10`, `3.11`, `3.12`, `3.13`) in `.github/workflows/ci.yml` mit Nebenläufigkeitssteuerung (`cancel-in-progress: true`), ruff-Linting, Bytecode-Kompilierungsprüfung und pytest-Ausführung.
+- **PEP-621-Standard-Packaging und -Metadaten (`pyproject.toml`)**: Projektmetadaten standardisiert mit Klassifikatoren (Python 3.10-3.13, OS Independent, Linux, Windows, macOS), pytest-Konfiguration (`pythonpath = ["."]`), ruff-Konfiguration und vollständigen Ökosystem-URLs (`Homepage`, `Repository`, `Issues`, `Changelog`, `Documentation`, `Security`, `Parent Organization`, `Umbrella Ecosystem`).
+- **Zweisprachige Sicherheitsrichtlinie (`SECURITY.md`)**: Ausführliche Sicherheits- und Datenschutz-Invarianten zu Local-First und Zero-Egress, Fail-Closed-Verifikation und transaktionalem Rollback, verpflichtendem Dry-Run-First-Sicherheitsgatter, sandkasten-isolierter Aktivierung und Nicht-Privilegierung; enthält die Tabelle der unterstützten Versionen (`0.1.x`), eine Antwort-SLA von 48 Stunden und die offiziellen Meldewege für Sicherheitsfragen.
+- **Automatisierte Metadaten- und Vertragstestsuite (`tests/test_metadata.py`)**: 7 neue Vertragstests, die die Integrität des CI-Workflows, die PEP-621-Metadatenangaben, die Invarianten der zweisprachigen Sicherheitsrichtlinie, README-Badges und Dokumentationsparität, die Synchronisierung von `llms.txt`, die `.gitignore`-Hygiene und die Offline-/Zero-Egress-Invarianten prüfen.
+- **Maschinenlesbarer Projektkontext (`llms.txt`)**: Überblick über Architektur, Invarianten, Repository-Struktur und verifizierte Testsuiten.
+- **Gitignore-Härtung**: `.gitignore` um Muster für Synchronisationskonflikte (`*.sync-conflict-*`, `*.conflict`, `*-CONFLIT-*`), Test-/Linter-Caches (`.ruff_cache/`, `.mypy_cache/`) und temporäre Sicherungsdateien erweitert.
+- **README-Status und Shields.io-Badges**: Die ökosystemweiten Standard-Badges für CI-Status, Anzahl bestandener Tests, Python-Versionen, Plattformen, MIT-Lizenz, Sicherheitsrichtlinie, Datenschutz und Ökosystem-Links in `README.md` und `README_de.md` integriert.

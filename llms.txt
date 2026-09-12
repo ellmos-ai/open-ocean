@@ -7,9 +7,9 @@
 - **Repository**: https://github.com/ellmos-ai/open-ocean
 - **Organization**: ellmos-ai
 - **License**: MIT
-- **Last Checked**: 2026-09-09
+- **Last Checked**: 2026-09-12
 - **Language**: Python 3.10+
-- **Package / CLI**: `open-ocean` (v0.1.1)
+- **Package / CLI**: `open-ocean` (v0.1.2)
 - **Security & Privacy**: Local-first, zero egress, fail-closed verification, transactional rollback, unprivileged user mode. Full policy in [`SECURITY.md`](SECURITY.md).
 - **CI / Testing**: Multi-OS & multi-version GitHub Actions workflow in [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
@@ -29,7 +29,7 @@
 - **INV-PIN-04 (SHA-256 Pinning)**: Every bundle manifest and component reference is cryptographically verified; fails closed on any mismatch.
 - **INV-SAND-05 (Sandboxed Activation)**: `--skills-dir` defaults to `<workspace>/skills` (never a live agent's active configuration directory like `~/.claude/skills`).
 - **INV-PRIV-06 (Non-Elevation)**: All tools run strictly in user space without requiring administrative or root elevation.
-- **INV-GATE-07 (Publication Gate)**: Four explicit release conditions documented in `PRIVATE.txt` must be satisfied before public visibility.
+- **INV-GATE-07 (Publication Gate)**: Publication gate formally lifted per D-20260909-003 / user directive; release conditions and audit log preserved.
 - **INV-PARITY-08 (Conservation Law)**: Extraction changes the bed, never the water; strict functional parity against BACH baseline.
 - **INV-PLAT-09 (Cross-Platform Parity)**: Universal execution across Linux, Windows, and macOS with normalized path handling.
 - **INV-SLA-10 (48h / 5d Security SLA)**: Vulnerability reports acknowledged within 48 hours with a 5-business-day triage guarantee.

@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2026-09-12
+
+### Changed
+- **CI Matrix & Workflow Hardening**: Added pip caching (`cache: 'pip'`) to `actions/setup-python@v5` and configured `timeout-minutes: 15` runaway protection on test jobs in `.github/workflows/ci.yml`.
+- **Automated Lifecycle Workflows**: Deployed standard ecosystem stale issue & PR workflow in `.github/workflows/stale.yml`.
+- **Packaging & Test Dependencies**: Added `[project.optional-dependencies]` with test dependencies (`pytest`, `ruff`) in `pyproject.toml` and bumped version to `0.1.2`.
+- **Multi-Host Gitignore Defense**: Hardened `.gitignore` against multi-host sync conflicts (`*-WORKSTATION*`, `*-ASUS-GEI*`, `* (kopie)*`, `* (copy)*`, `*-conflict-*`, `*.sync-temp-*`), multi-agent locks (`LOCK`, `LOCK.*`, `*.lock`, `LOCK.permissions.json`), and wheel packaging artifacts (`wheelhouse/`, `.wheel-smoke/`).
+- **Publication Gate Status Alignment**: Documented formal lifting of publication gate `PRIVATE.txt` per decision D-20260909-003 and user directive across `README.md`, `README_de.md`, and `llms.txt`.
+- **Contract & Metadata Tests**: Expanded `tests/test_metadata.py` with tests for stale workflow integrity, pip caching, optional test dependencies, and multi-host gitignore patterns; synchronized test suite counts (113 passed tests).
+
 ## [0.1.1] - 2026-09-09
 
 ### Added

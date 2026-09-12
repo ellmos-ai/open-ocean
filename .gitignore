@@ -1,17 +1,27 @@
-# PRIVATE.txt and PUBLIC.txt are deliberately NOT ignored [U 2026-08-08]:
+# Publication gate markers [U 2026-08-08]
+# PRIVATE.txt and PUBLIC.txt are deliberately NOT ignored:
 # the publication gate belongs at the remote, where visibility is switched.
 # Only folders without a repository keep purely local markers.
 
-# Local locks
+# Local locks and multi-agent coordination
+LOCK
+LOCK.*
 LOCK.txt
 LOCK.*.txt
 LOCK*.txt
 *.lock
+LOCK.permissions.json
 
 # Synchronization and conflict copies
 *.sync-conflict-*
 *.conflict
 *-CONFLIT-*
+*-conflict-*
+*.sync-temp-*
+*-WORKSTATION*
+*-ASUS-GEI*
+* (kopie)*
+* (copy)*
 
 # Python
 __pycache__/
@@ -21,10 +31,12 @@ __pycache__/
 venv/
 env/
 
-# Build & packaging
+# Build, packaging & wheels
 build/
 dist/
 *.egg-info/
+wheelhouse/
+.wheel-smoke/
 
 # Testing, linting, and coverage
 .pytest_cache/

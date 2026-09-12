@@ -8,20 +8,20 @@ The free community full system of the ellmos ecosystem.
 
 *[Deutsch](README_de.md)*
 
-[![Version](https://img.shields.io/badge/version-0.1.1-blue.svg)](pyproject.toml)
+[![Version](https://img.shields.io/badge/version-0.1.2-blue.svg)](pyproject.toml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/)
 [![CI](https://github.com/ellmos-ai/open-ocean/actions/workflows/ci.yml/badge.svg)](https://github.com/ellmos-ai/open-ocean/actions/workflows/ci.yml)
-[![Pytest](https://img.shields.io/badge/pytest-107%2B%20passed%20%7C%20100%25%20green-brightgreen.svg)](tests/)
+[![Pytest](https://img.shields.io/badge/pytest-113%2B%20passed%20%7C%20100%25%20green-brightgreen.svg)](tests/)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows%20%7C%20macOS-informational.svg)](https://github.com/ellmos-ai/open-ocean)
 [![Code Style: Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![Security Policy](https://img.shields.io/badge/security-48h%20SLA%20%7C%205d%20Triage-blue.svg)](SECURITY.md)
 [![Privacy](https://img.shields.io/badge/privacy-100%25%20Local--First%20%7C%20Zero--Egress-brightgreen.svg)](SECURITY.md)
 [![License MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![LLM Ready](https://img.shields.io/badge/LLM--Ready-llms.txt-orange.svg)](llms.txt)
-[![Changelog](https://img.shields.io/badge/changelog-v0.1.1-orange.svg)](CHANGELOG.md)
+[![Changelog](https://img.shields.io/badge/changelog-v0.1.2-orange.svg)](CHANGELOG.md)
 [![ellmos](https://img.shields.io/badge/ellmos-community%20full%20system-4b5563.svg)](https://github.com/ellmos-ai)
 [![open-bricks](https://img.shields.io/badge/open--bricks-ecosystem-0284c7.svg)](https://github.com/open-bricks)
-[![Audited](https://img.shields.io/badge/audited-2026--09--09-success.svg)](MARKETING-LOG.txt)
+[![Audited](https://img.shields.io/badge/audited-2026--09--12-success.svg)](MARKETING-LOG.txt)
 
 > **Quick Navigation:**
 > 1. [Overview & Core Mission](#read-this-first-this-repository-is-a-building-site)
@@ -237,7 +237,7 @@ repository moves on, and would make this repository look further along than it i
 | `INV-PIN-04` | **Cryptographic SHA-256 Pinning** | Bundle manifests and components must match catalogued hashes; fail-closed on any discrepancy. | `resolve_bundles.py` SHA matching, immediate exit code 2 on mismatch |
 | `INV-SAND-05` | **Sandboxed Skill Isolation** | Activations target `<workspace>/skills`, never a live agent's host config (`~/.claude/skills`). | `host_adapters.py` default sandbox check |
 | `INV-PRIV-06` | **Non-Elevation (User-Mode)** | Tools run unprivileged in user space without administrator, root, or UAC prompts. | Standard user permissions, zero OS elevation APIs |
-| `INV-GATE-07` | **Publication Gate (`PRIVATE.txt`)** | Repository visibility is locked until all 4 release conditions are demonstrably met. | `PRIVATE.txt` gate contract |
+| `INV-GATE-07` | **Publication Gate (Lifted)** | Publication gate formally lifted per D-20260909-003 / user directive; historical release conditions preserved. | Release condition audit history |
 | `INV-PARITY-08` | **Conservation Law of Parity** | Extraction changes the bed, never the water; modularization must strictly preserve function. | `audit_bach_handlers.py`, `check_k9_data_contract.py` |
 | `INV-PLAT-09` | **Cross-Platform Operating Parity** | Universal execution across Linux, Windows, and macOS with normalized path handling. | CI multi-OS matrix (`windows-latest`, `ubuntu-latest`, `macos-latest`) |
 | `INV-SLA-10` | **48h Response & 5-Day Triage SLA** | Security vulnerabilities acknowledged within 48 hours; triage completed within 5 business days. | `SECURITY.md` contract SLA |
@@ -253,7 +253,7 @@ repository moves on, and would make this repository look further along than it i
 | Architecture skeleton | present, 13 bundles referenced |
 | BACH extraction baseline | present — 114 source-declared names; historic 113-name runtime bar retained; re-audited 2026-08-18 (106 handler classes, +1 vs. the 2026-08-08 baseline — traced to a host-suffixed duplicate file in BACH, `upgrade-WORKSTATION-LG.py` alongside `upgrade.py`; not fixed here, BACH is out of scope for this repository's changes). `registered_names` unchanged at 114. |
 | K9-1 data/checkpoint gate | two carrier fixtures green; adapter and BACH equivalence remain open |
-| Installer | **Resolve, Verify, SHA-pinned Fetch/Place, sandboxed skill Activate, activation logging, and target-validated Roll back are implemented for the currently supported component path; that pinnable Ring-1 slice is integration-proven on a foreign host.** On 2026-08-20 one Mac Studio `--apply` invocation verified all 5 Ring-1 bundles, fetched `WikiStub-Seed` at the catalogued SHA `3476ba2…12458af4`, and activated all 9 Ring-1 skills into an explicit sandbox. Its single 10-entry activation log then rolled back the fetched module and all skills; the live Mac `~/.claude/skills` snapshot stayed identical before, after apply and after rollback. The portable suite is now 107 tests, including real-git transaction coverage plus fail-closed regressions for replaying a log against a different target, for a deletion that leaves its target behind, and for catalog IDs whose letter case differs from the bundle ref. This is not a full-system install claim: two Ring-1 Git modules remain unpinned, ten module references are local-directory sources rather than fetch targets, and one catalogue reference still has the known `memory-hooker`/`memoryhooker` naming drift. See the [staged build plan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
+| Installer | **Resolve, Verify, SHA-pinned Fetch/Place, sandboxed skill Activate, activation logging, and target-validated Roll back are implemented for the currently supported component path; that pinnable Ring-1 slice is integration-proven on a foreign host.** On 2026-08-20 one Mac Studio `--apply` invocation verified all 5 Ring-1 bundles, fetched `WikiStub-Seed` at the catalogued SHA `3476ba2…12458af4`, and activated all 9 Ring-1 skills into an explicit sandbox. Its single 10-entry activation log then rolled back the fetched module and all skills; the live Mac `~/.claude/skills` snapshot stayed identical before, after apply and after rollback. The portable suite is now 113 tests, including real-git transaction coverage plus fail-closed regressions for replaying a log against a different target, for a deletion that leaves its target behind, and for catalog IDs whose letter case differs from the bundle ref. This is not a full-system install claim: two Ring-1 Git modules remain unpinned, ten module references are local-directory sources rather than fetch targets, and one catalogue reference still has the known `memory-hooker`/`memoryhooker` naming drift. See the [staged build plan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
 | Runtime of our own | **not available** — every candidate is private or only declared |
 | Recipes | maintained in the recipe repository, not here |
 

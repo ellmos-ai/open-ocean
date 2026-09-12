@@ -88,6 +88,16 @@
   also innerhalb von `uvicorn.run()` bzw. im ASGI-Lifespan des `ellmos-core`-Providers — ein
   anderes Modul, daher eine eigene Untersuchung. Solange das ungeklärt ist, ist die
   Health-Frist des Logon-Tasks eine Kompensation, keine Heilung.
+  **Bytecode-Kompilierung als Ursache ausgeschlossen, gemessen am 2026-09-12.** Die Runtime-Spec
+  setzt `PYTHONDONTWRITEBYTECODE=1`, jeder Start kompiliert also den gesamten Importbaum neu —
+  ein naheliegender Verdächtiger. Lenkt man den Cache per `PYTHONPYCACHEPREFIX` in den Workspace
+  und misst den echten Kindimport dreimal je Variante, ergibt sich ein Median von 8,37 s ohne
+  gegen 7,80 s mit Cache: **0,58 s, rund 7 %**, während der einmalige Cache-Aufbau 25,4 s und
+  10,5 MB in 644 `.pyc`-Dateien kostet. Gegen einen Start, der kalt 210 s braucht, ist das
+  Rauschen; der Produktvertrag wurde deshalb bewusst NICHT geändert. Was die Zahlen dagegen
+  zeigen: Der Unterschied kalt/warm wird vom **Dateisystem-Cache** bestimmt, nicht von der
+  Kompilierung — derselbe Import dauert 23,3 s bei kaltem und 7,8-13,6 s bei warmem Cache. Die
+  nächste Sonde sollte deshalb Dateizugriffe messen, nicht CPU.
 - [x] `--host`-Argument bei `ocean.py up` korrigiert (7d4de09): `up` traegt jetzt
   dieselben `choices=["127.0.0.1", "localhost"]` wie `start`, ein falscher Wert scheitert
   sofort am Parser statt tief im Lifecycle. Folgeschritt erledigt:
@@ -129,6 +139,28 @@
   ableiten und testen.
 - [ ] Die funktionale BACH-Parität weiterführen; neu entdeckte BACH-Eigenheiten nur ausnahmsweise
   und wertgebunden in einem eigenen Modulzyklus extrahieren.
+  **Reife gemessen am 2026-09-12 — ein Modulpaar-Rücktransport hängt derzeit an einer einzigen
+  gemeinsamen Vorbedingung.** Ein Zyklus im Sinne von Bauplan §5 verdrahtet ein Modul in BACH
+  und/oder OCEAN und schaltet danach den abgelösten Altpfad ab. Über die fünf benannten
+  P8-Paare gemessen:
+
+  | Paar | Klon | fremde Dirty-Dateien | Zielmodul importierbar | BACH-Altpfad |
+  |---|---|---|---|---|
+  | `agent-launcher` | ja | 0 | **nein** | `system/hub/agent_launcher.py`, 2637 Zeilen |
+  | `ellmos-scheduler` | ja | 0 | **nein** | `system/hub/scheduler.py`, 2092 Zeilen |
+  | `swarm-ai` | ja | 0 | **nein** | `system/hub/schwarm.py`, 793 Zeilen |
+  | `web-scraper` | ja | 5 | **nein** | `system/hub/web_scrape.py`, 415 Zeilen |
+  | `doc-services` | ja | 1 | **nein** | `system/hub/_services/document` |
+
+  Kein einziges Zielmodul löst über `importlib.util.find_spec` auf, und BACH hält zu keinem einen
+  Seam — BACH kann also nicht konsumieren, was seinen Altpfad ersetzen soll. Drei weitere
+  Einschränkungen: Bei den beiden grössten Paaren ist Äquivalenz nicht in einem begrenzten Zyklus
+  belegbar; `web-scraper` und `doc-services` tragen fremde uncommittete Änderungen; und
+  `swarm-ai` ist ein Experimente-/Doku-Repository ohne konsumierbare Bibliotheks-API, was zum
+  früheren Befund passt, dass `swarm_ai` nur als Testherkunft auftauchte. BACH selbst ist
+  verfügbar (kein Lock, sein Feature-Branch ist in `main` enthalten, einziger Dirty-Eintrag ist
+  ein untracked Testergebnis-Verzeichnis) — der Blocker ist das fehlende installier-/
+  konsumierbare Zielmodul, und das ist der nächste Schritt, noch vor der Wahl eines Paares.
 - [x] (2026-09-02) Gemergt: `gardener` #4 (master ddd3a84), `ellmos-controlcenter-mcp` #9 (main 34cd95d); `policy-registry` #3 zugunsten des Decision-Index-Pfad-Slices geschlossen (https://github.com/ellmos-ai/policy-registry/pull/4). Übernahme (hostlokaler Registry-Seed, ControlCenter-Konfiguration, ccm-0.6.0-npm-Release) bleibt offen. Ursprünglich: Die offenen Governance-PRs mergen und übernehmen (`policy-registry` #3, `gardener` #4,
   `ellmos-controlcenter-mcp` #9) — alle offen, mergefähig, CI grün zum Stand 2026-08-30, keiner
   gemergt. Hostlokale Registry-Initialisierung, Gardener-Systemquellen und

@@ -9,14 +9,16 @@ test_fetch_place.py, test_host_adapters.py) that this file does not repeat.
 """
 from __future__ import annotations
 
+import io
 import json
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
-from tools.ocean_dev import main
+from tools.ocean_dev import ActivationLogError, main, write_activation_log
 from tools.resolve_bundles import canonical_hash
 
 
@@ -52,6 +54,10 @@ class OceanDevIntegrationTests(unittest.TestCase):
         self.catalog_path.write_text(json.dumps({"modules": [{
             "id": "present-module", "source_of_truth": {"type": "local-directory", "repository": "r"},
             "resolved_source": "present-module", "visibility": "public",
+            "kind": "runtime", "package": "present-module",
+            "provides": ["runtime.host"], "requires": ["routing.default"],
+            "entrypoints": {"service": "present-module serve"},
+            "boundaries": {"network": "local", "data": "user-local"},
         }]}), encoding="utf-8")
 
         # skills_source_root/skills/dev/decide/SKILL.md -- registry "path" is
@@ -107,6 +113,37 @@ class OceanDevIntegrationTests(unittest.TestCase):
             args.append("--apply")
         return args
 
+    def test_system_manifest_drives_the_complete_dry_run(self):
+        system_path = self.root / "system.v1.json"
+        skeleton = json.loads(self.skeleton.read_text(encoding="utf-8"))
+        system_path.write_text(json.dumps({
+            "schema": "ellmos.system.v1",
+            "id": "ellmos-development-fullsystem",
+            "authority": {"runtime_authority": False},
+            "bundle_refs": skeleton["bundle_refs"],
+        }), encoding="utf-8")
+        report_path = self.root / "system-report.json"
+
+        code = main([
+            "--bundles-root", str(self.bundles_root),
+            "--system-manifest", str(system_path),
+            "--modules-catalog", str(self.catalog_path),
+            "--skills-registry", str(self.registry_path),
+            "--workspace", str(self.workspace),
+            "--json", "--report", str(report_path),
+        ])
+
+        self.assertEqual(code, 0)
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        self.assertEqual(report["ring"], "all")
+        self.assertEqual(report["composition"], {
+            "mode": "system-manifest",
+            "schema": "ellmos.system.v1",
+            "id": "ellmos-development-fullsystem",
+        })
+        self.assertEqual(report["verify"]["bundles_checked"], 1)
+        self.assertFalse(self.workspace.exists())
+
     def test_dry_run_writes_nothing(self):
         code = main(self._common_args(apply=False))
         self.assertEqual(code, 0)
@@ -120,7 +157,28 @@ class OceanDevIntegrationTests(unittest.TestCase):
         activate = {o["ref"]: o for o in report["activate"]}
         self.assertEqual(activate["skill:decide"]["action"], "planned")
         fetch = {o["ref"]: o for o in report["fetch"]}
-        self.assertEqual(fetch["module:present-module"]["action"], "present")
+        self.assertEqual(fetch["module:present-module"]["action"], "planned")
+
+    def test_report_exposes_resolved_runtime_metadata_for_lifecycle_consumers(self):
+        report_path = self.root / "report.json"
+
+        code = main(self._common_args(apply=False) + ["--report", str(report_path)])
+
+        self.assertEqual(code, 0)
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        modules = {item["ref"]: item for item in report["components"] if item["kind"] == "module"}
+        runtime = modules["module:present-module"]
+        self.assertEqual(runtime["status"], "resolved")
+        self.assertEqual(runtime["detail"]["catalog_id"], "present-module")
+        self.assertEqual(runtime["detail"]["provides"], ["runtime.host"])
+        self.assertEqual(runtime["detail"]["requires"], ["routing.default"])
+        self.assertEqual(runtime["detail"]["entrypoints"], {"service": "present-module serve"})
+        self.assertEqual(runtime["detail"]["package"], "present-module")
+        self.assertEqual(runtime["detail"]["kind"], "runtime")
+        self.assertEqual(
+            runtime["detail"]["local_path"],
+            str((self.catalog_path.parent / "present-module").resolve(strict=False)),
+        )
 
     def test_default_skills_dir_is_under_workspace_not_live_claude_skills(self):
         report_path = self.root / "report.json"
@@ -139,6 +197,72 @@ class OceanDevIntegrationTests(unittest.TestCase):
         log = json.loads(log_path.read_text(encoding="utf-8"))
         refs = [e["ref"] for e in log["entries"]]
         self.assertIn("skill:decide", refs)
+
+    def test_new_module_receipt_merges_with_existing_skill_rollback_entries(self):
+        log_path = self.workspace / "ocean-dev.activation-log.json"
+        prior_skill = self.workspace / "skills" / "decide"
+        prior_skill.mkdir(parents=True)
+        log_path.write_text(json.dumps({
+            "schema": "ellmos.open-ocean-activation-log.v1",
+            "entries": [{
+                "type": "skill",
+                "ref": "skill:decide",
+                "id": "decide",
+                "dest": str(prior_skill.resolve(strict=False)),
+            }],
+        }), encoding="utf-8")
+        module_dest = self.workspace / "modules" / "software-endpoint-registry"
+        outcome = SimpleNamespace(
+            action="fetched",
+            ref="module:software-endpoint-registry",
+            detail={"dest": str(module_dest)},
+        )
+
+        write_activation_log(log_path, [outcome], [])
+        write_activation_log(log_path, [outcome], [])
+
+        merged = json.loads(log_path.read_text(encoding="utf-8"))
+        self.assertEqual(
+            [(entry["type"], entry["ref"]) for entry in merged["entries"]],
+            [
+                ("skill", "skill:decide"),
+                ("module", "module:software-endpoint-registry"),
+            ],
+        )
+
+    def test_malformed_existing_activation_log_is_not_overwritten(self):
+        log_path = self.workspace / "ocean-dev.activation-log.json"
+        log_path.parent.mkdir(parents=True)
+        log_path.write_text('{"schema":"wrong","entries":[]}', encoding="utf-8")
+        before = log_path.read_bytes()
+
+        with self.assertRaises(ActivationLogError):
+            write_activation_log(log_path, [], [{
+                "action": "activated",
+                "ref": "skill:decide",
+                "skill_name": "decide",
+                "detail": {"dest": str(self.workspace / "skills" / "decide")},
+            }])
+
+        self.assertEqual(log_path.read_bytes(), before)
+
+    def test_conflicting_prior_receipt_stops_apply_before_activation(self):
+        log_path = self.workspace / "ocean-dev.activation-log.json"
+        log_path.parent.mkdir(parents=True)
+        log_path.write_text(json.dumps({
+            "schema": "ellmos.open-ocean-activation-log.v1",
+            "entries": [{
+                "type": "skill",
+                "ref": "skill:decide",
+                "id": "decide",
+                "dest": str((self.root / "wrong-target" / "decide").resolve(strict=False)),
+            }],
+        }), encoding="utf-8")
+
+        code = main(self._common_args(apply=True))
+
+        self.assertEqual(code, 4)
+        self.assertFalse((self.workspace / "skills" / "decide").exists())
 
     def test_apply_never_overwrites_a_preexisting_skill(self):
         skills_dir = self.workspace / "skills" / "decide"
@@ -165,6 +289,33 @@ class OceanDevIntegrationTests(unittest.TestCase):
         ])
         self.assertEqual(code, 0)
         self.assertFalse((skills_dir / "decide").exists())
+
+    def test_rollback_also_removes_a_placed_unbound_module(self):
+        """T-20260903-113508213 Blocker 2: a "placed" module (an unbound
+        component copied into the workspace by fetch_place._place_resolved_
+        module, distinct from a "fetched" exact-bound one) used to be left
+        out of the activation log entirely -- rollback could not undo it,
+        contradicting the "undo every write this ran" promise."""
+        code = main(self._common_args(apply=True))
+        self.assertEqual(code, 0)
+        module_dir = self.workspace / "modules" / "present-module"
+        self.assertTrue(module_dir.is_dir())
+        log = json.loads(
+            (self.workspace / "ocean-dev.activation-log.json").read_text(encoding="utf-8")
+        )
+        self.assertIn(
+            ("module", "module:present-module"),
+            {(e["type"], e["ref"]) for e in log["entries"]},
+        )
+
+        code = main([
+            "--rollback", str(self.workspace / "ocean-dev.activation-log.json"),
+            "--workspace", str(self.workspace),
+            "--skills-dir", str(self.workspace / "skills"),
+        ])
+
+        self.assertEqual(code, 0)
+        self.assertFalse(module_dir.exists())
 
     def test_rollback_with_different_skill_target_fails_closed(self):
         main(self._common_args(apply=True))
@@ -362,6 +513,19 @@ class OceanDevRealGitFetchIntegrationTests(unittest.TestCase):
         self.assertTrue((original_skill / "SKILL.md").is_file())
         self.assertTrue((foreign_module / "FOREIGN.txt").is_file())
         self.assertTrue((foreign_skill / "FOREIGN.txt").is_file())
+
+
+class SkillHostFlagTests(unittest.TestCase):
+    """`--skill-host` names the Activate adapter; `--host` stays a legacy alias.
+    Guards the rename that removed the name clash with `ocean.py up --host`
+    (a loopback network bind, unrelated) -- see TODO.md."""
+
+    def test_unknown_adapter_fails_closed_under_both_spellings(self):
+        for flag in ("--skill-host", "--host"):
+            with self.subTest(flag=flag), mock.patch("sys.stderr", new=io.StringIO()) as err:
+                code = main(["--bundles-root", "irrelevant", flag, "no-such-adapter"])
+            self.assertEqual(code, 3)
+            self.assertIn("unknown --skill-host 'no-such-adapter'", err.getvalue())
 
 
 if __name__ == "__main__":

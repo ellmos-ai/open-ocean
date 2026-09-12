@@ -21,7 +21,9 @@ from tools.resolve_bundles import (
     apply_activation_check,
     canonical_hash,
     expand_components,
+    load_component_bindings,
     load_skeleton,
+    load_system_manifest,
     main,
     merge_components,
     resolve_access_surface,
@@ -120,6 +122,54 @@ class SkeletonAndRingSelectionTests(unittest.TestCase):
         with self.assertRaises(ResolveError):
             select_bundle_refs(skeleton, "1")
 
+    def test_system_manifest_without_id_is_rejected(self):
+        path = self.root / "system.v1.json"
+        path.write_text(json.dumps({
+            "schema": "ellmos.system.v1",
+            "authority": {"runtime_authority": False},
+            "bundle_refs": [],
+        }), encoding="utf-8")
+
+        with self.assertRaisesRegex(ResolveError, "non-empty id"):
+            load_system_manifest(path)
+
+    def test_system_manifest_without_bundle_refs_is_rejected(self):
+        path = self.root / "system.v1.json"
+        path.write_text(json.dumps({
+            "schema": "ellmos.system.v1",
+            "id": "empty-system",
+            "authority": {"runtime_authority": False},
+            "bundle_refs": [],
+        }), encoding="utf-8")
+
+        with self.assertRaisesRegex(ResolveError, "non-empty bundle_refs"):
+            load_system_manifest(path)
+
+    def test_system_manifest_rejects_incomplete_bundle_ref(self):
+        path = self.root / "system.v1.json"
+        path.write_text(json.dumps({
+            "schema": "ellmos.system.v1",
+            "id": "incomplete-system",
+            "authority": {"runtime_authority": False},
+            "bundle_refs": [{"ref": "bundle-a"}],
+        }), encoding="utf-8")
+
+        with self.assertRaisesRegex(ResolveError, r"bundle_refs\[0\].*content_hash"):
+            load_system_manifest(path)
+
+    def test_system_manifest_rejects_duplicate_bundle_refs(self):
+        path = self.root / "system.v1.json"
+        ref = {"ref": "bundle-a", "content_hash": "x"}
+        path.write_text(json.dumps({
+            "schema": "ellmos.system.v1",
+            "id": "duplicate-system",
+            "authority": {"runtime_authority": False},
+            "bundle_refs": [ref, ref],
+        }), encoding="utf-8")
+
+        with self.assertRaisesRegex(ResolveError, "duplicate bundle ref"):
+            load_system_manifest(path)
+
 
 class VerifyBundleTests(unittest.TestCase):
     def setUp(self):
@@ -143,6 +193,43 @@ class VerifyBundleTests(unittest.TestCase):
         self.assertTrue(result.self_consistent)
         self.assertTrue(result.matches_pin)
         self.assertEqual(out, manifest)
+
+    def test_ok_when_manifest_lives_in_private_projection_layout(self):
+        """Catches treating the private Full Dev recipe projection as absent.
+
+        Public exports use ``manifests/bundles/<id>/bundle.v1.json`` while the
+        canonical private projection uses ``bundles/<id>/bundle.v1.json``.
+        Both carry the same bundle contract and must pass the same hash gate.
+        """
+        manifest = _bundle("b1", [])
+        private_dir = self.root / "bundles" / "b1"
+        private_dir.mkdir(parents=True)
+        (private_dir / "bundle.v1.json").write_text(
+            json.dumps(manifest), encoding="utf-8"
+        )
+
+        result, out = verify_bundle(
+            {"ref": "b1", "content_hash": manifest["content_hash"]}, self.root
+        )
+
+        self.assertTrue(result.ok)
+        self.assertEqual(Path(result.manifest_path), private_dir / "bundle.v1.json")
+        self.assertEqual(out, manifest)
+
+    def test_rejects_ambiguous_exported_and_private_projection_layouts(self):
+        """Catches silently choosing one of two equally named authorities."""
+        manifest = _bundle("b1", [])
+        self._place("b1", manifest)
+        private_dir = self.root / "bundles" / "b1"
+        private_dir.mkdir(parents=True)
+        (private_dir / "bundle.v1.json").write_text(
+            json.dumps(manifest), encoding="utf-8"
+        )
+
+        with self.assertRaisesRegex(ResolveError, "ambiguous bundle manifest"):
+            verify_bundle(
+                {"ref": "b1", "content_hash": manifest["content_hash"]}, self.root
+            )
 
     def test_content_tampered_after_hashing_fails_self_consistency_not_pin(self):
         manifest = _bundle("b1", [])
@@ -226,6 +313,32 @@ class ResolveModuleSkillAccessSurfaceTests(unittest.TestCase):
         path.write_text(json.dumps({"modules": modules}), encoding="utf-8")
         return path
 
+    def _bindings(self, **binding_overrides) -> dict:
+        binding = {
+            "component_type": "module",
+            "catalog_id": "system-explorer",
+            "repository": "https://github.com/ellmos-ai/system-explorer.git",
+            "commit": "a" * 40,
+            "placement_id": "software-endpoint-registry",
+            "required_provides": ["software.endpoint.registry"],
+            "provider_manifest": "ellmos-module.v2.json",
+        }
+        binding.update(binding_overrides)
+        manifest = {
+            "schema": "ellmos.open-ocean-component-bindings.v1",
+            "id": "fixture-bindings",
+            "version": "1.0.0",
+            "authority": {
+                "kind": "integration-overlay",
+                "runtime_authority": False,
+            },
+            "bindings": {"module:software-endpoint-registry": binding},
+        }
+        manifest["content_hash"] = canonical_hash(manifest)
+        path = self.root / "bindings.json"
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        return load_component_bindings(path)
+
     def test_resolves_present_module_by_exact_id(self):
         (self.root / "present").mkdir()
         catalog = self._catalog([{
@@ -266,6 +379,60 @@ class ResolveModuleSkillAccessSurfaceTests(unittest.TestCase):
         self.assertEqual(comp.status, "unresolved")
         self.assertFalse(comp.detail["present_locally"])
 
+    def test_exact_binding_maps_alias_without_claiming_an_unverified_provider(self):
+        (self.root / "system-explorer").mkdir()
+        catalog = self._catalog([{
+            "id": "system-explorer",
+            "source_of_truth": {
+                "type": "git-repository",
+                "repository": "https://github.com/ellmos-ai/system-explorer",
+            },
+            "resolved_source": "system-explorer",
+            "provides": ["system.software-resource.mapping"],
+        }])
+        comp = ResolvedComponent(
+            ref="module:software-endpoint-registry",
+            kind="module",
+        )
+
+        resolve_module(comp, catalog, self._bindings())
+
+        self.assertEqual(comp.status, "unresolved")
+        self.assertEqual(comp.detail["catalog_id"], "system-explorer")
+        self.assertEqual(comp.detail["binding"]["placement_id"], "software-endpoint-registry")
+        self.assertEqual(comp.detail["binding"]["commit"], "a" * 40)
+        self.assertFalse(comp.detail["binding"]["provider_verified"])
+        self.assertIn("Fetch/Place", comp.detail["reason"])
+
+    def test_binding_repository_mismatch_fails_closed(self):
+        (self.root / "system-explorer").mkdir()
+        catalog = self._catalog([{
+            "id": "system-explorer",
+            "source_of_truth": {
+                "type": "git-repository",
+                "repository": "https://example.invalid/wrong-provider.git",
+            },
+            "resolved_source": "system-explorer",
+        }])
+        comp = ResolvedComponent(
+            ref="module:software-endpoint-registry",
+            kind="module",
+        )
+
+        resolve_module(comp, catalog, self._bindings())
+
+        self.assertEqual(comp.status, "unresolved")
+        self.assertIn("repository", comp.detail["reason"])
+
+    def test_component_binding_hash_tamper_is_rejected(self):
+        bindings = self._bindings()
+        path = self.root / "bindings.json"
+        bindings["bindings"]["module:software-endpoint-registry"]["catalog_id"] = "other"
+        path.write_text(json.dumps(bindings), encoding="utf-8")
+
+        with self.assertRaisesRegex(ResolveError, "content_hash"):
+            load_component_bindings(path)
+
     def test_resolve_skill_matches_by_name_field_not_id(self):
         registry = self.root / "components.json"
         registry.write_text(json.dumps({"components": [
@@ -284,6 +451,22 @@ class ResolveModuleSkillAccessSurfaceTests(unittest.TestCase):
         comp = ResolvedComponent(ref="skill:ghost", kind="skill")
         resolve_skill(comp, registry)
         self.assertEqual(comp.status, "unresolved")
+
+    def test_resolve_skill_rejects_crosswalk_as_install_registry(self):
+        crosswalk = self.root / "skills.registry.crosswalk.v1.json"
+        crosswalk.write_text(json.dumps({
+            "schema": "ellmos.skill-registry-crosswalk.v1",
+            "skills": {
+                "skill:decide": {"registry_component_id": "skill:dev:decide"},
+            },
+        }), encoding="utf-8")
+        comp = ResolvedComponent(ref="skill:decide", kind="skill")
+
+        resolve_skill(comp, crosswalk)
+
+        self.assertEqual(comp.status, "unresolved")
+        self.assertIn("top-level components array", comp.detail["reason"])
+        self.assertIn("separate identity source", comp.detail["note"])
 
     def test_access_surface_is_always_not_fetched_by_design(self):
         from tools.resolve_bundles import ResolvedComponent
@@ -321,6 +504,11 @@ class MainIntegrationTests(unittest.TestCase):
         d.mkdir(parents=True)
         (d / "bundle.v1.json").write_text(json.dumps(manifest), encoding="utf-8")
 
+    def _place_private_bundle(self, ref: str, manifest: dict) -> None:
+        d = self.bundles_root / "bundles" / ref
+        d.mkdir(parents=True)
+        (d / "bundle.v1.json").write_text(json.dumps(manifest), encoding="utf-8")
+
     def _write_skeleton(self, bundle_refs: list[dict]) -> Path:
         path = self.root / "skeleton.json"
         path.write_text(json.dumps({
@@ -329,6 +517,59 @@ class MainIntegrationTests(unittest.TestCase):
             "rings": {"1": {"name": "core", "members": [b["ref"] for b in bundle_refs]}},
         }), encoding="utf-8")
         return path
+
+    def _write_system_manifest(self, bundle_refs: list[dict]) -> Path:
+        path = self.root / "system.v1.json"
+        path.write_text(json.dumps({
+            "schema": "ellmos.system.v1",
+            "id": "ellmos-development-fullsystem",
+            "authority": {"runtime_authority": False},
+            "bundle_refs": bundle_refs,
+        }), encoding="utf-8")
+        return path
+
+    def test_system_manifest_defaults_to_all_refs_and_records_composition(self):
+        manifest = _bundle("b1", [])
+        self._place_private_bundle("b1", manifest)
+        system_path = self._write_system_manifest([
+            {"ref": "b1", "content_hash": manifest["content_hash"]},
+        ])
+        report_path = self.root / "system-report.json"
+
+        code = main([
+            "--bundles-root", str(self.bundles_root),
+            "--system-manifest", str(system_path),
+            "--json", "--report", str(report_path),
+        ])
+
+        self.assertEqual(code, 0)
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        self.assertEqual(report["ring"], "all")
+        self.assertEqual(report["verify"]["bundles_checked"], 1)
+        self.assertEqual(report["composition"], {
+            "mode": "system-manifest",
+            "schema": "ellmos.system.v1",
+            "id": "ellmos-development-fullsystem",
+        })
+        self.assertNotIn(str(system_path), json.dumps(report))
+
+    def test_system_manifest_rejects_numbered_ring(self):
+        system_path = self._write_system_manifest([])
+        code = main([
+            "--bundles-root", str(self.bundles_root),
+            "--system-manifest", str(system_path), "--ring", "1",
+        ])
+        self.assertEqual(code, 3)
+
+    def test_rejects_skeleton_and_system_manifest_together(self):
+        skeleton_path = self._write_skeleton([])
+        system_path = self._write_system_manifest([])
+        code = main([
+            "--bundles-root", str(self.bundles_root),
+            "--skeleton", str(skeleton_path),
+            "--system-manifest", str(system_path),
+        ])
+        self.assertEqual(code, 3)
 
     def test_exit_0_on_a_fully_resolvable_ring(self):
         manifest = _bundle("b1", [

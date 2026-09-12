@@ -1,4 +1,4 @@
-# ocean-dev build plan — Durchgang 1 + 2
+# ocean-dev build plan — Durchgang 1 + 2 + Full Dev composition
 
 > **Status: living plan, not a finished system.** Records what exists, what was built in this
 > pass, and what the next passes need to do, in the target order the user set. Updated as each
@@ -19,12 +19,16 @@
   (sluice test) and 3 (BACH parity) both blocked on the same missing thing: no installer, no
   runtime. This plan is the direct response.
 
-## 1. Terminology (user briefing, 2026-08-18)
+## 1. Terminology (user briefing, 2026-08-18; superseded names marked 2026-08-29)
 
 | Term | Meaning |
 |---|---|
 | **ocean-dev** | the local development system — what runs and gets tested on a dev host today. Not a separate repository or product; a *mode* of using this one, where "installed" can mean "already present because this is where it's built" rather than "freshly fetched onto a bare machine". |
-| **ocean-full / open-ocean** | the published, BACH-parity full system — this repository's eventual release, gated by `PRIVATE.txt`. |
+| ~~**ocean-full / open-ocean**~~ | ~~Historical alias for one published BACH-parity system.~~ **Superseded 2026-08-29; these names are not equivalent.** |
+| **OPEN OCEAN** | Public OCEAN product and the eventual release built by this repository. |
+| **PRIVATE OCEAN** | Private, non-proprietary OCEAN complement. |
+| **FULL OCEAN** | Exactly OPEN OCEAN + PRIVATE OCEAN; the local development/test composition. |
+| **SPEEDBOAT** | Independent proprietary sibling stack with only explicitly selected OCEAN parts. |
 | **ellmos-systems** | OS-level layer: BACH, rinnsal, ocean. Broad, zweckoffen, own lifecycle (matches the `os-stack` class in `.STACKS/STACK-MAPPING.md`). |
 | **ellmos-stacks** | zweckbezogene Rezepte — the bundle/stack composition layer `open-ocean` *consumes* (`ellmos-ai/bundles`), not a peer of the systems above it. |
 
@@ -92,11 +96,12 @@ side of Activate, and Roll back are explicitly NOT in this pass — see Sec. 5.*
   `modules.catalog.json` (same lookup `ModuleResolver` performs, re-implemented here rather than
   imported so this repository does not depend on an OneDrive path being importable — the *catalog
   file* is still read from there via `--modules-catalog`, only the code is not shared);
-  `skill:<name>` against the public `ellmos-ai/skills` registry, matched by `name` (the crosswalk
-  file the component-registry-bindings contract names,
-  `bundles/manifests/skills.registry.crosswalk.v1.json`, does not exist in the bundles checkout
-  yet — documented as a gap, not silently assumed to match); `access_surface:<id>` is reported and
-  **never fetched**, per `INSTALLER-TARGET.md`'s explicit "must not do".
+  `skill:<name>` against the native `ellmos-ai/skills` `components.json` registry, matched by
+  `name`. This source is distinct from the recipe provider's
+  `manifests/skills.registry.crosswalk.v1.json`: the latter maps recipe identities to native
+  registry component IDs for binding verification and is not an install registry.
+  `access_surface:<id>` is reported and **never fetched**, per `INSTALLER-TARGET.md`'s explicit
+  "must not do".
 - 26 unit/integration tests, synthetic fixtures throughout (same convention as
   `test_audit_bach_handlers.py`) so the suite is host-independent — it must pass with no OneDrive
   present at all.
@@ -239,6 +244,47 @@ Test suite after this pass: **82 tests, all green**
 reasons as Durchgang 1 Sec. 3.3; the `no-catalog-entry` finding for `memory-hooker` is unchanged
 and still not silently patched here.
 
+### 3.5 Full Dev composition — 2026-08-28
+
+The product direction now distinguishes two compositions without duplicating their authorities:
+
+- **OCEAN Full Dev** is the local development/test composition. It consumes every functional
+  `bundle_ref` already declared by the external `ellmos-development-fullsystem/system.v1.json`.
+- **OPEN OCEAN** remains the separately gated 13-bundle, public-allowlisted composition declared
+  by this repository's skeleton.
+- OCEAN is the successor/new BACH. Most extraction is already complete; current BACH work replaces
+  legacy internals with the same canonical modules and bundles OCEAN consumes. A BACH-only
+  extraction is exceptional and value-gated. LTS, freeze, or archive is a later explicit product
+  decision, not an automatic stage transition.
+
+This pass added the smallest executable seam needed for that distinction:
+
+- `resolve_bundles.py` and `ocean_dev.py` accept `--system-manifest <system.v1.json>`. A system
+  composition selects all of its `bundle_refs[]`; numbered rings are rejected rather than silently
+  truncating Full Dev.
+- `--skeleton` and `--system-manifest` are mutually exclusive. System inputs must declare
+  `schema: ellmos.system.v1`, a non-empty `id`, and `authority.runtime_authority: false`.
+- Bundle lookup accepts either the public export layout
+  `manifests/bundles/<id>/bundle.v1.json` or the canonical private projection layout
+  `bundles/<id>/bundle.v1.json`. If both exist for one ID, resolution fails closed as ambiguous.
+- Hash semantics are unchanged: self-consistency and the composition pin must both match before
+  component resolution or any write-capable phase can start. No recipe or system manifest is
+  copied into this repository.
+
+**Live Full Dev dry-run, 2026-08-28:** FileCommander executed the pipeline against the canonical
+OneDrive projections. All **30/30** referenced bundle manifests were found and internally
+self-consistent; **27/30** matched the Full Dev manifest pins. The run returned exit 2 before
+Fetch/Place/Activate on exactly these three stale pins:
+
+- `ellmos-core-discovery-bundle`
+- `ellmos-agent-orchestration-bundle`
+- `ellmos-dev-lifecycle-bundle`
+
+The requested dry-run workspace remained absent, proving the gate stopped before writes. The
+portable suite now contains **110 tests, all green**. This is measured progress, not a Full Dev
+installation claim: the three stale pins must be reconciled in their canonical recipe/system
+authority and then re-read before component breadth can be evaluated.
+
 ## 4. Guardrails carried forward from prior decisions
 
 - **E4 (D-20260817-005): vendor-neutral from the start, Claude as reference**, applied to
@@ -259,11 +305,14 @@ and still not silently patched here.
   `PRIVATE.txt`'s own text; the release conditions it names are *measured*, never declared met by
   fiat.
 
-## 5. Target order and staged work packages
+## 5. Stage record and adaptive work packages
 
-The order below is the one the build authorisation set: **minimal installable ocean-dev core →
-foreign-host smoke → BACH-parity cluster.** Each stage only starts once the one before it is real,
-not merely planned.
+Stages 1 and 2 below are completed historical build records. From 2026-08-28 onward there is no
+fixed domain or cluster order. The next module/bundle is selected from current evidence after the
+knowledge and policy ritual; only the gates *inside* a cycle are ordered: authority and baseline →
+test-first cutover → focused tests → full regression → documentation/language parity → commit and
+push → separately authorised release decision. A failed cycle is repaired or rolled back before a
+different cutover is presented as complete.
 
 ### Stage 1 — minimal installable ocean-dev core
 
@@ -533,24 +582,23 @@ work present, then used the resulting single activation log for one rollback.
   a safe catalogue pin, and the invocation did not construct a complete working ocean runtime.
   Stage 3 remains separately gated and untouched.
 
-### Stage 3 — BACH-parity cluster
+### Stage 3 — adaptive BACH/OCEAN module and bundle cycles
 
-- **Not started, not due yet.** `BACH-EXTRACTION-ROADMAP.md`'s own binding order is "Cluster 9
-  first" (already the only cluster with any work — 0/30 `accepted`, see the operation matrix),
-  followed by Cluster 1 (memory/knowledge), 3 (tasks/automation), 5 (multi-agent/orchestration), 7
-  (self-extension/dev tools), 4 (documents/media), 6 (communication), 8 (cognitive control), and
-  finally 2 (personal-life services, held out of the free core for separate privacy/legal/product
-  reasons).
-- Stage 1's ring-1 bundles (`agents`, `coordination-choice`, `knowledge`, `memory-human-context`,
-  `working-memory`) already overlap Cluster 1 and parts of Cluster 3/5 in *subject matter* — but
-  functional-parity proof (the thing PRIVATE.txt condition 3 actually asks for) is a distinct,
-  much larger claim than "the recipe references a plausible replacement module". Nothing in Stage
-  1 should be read as advancing Cluster 9's 0/30 `accepted` count; it did not touch that matrix.
-- Next concrete step, when this stage starts: `tools/check_k9_data_contract.py`'s existing
-  fixture-equivalence pattern is the template — run old (BACH) and new (open-ocean) implementations
-  against the same anonymized fixtures, BACH read-only throughout (the buildweek-no-push lock
-  applies regardless of that lock's own expiry, because this repository's own rule is BACH stays
-  read-only for parity work independent of any external lock state).
+- The earlier fixed Cluster 9 → 1 → 3 → 5 → 7 → 4 → 6 → 8 → 2 sequence is historical guidance,
+  **not a binding execution order**. The explicit 2026-08-28 product decision supersedes it.
+- At the start of every new section, lift current knowledge through `.AI`, Gardener, the policy
+  registry, and directly applicable policy binders. Classify evidence as current, historical,
+  conflicting, or unavailable before choosing the next bounded cycle.
+- Selection is evidence-driven: readiness, dependency leverage, testability, risk, an active
+  blocker, or a newly discovered high-value BACH unique may make any eligible module/bundle next.
+  A BACH unique is extracted only as an exceptional, separately justified action.
+- Each cycle wires one module or bundle into BACH and/or OCEAN, disconnects only the superseded
+  legacy path, proves equivalence with shared anonymized fixtures where applicable, and keeps root,
+  help, roadmap/changelog, task, and DE/EN documentation deltas in the same commit.
+- `tools/check_k9_data_contract.py` remains a useful fixture-equivalence pattern, not a command to
+  start with Cluster 9 regardless of evidence. BACH and OCEAN consume the same canonical modules;
+  the main development direction is FULL OCEAN development while OPEN OCEAN remains separately
+  allowlisted and release-gated.
 
 ## 6. Honesty check — what this plan is not claiming
 
@@ -571,3 +619,689 @@ work present, then used the resulting single activation log for one rollback.
   when running `--ring all`) are real, live findings from running the tool against real data, kept
   as findings rather than quietly patched around, because patching the catalog or adding a
   `software_app` resolver were not asked for in this pass and are better done deliberately.
+
+## 7. OCEAN-first execution checkpoint — 2026-08-29
+
+The product direction is now explicit: the legacy BACH migration plan is delegated to BACH's own
+task system; this repository's active implementation focus is a usable OCEAN. The private Full Dev
+composition may consume private modules, while OPEN OCEAN remains separately allowlisted and
+publication-gated. The runtime is selected by the declared `runtime.host` capability so today's
+private provider does not become a hard dependency of the future public product.
+
+### Delivered in this cycle
+
+- `ocean.py` is the product entry point for `plan`, `up`, `status`, `down`, and `user add`.
+- The existing `ocean_dev.py` remains the sole Resolve → Verify → Fetch/Place → Activate/Rollback
+  transaction boundary; the new lifecycle layer does not duplicate the installer.
+- One local runtime instance is supervised through a loopback-only authenticated control channel.
+  Its web health is checked live before `up` succeeds, and `down` targets only that exact instance.
+- User creation delegates to the selected runtime. Passwords cross only a hidden prompt or stdin
+  pipe and never appear in command-line arguments.
+- The runtime receives a generated local secret with reload disabled. A start → stop → restart
+  regression test covers both the former orphan-child defect and stale-state restart race.
+
+### Current evidence
+
+- Portable suite: **126 passed**.
+- Applied Windows Full Dev snapshot: **29/29 then-declared bundle pins verified**, **52 modules
+  resolved**, **62 skills resolved and present**, live root page **HTTP 200**, live health
+  **HTTP 200**, database check green with 20 tables.
+- Lifecycle proof: start → live status → controlled stop with port release → restart → live health.
+- Real user-bootstrap proof: a random disposable administrator was created through `ocean user
+  add`, its stored password hash verified, and the exact row removed; user count was 0 before and
+  after the acceptance run.
+- Honest boundary: 25 module references are unresolved and nine of them are required by the applied
+  Full Dev snapshot (`audit-trail`, `automation-registry`, `automation-runtime`, `billing`,
+  `entitlement-enforcement`, `hosted-operations`, `runtime-boundary-enforcement`,
+  `sso-rbac`, `tenant-isolation`). The machine report therefore says `full_composition: false`.
+
+### Adaptive next-cycle rule
+
+No fixed module order is imposed. Before the next bounded section, repeat the knowledge-lift ritual
+through `.AI`, Gardener and applicable policy binders, then choose from the measured result. The
+next cycle should either (a) close the highest-leverage genuinely required module gap or (b) correct
+the Full Dev manifest if a listed commercial/public concern is misclassified as required. Each
+cycle must keep runtime acceptance, rollback/stop evidence, root help, changelog and DE/EN
+documentation in the same tested commit. Public release, tags, visibility and `PRIVATE.txt` remain
+separate explicit gates.
+
+Language work follows the same cycle rather than a later translation batch. English is the
+repository documentation authority and German is maintained section-for-section in parallel; code
+blocks, identifiers, counts and limitation statements stay invariant. For product surfaces, each
+integration uses the selected runtime's existing locale mechanism and updates every already
+supported locale for any new end-user string. OCEAN must not introduce a second translation system
+beside the runtime provider's catalog. A locale is counted as covered only after the real surface,
+not just its resource file, has been checked.
+
+## 8. Adaptive provider cycle 1: software endpoint registry — 2026-08-29
+
+The first module cycle followed the adaptive rule above rather than a predeclared sequence. The
+section-start knowledge lift re-read the live `.AI` module/skill sources, Gardener and applicable
+policy authority before selecting a required gap. The module catalog remained structurally valid
+at 68 entries. OneDrive resynchronisation changed source-file hashes, but rewriting the canonical
+development-system bindings would have invalidated historic evidence through a broad hash cascade;
+that authority was therefore left unchanged for a separate, explicit migration.
+
+### Contract and implementation
+
+- `architecture/ocean-full-dev.component-bindings.v1.json` is a content-hashed integration overlay,
+  explicitly marked `runtime_authority: false`. It does not replace recipe or catalog authority.
+- The exact ref `module:software-endpoint-registry` is bound to catalog entry `system-explorer`,
+  repository `https://github.com/ellmos-ai/system-explorer.git`, commit
+  `ec50c92319ba8fc262d695b86818fc85666feff7`, placement `software-endpoint-registry`, provider
+  manifest `ellmos-module.v2.json`, and capability `software.endpoint.registry`.
+- Bound refs deliberately bypass fuzzy and case-folded alias matching. Resolution fails closed on
+  an invalid overlay hash, a repository mismatch, a non-full commit SHA, unsafe placement, wrong
+  Git HEAD, dirty checkout, wrong origin, wrong provider identity, or missing required capability.
+- Fetch/Place never overwrites a wrong existing placement. A correct placement is reported as
+  `present-pinned-provider`; a new exact checkout is reported as `fetched` only after provider
+  verification.
+- The activation log is now an append-preserving rollback ledger. Existing entries are validated
+  before any write, exact duplicate additions are idempotent, and malformed or conflicting entries
+  fail before activation.
+
+### Live acceptance evidence
+
+- The real Full Dev plan applied the overlay to exactly one ref while retaining all **29/29** valid
+  bundle pins. Required missing components fell from **10 to 9**; resolved modules rose from
+  **51 to 52** and unresolved module refs fell from **26 to 25**.
+- The provider placement has the exact pinned HEAD and expected Git origin. Its module manifest has
+  provider ID `system-explorer` and declares `software.endpoint.registry`.
+- A real `software-endpoints --refresh` run against a temporary OCEAN resource produced one
+  installed software record with two endpoints, one CLI and one HTTP. The temporary fixture was
+  then removed recoverably.
+- `ocean up --apply` returned a running `ellmos-core`; `/api/health` and `/` both returned HTTP 200,
+  and the runtime database check retained its 20-table result.
+- The rollback ledger grew from **62 skill entries to 63 total entries** (62 skills plus the bound
+  module), proving that the module cycle did not erase prior rollback information.
+- The paired English/German README and changelog, root CLI help, architecture plan and portable
+  suite were updated in the same cycle. The final portable suite is **126 passed**.
+
+### Post-sync authority gate
+
+After OneDrive resumed, the live `ellmos-development-fullsystem` authority advanced from the 29-ref
+snapshot used by the successful apply to **30 bundle refs**, adding `ellmos-therapy-bundle` and
+updating several pins. A fresh read-only OCEAN plan was therefore run again instead of assuming the
+installed snapshot still represented current source authority.
+
+- Against the current canonical OneDrive `.BUNDLES` projection, all 30 manifests are internally
+  self-consistent and **27/30** match the live system pins. The three mismatches are
+  `ellmos-core-discovery-bundle`, `ellmos-agent-orchestration-bundle`, and
+  `ellmos-dev-lifecycle-bundle`.
+- The older local recipe worktree is not a valid fallback: only **24/30** current refs verify there;
+  five use older valid hashes and the newly selected therapy manifest is absent at the expected
+  exported path.
+- OCEAN stopped before Resolve, Fetch/Place, Activate or runtime replacement, exactly as the
+  fail-closed verification contract requires. The existing installed snapshot remains running and
+  healthy at `http://127.0.0.1:8800`; its root and health endpoint still return HTTP 200, its DB
+  check still reports 20 tables, and the bound provider remains clean at the exact commit.
+
+The three authoritative pin mismatches must be reconciled in the recipe/system authority and then
+re-read through the section-start knowledge lift. OCEAN must not hide them with an ad-hoc local
+repin or a copied system manifest.
+
+This finishes the first usable OCEAN module integration, not the Full Dev composition or Public
+OCEAN release. The remaining required gaps are `audit-trail`, `automation-registry`,
+`automation-runtime`, `billing`, `entitlement-enforcement`, `hosted-operations`,
+`runtime-boundary-enforcement`, `sso-rbac`, and `tenant-isolation`. The next cycle repeats the
+knowledge lift and chooses among those live findings. No tag, release, merge, visibility change or
+`PRIVATE.txt` change belongs to this cycle.
+
+## 9. Product-surface correction and installed-snapshot recovery — 2026-08-29
+
+This corrective section was selected by direct user-visible evidence, not by the remaining-module
+list: the address previously reported as OCEAN showed TerminPilot's offline page after the runtime
+process disappeared and showed TerminPilot's scheduling UI again when the provider was restarted.
+The earlier acceptance had asserted only HTTP 200 and a login-capable page. It had not asserted the
+identity of the product shown there, so that part of the evidence is withdrawn.
+
+### Section-start knowledge lift
+
+- **Current:** the installed transaction records both resolved `ellmos-core` capabilities and the
+  resolved optional `ellmos-unified-gui` provider with `operator.ui` and `unified-gui.host`. The
+  provider's own contract mounts that UI only when `ELLMOS_CORE_CONSOLE_ENABLED=1`; the prior OCEAN
+  runtime specification did not set the opt-in.
+- **Current:** the direct live response at the old port exposed a TerminPilot PWA manifest,
+  scheduling copy and a root-scoped service worker. When no process listened on port `8800`, that
+  worker could still render the cached TerminPilot offline shell.
+- **Historical/mixed:** Gardener returned OCEAN, TerminPilot and unified-GUI observations from
+  tickets, memories and transcripts, but its local checkout was two commits behind and the hits did
+  not establish newer runtime authority. They were treated as orientation only.
+- **Unavailable:** the federated ControlCenter governance query returned aggregate `UNKNOWN`, with
+  both decisions and policy registry unconfigured. No policy decision was inferred from that
+  absence. The applicable module release policy still leaves tags, publication and visibility out
+  of this private corrective cycle.
+
+### Corrected contract
+
+- A resolved `unified-gui.host` now selects exactly one OCEAN operator surface. OCEAN enables the
+  provider's console mount, writes only an OCEAN-owned workspace title override, and returns
+  `/control/` rather than treating the provider's domain root as the product.
+- New installs use dedicated default port `8810`. This gives OCEAN a different browser origin from
+  the provider's standalone TerminPilot PWA on port `8800`. At this checkpoint, however, the same
+  provider process still exposed its own root, manifest and root-scoped worker on the new origin;
+  the stronger origin-ownership correction is recorded in section 11.
+- `ocean start --workspace <sandbox>` starts the already installed transaction snapshot without
+  consulting changed live recipe authority. This is deliberately distinct from `ocean up --apply`:
+  the latter remains the transaction/apply boundary and still stops on the three current pin
+  mismatches.
+- A stale `running` state is recoverable only when its authenticated control channel, recorded
+  public runtime endpoint and requested port are all inactive. A live or foreign listener remains a
+  fail-closed conflict rather than being killed or overwritten.
+
+### Acceptance evidence
+
+- Portable suite: **128 passed**; Ruff and `compileall` also passed.
+- The retained 29-ref installed snapshot restarted without reapplying the now-mismatched 30-ref
+  live authority. Live status is `running/ok` at `http://127.0.0.1:8810/control/`; health is HTTP
+  200 and the database check still reports 20 tables.
+- Direct HTML inspection found `OCEAN Full Dev` and no `TerminPilot`, `Terminkoordination` or
+  `Terminabfragen` marker at the returned product URL.
+- A fresh Playwright browser loaded the overview with title `OCEAN Full Dev — Übersicht`, then
+  navigated to the Skills panel with title `OCEAN Full Dev — Skills`. Port `8800` had no listener.
+  This did not yet exercise an installed PWA or a profile retaining a root-scoped worker.
+- One pre-existing cosmetic browser finding remains: the mounted UI does not declare a favicon, so
+  the browser requests `/favicon.ico` and receives 404. It does not affect navigation, health or
+  product identity and is not silently counted as fixed.
+
+At that checkpoint, this correction made the Full Dev surface usable and truthfully identifiable
+as OCEAN. It did not close the nine missing required modules, the three live recipe-pin mismatches, BACH parity,
+foreign-host full-system proof, OPEN OCEAN, release, tag, visibility or `PRIVATE.txt` gates.
+
+## 10. Adaptive provider cycle 2: recipe reconciliation and automation registry — 2026-08-29
+
+This cycle starts from the measured findings of sections 8 and 9 rather than from a fixed module
+order. Its section-start lift re-read the live `.AI` system and module sources, Gardener findings,
+the architecture contracts and the visibility policy. The policy keeps Hosted-only concerns
+private; it does not allow OCEAN to pretend that billing, tenancy or SSO providers exist. The
+module catalogue does, however, contain one exact reusable provider for the required
+`automation-registry` gap: `automation-master` declares `automation.registry` at a clean, pushed
+commit. `ellmos-scheduler` is not substituted for the separate `automation-runtime` contract.
+
+### Recipe/system authority reconciliation
+
+- The 30-ref system projection combined three independently advanced recipe histories. No single
+  existing remote branch contained its current Core, Compare-Race, Dev-Lifecycle and Therapy pins,
+  so OCEAN did not hide the mismatch with a copied manifest or local repin.
+- A clean reconciliation worktree based on recipe `main` forward-ported Compare-Race and the
+  Therapy bundle, restored all Therapy crosswalk/binding records, and propagated the repository's
+  own content-hash chain with its generators.
+- TDD first proved the missing Therapy ref and Compare-Race member, then the reconciled state proved
+  all **30/30** Full Dev pins against their exact bundle manifests. The portable component-registry
+  receipt advanced additively to V10; historical receipts were not rewritten.
+- The result is pushed as
+  `ellmos-development-system@489b67880b42ba4bd2a1d8052239896f84192269` on branch
+  `codex/ocean-fullsystem-reconcile-20260829`. It is the pinned integration source for this cycle,
+  not yet a claim that canonical recipe `main` has merged it.
+- Recipe verification passed its skill/hash generators, README generator, compile check and
+  whitespace check. The host-independent suite passed **148 tests, 5 skips and 20 subtests**. The
+  unabridged suite additionally stayed fail-closed on an expired WORKSTATION-LG currentness receipt
+  and WORKSTATION-LG-only local files; ASUS-GEI did not forge replacements for either host proof.
+
+### Exact provider binding and applied Full Dev state
+
+- The content-hashed OCEAN overlay now binds `module:automation-registry` to catalog entry and
+  provider `automation-master`, repository `https://github.com/dev-bricks/automation-master.git`,
+  commit `ad40de721615518e409b53b00ed4b2a49840db28`, placement `automation-registry`, provider
+  manifest `ellmos-module.v2.json`, and required capability `automation.registry`.
+- A behavioral TDD test loads the shipped overlay and proves that this declared ref resolves
+  through the exact provider contract; no case-folded or fuzzy alias is accepted.
+- The read-only OCEAN plan verified **30/30** pins and planned the exact provider plus **18** Therapy
+  skills. After controlled stop/apply/start, live status is `running/ok` at
+  `http://127.0.0.1:8810/control/`.
+- The installed provider is a clean detached checkout at the exact commit and expected origin. Its
+  manifest declares `automation.registry`; the runtime projection includes its `src` path.
+- Current resolution is **53 resolved modules**, **24 unresolved module refs**, **80 resolved and
+  present skills**, and **8 required gaps**. The append-preserving rollback ledger contains 80
+  skill entries and two bound-module entries. Machine truth remains `full_composition: false`.
+- HTTP returned UTF-8 OCEAN content with status 200. A real Chromium/Playwright run asserted the
+  exact title `OCEAN Full Dev — Übersicht` and navigated the Skills link to `/control/p9`.
+- The Open OCEAN suite is **130 passed**; Ruff, `compileall`, whitespace checks and UTF-8 root,
+  plan and up help readbacks also passed.
+
+### Late-write lifecycle finding and correction
+
+The first real apply attempt encountered an already running OCEAN instance. The command correctly
+refused a second process, but only after Fetch/Activate had updated the sandbox. The resulting state
+was valid and was subsequently started through a controlled `down` → `up`, yet the ordering was not
+transaction-safe. A red regression reproduced the behavior by introducing a new skill while a
+sandbox was live. The runtime/port preflight now runs before `run_transaction` and repeats directly
+before process creation to close the race. The green regression proves that a rejected second
+`up --apply` neither creates the skill placement nor changes the activation ledger. A repeated
+real command against the live port returned the existing-runtime gate while the SHA-256 values of
+the activation ledger, install record and generated manifest, the 80-skill directory count, and
+the clean provider HEAD all remained unchanged.
+
+### Unordered continuation tasks
+
+The next section is selected only after repeating the `.AI`/Gardener/policy lift. This list is a
+pool, not a sequence, and is the task source to migrate into OCEAN Task-Master once that integration
+exists:
+
+- provide or deliberately reclassify `audit-trail`;
+- provide the distinct `automation-runtime` contract without treating the scheduler as equivalent;
+- provide or deliberately reclassify `runtime-boundary-enforcement`;
+- keep `billing`, `entitlement-enforcement`, `hosted-operations`, `sso-rbac` and
+  `tenant-isolation` private and fail-closed until actual Hosted providers and product authority
+  exist;
+- merge or otherwise canonically adopt the pushed recipe reconciliation before a public or
+  foreign-host release proof;
+- derive and test the separate OPEN OCEAN allowlist; Full Dev's private providers must never leak
+  into it by default.
+
+Every selected section repeats tests, real runtime/browser acceptance where relevant, root CLI help
+readback, paired English/German README and changelog updates, this plan/task pool, commit/push and an
+explicit integration checkpoint. An integration tag records evidence; it does not authorize a
+public release, repository visibility change or modification of `PRIVATE.txt`.
+
+## 11. Product-owned origin and persistent-PWA correction — 2026-08-29
+
+This corrective cycle interrupts the unordered provider pool because direct user evidence again
+showed the installed TerminPilot offline shell where OCEAN was expected. Read-only live inspection
+separated two facts: port `8800` had no listener, so its previously installed TerminPilot PWA was
+truthfully offline; port `8810/control/` was healthy OCEAN. The boundary was nevertheless still
+incomplete because the process on `8810` exposed the runtime provider's root page, appointment-
+worded manifest and root-scoped `/sw.js` outside the mounted OCEAN console.
+
+### Corrected origin contract
+
+- When `unified-gui.host` selects the OCEAN operator surface, the lifecycle now starts an
+  OCEAN-owned ASGI boundary around the selected `ellmos-core` provider. Lifespan, health and the
+  provider API remain delegated; browser identity is no longer delegated.
+- `/` returns a non-cacheable redirect to `/control/`. `/manifest.webmanifest` names `OCEAN Full
+  Dev` and limits its start URL and scope to `/control/`. `/offline` contains only OCEAN copy.
+- `/sw.js` is a non-cacheable retirement worker that deletes legacy `ellmos-core-pwa*` cache
+  entries, unregisters itself and refreshes controlled windows. OCEAN HTML also carries a bounded
+  cleanup script so a currently controlling legacy root worker is removed without waiting for the
+  browser's periodic update.
+- Cleanup is limited to the dedicated OCEAN origin's root-scoped service-worker registration and
+  provider cache prefix. It does not clear unrelated or future OCEAN caches, issue
+  `Clear-Site-Data`, remove cookies, local storage, sessions or the separately installed
+  TerminPilot PWA on port `8800`.
+
+### TDD and live evidence
+
+- The red test first failed because `tools.ocean_origin` did not exist and the lifecycle still
+  launched the provider CLI directly. Green tests now prove Root redirect, OCEAN manifest and
+  offline identity, retiring worker behavior, control-HTML injection, unchanged delegation of
+  non-OCEAN provider routes, and selection of the OCEAN runtime entry point.
+- The installed snapshot was stopped and restarted without reapplying recipe authority. Its
+  runtime specification now launches `tools/ocean_runtime.py`; status is `running/ok` at
+  `http://127.0.0.1:8810/control/`.
+- Live HTTP proves `307 / -> /control/` with `Cache-Control: no-store`, an OCEAN manifest scoped to
+  `/control/`, a retiring worker, and a status-200 overview containing the cleanup marker but no
+  `TerminPilot` marker.
+- A persistent Chromium profile deliberately received an `ellmos-core-pwa-v1` cache containing
+  the old TerminPilot offline text plus an unrelated synthetic future-OCEAN cache. After reload,
+  the provider cache was absent, the unrelated cache remained, service-worker registrations were
+  zero, Root reached the OCEAN overview and no TerminPilot marker remained. A code-point readback
+  confirmed `OCEAN Full Dev — Übersicht` with U+2014 and U+00DC and no replacement character.
+- The complete suite is **133 passed**. Ruff, `compileall` and `git diff --check` pass. Paired
+  English/German README and changelog entries and this plan were updated in the same cycle.
+
+The checkpoint is `ocean-full-dev-origin-koralle-20260829`. It records the private Full Dev fix;
+it is not an OPEN OCEAN release and changes neither repository visibility nor `PRIVATE.txt`.
+At that historical checkpoint, eight required module gaps and the separate OPEN OCEAN allowlist
+remained open. Section 12 supersedes the current gap count after repeating the section-start
+`.AI`/Gardener/policy lift.
+
+## 12. Product boundary and SPEEDBOAT separation — 2026-08-29
+
+This adaptive cycle began with the required section-start lift through
+`.AI/SYSTEM-PRODUKTLINIE.md`, `.AI/VISIBILITY-POLICY.md`, `.AI/GLOSSARY.md`,
+`.AI/.OS/DECISIONS.md`, Gardener and USMC. The user then ratified the product algebra:
+
+```text
+OPEN OCEAN = PUBLIC
+PRIVATE OCEAN = PRIVATE_NON_PROPRIETARY
+FULL OCEAN = OPEN OCEAN + PRIVATE OCEAN
+
+SPEEDBOAT = PROPRIETARY
+            + SELECTED_PUBLIC
+            + SELECTED_PRIVATE_NON_PROPRIETARY
+```
+
+SPEEDBOAT is an independent sibling stack, not an OCEAN edition, overlay or inherited superset.
+It may navigate selected OCEAN waters or travel between islands, but every shared bundle/module
+requires an explicit allowlist entry. Repository visibility remains separate from product
+membership.
+
+### Declarative boundary and recipe proof
+
+- Recipe commit `7754f811b4b793fa7e25d42c395cf6b31d6eacaa` adds the closed
+  `contracts/product-stack-boundary-contract.v1.json` contract and an independent
+  `systems/products/speedboat/system.v1.json` manifest with empty inheritance and empty shared
+  allowlists.
+- FULL OCEAN now declares 28 platform/domain bundles. The proprietary
+  `ellmos-multitenancy-bundle` and `ellmos-saas-operations-bundle` are SPEEDBOAT-only and no
+  longer create false OCEAN completeness gaps.
+- The legacy catalog token `hosted-private` is retained only for schema/hash compatibility and
+  maps to product category `proprietary`; this is not a claim that private equals proprietary.
+- TDD first failed on the missing product contract/manifest and the stale 30-bundle assumptions.
+  The focused recipe suite is now **41 passed, 1 skipped**, and the generated README catalogue is
+  in sync. The unabridged recipe suite still fails closed only on the previously reproduced
+  external evidence gates: one missing WORKSTATION-LG local file and an expired System Explorer
+  currentness receipt (**152 passed, 5 skipped, 1 failed, 14 errors**).
+
+### Controlled apply and live readback
+
+- A read-only plan against the new recipe verified **28/28** exact bundle pins and planned 158
+  component occurrences: **53 of 65 module references resolved**, **12 unresolved**, and all
+  **80/80 skills resolved**.
+- Only `module:automation-runtime` remains a required FULL OCEAN gap. Machine truth therefore
+  remains `full_composition: false`; the other unresolved references are optional.
+- After a controlled `down` and `up --apply`, install state at
+  `C:\_Local_DEV\ocean-full-dev\ocean.install.json` records the applied 28-pin transaction and
+  the same single required gap. Runtime status is `running/ok` on port `8810`.
+- Live HTTP proves `307 / -> /control/` with `Cache-Control: no-store`; the UTF-8 web manifest
+  names `OCEAN Full Dev`, and the control HTML contains no TerminPilot, appointment-coordination
+  or appointment-query product markers.
+- The complete Open OCEAN suite is **135 passed**; Ruff, `compileall` and whitespace checks pass.
+  English/German product-boundary docs, READMEs and changelogs were updated together and retain
+  the release/visibility non-claim.
+
+### Unordered continuation pool
+
+The next module/bundle section is selected only after repeating the `.AI`/Gardener/USMC/policy
+lift. The pool has no fixed order:
+
+- provide and TDD-integrate the distinct `module:automation-runtime` contract;
+- derive and test a default-deny OPEN OCEAN public allowlist independently from FULL OCEAN;
+- decide whether/how recipe commit `7754f811…` is adopted into canonical recipe `main`;
+- select shared OCEAN components for SPEEDBOAT only when a concrete proprietary use case exists;
+- keep BACH-only extraction exceptional and value-gated while BACH consumes the same canonical
+  modules as OCEAN;
+- repeat runtime/HTTP acceptance, bilingual/root/help/changelog/plan updates, tests,
+  commit/push and one named integration checkpoint for each completed section.
+
+The checkpoint name for this private integration cycle is
+`ocean-full-dev-wellenkamm-20260829`. It is not an OPEN OCEAN release and authorizes neither a
+repository-visibility change nor a modification of `PRIVATE.txt`.
+
+## 13. Automation Runtime integration and declared-composition closure — 2026-08-29
+
+This module cycle repeated the section-start lift through `.AI`, Gardener, USMC and the applicable
+release/visibility policies. It retained the ratified product algebra:
+
+```text
+OPEN OCEAN + PRIVATE OCEAN = FULL OCEAN
+```
+
+The cycle closes the final required component in the private FULL OCEAN development composition;
+it does not convert private components into OPEN OCEAN and does not attach SPEEDBOAT inheritance.
+
+### Provider and binding proof
+
+- `automation-master` now provides the separate logical `AutomationRuntime` observer at pushed
+  commit `c2de7188626510b181c4ecf2708c15f2395e32aa` on branch
+  `feat/automation-runtime-observer-20260829`.
+- The provider requires closed authority-resolution inputs, native provider and scheduler
+  readback, immutable execution pins for non-app-native runs, SHA-256 input fingerprints, bounded
+  redacted summaries and create-only content-hashed receipts outside configured OneDrive roots.
+  It observes evidence only; definition, approval, scheduling, lease, dispatch, retry, execution
+  and policy authority remain with their owning components.
+- Provider verification is **66 passed** with Ruff, `compileall`, CLI-help, diff and bilingual
+  UTF-8 checks green. English and German runtime-observation contracts are shipped together.
+- The canonical OneDrive module projection and generated module catalogue were refreshed through
+  FileCommander. Source/projection SHA-256 hashes match, catalogue JSON is valid and the only
+  structural catalogue change is `automation-master`; its catalogue pin is the provider commit
+  above.
+- TDD first failed because the shipped OCEAN overlay contained no
+  `module:automation-runtime` binding. The now-green binding test proves that registry and runtime
+  remain distinct logical placements even though both consume `automation-master`.
+- Binding overlay hash `516169be3dcbdf5814fbbec285fbfffa33fcef095c8ab4ee2b2b038a2cc43873`
+  pins `module:automation-runtime` to its own `automation-runtime` placement and requires
+  `automation.runtime.observe`, `automation.runtime.receipt` and
+  `automation.runtime.statistics`. The already verified `automation-registry` placement remains
+  untouched at its prior pin.
+
+### Controlled apply and installed-provider acceptance
+
+- The read-only plan verifies all **28/28** recipe pins and plans only the new runtime placement;
+  it does not overwrite the existing registry checkout.
+- A controlled `down` followed by `up --apply` fetched the exact runtime provider commit into
+  `C:\_Local_DEV\ocean-full-dev\modules\automation-runtime`, verified clean detached HEAD,
+  repository origin, manifest identity and all three required capabilities, then restarted OCEAN.
+- The installed state resolves **54 of 65 module references**, leaves **11 optional** module
+  references unresolved, resolves **80/80 skills**, has no missing required component and reports
+  `full_composition: true`. Runtime status is `running/ok` at
+  `http://127.0.0.1:8810/control/`.
+- Acceptance executed the installed provider rather than the source checkout. A synthetic native
+  provider receipt and closed scheduler SQLite snapshot produced bounded hashed readbacks, one
+  immutable `ellmos.automation-runtime-receipt.v1` receipt and bounded success statistics. Raw
+  provider detail and scheduler output did not cross the readback boundary.
+- The Open OCEAN suite is now **136 passed**. This evidence closes the declared private FULL OCEAN
+  development composition only. It is not a fresh foreign-host full-system proof, OPEN OCEAN
+  release, BACH-parity proof, visibility change or authorization to modify `PRIVATE.txt`.
+- The recipe branch documentation follow-up is pushed at
+  `ellmos-development-system@4fa0d4f44451d967c2a5b4cf4bd659828c9dcdd9`; it records the same
+  28/28, 54/65 and 80/80 consumer proof without turning branch adoption into a release claim.
+
+### Adaptive continuation pool
+
+Selection remains result-driven rather than ordered. At the next section start, repeat the
+`.AI`/Gardener/USMC/policy lift and choose among:
+
+- derive and test a default-deny OPEN OCEAN allowlist independently from FULL OCEAN;
+- run the complete fresh-install proof on a non-development host;
+- decide whether/how recipe branch tip `4fa0d4f…` is adopted into canonical recipe `main`;
+- continue BACH parity work while treating newly discovered BACH-only extraction as exceptional
+  and value-gated;
+- select shared OCEAN components for SPEEDBOAT only for a concrete proprietary use case;
+- keep documentation, root/help surfaces and language variants synchronized in every cycle.
+
+The named checkpoint for this private integration cycle is
+`ocean-full-dev-gezeitenstrom-20260829`. It is not a public release tag.
+
+## 14. ASUS-GEI Full Ocean cutover and lifecycle closure — 2026-08-29
+
+This result-driven cycle repeated the section-start lift through `.AI`, Gardener, USMC and the
+applicable release/visibility policies. It then selected the laptop cutover because the canonical
+Full Ocean recipe was complete enough to provide a new usable system; no BACH module cycle was
+started in parallel.
+
+### Canonical recipe and reproducible inputs
+
+- Full Ocean selection commit `1b461c9cb900ada15b8e104f2586a6b4a1ea5278` is adopted in canonical
+  recipe `main`; the post-adoption resolver readback is
+  `b13f1b11626141d6dc6927028dc10008bc406866`.
+- The accepted input checkouts are detached and clean: Open OCEAN at
+  `0be175db471d1959f1becbfa127e80143de8c268` for the initial apply and the recipe at the Full Ocean
+  selection commit above. The prior `C:\_Local_DEV\ocean-full-dev` workspace remains intact as a
+  rollback source.
+- The read-only plan left the target absent, verified 28/28 exact bundle hashes, resolved 51 of 65
+  modules plus 80/80 skills and planned exactly three required, SHA-pinned provider placements.
+  Apply materialized those three providers and closed every required gap.
+
+### Live composition and product acceptance
+
+- The new workspace is `C:\_Local_DEV\ocean-full`. Its install state verifies 28/28 bundles,
+  resolves 54 of 65 modules and 80/80 skills, leaves eleven optional module references unresolved,
+  has no required gap and reports `full_composition: true`.
+- All provider placements are clean detached checkouts at their declared origins and exact pins:
+  `automation-registry@ad40de721615518e409b53b00ed4b2a49840db28`,
+  `automation-runtime@c2de7188626510b181c4ecf2708c15f2395e32aa`, and
+  `software-endpoint-registry@ec50c92319ba8fc262d695b86818fc85666feff7`.
+- Live HTTP returns `307 / -> /control/`. A real Playwright browser reaches
+  `OCEAN Full Dev — Übersicht`, exposes the OCEAN navigation and does not show a TerminPilot product
+  marker. The remaining browser-console finding is a non-functional missing `favicon.ico` (404),
+  not a product-identity or runtime-health failure.
+
+### TDD lifecycle repair and restart proof
+
+- The first stop exposed a real Windows race: the supervisor wrote a correct `stopped` temporary
+  state, but atomic replacement could collide with the lifecycle reader and leave the canonical
+  state stale. A regression test first reproduced the `PermissionError`.
+- The supervisor now retries only transient `PermissionError` replacement failures, at most 20
+  times with 50 ms spacing. The retry remains atomic, bounded and fail-closed.
+- The focused regression, `compileall`, Ruff, 125 unittest cases and the complete 137-test pytest
+  suite pass. A live stop/start/stop/start cycle left `stopped`, no temporary file, no supervisor,
+  no child and no listener between starts, then returned to `running/ok` on port `8810`.
+
+### Host activation and handoff
+
+- The hidden limited-user task `EllmosOceanFullUserStart` triggers at logon and launches
+  `pythonw.exe`, the exact `ocean-full-laptop-hafenlicht-20260829` checkout and
+  `C:\_Local_DEV\ocean-full`. It has no execution-time limit and ignores overlapping task
+  instances. Its controlled demand invocation returned task result `0`; after a stability delay,
+  runtime state, process inventory and listener ownership agreed on exactly one supervisor and one
+  child, and OCEAN was `running/ok` with `full_composition: true`.
+- `StartWhenAvailable` is intentionally false. Enabling it during registration and immediately
+  invoking the task exposed a separate simultaneous-start race before either supervisor had written
+  runtime state. The exact OCEAN orphan was stopped by terminating its verified child and allowing
+  its own supervisor to write `stopped`; the final task was then registered and tested exactly once.
+  The reusable operating rule is stored as USMC lesson `62`.
+- This is proof of the scheduled action and its runtime result, not a claim that the laptop was
+  physically rebooted. A real reboot/readback remains a later device-acceptance check.
+- Only after this acceptance, BACH's session scheduler stopped successfully through
+  `python system\bach.py scheduler session stop`; no BACH session-daemon process remains.
+
+### Remaining bounded follow-ups
+
+- Add a workspace-scoped interprocess start lock so two direct lifecycle invocations cannot pass
+  the empty-state preflight concurrently. The final scheduled-task configuration avoids this race,
+  but configuration is not a substitute for the code-level guard.
+- Serve an OCEAN favicon or remove the reference; the current browser console reports one harmless
+  `favicon.ico` 404.
+- Run the unchanged logon task through an actual reboot before claiming reboot acceptance.
+
+The code-and-cutover checkpoint is `ocean-full-laptop-hafenlicht-20260829`; the final documented
+host-activation checkpoint is `ocean-full-laptop-leuchtfeuer-20260829`. Neither is an OPEN OCEAN
+release, and neither changes repository visibility or `PRIVATE.txt`.
+
+## 15. WORKSTATION-LG Full Ocean fresh install — 2026-08-30
+
+This cycle repeated the section-start lift through `.AI`, Gardener, USMC and the applicable
+release/visibility policies, then reproduced the same Full Ocean composition as an independent
+fresh install on a second Windows host, `WORKSTATION-LG`.
+
+### Input worktrees and pins
+
+- Two detached, clean input worktrees were used: `open-ocean` at tag
+  `ocean-full-laptop-hafenlicht-20260829` (`243a703c60e295f050a2dc68bdde13ef8e847d29`), and
+  `ellmos-development-system` at `1b461c9cb900ada15b8e104f2586a6b4a1ea5278`.
+- The target workspace `C:\_Local_DEV\ocean-full` did not exist beforehand — a genuine fresh
+  install, not a re-apply onto an existing snapshot.
+
+### Tests
+
+- Before installation: pytest 137/137 passed, unittest 125/125 OK, Ruff reported no findings,
+  `compileall` exited `0`.
+
+### Plan before apply
+
+- The read-only plan reported 28/28 verified bundle pins and 80/80 skills, but only 51 of 65
+  module references, with `full_composition: false` — the same three required providers as the
+  ASUS-GEI cutover (§14) were not yet local on this host.
+
+### Apply and provider fetch
+
+- `up --apply` fetched the three required providers by git-fetch-at-SHA into
+  `<workspace>\modules\`: `automation-registry@ad40de721615518e409b53b00ed4b2a49840db28` and
+  `automation-runtime@c2de7188626510b181c4ecf2708c15f2395e32aa` (both from
+  `dev-bricks/automation-master.git`), and
+  `software-endpoint-registry@ec50c92319ba8fc262d695b86818fc85666feff7` (from
+  `ellmos-ai/system-explorer`). All three placements were clean, detached checkouts with no local
+  changes afterward.
+- The installed state then verified 28/28 bundles, resolved 54 of 65 module references and all
+  80 skills, left the same eleven optional module references unresolved, had no missing required
+  component and reported `full_composition: true`, running at
+  `http://127.0.0.1:8810/control/`.
+
+### Lifecycle acceptance
+
+- A full `down`/`start` cycle was exercised: `down` left the runtime `stopped`, the port free and
+  no processes remaining; `start` returned to `running` without reusing stale state.
+- After the cycle, live HTTP again returned `307 / -> /control/`, both `/control/` and
+  `/api/health` answered `200`, the product title was unchanged, and process inventory showed
+  exactly one supervisor, one child and one listener on port `8810`.
+
+### Host activation
+
+- The hidden limited-user logon task `EllmosOceanFullUserStart` (trigger `AtLogOn`, principal
+  `lukas`, `LogonType Interactive`, `RunLevel Limited`, hidden, `StartWhenAvailable` false,
+  `MultipleInstances IgnoreNew`) launches `pythonw.exe` against the pinned input worktree's
+  `ocean.py start --workspace "C:\_Local_DEV\ocean-full"`.
+- One controlled on-demand start on 2026-08-30 returned `LastTaskResult 267009`
+  (`SCHED_S_TASK_RUNNING`), the expected code for a task whose launched process is intentionally
+  still running as a server — not `0`, which would only occur for a process that had already
+  exited. Afterward, exactly one supervisor (PID `6460`) and one child (PID `37676`) were present,
+  both under `pythonw.exe`, with the child as the sole listener on port `8810`; runtime state was
+  `running/ok` with `full_composition: true` and unchanged product identity.
+- This is proof of the configured logon path and its controlled demand-start acceptance, not a
+  claim that the device was physically rebooted. No reboot was performed or tested in this cycle.
+
+### BACH negative finding
+
+- Unlike the ASUS-GEI cutover (§14), no BACH session sidecar was ever running on this host
+  (`service.running: false`, `pid: null`) at any point before, during or after the OCEAN
+  installation. Nothing was stopped, because nothing was running. BACH code, databases, tasks and
+  configuration on this host are unchanged.
+- No OCEAN user account was created on this host. This was a deliberate decision, not an
+  installation gap: the intended design couples OCEAN identity to the device-bound OS account
+  (a Windows/macOS account per device) rather than a separate app password; `/control/` and
+  `/api/health` remain reachable without authentication, and operating without an OCEAN user does
+  not block the composition or lifecycle acceptance above.
+
+### Open items from this cycle
+
+- The `--host` argument on `ocean.py up` is misleading: `ocean.py` and `tools/ocean_dev.py` each
+  define an independent `--host` parameter with the same name, and `ocean.py` never forwards its
+  `--host` to the `ocean_dev.py` subprocess, which always falls back to its own default
+  `"claude-code"`. A prescribed `--host claude-code` on `up` therefore aborts deterministically
+  with `LifecycleError`; every successful run recorded in this plan, including this one, omits
+  `--host` on `up` and relies on its default `127.0.0.1`.
+- `up --apply` has no readiness gate: it does not verify provider completeness before starting
+  the runtime, so a failed provider fetch would still start an incomplete composition
+  (`ocean_lifecycle.py:546-596`; readiness is only reported, never enforced).
+- The Crosswalk premise was re-measured on 2026-08-30 against recipe-provider pin
+  `1b461c9cb900ada15b8e104f2586a6b4a1ea5278` and System Explorer pin
+  `b3e1986b24085d4b0083facbdc38c06cb633ba05`: the contract intentionally binds the Crosswalk's
+  81-entry `skills` object separately from the native Registry's `components` array. The structural
+  contract is valid. Exact raw-file verification nevertheless finds pin drift: the Crosswalk source
+  declares `4b322295…` while the pinned file hashes to `8a30799b…`, and the external Registry
+  declares `5555e267…` while the current source hashes to `86912015…`. Regenerating/reviewing these
+  pins without silently blocking the current installer remains follow-up
+  `T-20260830-702817310`.
+- Governance PRs `policy-registry` #3, `gardener` #4 and `ellmos-controlcenter-mcp` #9 remain
+  open, mergeable and CI-green as of this cycle; none has been merged, so the Phase-J governance
+  follow-up (host-local registry init, Gardener system sources, ControlCenter configuration) is
+  pending, not performed.
+- See `TODO.md` / `TODO_de.md` for the tracked form of these items.
+
+The checkpoint names for this cycle are `ocean-full-workstation-mondmuschel-20260830` (fresh
+install and manual cutover) and `ocean-full-workstation-kuestenlicht-20260830` (logon-task/host
+activation). Neither is an OPEN OCEAN release, and neither changes repository visibility or
+`PRIVATE.txt`.
+
+## 16. Reproducible Skills Registry and Crosswalk source pins — 2026-08-30
+
+Follow-up `T-20260830-702817310` was handled as one review-only source-provenance slice. A common-time
+readback confirmed that the external Skills Registry bytes are identical to
+`ellmos-ai/skills@08e1fe212d58075bc00e2f8403c104a507857c05:registry/components.json` with SHA-256
+`869120155e1242cba8febbd978e15b60721f27deea304d92d2e3496a9a243e0a`, while the recipe's Skills
+Crosswalk hashes to `8a30799b9e7c02a25c98208e5ff9d3a136b5192966ac137ba3e10895e9fd1fc9`.
+
+The recipe-provider fix is commit `b368206209cb290135681a1c6ac9790a38048641` in
+`ellmos-development-system` PR #91. It adds a check-only-by-default pin refresher whose write mode
+requires an explicit source path; a Skills Registry refresh additionally requires an exact Git
+checkout, matching origin, full commit and byte-identical blob. The refreshed provider binding has
+content hash `164ddcc766b5123927470cec1617918f58b3dc36e1d740bec4d6353726e31747`.
+
+OCEAN adopts those reviewed inputs through `architecture/ocean-full-dev.source-pins.v1.json`. The
+product lifecycle supplies this contract by default and, before Resolve or any Fetch/Place/Activate
+action, verifies:
+
+- the source-pin contract's own canonical content hash;
+- an exact, clean recipe repository root, origin and commit;
+- the recipe provider binding's canonical content hash;
+- the Crosswalk's raw SHA-256 and its provider-binding declaration; and
+- the supplied Skills Registry URI/SHA-256 and its provider-binding declaration.
+
+The verification receipt is carried into the transaction and installed plan. A regression test
+changes the Registry immediately before `up --apply` and proves deterministic Exit 3 with no
+workspace creation. The complete repository suite passes with 150 tests and 2 subtests; Ruff and
+the Git whitespace check are also green. This is not a silent re-pin, merge, tag, release,
+deployment or new live Full Ocean acceptance run. The simultaneously observed module-catalog and
+ControlCenter/Homebase source
+drifts remain separate work; the foreign active module-catalog lock was not touched.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Resolve bundle references from the skeleton into a flat, verified component plan.
+"""Resolve bundle references from a skeleton or system manifest into a verified component plan.
 
 This is the "Resolve" and "Verify" steps from architecture/INSTALLER-TARGET.md,
 built because they were the #1 documented gap blocking everything else
@@ -10,7 +10,8 @@ copied into this repository (architecture/open-ocean.skeleton.v1.json,
 "any copy of the manifests" is listed under not_yet_present on purpose).
 
 What this script does (INSTALLER-TARGET.md "Resolve" + "Verify"):
-  1. Load the skeleton's pinned bundle_refs (ring 1, ring 2, or both).
+  1. Load pinned bundle_refs from either the public skeleton (ring 1, ring 2,
+     or both) or an external ellmos.system.v1 composition (all refs).
   2. For each bundle: read its bundle.v1.json from an external --bundles-root
      checkout, recompute its content_hash the same way the recipe repository
      computes it (bundles/tools/export_from_source.py:canonical_hash -- sorted,
@@ -27,12 +28,11 @@ What this script does (INSTALLER-TARGET.md "Resolve" + "Verify"):
   5. Classify and resolve each component by kind:
        module:<id>          -> .MODULES/_scripts/module_resolver.py's catalog
                                 (modules.catalog.json), same lookup logic
-       skill:<name>          -> the canonical public ellmos-ai/skills registry,
-                                matched by `name` (the skills crosswalk file the
-                                component-registry-bindings contract names,
-                                manifests/skills.registry.crosswalk.v1.json, does
-                                not exist in the bundles checkout yet -- documented
-                                as a follow-up, not silently assumed)
+       skill:<name>          -> the native ellmos-ai/skills `components.json`
+                                 registry, matched by `name`. The recipe provider's
+                                 `skills.registry.crosswalk.v1.json` is a separate
+                                 identity map used by its binding verifier; it is
+                                 not an install registry.
        access_surface:<id>   -> reported, never fetched (INSTALLER-TARGET.md
                                 "Not fetch access surfaces" -- commercial
                                 providers are reached through their own CLI/app)
@@ -49,14 +49,18 @@ Usage:
         [--ring 1|2|all] [--skeleton <path>] [--modules-catalog <path>]
         [--skills-registry <path>] [--json] [--report <path>]
 
+    python tools/resolve_bundles.py --bundles-root <path-to-recipe-projection>
+        --system-manifest <path-to-system.v1.json>
+
 Exit codes: 0 = resolved, all hashes verified. 2 = a hash verification failed.
-3 = the skeleton or a referenced bundle manifest could not be read.
+3 = the composition or a referenced bundle manifest could not be read.
 """
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
+import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -75,10 +79,12 @@ DEFAULT_SKELETON = REPO_ROOT / "architecture" / "open-ocean.skeleton.v1.json"
 # pointer like --bundles-root, not a vendored copy.
 DEFAULT_MODULES_CATALOG = Path.home() / "OneDrive" / ".TOPICS" / ".AI" / ".MODULES" / "modules.catalog.json"
 DEFAULT_SKILLS_REGISTRY = Path.home() / "OneDrive" / ".TOPICS" / ".AI" / ".SKILLS" / "registry" / "components.json"
+DEFAULT_COMPONENT_BINDINGS = REPO_ROOT / "architecture" / "ocean-full-dev.component-bindings.v1.json"
+_GIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 
 
 class ResolveError(RuntimeError):
-    """A skeleton or bundle manifest could not be read (exit 3)."""
+    """A composition or bundle manifest could not be read (exit 3)."""
 
 
 def read_json(path: Path) -> dict[str, Any]:
@@ -97,6 +103,101 @@ def canonical_hash(value: dict[str, Any]) -> str:
     unsigned.pop("content_hash", None)
     payload = json.dumps(unsigned, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
+
+
+def _normalized_repository(value: str) -> str:
+    return value.strip().rstrip("/").removesuffix(".git").casefold()
+
+
+def load_component_bindings(path: Path | None) -> dict[str, Any]:
+    """Load the exact OCEAN integration crosswalk.
+
+    The file is deliberately an integration overlay, not a component registry:
+    each entry points one already-declared bundle reference at one native module
+    catalog record and one immutable provider commit.  No fuzzy, case-folded, or
+    semantic alias inference is permitted here.
+    """
+    if path is None:
+        return {"bindings": {}}
+    manifest = read_json(path)
+    if manifest.get("schema") != "ellmos.open-ocean-component-bindings.v1":
+        raise ResolveError(f"{path} has an unsupported component-binding schema")
+    if manifest.get("authority") != {
+        "kind": "integration-overlay",
+        "runtime_authority": False,
+    }:
+        raise ResolveError(
+            f"{path} must remain a non-runtime integration overlay"
+        )
+    if not isinstance(manifest.get("id"), str) or not manifest["id"].strip():
+        raise ResolveError(f"{path} has no non-empty id")
+    if manifest.get("version") != "1.0.0":
+        raise ResolveError(f"{path} has an unsupported version")
+    expected_hash = manifest.get("content_hash")
+    computed_hash = canonical_hash(manifest)
+    if expected_hash != computed_hash:
+        raise ResolveError(
+            f"{path} content_hash mismatch: declared {expected_hash!r}, "
+            f"computed {computed_hash}"
+        )
+    bindings = manifest.get("bindings")
+    if not isinstance(bindings, dict):
+        raise ResolveError(f"{path} bindings must be an object")
+    allowed_fields = {
+        "component_type",
+        "catalog_id",
+        "repository",
+        "commit",
+        "placement_id",
+        "required_provides",
+        "provider_manifest",
+    }
+    for ref, binding in bindings.items():
+        if not isinstance(ref, str) or not ref.startswith("module:"):
+            raise ResolveError(f"{path} binding reference is not an exact module ref: {ref!r}")
+        if not isinstance(binding, dict) or set(binding) != allowed_fields:
+            raise ResolveError(f"{path} binding {ref!r} has unsupported or missing fields")
+        if binding.get("component_type") != "module":
+            raise ResolveError(f"{path} binding {ref!r} must have component_type=module")
+        for field_name in ("catalog_id", "repository", "placement_id"):
+            if not isinstance(binding.get(field_name), str) or not binding[field_name].strip():
+                raise ResolveError(f"{path} binding {ref!r} has no non-empty {field_name}")
+        if ref != f"module:{binding['placement_id']}":
+            raise ResolveError(
+                f"{path} binding {ref!r} placement_id must preserve the declared reference"
+            )
+        if not _GIT_SHA_RE.fullmatch(str(binding.get("commit", ""))):
+            raise ResolveError(f"{path} binding {ref!r} has no full lowercase commit SHA")
+        required = binding.get("required_provides")
+        if (
+            not isinstance(required, list)
+            or not required
+            or any(not isinstance(item, str) or not item for item in required)
+            or required != sorted(set(required))
+        ):
+            raise ResolveError(f"{path} binding {ref!r} has invalid required_provides")
+        if binding.get("provider_manifest") != "ellmos-module.v2.json":
+            raise ResolveError(
+                f"{path} binding {ref!r} must verify ellmos-module.v2.json"
+            )
+    return manifest
+
+
+def component_bindings_summary(
+    manifest: dict[str, Any], components: list[ResolvedComponent],
+) -> dict[str, Any] | None:
+    bindings = manifest.get("bindings") or {}
+    if not bindings:
+        return None
+    applied = sorted(
+        component.ref for component in components if component.detail.get("binding")
+    )
+    return {
+        "schema": manifest.get("schema"),
+        "id": manifest.get("id"),
+        "content_hash": manifest.get("content_hash"),
+        "applied_refs": applied,
+    }
 
 
 @dataclass
@@ -153,6 +254,38 @@ def load_skeleton(skeleton_path: Path) -> dict[str, Any]:
     return skeleton
 
 
+def load_system_manifest(system_path: Path) -> dict[str, Any]:
+    system = read_json(system_path)
+    if system.get("schema") != "ellmos.system.v1":
+        raise ResolveError(
+            f"{system_path} is not an ellmos.system.v1 manifest"
+        )
+    if system.get("authority", {}).get("runtime_authority") is not False:
+        raise ResolveError(
+            f"{system_path} does not declare authority.runtime_authority=false -- "
+            "refusing to treat it as a declarative system composition"
+        )
+    if not isinstance(system.get("id"), str) or not system["id"].strip():
+        raise ResolveError(f"{system_path} has no non-empty id")
+    if not isinstance(system.get("bundle_refs"), list) or not system["bundle_refs"]:
+        raise ResolveError(f"{system_path} has no non-empty bundle_refs[] list")
+    seen_refs: set[str] = set()
+    for index, bundle_ref in enumerate(system["bundle_refs"]):
+        if not isinstance(bundle_ref, dict):
+            raise ResolveError(f"{system_path} bundle_refs[{index}] is not an object")
+        for key in ("ref", "content_hash"):
+            if not isinstance(bundle_ref.get(key), str) or not bundle_ref[key].strip():
+                raise ResolveError(
+                    f"{system_path} bundle_refs[{index}] has no non-empty {key}"
+                )
+        if bundle_ref["ref"] in seen_refs:
+            raise ResolveError(
+                f"{system_path} has duplicate bundle ref {bundle_ref['ref']!r}"
+            )
+        seen_refs.add(bundle_ref["ref"])
+    return system
+
+
 def select_bundle_refs(skeleton: dict[str, Any], ring: str) -> list[dict[str, Any]]:
     all_refs = {r["ref"]: r for r in skeleton.get("bundle_refs", [])}
     if ring == "all":
@@ -167,9 +300,43 @@ def select_bundle_refs(skeleton: dict[str, Any], ring: str) -> list[dict[str, An
     return [all_refs[m] for m in ring_def["members"]]
 
 
+def load_bundle_selection(
+    *, skeleton_path: Path | None, system_path: Path | None, ring: str | None,
+) -> tuple[list[dict[str, Any]], str, dict[str, str] | None]:
+    """Load one composition authority and return refs, selection, and safe metadata."""
+    if skeleton_path is not None and system_path is not None:
+        raise ResolveError("--skeleton and --system-manifest are mutually exclusive")
+    if system_path is not None:
+        if ring not in (None, "all"):
+            raise ResolveError(
+                "--system-manifest is a complete composition; only --ring all is valid"
+            )
+        composition = load_system_manifest(system_path)
+        selection = "all"
+        metadata = {
+            "mode": "system-manifest",
+            "schema": composition["schema"],
+            "id": composition["id"],
+        }
+    else:
+        composition = load_skeleton(skeleton_path or DEFAULT_SKELETON)
+        selection = ring or "1"
+        metadata = None
+    return select_bundle_refs(composition, selection), selection, metadata
+
+
 def verify_bundle(bundle_ref: dict[str, Any], bundles_root: Path) -> tuple[VerifyResult, dict[str, Any] | None]:
     ref_id = bundle_ref["ref"]
-    manifest_path = bundles_root / "manifests" / "bundles" / ref_id / "bundle.v1.json"
+    exported_path = bundles_root / "manifests" / "bundles" / ref_id / "bundle.v1.json"
+    private_projection_path = bundles_root / "bundles" / ref_id / "bundle.v1.json"
+    exported_exists = exported_path.is_file()
+    private_projection_exists = private_projection_path.is_file()
+    if exported_exists and private_projection_exists:
+        raise ResolveError(
+            f"ambiguous bundle manifest for {ref_id!r}: both {exported_path} "
+            f"and {private_projection_path} exist"
+        )
+    manifest_path = private_projection_path if private_projection_exists else exported_path
     pinned = bundle_ref["content_hash"]
     if not manifest_path.is_file():
         return VerifyResult(ref_id, str(manifest_path), pinned, None, None, False, False, False), None
@@ -235,8 +402,13 @@ def merge_components(component_lists: list[list[ResolvedComponent]]) -> list[Res
     return [merged[k] for k in sorted(merged)]
 
 
-def resolve_module(component: ResolvedComponent, catalog_path: Path) -> None:
-    module_id = component.ref.split(":", 1)[1]
+def resolve_module(
+    component: ResolvedComponent,
+    catalog_path: Path,
+    component_bindings: dict[str, Any] | None = None,
+) -> None:
+    binding = (component_bindings or {}).get("bindings", {}).get(component.ref)
+    module_id = binding["catalog_id"] if binding else component.ref.split(":", 1)[1]
     if not catalog_path.is_file():
         component.status = "unresolved"
         component.detail = {"reason": f"modules.catalog.json not found at {catalog_path}"}
@@ -244,47 +416,99 @@ def resolve_module(component: ResolvedComponent, catalog_path: Path) -> None:
     catalog = read_json(catalog_path)
     modules = {m["id"]: m for m in catalog.get("modules", [])}
     match = modules.get(module_id)
-    if match is None:
+    if match is None and binding is None:
         ci_matches = [m for mid, m in modules.items() if mid.casefold() == module_id.casefold()]
         match = ci_matches[0] if len(ci_matches) == 1 else None
     if match is None:
         component.status = "unresolved"
         component.detail = {
-            "reason": "no catalog entry for this exact or case-insensitive module ID",
-            "hint": "the bundle component ref and the catalog ID may have drifted "
-                    "(e.g. hyphenation) -- check modules.catalog.json by hand",
+            "reason": (
+                "no catalog entry for the exact bound provider ID"
+                if binding
+                else "no catalog entry for this exact or case-insensitive module ID"
+            ),
+            "hint": (
+                "component bindings never infer aliases; refresh the explicit binding or catalog"
+                if binding
+                else "the bundle component ref and the catalog ID may have drifted "
+                     "(e.g. hyphenation) -- check modules.catalog.json by hand"
+            ),
         }
         return
     sot = match.get("source_of_truth", {})
     resolved_source = match.get("resolved_source")
     local_path = (catalog_path.parent / resolved_source) if resolved_source else None
     present_locally = bool(local_path and local_path.is_dir())
-    component.status = "resolved" if present_locally else "unresolved"
+    binding_detail = None
+    repository_matches = True
+    if binding:
+        repository_matches = _normalized_repository(str(sot.get("repository") or "")) == (
+            _normalized_repository(binding["repository"])
+        )
+        binding_detail = {
+            **binding,
+            "overlay_id": component_bindings.get("id"),
+            "provider_verified": False,
+        }
+    component.status = (
+        "unresolved" if binding else "resolved" if present_locally else "unresolved"
+    )
     component.detail = {
         "catalog_id": match["id"], "repository": sot.get("repository"),
         "source_type": sot.get("type"), "resolved_source": resolved_source,
-        "present_locally": present_locally, "visibility": match.get("visibility"),
+        "local_path": str(local_path.resolve(strict=False)) if local_path else None,
+        "present_locally": present_locally if binding is None else False,
+        "visibility": match.get("visibility"),
+        "kind": match.get("kind"), "package": match.get("package"),
+        "provides": list(match.get("provides") or []),
+        "requires": list(match.get("requires") or []),
+        "entrypoints": dict(match.get("entrypoints") or {}),
+        "boundaries": dict(match.get("boundaries") or {}),
     }
+    if binding_detail is not None:
+        component.detail["catalog_present_locally"] = present_locally
+        component.detail["binding"] = binding_detail
+        component.detail["catalog_repository_matches_binding"] = repository_matches
+        if not repository_matches:
+            component.status = "unresolved"
+            component.detail["reason"] = (
+                "catalog repository does not match the exact component binding repository"
+            )
+        else:
+            component.detail["reason"] = (
+                "bound provider awaits exact Fetch/Place verification in the OCEAN workspace"
+            )
 
 
-def resolve_skill(component: ResolvedComponent, registry_path: Path) -> None:
+def resolve_skill(
+    component: ResolvedComponent,
+    registry_path: Path,
+    registry_data: dict[str, Any] | None = None,
+) -> None:
     name = component.ref.split(":", 1)[1]
-    if not registry_path.is_file():
+    if registry_data is None and not registry_path.is_file():
         component.status = "unresolved"
         component.detail = {"reason": f"skills registry not found at {registry_path}"}
         return
-    registry = read_json(registry_path)
-    entries = registry.get("components", registry) if isinstance(registry, dict) else registry
+    registry = registry_data if registry_data is not None else read_json(registry_path)
+    entries = registry.get("components") if isinstance(registry, dict) else registry
+    if not isinstance(entries, list) or any(not isinstance(entry, dict) for entry in entries):
+        component.status = "unresolved"
+        component.detail = {
+            "reason": "skills registry must contain a top-level components array",
+            "note": "the recipe provider's skills.registry.crosswalk.v1.json uses a "
+                    "top-level skills object and is a separate identity source, not the "
+                    "runtime install registry",
+        }
+        return
     matches = [e for e in entries if e.get("name") == name]
     if not matches:
         component.status = "unresolved"
         component.detail = {
             "reason": "no registry entry with this exact name",
             "note": "matched by name, not the id field (bundle refs use skill:<name>, "
-                    "the registry's own id is skill:<category>:<name>); the crosswalk file "
-                    "the component-registry-bindings contract names "
-                    "(manifests/skills.registry.crosswalk.v1.json) does not exist yet "
-                    "in the bundles checkout -- see the build plan follow-ups",
+                    "while the native registry has its own component id); the recipe "
+                    "provider's crosswalk maps these identities and is verified separately",
         }
         return
     entry = matches[0]
@@ -328,6 +552,7 @@ def apply_activation_check(components: list[ResolvedComponent], adapter: Any) ->
 def build_report(
     verifications: list[VerifyResult], components: list[ResolvedComponent], ring: str,
     activation: dict[str, Any] | None = None,
+    composition: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     by_status: dict[str, int] = {}
     for c in components:
@@ -348,11 +573,20 @@ def build_report(
     }
     if activation is not None:
         report["activation"] = activation
+    if composition is not None:
+        report["composition"] = composition
     return report
 
 
 def render_text_report(report: dict[str, Any]) -> str:
     lines = [f"open-ocean resolve report -- ring {report['ring']}", ""]
+    if "composition" in report:
+        composition = report["composition"]
+        lines.extend([
+            f"Composition: {composition['mode']} {composition['id']} "
+            f"({composition['schema']})",
+            "",
+        ])
     v = report["verify"]
     lines.append(f"Verify: {v['bundles_checked']} bundle(s) checked, all_ok={v['all_ok']}")
     for r in v["results"]:
@@ -380,11 +614,20 @@ def render_text_report(report: dict[str, Any]) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--bundles-root", type=Path, required=True,
-                        help="path to a local checkout of ellmos-ai/bundles")
-    parser.add_argument("--ring", default="1", help="'1', '2', or 'all' (default: 1)")
-    parser.add_argument("--skeleton", type=Path, default=DEFAULT_SKELETON)
+                        help="path to a bundle export checkout or private recipe projection")
+    parser.add_argument("--ring", help="'1', '2', or 'all' (default: 1 for the skeleton; "
+                        "system manifests always select all refs)")
+    parser.add_argument("--skeleton", type=Path)
+    parser.add_argument("--system-manifest", type=Path,
+                        help="ellmos.system.v1 composition; selects every bundle_ref")
     parser.add_argument("--modules-catalog", type=Path, default=DEFAULT_MODULES_CATALOG)
     parser.add_argument("--skills-registry", type=Path, default=DEFAULT_SKILLS_REGISTRY)
+    parser.add_argument(
+        "--component-bindings",
+        type=Path,
+        default=DEFAULT_COMPONENT_BINDINGS,
+        help="exact OCEAN integration overlay for declared component aliases",
+    )
     parser.add_argument("--json", action="store_true", help="print the report as JSON instead of text")
     parser.add_argument("--report", type=Path, help="also write the JSON report to this path")
     parser.add_argument("--activation-check", metavar="HOST",
@@ -393,8 +636,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        skeleton = load_skeleton(args.skeleton)
-        refs = select_bundle_refs(skeleton, args.ring)
+        component_bindings = load_component_bindings(args.component_bindings)
+        refs, selection, composition_metadata = load_bundle_selection(
+            skeleton_path=args.skeleton,
+            system_path=args.system_manifest,
+            ring=args.ring,
+        )
     except ResolveError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 3
@@ -412,7 +659,9 @@ def main(argv: list[str] | None = None) -> int:
             component_lists.append(expand_components(manifest, bundle_ref["ref"]))
 
     if not all(v.ok for v in verifications):
-        report = build_report(verifications, [], args.ring)
+        report = build_report(
+            verifications, [], selection, composition=composition_metadata,
+        )
         print(json.dumps(report, indent=2, ensure_ascii=False) if args.json else render_text_report(report))
         print("\nVerify FAILED -- stopping before resolving components (INSTALLER-TARGET.md: "
               "a failed hash check stops the run).", file=sys.stderr)
@@ -421,7 +670,7 @@ def main(argv: list[str] | None = None) -> int:
     components = merge_components(component_lists)
     for comp in components:
         if comp.kind == "module":
-            resolve_module(comp, args.modules_catalog)
+            resolve_module(comp, args.modules_catalog, component_bindings)
         elif comp.kind == "skill":
             resolve_skill(comp, args.skills_registry)
         elif comp.kind == "access_surface":
@@ -441,7 +690,13 @@ def main(argv: list[str] | None = None) -> int:
             return 3
         activation_summary = apply_activation_check(components, adapter_cls())
 
-    report = build_report(verifications, components, args.ring, activation=activation_summary)
+    report = build_report(
+        verifications, components, selection, activation=activation_summary,
+        composition=composition_metadata,
+    )
+    bindings_summary = component_bindings_summary(component_bindings, components)
+    if bindings_summary is not None:
+        report["component_bindings"] = bindings_summary
     if args.report:
         args.report.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(json.dumps(report, indent=2, ensure_ascii=False) if args.json else render_text_report(report))

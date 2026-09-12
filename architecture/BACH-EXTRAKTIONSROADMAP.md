@@ -92,7 +92,7 @@ Ausgabeübersetzung und Alt/Neu-Äquivalenz vorhanden sind.
 | **K9-0 Vertrag und Inventur** | Registry, Aliasdrift, Operationsflächen, Katalog-Fingerprint | `system-explorer` als späterer Importträger | Baseline und reproduzierbarer Audit; **in diesem Stand angelegt** |
 | **K9-1 Daten und Kontinuität** | `db`, `dbsync`, `sync`, `backup`, `restore`; `snapshot` als getrennte Session-Checkpoint-Naht | `sqlite-transit-sync`, `session-checkpoint`, `system-gap-master`, `system-explorer`, geplantes `mac-backup` | portable Daten-API, Sicherungsformat, Restore-Probe, Session-Checkpoint-Träger und BACH-Adapter |
 | **K9-2 Beobachtung und Qualität** | `status`, `healthcheck`, `logs`, `tokens`, `maintain`, `tuev`, `scan`, `watcher` | `system-explorer`, `ellmos-tests`, `project-docs-template`, `ellmos-unified-gui` | einheitliches Zustands-/Ereignismodell, Health-Probes und wartbare Prüfläufe |
-| **K9-3 Lebenszyklus und Distribution** | `update`, `upgrade`, `setup`, `settings`, `session`, `shutdown`, `path`, `mount`, `dist` | `policy-registry`, privates `ellmos-core`, Repository `bundles`; Installer bisher nur Zielbild | Installer-Kern mit Transaktion, Migration, Rollback und hostneutralen Pfaden |
+| **K9-3 Lebenszyklus und Distribution** | `update`, `upgrade`, `setup`, `settings`, `session`, `shutdown`, `path`, `mount`, `dist` | `policy-registry`, privates `ellmos-core`, Repository `bundles`; unterstützter OCEAN-Installer-Lebenszyklus implementiert, BACH-Parität offen | Installer-Kern mit Transaktion, Migration, Rollback und hostneutralen Pfaden |
 | **K9-4 Grenzen und Bedienung** | `fs`, `trash`, `sandbox`, `lang`, `gui`, `help` | `system-explorer`, `lock-master`, `ellmos-unified-gui`, `project-docs-template` | Dateisystem-Policy, Quarantäne/Papierkorb, echte Isolation, i18n- und Hilfeschnittstelle |
 | **K9-5 BACH-Reintegration** | dünne Adapter für alle 29 kanonischen Profile plus `health` | neue Ausgaben aus K9-1 bis K9-4 | BACH ruft externe Verträge auf; alte interne Schreibpfade sind abgeschaltet |
 | **K9-6 Bundle und Schleuse** | Kernel-Rezept, Installer-Auflösung, frische Installation | `bundles`, open-ocean-Installer | per Hash gepinntes Rezept und erfolgreicher Fremdsystem-Test |
@@ -124,7 +124,7 @@ Handler gelesen. Sie sind der Startpunkt für Verträge, nicht bereits deren vol
 | `watcher` | `status`, `start`, `stop`, `events`, `logs`, `classify` | **Lücke** |
 | `update` | `check`, `apply`, `status`, `rollback`, `verify`, `migrations` | **Lücke** |
 | `upgrade` | Status/Prüfung sowie Upgrade oder Reparatur von Kern, Hub, Skills, Tools, GUI und Vorlagen | **Lücke** |
-| `setup` | `preflight`, Nutzer, Sprache, Secrets, MCP, Hooks, n8n, ProSync, Vollinstallation | **Lücke**; `INSTALLER-TARGET.md` ist nur Architektur |
+| `setup` | `preflight`, Nutzer, Sprache, Secrets, MCP, Hooks, n8n, ProSync, Vollinstallation | **Lücke für BACH-Parität**; OCEANs unterstützter Installer-Pfad ist implementiert |
 | `settings` | `list`, `get`, `set`, `reset`, `export`, `import`, `categories` | teilweise: `policy-registry` |
 | `session` | `start`, `end`, `status`, `check`, `next` | **Lücke** |
 | `shutdown` | `complete`, `quick`, `emergency` | **Lücke** |

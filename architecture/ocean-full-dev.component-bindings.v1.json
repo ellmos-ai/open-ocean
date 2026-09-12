@@ -1,0 +1,69 @@
+{
+  "schema": "ellmos.open-ocean-component-bindings.v1",
+  "id": "ocean-full-dev-component-bindings",
+  "version": "1.0.0",
+  "authority": {
+    "kind": "integration-overlay",
+    "runtime_authority": false
+  },
+  "bindings": {
+    "module:accounts-core": {
+      "component_type": "module",
+      "catalog_id": "accounts-core",
+      "repository": "https://github.com/ellmos-ai/accounts-core.git",
+      "commit": "588ab7d2db274621c5982a3234f2fb540627f664",
+      "placement_id": "accounts-core",
+      "required_provides": [
+        "accounts.transit.projection"
+      ],
+      "provider_manifest": "ellmos-module.v2.json"
+    },
+    "module:automation-registry": {
+      "component_type": "module",
+      "catalog_id": "automation-master",
+      "repository": "https://github.com/dev-bricks/automation-master.git",
+      "commit": "ad40de721615518e409b53b00ed4b2a49840db28",
+      "placement_id": "automation-registry",
+      "required_provides": [
+        "automation.registry"
+      ],
+      "provider_manifest": "ellmos-module.v2.json"
+    },
+    "module:automation-runtime": {
+      "component_type": "module",
+      "catalog_id": "automation-master",
+      "repository": "https://github.com/dev-bricks/automation-master.git",
+      "commit": "c2de7188626510b181c4ecf2708c15f2395e32aa",
+      "placement_id": "automation-runtime",
+      "required_provides": [
+        "automation.runtime.observe",
+        "automation.runtime.receipt",
+        "automation.runtime.statistics"
+      ],
+      "provider_manifest": "ellmos-module.v2.json"
+    },
+    "module:sqlite-transit-sync": {
+      "component_type": "module",
+      "catalog_id": "sqlite-transit-sync",
+      "repository": "https://github.com/ellmos-ai/sqlite-transit-sync.git",
+      "commit": "d9d517d6711fa9597c960c127cf6476f3af9d072",
+      "placement_id": "sqlite-transit-sync",
+      "required_provides": [
+        "projection.readonly.verify"
+      ],
+      "provider_manifest": "ellmos-module.v2.json"
+    },
+    "module:software-endpoint-registry": {
+      "component_type": "module",
+      "catalog_id": "system-explorer",
+      "repository": "https://github.com/ellmos-ai/system-explorer.git",
+      "commit": "ec50c92319ba8fc262d695b86818fc85666feff7",
+      "placement_id": "software-endpoint-registry",
+      "required_provides": [
+        "software.endpoint.registry"
+      ],
+      "provider_manifest": "ellmos-module.v2.json"
+    }
+  },
+  "content_hash": "9308aced3aeac549580b9cf6213526643698277a3f88ab4a40e5879280963474"
+}

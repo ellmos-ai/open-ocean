@@ -42,13 +42,15 @@ Deliberately NOT this module's job:
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import re
 import shutil
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeGuard
 
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 
@@ -57,7 +59,11 @@ class FetchError(RuntimeError):
     """A git operation failed after a valid SHA pin was already accepted."""
 
 
-def is_git_sha(value: Any) -> bool:
+def is_git_sha(value: Any) -> TypeGuard[str]:
+    """`bool` return already made every `if is_git_sha(x): ...` branch
+    correct at runtime; typed as a TypeGuard so a type checker knows it too
+    -- `x` narrows to `str` in the guarded branch instead of staying
+    `Unknown | None` all the way to a later call that requires `str`."""
     return isinstance(value, str) and bool(SHA_RE.match(value))
 
 
@@ -119,9 +125,42 @@ _ACTIONS = {
                   "exists to not repeat)",
     "planned": "dry-run: this is what --apply would do (no git command has been run)",
     "fetched": "git fetch+checkout at the pinned SHA succeeded",
+    "present-pinned-provider": "the exact OCEAN-bound provider commit, identity, repository, and capabilities are already present",
     "skipped-present-in-workspace": "the workspace destination for this module already exists -- never overwrite",
+    "placed": "a Resolve-found module with no exact binding was copied into this workspace's modules/ tree so "
+              "the runtime never has to import it from wherever Resolve originally found it "
+              "(e.g. an OneDrive mirror -- T-20260902-313385481)",
     "failed": "a git command failed; any partial destination directory was removed",
 }
+
+_PLACE_IGNORE = shutil.ignore_patterns(
+    ".git", "__pycache__", "*.pyc", ".venv", "venv", "node_modules", ".pytest_cache",
+)
+
+
+def _tree_hash(root: Path) -> str:
+    """Deterministic content hash of a directory tree: every non-ignored
+    file's relative path and bytes, in sorted order, over the exact same
+    _PLACE_IGNORE filter shutil.copytree() applies -- what is hashed is
+    exactly what would have been copied. Independent of mtimes, permission
+    bits, or filesystem walk order; two trees with equal hashes are
+    byte-identical (ignored paths aside). Used to prove a pre-existing
+    workspace placement still matches its resolved source instead of
+    trusting it unverified (T-20260903-113508213 Blocker 3)."""
+    digest = hashlib.sha256()
+    for current_dir, dirnames, filenames in os.walk(root):
+        ignored = _PLACE_IGNORE(current_dir, dirnames + filenames)
+        dirnames[:] = sorted(name for name in dirnames if name not in ignored)
+        for name in sorted(filenames):
+            if name in ignored:
+                continue
+            file_path = Path(current_dir) / name
+            relative = file_path.relative_to(root).as_posix()
+            digest.update(relative.encode("utf-8"))
+            digest.update(b"\x00")
+            digest.update(file_path.read_bytes())
+            digest.update(b"\x00")
+    return digest.hexdigest()
 
 
 def resolve_pin_for_module(catalog_entry: dict[str, Any]) -> tuple[str | None, Any]:
@@ -158,6 +197,63 @@ def _run_git(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
     return subprocess.run(
         ["git", *args], cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace",
     )
+
+
+def _normalized_repository(value: str) -> str:
+    return value.strip().replace("\\", "/").rstrip("/").removesuffix(".git").casefold()
+
+
+def verify_bound_provider(dest: Path, binding: dict[str, Any]) -> dict[str, Any]:
+    """Prove that an existing placement satisfies one exact OCEAN binding."""
+    if dest.is_symlink() or not dest.is_dir():
+        raise FetchError(f"bound provider placement is not a regular directory: {dest}")
+    head = _run_git(["rev-parse", "HEAD"], cwd=dest)
+    observed_head = head.stdout.strip() if head.returncode == 0 else None
+    if observed_head != binding.get("commit"):
+        raise FetchError(
+            f"bound provider HEAD {observed_head!r} does not match pinned commit "
+            f"{binding.get('commit')!r}"
+        )
+    status = _run_git(["status", "--porcelain=v1", "--untracked-files=all"], cwd=dest)
+    if status.returncode != 0:
+        raise FetchError("bound provider worktree state could not be verified")
+    if status.stdout.strip():
+        raise FetchError("bound provider has uncommitted or untracked changes")
+    remote = _run_git(["remote", "get-url", "origin"], cwd=dest)
+    observed_repository = remote.stdout.strip() if remote.returncode == 0 else None
+    if (
+        not observed_repository
+        or _normalized_repository(observed_repository)
+        != _normalized_repository(str(binding.get("repository") or ""))
+    ):
+        raise FetchError(
+            f"bound provider repository {observed_repository!r} does not match "
+            f"{binding.get('repository')!r}"
+        )
+    manifest_path = dest / str(binding.get("provider_manifest") or "")
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise FetchError(f"bound provider manifest is unreadable: {manifest_path}: {exc}") from exc
+    if manifest.get("schema") != "ellmos.module.v2":
+        raise FetchError(f"bound provider manifest has unsupported schema: {manifest.get('schema')!r}")
+    if manifest.get("id") != binding.get("catalog_id"):
+        raise FetchError(
+            f"bound provider ID {manifest.get('id')!r} does not match "
+            f"catalog ID {binding.get('catalog_id')!r}"
+        )
+    declared = set(manifest.get("provides") or [])
+    required = list(binding.get("required_provides") or [])
+    missing = sorted(set(required) - declared)
+    if missing:
+        raise FetchError(f"bound provider does not declare required capabilities: {missing}")
+    return {
+        "head": observed_head,
+        "repository": observed_repository,
+        "provider_id": manifest["id"],
+        "verified_provides": required,
+        "manifest": str(manifest_path),
+    }
 
 
 def fetch_module_at_sha(repository_url: str, sha: str, dest: Path, *, dry_run: bool) -> FetchOutcome:
@@ -204,6 +300,72 @@ def fetch_module_at_sha(repository_url: str, sha: str, dest: Path, *, dry_run: b
     return FetchOutcome("", "fetched", {"repository": repository_url, "sha": sha, "dest": str(dest), "head": landed_sha})
 
 
+def _place_resolved_module(comp: Any, dest_root: Path, *, apply: bool) -> FetchOutcome:
+    """A `module` component Resolve found already present on disk with no exact
+    binding -- typically via the shared modules catalog's `resolved_source`,
+    which for most modules still points into the OneDrive mirror rather than a
+    local clone (Plan D: OneDrive is a read copy, never a runtime path).
+    Importing straight from there makes the OCEAN runtime depend on OneDrive
+    being mounted and hydrated at every process start -- the exact failure
+    this function removes (T-20260902-313385481: a logon-time start hit
+    OneDrive not yet ready and the child died ~21s later). Copies the
+    resolved source into this workspace's own modules/ tree -- the same
+    destination shape plan_and_fetch already uses for exact-bound providers
+    just below -- and repoints comp.detail["local_path"] there, so a runtime
+    built from this component's PYTHONPATH never touches the original
+    source again. A destination that already exists is left untouched
+    (never-overwrite, same policy as the bound-provider and unbound-git
+    branches of plan_and_fetch)."""
+    catalog_id = comp.detail.get("catalog_id")
+    raw_local_path = comp.detail.get("local_path")
+    if not catalog_id or not raw_local_path:
+        return FetchOutcome(comp.ref, "present", {"present_locally": True})
+    dest = dest_root / catalog_id
+    if not apply:
+        # "planned" (not "present"), and "dest" (not "would_place_at"): this
+        # IS a prospective write, in the same family as the bound-provider
+        # and unbound-git "planned" outcomes below -- using their vocabulary
+        # is what lets preflight_activation_log()'s existing
+        # module_actions={"planned"} filter (ocean_dev.py) already cover
+        # this branch too, instead of a second, parallel filter someone has
+        # to remember to keep in sync (T-20260903-113508213 Blocker 2).
+        return FetchOutcome(comp.ref, "planned", {"present_locally": True, "dest": str(dest)})
+    source = Path(raw_local_path)
+    if not dest.exists():
+        if not source.is_dir():
+            return FetchOutcome(
+                comp.ref, "failed", {"reason": f"resolved source vanished before Place: {source}"},
+            )
+        try:
+            shutil.copytree(source, dest, ignore=_PLACE_IGNORE)
+        except OSError as exc:
+            try:
+                force_rmtree(dest)
+            except OSError:
+                pass
+            return FetchOutcome(comp.ref, "failed", {"error": str(exc)})
+    else:
+        # T-20260903-113508213 Blocker 3: a pre-existing destination used to
+        # be accepted unverified -- a "verified" transaction could then run
+        # stale or modified code without anyone noticing. Tree-hash both
+        # sides (same _PLACE_IGNORE filter the copy itself uses, so what is
+        # compared is exactly what would have been copied) and fail closed
+        # on any mismatch instead of trusting whatever is already there.
+        if not source.is_dir():
+            return FetchOutcome(
+                comp.ref, "failed", {"reason": f"resolved source vanished before Place: {source}"},
+            )
+        source_hash = _tree_hash(source)
+        dest_hash = _tree_hash(dest)
+        if source_hash != dest_hash:
+            return FetchOutcome(
+                comp.ref, "failed",
+                {"reason": f"workspace placement at {dest} no longer matches its resolved source {source}"},
+            )
+    comp.detail["local_path"] = str(dest.resolve(strict=False))
+    return FetchOutcome(comp.ref, "placed", {"source": raw_local_path, "dest": comp.detail["local_path"]})
+
+
 def plan_and_fetch(
     components: list[Any], catalog_path: Path, workspace: Path, *, apply: bool,
 ) -> list[FetchOutcome]:
@@ -212,7 +374,6 @@ def plan_and_fetch(
     resolve_pin_for_module) -- membership/presence was already decided by
     resolve_bundles.resolve_module() and is trusted here via component.status
     and component.detail, not re-derived."""
-    import json
     catalog: dict[str, Any] = {}
     if catalog_path.is_file():
         catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
@@ -223,8 +384,121 @@ def plan_and_fetch(
     for comp in components:
         if comp.kind != "module":
             continue
+        binding = comp.detail.get("binding")
+        if isinstance(binding, dict):
+            catalog_id = comp.detail.get("catalog_id")
+            entry = modules_by_id.get(catalog_id, {})
+            if not entry:
+                outcomes.append(FetchOutcome(
+                    comp.ref,
+                    "no-catalog-entry",
+                    {"reason": "exact bound catalog record is absent", **dict(comp.detail)},
+                ))
+                continue
+            if comp.detail.get("source_type") != "git-repository":
+                outcomes.append(FetchOutcome(
+                    comp.ref, "unfetchable-source-type", dict(comp.detail)
+                ))
+                continue
+            sha = binding.get("commit")
+            repository_url = comp.detail.get("repository")
+            placement_id = binding.get("placement_id")
+            if not is_git_sha(sha):
+                outcomes.append(FetchOutcome(
+                    comp.ref,
+                    "unpinnable",
+                    {"pin_source": "component-binding", "raw_commit_sha": sha},
+                ))
+                continue
+            if (
+                not isinstance(placement_id, str)
+                or not placement_id
+                or placement_id in {".", ".."}
+                or "/" in placement_id
+                or "\\" in placement_id
+                or comp.ref != f"module:{placement_id}"
+            ):
+                outcomes.append(FetchOutcome(
+                    comp.ref,
+                    "failed",
+                    {"reason": "unsafe or mismatched component-binding placement_id"},
+                ))
+                continue
+            if (
+                not repository_url
+                or _normalized_repository(str(repository_url))
+                != _normalized_repository(str(binding.get("repository") or ""))
+            ):
+                outcomes.append(FetchOutcome(
+                    comp.ref,
+                    "failed",
+                    {"reason": "catalog repository does not match component binding"},
+                ))
+                continue
+            dest = dest_root / placement_id
+            if dest.exists() or dest.is_symlink():
+                try:
+                    proof = verify_bound_provider(dest, binding)
+                except FetchError as exc:
+                    outcomes.append(FetchOutcome(
+                        comp.ref,
+                        "failed",
+                        {"error": str(exc), "dest": str(dest), "never_overwritten": True},
+                    ))
+                    continue
+                binding["provider_verified"] = True
+                binding["verification"] = proof
+                comp.status = "resolved"
+                comp.detail["local_path"] = str(dest.resolve(strict=False))
+                comp.detail["present_locally"] = True
+                comp.detail["provides"] = sorted(
+                    set(comp.detail.get("provides") or [])
+                    | set(binding.get("required_provides") or [])
+                )
+                outcomes.append(FetchOutcome(
+                    comp.ref,
+                    "present-pinned-provider",
+                    {"dest": str(dest), "pin_source": "component-binding", **proof},
+                ))
+                continue
+            try:
+                outcome = fetch_module_at_sha(
+                    str(repository_url), sha, dest, dry_run=not apply
+                )
+            except FetchError as exc:
+                outcomes.append(FetchOutcome(comp.ref, "failed", {"error": str(exc)}))
+                continue
+            outcome.ref = comp.ref
+            outcome.detail.update({
+                "catalog_id": catalog_id,
+                "placement_id": placement_id,
+                "pin_source": "component-binding",
+                "required_provides": list(binding.get("required_provides") or []),
+            })
+            if apply:
+                try:
+                    proof = verify_bound_provider(dest, binding)
+                except FetchError as exc:
+                    try:
+                        force_rmtree(dest)
+                    except OSError as cleanup_exc:
+                        exc = FetchError(f"{exc}; cleanup failed: {cleanup_exc}")
+                    outcomes.append(FetchOutcome(comp.ref, "failed", {"error": str(exc)}))
+                    continue
+                binding["provider_verified"] = True
+                binding["verification"] = proof
+                comp.status = "resolved"
+                comp.detail["local_path"] = str(dest.resolve(strict=False))
+                comp.detail["present_locally"] = True
+                comp.detail["provides"] = sorted(
+                    set(comp.detail.get("provides") or [])
+                    | set(binding.get("required_provides") or [])
+                )
+                outcome.detail.update(proof)
+            outcomes.append(outcome)
+            continue
         if comp.status == "resolved":
-            outcomes.append(FetchOutcome(comp.ref, "present", {"present_locally": True}))
+            outcomes.append(_place_resolved_module(comp, dest_root, apply=apply))
             continue
         catalog_id = comp.detail.get("catalog_id")
         if not catalog_id:

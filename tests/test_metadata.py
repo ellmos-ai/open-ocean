@@ -274,6 +274,16 @@ def test_llms_txt_contract():
     assert "INV-SLA-10" in content
     assert "https://github.com/ellmos-ai/open-ocean" in content
 
+    installer_target = (ROOT / "architecture" / "INSTALLER-TARGET.md").read_text(
+        encoding="utf-8"
+    )
+    normalized_target = " ".join(
+        line.removeprefix("> ").strip() for line in installer_target.splitlines()
+    )
+    assert "target contract with an implemented supported path" in normalized_target
+    assert "This file was written before the installer existed." in normalized_target
+    assert "BACH setup parity" in normalized_target
+
 
 def test_gitignore_hygiene():
     """Verify .gitignore includes sync conflict, lock, and test cache patterns."""

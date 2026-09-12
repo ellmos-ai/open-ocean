@@ -4,14 +4,14 @@
 
 **Free the ocean.**
 
-The free community full system of the ellmos ecosystem.
+The free community system of the ellmos ecosystem.
 
 *[Deutsch](README_de.md)*
 
 [![Version](https://img.shields.io/badge/version-0.1.2-blue.svg)](pyproject.toml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/)
 [![CI](https://github.com/ellmos-ai/open-ocean/actions/workflows/ci.yml/badge.svg)](https://github.com/ellmos-ai/open-ocean/actions/workflows/ci.yml)
-[![Pytest](https://img.shields.io/badge/pytest-113%2B%20passed%20%7C%20100%25%20green-brightgreen.svg)](tests/)
+[![Pytest](https://img.shields.io/badge/pytest-198%20passed-brightgreen.svg)](tests/)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows%20%7C%20macOS-informational.svg)](https://github.com/ellmos-ai/open-ocean)
 [![Code Style: Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![Security Policy](https://img.shields.io/badge/security-48h%20SLA%20%7C%205d%20Triage-blue.svg)](SECURITY.md)
@@ -50,16 +50,22 @@ The free community full system of the ellmos ecosystem.
 
 ## Read this first: this repository is a building site
 
-**The released full system is not here yet.** A transactional installer core now exists and has
-been exercised on Windows and macOS, but there is still no BACH-parity runtime of our own and
-deliberately no copies of the recipes. What is here is the architecture and the first executable
-system-building layer: which recipes the system consumes, where they live, and how they are
-resolved, verified, fetched, placed, activated and rolled back.
+**The released OPEN OCEAN system is not here yet.** The local FULL OCEAN development composition is now
+runnable on the development host: it can plan, install, start, inspect, bootstrap a user, stop and
+restart one declared `runtime.host`. This is the first usable OCEAN product slice, not a BACH-parity
+or OPEN OCEAN release claim. The verified 28-bundle composition now resolves every declared required
+component and truthfully reports `full_composition: true`; its eleven unresolved module references
+are optional for this composition.
 
-If you are looking for something usable today, it is the recipe layer — a separate repository
-that holds the bundle manifests and releases them wave by wave. The recipes are ready months
-before the system that consumes them, which is exactly why they are not in here: a repository
-that shipped recipes under the system's name would look finished while the system is not.
+OCEAN consumes the recipes from their canonical repository instead of copying them here. The
+transaction layer resolves, verifies, fetches, places, activates and rolls back; the lifecycle
+layer operates the selected runtime in an explicit local sandbox. The current Full Dev host is the
+private `ellmos-core`, selected by capability rather than hard-coded as the future OPEN OCEAN runtime.
+When the resolved composition also provides `unified-gui.host`, OCEAN exposes that operator UI as
+its product entry point. The current development URL is `http://127.0.0.1:8810/control/`; the
+dedicated port keeps OCEAN separate from the runtime provider's standalone TerminPilot PWA origin.
+An OCEAN-owned origin adapter also redirects `/` to that entry point, serves the OCEAN manifest and
+offline identity, and evicts provider service workers/caches before they can claim the OCEAN URL.
 
 | Repository | What it is | State |
 |---|---|---|
@@ -70,6 +76,17 @@ that shipped recipes under the system's name would look finished while the syste
 
 ## The name, and the architecture it carries
 
+The ratified product boundary is documented in
+[Product stack boundaries](architecture/PRODUCT-STACK-BOUNDARIES.md):
+
+- **OPEN OCEAN = PUBLIC**
+- **PRIVATE OCEAN = PRIVATE, NON-PROPRIETARY**
+- **FULL OCEAN = OPEN OCEAN + PRIVATE OCEAN**
+- **SPEEDBOAT = PROPRIETARY + explicitly selected OPEN-/PRIVATE-OCEAN parts**
+
+This repository builds OPEN OCEAN and operates FULL OCEAN as the private development/test
+composition. SPEEDBOAT is an independent sibling stack, not an OCEAN edition or overlay.
+
 The ecosystem names its layers after water, because the metaphor carries the architecture rather
 than decorating it:
 
@@ -79,18 +96,21 @@ than decorating it:
 | **Bach / Rinnsal** | the wild, grown streams: the original personal full instance |
 | **water pipes** | the same water, tamed and modularised — modules and bundles |
 | **waterfall** | the declarative source: the kit, the recipes, the catalogues |
-| **ocean** | the full system; the end of the line Bach → Rinnsal → ocean |
-| **open-ocean** | the part that belongs to everyone: the free community full system |
+| **ocean** | the successor product family; the end of the line Bach → Rinnsal → ocean |
+| **open-ocean** | the part that belongs to everyone: the free community system |
+| **private-ocean** | private, non-proprietary OCEAN components |
+| **full-ocean** | OPEN OCEAN + PRIVATE OCEAN; the complete OCEAN development/test composition |
+| **speedboat** | an independent proprietary stack that selects shared OCEAN parts explicitly |
 
 The governing rule is a conservation law: **extraction changes the bed, never the water.**
 Restructuring must preserve function — "same volume of water" means functional parity. That is
 not decoration either; it is the release bar this repository has to clear.
 
-The system is not being written next to the original instance, and the original is not being
-rebuilt. It emerges by continued **extraction**: modules flow out of the original, and the
-original then wires them back in, replacing its own internals. It does not become a museum piece.
-It carries on as a straightened river — no longer entirely natural, but connected to the water
-and still supplied.
+Most extraction has already happened. The current work makes legacy BACH more modular by replacing
+its internals with the canonical modules and bundles while OCEAN is completed as its successor.
+A valuable BACH-only component may still be extracted, but that is an exception with its own gate.
+BACH stays supplied by consuming the same modules as OCEAN; any later move to LTS, freeze, or
+archive remains an explicit product decision, never an automatic consequence of this plan.
 
 ---
 
@@ -199,7 +219,9 @@ sequenceDiagram
 ```
 architecture/
   open-ocean.skeleton.v1.json   which recipes the system intends to consume, pinned by hash
-  INSTALLER-TARGET.md           what the installer has to become, and what it must not do
+  ocean-full-dev.component-bindings.v1.json  exact, non-authoritative per-module integration pins
+  ocean-full-dev.source-pins.v1.json  reviewed recipe, binding, crosswalk and Skills Registry pins
+  INSTALLER-TARGET.md           implemented target contract, invariants and remaining limits
   OCEAN-DEV-BUILD-PLAN_2026-08-18.md  staged build plan and verified foreign-host integration evidence
   BACH-EXTRACTION-ROADMAP.md    extraction order, parity gates and Cluster 9 kernel map
   bach-parity-baseline.v1.json  machine-readable registry and Cluster 9 coverage baseline
@@ -215,13 +237,97 @@ tools/
   fetch_place.py                Fetch+Place for module: components, SHA-pinned, fail-closed (no
                                 silent default-branch fallback)
   ocean_dev.py                  single entry point: Resolve -> Verify -> Fetch/Place -> Activate for
-                                one ring; dry-run by default, --apply for real writes, --rollback
+                                 one ring or a complete system manifest; dry-run by default,
+                                 --apply for real writes, --rollback
+  source_pins.py                fail-closed source-provenance verification before Resolve/Fetch
+  accounts_projection.py       verify/read the minimal account projection without state writes
+  ocean_lifecycle.py            capability-driven plan/up/status/down/user lifecycle
+  runtime_supervisor.py         authenticated loopback supervisor for one runtime instance
+  runtime_user.py               password-safe user bootstrap delegated to the runtime
+ocean.py                        user-facing OCEAN Full Dev CLI
 PRIVATE.txt                     the publication gate, committed on purpose
 ```
 
 The skeleton references 13 bundles in two rings — the functional core, and breadth around it. It
 **references** them: no manifest is copied here. Copies would fork the moment the recipe
 repository moves on, and would make this repository look further along than it is.
+
+### Local composition modes
+
+- The repository skeleton is the 13-bundle public scope; choose ring `1`, `2`, or `all`.
+- OCEAN Full Dev consumes the existing external `ellmos.system.v1` full-system manifest and all 28
+  of its OCEAN-family `bundle_refs[]`. Proprietary SPEEDBOAT bundles are excluded. The manifest and
+  private recipes remain in their canonical stores; nothing is copied into this repository.
+
+```text
+python tools/ocean_dev.py --bundles-root <recipe-projection> \
+  --system-manifest <ellmos-development-fullsystem/system.v1.json> \
+  --source-pins architecture/ocean-full-dev.source-pins.v1.json
+```
+
+Without `--apply` this is a read-only dry-run. A system manifest cannot be combined with a numbered
+ring; partial work is selected adaptively as a separate bundle cycle, not by silently truncating
+the declared Full Dev composition.
+
+The default `--component-bindings` overlay closes recipe-to-provider naming gaps without changing
+the canonical recipe or module catalog. Each binding is exact and fail-closed: component ref,
+repository, full commit SHA, placement, provider manifest ID and required capabilities must all
+match and the checkout must be clean before OCEAN treats the provider as resolved. The shipped
+overlay currently binds `module:software-endpoint-registry` to `system-explorer` and the distinct
+logical roles `module:automation-registry` and `module:automation-runtime` to independently pinned
+placements of `automation-master`.
+
+The Finance Assist path also pins `accounts-core` as the sole publisher and
+`sqlite-transit-sync` as the read-only contract verifier. OCEAN's bounded consumer is separate:
+
+```text
+python tools/accounts_projection.py --database <closed-accounts.sqlite> \
+  --consumer-id ocean-accounts-consumer --minimum-offline-seconds 2592000 \
+  --previous-checkpoint <last-seen-checkpoint>
+```
+
+It verifies first, rejects sidecars or a file that changes across verification/readback, opens
+SQLite with `mode=ro&immutable=1`, and returns only the contract's six consumer fields. It does not
+persist a checkpoint, schedule transport, activate a live path, or write either database.
+
+`ocean.py plan` and `ocean.py up` also pass the shipped `--source-pins` contract by default. Before
+Resolve — and therefore before Fetch, Place or Activate — OCEAN requires the recipe input to be the
+clean root checkout of the exact pinned Git origin and commit. It then verifies the recipe's native
+component-registry binding self-hash, the raw Skills Crosswalk SHA-256, and the caller-supplied
+Skills Registry URI/SHA-256 against one content-hashed contract. Any mismatch is an error, never an
+implicit re-pin. Installed-snapshot `start` remains independent of changed live recipe authority.
+
+The product lifecycle is exposed at the repository root:
+
+```text
+python ocean.py plan <composition arguments>
+python ocean.py up <composition arguments> --apply
+python ocean.py start --workspace <local-sandbox>
+python ocean.py start <role> --manifest <ellmos-module.v2.json> [--provider <name>]
+python ocean.py status --workspace <local-sandbox>
+python ocean.py user add --workspace <local-sandbox> --username <name> --email <address>
+python ocean.py down --workspace <local-sandbox>
+```
+
+Run `python ocean.py --help` and the respective subcommand help for the complete arguments. User
+passwords are prompted without echo and are never passed as process arguments; local automation
+may use `--password-stdin`. `ocean up` uses the dedicated OCEAN port `8810` by default. `ocean
+start` restarts the already installed, verified snapshot without consulting changed live recipe
+authority; it also recovers a stale `running` state after an OS or process loss when both the
+authenticated control channel and the recorded runtime port are no longer active.
+With a positional role, `ocean start <role>` instead forwards to the same
+`python -m unified_gui.console start` entry used by Wheelhouse Lower Decks. It
+does not enter the runtime lifecycle or touch the installed workspace. If that
+optional console is absent, OCEAN prints `[FALLBACK]` and uses the same manifest
+record through task-master, COMA or the module starter. `--dry-run` proves the
+resolved chain without starting a provider.
+On Windows, the supervisor also retries transient atomic state-file replacement contention within
+a bounded one-second window, so a successful stop cannot leave a stale `running` record behind.
+On ASUS-GEI, the hidden limited-user logon task `EllmosOceanFullUserStart` now launches the exact
+`ocean-full-laptop-hafenlicht-20260829` checkout and `C:\_Local_DEV\ocean-full`; its controlled
+demand-start acceptance returned task result `0` with one supervisor, one child and one listener.
+This proves the configured logon path, not an actual reboot. The former BACH session sidecar was
+then stopped through BACH's own CLI.
 
 ---
 
@@ -253,8 +359,8 @@ repository moves on, and would make this repository look further along than it i
 | Architecture skeleton | present, 13 bundles referenced |
 | BACH extraction baseline | present — 114 source-declared names; historic 113-name runtime bar retained; re-audited 2026-08-18 (106 handler classes, +1 vs. the 2026-08-08 baseline — traced to a host-suffixed duplicate file in BACH, `upgrade-WORKSTATION-LG.py` alongside `upgrade.py`; not fixed here, BACH is out of scope for this repository's changes). `registered_names` unchanged at 114. |
 | K9-1 data/checkpoint gate | two carrier fixtures green; adapter and BACH equivalence remain open |
-| Installer | **Resolve, Verify, SHA-pinned Fetch/Place, sandboxed skill Activate, activation logging, and target-validated Roll back are implemented for the currently supported component path; that pinnable Ring-1 slice is integration-proven on a foreign host.** On 2026-08-20 one Mac Studio `--apply` invocation verified all 5 Ring-1 bundles, fetched `WikiStub-Seed` at the catalogued SHA `3476ba2…12458af4`, and activated all 9 Ring-1 skills into an explicit sandbox. Its single 10-entry activation log then rolled back the fetched module and all skills; the live Mac `~/.claude/skills` snapshot stayed identical before, after apply and after rollback. The portable suite is now 113 tests, including real-git transaction coverage plus fail-closed regressions for replaying a log against a different target, for a deletion that leaves its target behind, and for catalog IDs whose letter case differs from the bundle ref. This is not a full-system install claim: two Ring-1 Git modules remain unpinned, ten module references are local-directory sources rather than fetch targets, and one catalogue reference still has the known `memory-hooker`/`memoryhooker` naming drift. See the [staged build plan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
-| Runtime of our own | **not available** — every candidate is private or only declared |
+| Installer and lifecycle | **Resolve, Verify, source-provenance pins, SHA-pinned Fetch/Place, exact provider bindings, sandboxed skill Activate, append-preserving activation logging, target-validated Roll back, installed-snapshot recovery, runtime start/status/stop/restart and delegated user bootstrap are implemented.** The accepted Windows Full Ocean workspace is `C:\_Local_DEV\ocean-full`. It verifies **28/28** OCEAN-family bundle pins, resolves **54 of 65 module references and all 80 skills**, has no missing required component, reports `full_composition: true`, and runs at `http://127.0.0.1:8810/control/`. The eleven unresolved module references are optional. The separately placed `automation-runtime` provider passed native provider/scheduler readback, immutable-receipt, redaction and bounded-statistics acceptance at commit `c2de7188626510b181c4ecf2708c15f2395e32aa`. The active-runtime preflight stops a second `up --apply` before Fetch/Activate can write. The product-owned origin redirects Root to OCEAN and clears legacy provider PWA workers/caches without clearing cookies or other browser storage. Live HTTP and a real browser confirm `307 / → /control/`, the `OCEAN Full Dev` surface and no TerminPilot product markers. A real stop/start/stop/start cycle proves the Windows state-file fix. The suite now contains **181 passing tests plus 2 passing subtests on Windows**. This is a composition-complete private Full Dev build for its declared required scope, not an OPEN OCEAN release or BACH-parity claim. Full Ocean selection commit `1b461c9cb900ada15b8e104f2586a6b4a1ea5278` is adopted in canonical recipe `main`, whose post-adoption readback is `b13f1b11626141d6dc6927028dc10008bc406866`. See the [staged build plan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
+| Runtime | **available for private Full Dev** through the declared `runtime.host` provider `ellmos-core`, with the resolved `unified-gui.host` exposed as the OCEAN operator surface; an OPEN OCEAN runtime is not shipped and the private provider is not a public dependency |
 | Recipes | maintained in the recipe repository, not here |
 
 **The traffic light** — release condition 1 turns green when every referenced bundle is green,
@@ -277,6 +383,41 @@ outside this repository's scope (`core-discovery`, `prompt-workflow`, `runtime-o
 actually references, is met as of 2026-08-18. What still blocks publication is conditions 2 and 3
 below, not condition 1.
 
+### WORKSTATION-LG fresh install (2026-08-30)
+
+A second, independent Windows host completed the same Full Dev composition on 2026-08-30:
+`WORKSTATION-LG`, workspace `C:\_Local_DEV\ocean-full`, target directory absent beforehand (a
+genuine fresh install). Input worktrees: `open-ocean` at tag
+`ocean-full-laptop-hafenlicht-20260829` (`243a703c60e295f050a2dc68bdde13ef8e847d29`),
+`ellmos-development-system` at `1b461c9cb900ada15b8e104f2586a6b4a1ea5278` — both detached and
+clean. Pre-install tests: pytest 137/137, unittest 125/125, ruff clean, `compileall` exit 0.
+
+The plan before apply reported 28/28 bundles (`all_ok`), 80/80 skills, but only 51/65 modules
+(`full_composition: false`) — three required providers were not yet local. Apply fetched them by
+git-fetch-at-SHA into `<workspace>\modules\`: `automation-registry@ad40de721615518e409b53b00ed4b2a49840db28`
+and `automation-runtime@c2de7188626510b181c4ecf2708c15f2395e32aa` (both from
+`dev-bricks/automation-master.git`), and `software-endpoint-registry@ec50c92319ba8fc262d695b86818fc85666feff7`
+(from `ellmos-ai/system-explorer`) — all three then clean, detached checkouts. After apply: 28/28
+bundles, 54/65 modules, 80/80 skills, no missing required component, `full_composition: true`,
+runtime `ellmos-core` at `http://127.0.0.1:8810/control/`.
+
+A full `down`/`start` lifecycle cycle was exercised (stopped, port freed, no stale processes, then
+running again with no state reuse), followed by the same HTTP/browser/process checks as above.
+
+The hidden limited-user logon task `EllmosOceanFullUserStart` (trigger `AtLogOn`, principal
+`lukas`, `LogonType Interactive`, `RunLevel Limited`, hidden) launches `pythonw.exe` against the
+pinned input worktree's `ocean.py start --workspace "C:\_Local_DEV\ocean-full"`. One controlled
+on-demand start on 2026-08-30 returned `LastTaskResult 267009` (`SCHED_S_TASK_RUNNING`, the
+expected code for an intentionally still-running server process, not `0`) with one supervisor
+(PID 6460) and one child (PID 37676), both under `pythonw.exe`, the child being the sole listener
+on `8810`; `full_composition: true` and the product identity held afterward. No actual device
+reboot was tested.
+
+No BACH session sidecar was ever running on this host (`service.running: false`, `pid: null`), so
+none was stopped; BACH code, databases, tasks and configuration are unchanged. No user account was
+created for OCEAN on this host — a deliberate decision, not an installation gap; see TODO for the
+device-bound OS-account coupling this is meant to become.
+
 ---
 
 ## Release conditions
@@ -288,14 +429,20 @@ the gate is visible where visibility is switched). It opens when all four are de
    checked. **Met as of 2026-08-18** for this repository's 13-bundle scope — see the traffic-light
    table above.
 2. **Sluice test passed** — the whole line works end to end: a fresh install from these recipes
-   reaches a working state on a machine that is not the development host. **Not met yet, but the
-   installer seam itself is now foreign-host integration-proven.** A Mac Studio run on 2026-08-20
-   performed Resolve, Verify, one real SHA-pinned Fetch/Place and all nine Ring-1 skill activations
-   in one `--apply` invocation, then removed all ten writes through the same activation log. This
-   closes the previously untried combined mechanism path, not the release condition: the target
-   was an explicit sandbox, only one Ring-1 Git module currently has a safe catalogue pin, and the
-   run did not produce a complete working ocean runtime from every required component. See
-   `architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md` Stage 2 for the evidence and remaining breadth.
+   reaches a working state on a machine that is not the development host. **Not met yet.** The
+   installer seam remains foreign-host integration-proven by the 2026-08-20 Mac Studio run. On
+   2026-08-29 the development host additionally completed a real Full Dev plan/apply/start/status/
+   stop/restart cycle. The initial root-page acceptance proved transport only and was later found
+   to be the provider's TerminPilot domain surface, not OCEAN. The corrected cycle now exposes and
+   browser-verifies the resolved operator UI at `127.0.0.1:8810/control/`. A later persistent-profile
+   regression additionally made OCEAN own Root, manifest, offline identity and worker cleanup on
+   that origin. The development-host composition now also resolves the distinct
+   `module:automation-runtime`, has no missing required component and reports
+   `full_composition: true`. That materially advances OCEAN, but it is still not the required fresh
+   foreign-host full-system proof. The current apply verifies all 28 refs against Full Ocean
+   selection commit `1b461c9cb900ada15b8e104f2586a6b4a1ea5278`, now adopted into canonical recipe
+   `main` with post-adoption readback `b13f1b11626141d6dc6927028dc10008bc406866`. See
+   `architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md` for the exact evidence and remaining breadth.
 3. **Parity for the release scope** — the system performs at the level it claims to cover. A
    smaller installable core is a build stage, not a release. The current source audit records
    114 reachable names while retaining the historic 113-name runtime snapshot as the minimum
@@ -314,9 +461,9 @@ the gate is visible where visibility is switched). It opens when all four are de
 
 Condition 2 is the one this repository is named after. Opening the sluices and watching whether
 the water actually arrives is the test that no amount of correct manifests can substitute for.
-Of the four conditions, 1 and 4 are addressed. Condition 2 now has a verified transactional
-installer seam but still lacks a complete fresh working-system installation; condition 3 still
-lacks BACH functional parity. Neither is upgraded by the sandboxed integration proof.
+Of the four conditions, 1 and 4 are addressed. Condition 2 now has a verified transactional seam
+and a working development-host runtime, but still lacks a complete fresh foreign-host installation;
+condition 3 still lacks BACH functional parity. `PRIVATE.txt` therefore remains in force.
 
 ---
 

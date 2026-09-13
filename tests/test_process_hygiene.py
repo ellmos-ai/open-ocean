@@ -73,6 +73,51 @@ def test_scope_is_the_basetemp_not_the_process_name(tmp_path, monkeypatch):
     assert find_test_supervisors(tmp_path) == []
 
 
+@pytest.mark.skipif(os.name == "nt", reason="process groups are a POSIX mechanism")
+def test_the_sweep_never_signals_its_own_process_group(monkeypatch):
+    """The macOS CI failure this covers was the suite killing itself.
+
+    `ocean_lifecycle` used to spawn the supervisor without `start_new_session`, so it
+    stayed in pytest's process group. When the end-of-session sweep then called
+    `terminate_process_tree`, `os.killpg` delivered SIGTERM to that shared group -- and
+    the job ended with exit 143 (T-20260913-243123928). Measured on a Mac: a child
+    spawned the old way reports `os.getpgid(child) == os.getpgrp()`.
+    """
+    killed_groups = []
+    monkeypatch.setattr(os, "killpg", lambda pgid, sig: killed_groups.append(pgid))
+    signalled = []
+    monkeypatch.setattr(os, "kill", lambda pid, sig: signalled.append(pid))
+    # A pid that shares our group -- exactly the old supervisor's situation.
+    monkeypatch.setattr(os, "getpgid", lambda pid: os.getpgrp())
+
+    terminate_process_tree(4242)
+
+    assert killed_groups == [], "the sweep signalled its own process group"
+    assert signalled == [4242], "the single process was not terminated either"
+
+
+@pytest.mark.skipif(os.name == "nt", reason="process groups are a POSIX mechanism")
+def test_a_spawned_supervisor_gets_its_own_process_group():
+    """Without this the sweep cannot tell the supervisor apart from the runner."""
+    child = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(30)"],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,   # what ocean_lifecycle now passes on POSIX
+    )
+    try:
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline and os.getpgid(child.pid) == os.getpgrp():
+            time.sleep(0.05)
+        assert os.getpgid(child.pid) != os.getpgrp(), (
+            "the spawned process shares the runner's group; killpg would hit the runner"
+        )
+    finally:
+        terminate_process_tree(child.pid)
+        child.wait(timeout=10)
+
+
 @pytest.mark.skipif(os.name != "nt", reason="job objects are a Windows mechanism")
 def test_job_object_kills_a_grandchild_when_it_closes():
     """The mechanism the suite relies on, proven on real processes.

@@ -176,12 +176,22 @@ def terminate_process_tree(pid: int) -> None:
         )
         return
     try:
-        os.killpg(os.getpgid(pid), signal.SIGTERM)
+        group = os.getpgid(pid)
     except (ProcessLookupError, PermissionError, OSError):
+        group = None
+    # Never signal our own group: killpg on a process that shares the test runner's
+    # group takes the runner down with it (exit 143). A supervisor spawned before
+    # T-20260913-243123928 did exactly that.
+    if group is not None and group != os.getpgrp():
         try:
-            os.kill(pid, signal.SIGTERM)
-        except (ProcessLookupError, PermissionError):
+            os.killpg(group, signal.SIGTERM)
+            return
+        except (ProcessLookupError, PermissionError, OSError):
             pass
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except (ProcessLookupError, PermissionError):
+        pass
 
 
 def _assign_self_to_kill_on_close_job() -> bool:

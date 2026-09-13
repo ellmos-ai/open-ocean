@@ -704,6 +704,12 @@ def _start_runtime_locked(
     supervisor_log = workspace / "logs" / "supervisor.log"
     supervisor_log.parent.mkdir(parents=True, exist_ok=True)
     creationflags = 0
+    # The supervisor outlives this call by design, so it must not share our process
+    # group. On Windows CREATE_NEW_PROCESS_GROUP already does that; POSIX had no
+    # counterpart, which left the supervisor in the caller's group -- and a caller
+    # that then cleans up with os.killpg(os.getpgid(supervisor)) signals ITSELF.
+    # That is what ended the macOS CI job with exit 143 (T-20260913-243123928).
+    start_new_session = os.name != "nt"
     if os.name == "nt":
         creationflags = subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
     supervisor_env = os.environ.copy()
@@ -717,6 +723,7 @@ def _start_runtime_locked(
             stdout=log_handle,
             stderr=log_handle,
             creationflags=creationflags,
+            start_new_session=start_new_session,
         )
     deadline = time.monotonic() + startup_timeout
     runtime_state: dict[str, Any] | None = None

@@ -156,4 +156,5 @@
   per device) instead of a separate app password; motivated by the WORKSTATION-LG install running
   without an OCEAN user while `/control/` and `/api/health` remain reachable without auth.
 
-These items do not authorize publication, a visibility change or removal of `PRIVATE.txt`.
+These items do not authorize a visibility change. (The publication gate `PRIVATE.txt` was lifted
+on 2026-09-11 by decision D-20260909-003; visibility itself is still the owner's to switch.)

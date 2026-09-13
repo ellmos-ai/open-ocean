@@ -12,6 +12,7 @@ import json
 import math
 import os
 import secrets
+import signal
 import socket
 import subprocess
 import sys
@@ -669,6 +670,33 @@ def start_runtime(
         )
 
 
+def _terminate_supervisor(supervisor: subprocess.Popen) -> None:
+    """End a supervisor whose start did not succeed, best effort.
+
+    POSIX spawns get their own session (see the spawn below), so signalling the group
+    reaches the supervisor and the runtime child it may already have started, without
+    touching the caller. On Windows the new process group serves the same purpose.
+    """
+    if supervisor.poll() is not None:
+        return
+    try:
+        if os.name == "nt":
+            supervisor.send_signal(signal.CTRL_BREAK_EVENT)
+        else:
+            os.killpg(os.getpgid(supervisor.pid), signal.SIGTERM)
+    except (OSError, ValueError):
+        pass
+    try:
+        supervisor.wait(timeout=5)
+        return
+    except subprocess.TimeoutExpired:
+        pass
+    with contextlib.suppress(OSError):
+        supervisor.kill()
+    with contextlib.suppress(subprocess.TimeoutExpired, OSError):
+        supervisor.wait(timeout=5)
+
+
 def _start_runtime_locked(
     provider: RuntimeProvider,
     components: list[dict[str, Any]],
@@ -715,7 +743,7 @@ def _start_runtime_locked(
     supervisor_env = os.environ.copy()
     supervisor_env["OCEAN_RUNTIME_TOKEN"] = token
     with supervisor_log.open("ab", buffering=0) as log_handle:
-        subprocess.Popen(
+        supervisor = subprocess.Popen(
             [sys.executable, str(SUPERVISOR_CLI), "--spec", str(spec_path)],
             cwd=TOOLS_DIR.parent,
             env=supervisor_env,
@@ -747,6 +775,11 @@ def _start_runtime_locked(
             _control_request(runtime_state, "stop")
         except LifecycleError:
             pass
+    # Whoever starts a child ends it. The graceful stop above only applies once the
+    # supervisor has written its state file -- with a short --health-timeout it never
+    # gets that far, and before T-20260913-243123928 the failing start simply walked
+    # away from a live supervisor (visible in CI as an orphan with ppid=1).
+    _terminate_supervisor(supervisor)
     runtime_log = workspace / "logs" / "runtime.log"
     try:
         runtime_log_size = runtime_log.stat().st_size

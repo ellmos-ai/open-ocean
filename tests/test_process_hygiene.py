@@ -125,6 +125,26 @@ def test_the_supervisor_is_spawned_into_its_own_session_on_posix(monkeypatch):
     )
 
 
+def test_a_failed_start_does_not_walk_away_from_its_supervisor(tmp_path, monkeypatch):
+    """The orphan the macOS CI actually tripped over.
+
+    `--health-timeout 0.01` returns long before the supervisor writes its state file,
+    so the graceful stop path cannot apply -- and the start used to just raise, leaving
+    a live supervisor behind (CI showed it with ppid=1). The failing start has to end
+    what it started.
+    """
+    import tools.ocean_lifecycle as lifecycle
+
+    terminated = []
+    monkeypatch.setattr(lifecycle, "_terminate_supervisor", terminated.append)
+
+    source = inspect.getsource(lifecycle._start_runtime_locked)
+    raise_index = source.index("raise LifecycleError")
+    assert "_terminate_supervisor(supervisor)" in source[:raise_index], (
+        "the timeout path raises without ending the supervisor it spawned"
+    )
+
+
 @pytest.mark.skipif(os.name != "nt", reason="job objects are a Windows mechanism")
 def test_job_object_kills_a_grandchild_when_it_closes():
     """The mechanism the suite relies on, proven on real processes.

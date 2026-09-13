@@ -16,10 +16,13 @@ check never needs a running production service to prove it.
 
 from __future__ import annotations
 
+import ast
 import ctypes
+import inspect
 import os
 import subprocess
 import sys
+import textwrap
 import time
 
 import pytest
@@ -32,6 +35,22 @@ PRODUCTION_COMMAND = (
     "C:\\_Local_DEV\\runtimes\\open-ocean-ocean-full-laptop-hafenlicht-20260829\\tools\\"
     "runtime_supervisor.py --spec C:\\_Local_DEV\\ocean-full\\ocean.runtime-spec.json"
 )
+
+
+def _function_ast(func) -> ast.AST:
+    """The function's own syntax tree -- comments and strings cannot fake a call here."""
+    return ast.parse(textwrap.dedent(inspect.getsource(func)))
+
+
+def _call_keywords(func, callee_suffix: str) -> set[str]:
+    """Keyword argument names of the first call whose target ends in `callee_suffix`."""
+    for node in ast.walk(_function_ast(func)):
+        if isinstance(node, ast.Call):
+            target = node.func
+            name = target.attr if isinstance(target, ast.Attribute) else getattr(target, "id", "")
+            if name.endswith(callee_suffix):
+                return {kw.arg for kw in node.keywords if kw.arg}
+    return set()
 
 
 def test_no_supervisor_of_this_run_is_left_behind(tmp_path_factory):
@@ -71,6 +90,77 @@ def test_scope_is_the_basetemp_not_the_process_name(tmp_path, monkeypatch):
     ])
 
     assert find_test_supervisors(tmp_path) == []
+
+
+@pytest.mark.skipif(os.name == "nt", reason="process groups are a POSIX mechanism")
+def test_the_sweep_never_signals_its_own_process_group(monkeypatch):
+    """The macOS CI failure this covers was the suite killing itself.
+
+    `ocean_lifecycle` used to spawn the supervisor without `start_new_session`, so it
+    stayed in pytest's process group. When the end-of-session sweep then called
+    `terminate_process_tree`, `os.killpg` delivered SIGTERM to that shared group -- and
+    the job ended with exit 143 (T-20260913-243123928). Measured on a Mac: a child
+    spawned the old way reports `os.getpgid(child) == os.getpgrp()`.
+    """
+    killed_groups = []
+    monkeypatch.setattr(os, "killpg", lambda pgid, sig: killed_groups.append(pgid))
+    signalled = []
+    monkeypatch.setattr(os, "kill", lambda pid, sig: signalled.append(pid))
+    # A pid that shares our group -- exactly the old supervisor's situation.
+    monkeypatch.setattr(os, "getpgid", lambda pid: os.getpgrp())
+
+    terminate_process_tree(4242)
+
+    assert killed_groups == [], "the sweep signalled its own process group"
+    assert signalled == [4242], "the single process was not terminated either"
+
+
+@pytest.mark.skipif(os.name == "nt", reason="process groups are a POSIX mechanism")
+def test_the_supervisor_is_spawned_into_its_own_session_on_posix():
+    """Pins the production decision, not just the principle.
+
+    `ocean_lifecycle` is the only place that spawns the supervisor. If it ever drops
+    `start_new_session` again, the supervisor lands back in the caller's process group
+    and the sweep's killpg becomes a self-signal.
+
+    Read through the AST rather than the raw source: a substring check also matches the
+    call inside a comment, so commenting the line out would leave the test green.
+    """
+    import tools.ocean_lifecycle as lifecycle
+
+    spawn = _call_keywords(lifecycle._start_runtime_locked, "Popen")
+    assert "start_new_session" in spawn, (
+        "the supervisor spawn no longer passes start_new_session"
+    )
+
+
+def test_a_failed_start_does_not_walk_away_from_its_supervisor():
+    """The orphan the macOS CI actually tripped over.
+
+    `--health-timeout 0.01` returns long before the supervisor writes its state file,
+    so the graceful stop path cannot apply -- and the start used to just raise, leaving
+    a live supervisor behind (CI showed it with ppid=1). The failing start has to end
+    what it started, on every exit that is not success.
+    """
+    import tools.ocean_lifecycle as lifecycle
+
+    tree = _function_ast(lifecycle._start_runtime_locked)
+    cleanup_calls = [
+        node for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "_terminate_supervisor"
+    ]
+    assert cleanup_calls, "the start path never ends the supervisor it spawned"
+
+    # In a `finally`, so an unexpected error inside the wait loop leaks nothing either.
+    in_finally = any(
+        call in ast.walk(handler)
+        for node in ast.walk(tree) if isinstance(node, ast.Try)
+        for handler in node.finalbody
+        for call in cleanup_calls
+    )
+    assert in_finally, "the cleanup is not on a finally path; an early error would leak"
 
 
 @pytest.mark.skipif(os.name != "nt", reason="job objects are a Windows mechanism")

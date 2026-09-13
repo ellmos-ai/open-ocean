@@ -755,31 +755,38 @@ def _start_runtime_locked(
         )
     deadline = time.monotonic() + startup_timeout
     runtime_state: dict[str, Any] | None = None
-    while time.monotonic() < deadline:
-        if state_path.is_file():
-            runtime_state = _read_json(state_path)
-            if runtime_state.get("instance_id") != spec["instance_id"]:
-                time.sleep(0.1)
-                continue
+    started = False
+    try:
+        while time.monotonic() < deadline:
+            if state_path.is_file():
+                runtime_state = _read_json(state_path)
+                if runtime_state.get("instance_id") != spec["instance_id"]:
+                    time.sleep(0.1)
+                    continue
+                try:
+                    control = _control_request(runtime_state, "status", timeout=0.5)
+                except LifecycleError:
+                    control = {}
+                if control.get("status") == "running" and _health(launch["health_url"], timeout=0.5):
+                    started = True
+                    return runtime_state
+                if runtime_state.get("status") == "stopped":
+                    break
+            time.sleep(0.1)
+        if runtime_state and runtime_state.get("status") == "running":
             try:
-                control = _control_request(runtime_state, "status", timeout=0.5)
+                _control_request(runtime_state, "stop")
             except LifecycleError:
-                control = {}
-            if control.get("status") == "running" and _health(launch["health_url"], timeout=0.5):
-                return runtime_state
-            if runtime_state.get("status") == "stopped":
-                break
-        time.sleep(0.1)
-    if runtime_state and runtime_state.get("status") == "running":
-        try:
-            _control_request(runtime_state, "stop")
-        except LifecycleError:
-            pass
-    # Whoever starts a child ends it. The graceful stop above only applies once the
-    # supervisor has written its state file -- with a short --health-timeout it never
-    # gets that far, and before T-20260913-243123928 the failing start simply walked
-    # away from a live supervisor (visible in CI as an orphan with ppid=1).
-    _terminate_supervisor(supervisor)
+                pass
+    finally:
+        # Whoever starts a child ends it. The graceful stop above only applies once the
+        # supervisor has written its state file -- with a short --health-timeout it never
+        # gets that far, and before T-20260913-243123928 the failing start simply walked
+        # away from a live supervisor (visible in CI as an orphan with ppid=1). The
+        # finally also covers an unexpected error inside the loop, which would leak the
+        # same way.
+        if not started:
+            _terminate_supervisor(supervisor)
     runtime_log = workspace / "logs" / "runtime.log"
     try:
         runtime_log_size = runtime_log.stat().st_size

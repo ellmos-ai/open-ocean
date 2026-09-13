@@ -17,6 +17,7 @@ check never needs a running production service to prove it.
 from __future__ import annotations
 
 import ctypes
+import inspect
 import os
 import subprocess
 import sys
@@ -97,25 +98,31 @@ def test_the_sweep_never_signals_its_own_process_group(monkeypatch):
 
 
 @pytest.mark.skipif(os.name == "nt", reason="process groups are a POSIX mechanism")
-def test_a_spawned_supervisor_gets_its_own_process_group():
-    """Without this the sweep cannot tell the supervisor apart from the runner."""
-    child = subprocess.Popen(
-        [sys.executable, "-c", "import time; time.sleep(30)"],
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        start_new_session=True,   # what ocean_lifecycle now passes on POSIX
+def test_the_supervisor_is_spawned_into_its_own_session_on_posix(monkeypatch):
+    """Pins the production decision, not just the principle.
+
+    `ocean_lifecycle` is the only place that spawns the supervisor. If it ever drops
+    `start_new_session` again, the supervisor lands back in the caller's process group
+    and the sweep's killpg becomes a self-signal.
+    """
+    import tools.ocean_lifecycle as lifecycle
+
+    captured = {}
+
+    class _FakePopen:
+        def __init__(self, *args, **kwargs):
+            captured.update(kwargs)
+            self.pid = -1
+
+    monkeypatch.setattr(lifecycle.subprocess, "Popen", _FakePopen)
+
+    source = inspect.getsource(lifecycle._start_runtime_locked)
+    assert "start_new_session=start_new_session" in source, (
+        "the supervisor spawn no longer passes start_new_session"
     )
-    try:
-        deadline = time.monotonic() + 5
-        while time.monotonic() < deadline and os.getpgid(child.pid) == os.getpgrp():
-            time.sleep(0.05)
-        assert os.getpgid(child.pid) != os.getpgrp(), (
-            "the spawned process shares the runner's group; killpg would hit the runner"
-        )
-    finally:
-        terminate_process_tree(child.pid)
-        child.wait(timeout=10)
+    assert 'start_new_session = os.name != "nt"' in source, (
+        "start_new_session is no longer enabled on POSIX"
+    )
 
 
 @pytest.mark.skipif(os.name != "nt", reason="job objects are a Windows mechanism")

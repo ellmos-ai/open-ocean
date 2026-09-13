@@ -170,5 +170,6 @@
   WORKSTATION-LG-Installation läuft ohne OCEAN-Benutzer, während `/control/` und `/api/health`
   ohne Auth erreichbar bleiben.
 
-Diese Punkte autorisieren weder eine Veröffentlichung noch eine Sichtbarkeitsänderung oder die
-Entfernung von `PRIVATE.txt`.
+Diese Punkte autorisieren keine Sichtbarkeitsänderung. (Das Veröffentlichungsgatter
+`PRIVATE.txt` wurde am 2026-09-11 durch den Entscheid D-20260909-003 aufgehoben; die
+Sichtbarkeit selbst schaltet weiterhin der Eigentümer.)

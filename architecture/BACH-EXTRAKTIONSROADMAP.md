@@ -82,8 +82,11 @@ Ausgabeübersetzung und Alt/Neu-Äquivalenz vorhanden sind.
    während der Übergangszeit funktionsgleich; Abkündigungen brauchen Migration und Frist.
 6. **Fehlschlag bleibt geschlossen.** Hash-, Schema-, Rechte-, Backup- oder
    Migrationsfehler stoppen die Operation. Warnen und weitermachen ist kein gültiger Modus.
-7. **Keine Publikation durch Fortschritt.** Das Repository bleibt gemäß `PRIVATE.txt` privat,
-   bis alle vier Freigabebedingungen belegt sind.
+7. **Keine Publikation durch Fortschritt.** Die Publikationssperre (`PRIVATE.txt`) wurde am
+   2026-09-11 durch Nutzerentscheid D-20260909-003 aufgehoben; das Repository ist damit
+   öffentlich — durch Entscheidung, nicht weil die vier Freigabebedingungen belegt wären.
+   Die Bedingungen 2 und 3 sind weiterhin offen, und Fortschritt in dieser Roadmap bleibt
+   kein Beleg dafür, dass sie erfüllt sind.
 
 ## Cluster-9-Arbeitspakete
 

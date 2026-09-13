@@ -79,8 +79,10 @@ candidate-partial until the BACH collector, output translation and old/new equiv
    migration; deprecations need a migration and deadline.
 6. **Failure is closed.** Hash, schema, permission, backup or migration failures stop the
    operation.
-7. **Progress is not publication.** The repository remains private under `PRIVATE.txt` until all
-   four release conditions are evidenced.
+7. **Progress is not publication.** The publication gate (`PRIVATE.txt`) was lifted on
+   2026-09-11 by user decision D-20260909-003, so this repository is public — by decision,
+   not because the four release conditions were evidenced. Conditions 2 and 3 are still open,
+   and progress in this roadmap remains no claim that they are met.
 
 ## Cluster 9 work packages
 

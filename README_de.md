@@ -249,7 +249,6 @@ tools/
   runtime_supervisor.py         authentifizierter Loopback-Supervisor für eine Laufzeitinstanz
   runtime_user.py               passwortsichere Nutzeranlage, an die Laufzeit delegiert
 ocean.py                        nutzerseitige OCEAN-Full-Dev-CLI
-PRIVATE.txt                     das Veröffentlichungsgatter, absichtlich eingecheckt
 ```
 
 Das Skelett referenziert 13 Bundles in zwei Ringen — den funktionalen Kern und die Breite darum herum.
@@ -432,16 +431,26 @@ das hinauslaufen soll.
 
 ## Freigabebedingungen
 
-Dieses Repository führt ein bedingtes Veröffentlichungsgatter (`PRIVATE.txt`, bewusst eingecheckt,
-damit das Gatter dort sichtbar ist, wo die Sichtbarkeit geschaltet wird). Es öffnet sich, sobald alle
-vier Bedingungen nachweislich erfüllt sind:
+Das bedingte Veröffentlichungsgatter, das hier lag (`PRIVATE.txt`), wurde am **2026-09-11** durch
+den Nutzerentscheid D-20260909-003 aufgehoben (`open-ocean = B`, öffentlich über eine
+sanitisierte Distribution); die Datei ist in `6ca9a38` entfernt worden. Was folgt, ist deshalb
+keine Sperre der Sichtbarkeit mehr — es ist der Reifegrad-Nachweis, den das Gatter bewachte,
+beibehalten, weil seine Fragen die richtigen bleiben und weil ein veröffentlichtes Repository
+klar sagen sollte, was es belegt und was noch nicht.
+
+Die vier Bedingungen und ihr Stand:
 
 1. **Grüne Bestandteile** — jedes referenzierte Bundle ist grün: jede seiner Komponenten
    öffentlich und geprüft. **Erfüllt zum 2026-08-18** für den 13-Bundle-Umfang dieses
    Repositories — siehe Ampel-Tabelle oben.
 2. **Schleusen-Test bestanden** — die Gesamtleitung trägt: eine frische Installation aus diesen
    Rezepten erreicht auf einer Maschine, die nicht der Entwicklungsrechner ist, einen
-   arbeitsfähigen Zustand. **Noch nicht erfüllt.** Die Installer-Naht bleibt durch den Mac-Studio-
+   arbeitsfähigen Zustand. **Noch nicht erfüllt.**
+   *Welcher Rechner dabei zählt, war selbst eine Frage, und sie ist beantwortet:* Nutzerentscheid
+   D-20260906-003 (2026-09-11) = **1B** — die frische Installation auf WORKSTATION-LG vom
+   2026-08-30 entscheidet das **nicht**, denn ein zweiter Entwicklungsrechner ist weiterhin ein
+   Entwicklungsrechner. Nur die Full-Ocean-Installation auf dem Mac Studio tut das (als
+   Restarbeit in `T-20260818-903104603` geführt). Die Installer-Naht bleibt durch den Mac-Studio-
    Lauf vom 2026-08-20 auf einem Fremdrechner integrationsgeprüft. Am 2026-08-29 absolvierte der
    Entwicklungsrechner zusätzlich einen echten Full-Dev-Zyklus aus Plan/Apply/Start/Status/Stopp/
    Neustart. Die erste Abnahme des Wurzelpfads belegte nur den Transport und stellte sich später
@@ -458,17 +467,22 @@ vier Bedingungen nachweislich erfüllt sind:
    `b13f1b11626141d6dc6927028dc10008bc406866`. Die genauen Belege und die verbleibende Breite stehen im
    `architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md`.
 3. **Parität für den Release-Umfang** — das System leistet, was es zu decken beansprucht. Ein
-   kleinerer installierbarer Kern ist eine Bau-Etappe, kein Release. Der aktuelle Quell-Audit
-   erfasst 114 erreichbare Namen und erhält zugleich den historischen 113er Runtime-Snapshot als
-   Mindestzusage; siehe [Extraktionsroadmap](architecture/BACH-EXTRAKTIONSROADMAP.md). **Erneut
-   gemessen am 2026-08-18** (nur lesend, BACH unangetastet): die 114er-Messlatte ist unverändert
-   aktuell; siehe `architecture/bach-parity-baseline.v1.json` → `re_audit_2026-08-18`. Diese
-   Bedingung verlangt aber mehr als eine Namenszählung: Die
+   kleinerer installierbarer Kern ist eine Bau-Etappe, kein Release. *Woran diese Leistung
+   gemessen wird, war selbst eine Frage, und sie ist beantwortet:* Nutzerentscheid D-20260906-003
+   (2026-09-11) = **Parität wird funktional an Use-Cases gemessen** — nicht an einer
+   Handler-Zählung und nicht an der `accepted`-Zählung in `bach-parity-baseline.v1.json`, die
+   seit 2026-08-18 nicht fortgeschrieben wurde. Module nach BACH zurückzuführen, um den alten
+   Pfad abzuschalten, ist eine eigene, parallele Spur und nicht die Messlatte dieser Bedingung.
+   Die Namenszählungen bleiben als Historie im Protokoll, nicht als Messlatte: Der Quell-Audit
+   erfasst 114 erreichbare Namen und erhält den historischen 113er Runtime-Snapshot; erneut
+   gemessen am 2026-08-18 (nur lesend, BACH unangetastet) war die 114er-Messlatte unverändert.
+   Siehe [Extraktionsroadmap](architecture/BACH-EXTRAKTIONSROADMAP.md).
+   Funktional gemessen wird das Bild nicht freundlicher: Die
    [Operationsmatrix für Cluster 9](architecture/BACH-EXTRAKTIONSROADMAP.md#operationsmatrix-für-cluster-9)
    ist der einzige Cluster mit laufender Arbeit (8 von 9 Clustern haben noch nicht begonnen), und
-   darin tragen 0 von 30 Kommandonamen den Status `accepted` (funktional äquivalent) — 20 sind
-   `candidate-partial`, 9 sind `gap`, 1 ist `alias`. Bedingung 3 ist damit **nicht annähernd
-   erfüllt**; sie hängt an derselben Installer-/Laufzeit-Arbeit wie Bedingung 2.
+   darin sind 0 von 30 Kommandonamen funktional äquivalent — 20 sind `candidate-partial`, 9 sind
+   `gap`, 1 ist ein `alias`. Bedingung 3 ist damit **nicht annähernd erfüllt**; sie hängt an
+   derselben Installer-/Laufzeit-Arbeit wie Bedingung 2.
 4. **Publikationsprüfung bestanden** — Recht, Privacy und Lizenz geprüft, keine Blocker.
    **Durchgeführt am 2026-08-18** (Skill `repo-publish-check`, 10 Gates) — Verdikt und lokaler
    Bericht: `.GITHUBBOT/workflows/repo-publish-check/reports/ellmos-ai__open-ocean_2026-08-18.md`
@@ -479,7 +493,11 @@ zuzusehen, ob das Wasser wirklich ankommt, ist der Test, den keine Menge korrekt
 ersetzt. Von den vier Bedingungen sind 1 und 4 erledigt. Bedingung 2 besitzt jetzt eine geprüfte
 Transaktionsnaht und eine arbeitsfähige Laufzeit auf dem Entwicklungsrechner, aber noch keine
 vollständige frische Installation auf einem Fremdrechner; Bedingung 3 hat weiterhin keine
-BACH-Funktionsparität. `PRIVATE.txt` bleibt deshalb wirksam.
+Funktionsparität. Seit dem 2026-09-11 hält das dieses Repository nicht mehr verschlossen — das
+Gatter wurde durch Entscheidung aufgehoben, nicht dadurch, dass die Bedingungen erfüllt wären.
+Der Unterschied zählt: Dieses Repository ist öffentlich, weil der Eigentümer eine sanitisierte
+öffentliche Distribution gewählt hat, nicht weil OPEN OCEAN fertig wäre. Die Bedingungen 2 und 3
+bleiben offene Arbeit, und nichts hier ist als Behauptung des Gegenteils zu lesen.
 
 ## Schnellstart und CLI-Nutzung
 

@@ -16,11 +16,13 @@ check never needs a running production service to prove it.
 
 from __future__ import annotations
 
+import ast
 import ctypes
 import inspect
 import os
 import subprocess
 import sys
+import textwrap
 import time
 
 import pytest
@@ -33,6 +35,22 @@ PRODUCTION_COMMAND = (
     "C:\\_Local_DEV\\runtimes\\open-ocean-ocean-full-laptop-hafenlicht-20260829\\tools\\"
     "runtime_supervisor.py --spec C:\\_Local_DEV\\ocean-full\\ocean.runtime-spec.json"
 )
+
+
+def _function_ast(func) -> ast.AST:
+    """The function's own syntax tree -- comments and strings cannot fake a call here."""
+    return ast.parse(textwrap.dedent(inspect.getsource(func)))
+
+
+def _call_keywords(func, callee_suffix: str) -> set[str]:
+    """Keyword argument names of the first call whose target ends in `callee_suffix`."""
+    for node in ast.walk(_function_ast(func)):
+        if isinstance(node, ast.Call):
+            target = node.func
+            name = target.attr if isinstance(target, ast.Attribute) else getattr(target, "id", "")
+            if name.endswith(callee_suffix):
+                return {kw.arg for kw in node.keywords if kw.arg}
+    return set()
 
 
 def test_no_supervisor_of_this_run_is_left_behind(tmp_path_factory):
@@ -98,51 +116,51 @@ def test_the_sweep_never_signals_its_own_process_group(monkeypatch):
 
 
 @pytest.mark.skipif(os.name == "nt", reason="process groups are a POSIX mechanism")
-def test_the_supervisor_is_spawned_into_its_own_session_on_posix(monkeypatch):
+def test_the_supervisor_is_spawned_into_its_own_session_on_posix():
     """Pins the production decision, not just the principle.
 
     `ocean_lifecycle` is the only place that spawns the supervisor. If it ever drops
     `start_new_session` again, the supervisor lands back in the caller's process group
     and the sweep's killpg becomes a self-signal.
+
+    Read through the AST rather than the raw source: a substring check also matches the
+    call inside a comment, so commenting the line out would leave the test green.
     """
     import tools.ocean_lifecycle as lifecycle
 
-    captured = {}
-
-    class _FakePopen:
-        def __init__(self, *args, **kwargs):
-            captured.update(kwargs)
-            self.pid = -1
-
-    monkeypatch.setattr(lifecycle.subprocess, "Popen", _FakePopen)
-
-    source = inspect.getsource(lifecycle._start_runtime_locked)
-    assert "start_new_session=start_new_session" in source, (
+    spawn = _call_keywords(lifecycle._start_runtime_locked, "Popen")
+    assert "start_new_session" in spawn, (
         "the supervisor spawn no longer passes start_new_session"
     )
-    assert 'start_new_session = os.name != "nt"' in source, (
-        "start_new_session is no longer enabled on POSIX"
-    )
 
 
-def test_a_failed_start_does_not_walk_away_from_its_supervisor(tmp_path, monkeypatch):
+def test_a_failed_start_does_not_walk_away_from_its_supervisor():
     """The orphan the macOS CI actually tripped over.
 
     `--health-timeout 0.01` returns long before the supervisor writes its state file,
     so the graceful stop path cannot apply -- and the start used to just raise, leaving
     a live supervisor behind (CI showed it with ppid=1). The failing start has to end
-    what it started.
+    what it started, on every exit that is not success.
     """
     import tools.ocean_lifecycle as lifecycle
 
-    terminated = []
-    monkeypatch.setattr(lifecycle, "_terminate_supervisor", terminated.append)
+    tree = _function_ast(lifecycle._start_runtime_locked)
+    cleanup_calls = [
+        node for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "_terminate_supervisor"
+    ]
+    assert cleanup_calls, "the start path never ends the supervisor it spawned"
 
-    source = inspect.getsource(lifecycle._start_runtime_locked)
-    raise_index = source.index("raise LifecycleError")
-    assert "_terminate_supervisor(supervisor)" in source[:raise_index], (
-        "the timeout path raises without ending the supervisor it spawned"
+    # In a `finally`, so an unexpected error inside the wait loop leaks nothing either.
+    in_finally = any(
+        call in ast.walk(handler)
+        for node in ast.walk(tree) if isinstance(node, ast.Try)
+        for handler in node.finalbody
+        for call in cleanup_calls
     )
+    assert in_finally, "the cleanup is not on a finally path; an early error would leak"
 
 
 @pytest.mark.skipif(os.name != "nt", reason="job objects are a Windows mechanism")

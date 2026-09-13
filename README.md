@@ -245,7 +245,6 @@ tools/
   runtime_supervisor.py         authenticated loopback supervisor for one runtime instance
   runtime_user.py               password-safe user bootstrap delegated to the runtime
 ocean.py                        user-facing OCEAN Full Dev CLI
-PRIVATE.txt                     the publication gate, committed on purpose
 ```
 
 The skeleton references 13 bundles in two rings — the functional core, and breadth around it. It
@@ -422,14 +421,24 @@ device-bound OS-account coupling this is meant to become.
 
 ## Release conditions
 
-This repository carries a conditional publication gate (`PRIVATE.txt`, committed on purpose so
-the gate is visible where visibility is switched). It opens when all four are demonstrably met:
+The conditional publication gate that used to live here (`PRIVATE.txt`) was **lifted on
+2026-09-11** by user decision D-20260909-003 (`open-ocean = B`, public via a sanitised
+distribution); the file was removed in `6ca9a38`. What follows is therefore no longer a lock
+on visibility — it is the maturity record the gate used to guard, kept because the questions
+it asks are still the right ones and because a released repository should say plainly what it
+does and does not yet demonstrate.
+
+The four conditions and how they stand:
 
 1. **Green components** — every referenced bundle is green: each of its components public and
    checked. **Met as of 2026-08-18** for this repository's 13-bundle scope — see the traffic-light
    table above.
 2. **Sluice test passed** — the whole line works end to end: a fresh install from these recipes
-   reaches a working state on a machine that is not the development host. **Not met yet.** The
+   reaches a working state on a machine that is not the development host. **Not met yet.**
+   *Which host counts was itself a question, and it is answered:* user decision D-20260906-003
+   (2026-09-11) = **1B** — the fresh install on WORKSTATION-LG of 2026-08-30 does **not** settle
+   this, because a second development machine is still a development host. Only the Full Ocean
+   installation on the Mac Studio does (tracked as remaining work in `T-20260818-903104603`). The
    installer seam remains foreign-host integration-proven by the 2026-08-20 Mac Studio run. On
    2026-08-29 the development host additionally completed a real Full Dev plan/apply/start/status/
    stop/restart cycle. The initial root-page acceptance proved transport only and was later found
@@ -444,15 +453,20 @@ the gate is visible where visibility is switched). It opens when all four are de
    `main` with post-adoption readback `b13f1b11626141d6dc6927028dc10008bc406866`. See
    `architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md` for the exact evidence and remaining breadth.
 3. **Parity for the release scope** — the system performs at the level it claims to cover. A
-   smaller installable core is a build stage, not a release. The current source audit records
-   114 reachable names while retaining the historic 113-name runtime snapshot as the minimum
-   commitment; see the [extraction roadmap](architecture/BACH-EXTRACTION-ROADMAP.md). **Re-measured
-   2026-08-18** (read-only, BACH untouched): the 114-name bar is unchanged and still current; see
-   `architecture/bach-parity-baseline.v1.json` → `re_audit_2026-08-18`. This condition asks for more
-   than a name count, though: [Cluster 9's operation matrix](architecture/BACH-EXTRACTION-ROADMAP.md#cluster-9-operation-matrix)
+   smaller installable core is a build stage, not a release. *How that level is measured was
+   itself a question, and it is answered:* user decision D-20260906-003 (2026-09-11) = **parity
+   is measured functionally, against use cases** — not against a handler head count, and not
+   against the `accepted` tally in `architecture/bach-parity-baseline.v1.json` (last written
+   2026-08-18). Moving each module back into BACH so the old path can be switched off is a
+   separate, parallel track, not the yardstick for this condition.
+   The name counts stay on record as history, not as the bar: the source audit records 114
+   reachable names and retains the historic 113-name runtime snapshot; re-measured 2026-08-18
+   (read-only, BACH untouched) the 114-name bar was unchanged. See the
+   [extraction roadmap](architecture/BACH-EXTRACTION-ROADMAP.md).
+   Measured functionally, the picture does not improve: [Cluster 9's operation matrix](architecture/BACH-EXTRACTION-ROADMAP.md#cluster-9-operation-matrix)
    is the only cluster with active work (8 of 9 clusters have not started), and within it 0 of 30
-   command names carry `accepted` (functionally-equivalent) status yet — 20 are `candidate-partial`,
-   9 are `gap`, 1 is `alias`. Condition 3 is therefore **not close to met**; it depends on the same
+   command names are functionally equivalent yet — 20 are `candidate-partial`, 9 are `gap`, 1 is
+   an `alias`. Condition 3 is therefore **not close to met**; it depends on the same
    installer/runtime work as condition 2.
 4. **Publication check passed** — law, privacy and licensing reviewed with no blockers. **Run
    2026-08-18** (`repo-publish-check` skill, 10 gates) — verdict and local report:
@@ -463,7 +477,11 @@ Condition 2 is the one this repository is named after. Opening the sluices and w
 the water actually arrives is the test that no amount of correct manifests can substitute for.
 Of the four conditions, 1 and 4 are addressed. Condition 2 now has a verified transactional seam
 and a working development-host runtime, but still lacks a complete fresh foreign-host installation;
-condition 3 still lacks BACH functional parity. `PRIVATE.txt` therefore remains in force.
+condition 3 still lacks functional parity. Since 2026-09-11 that no longer holds the repository
+shut — the gate was lifted by decision, not by the conditions being met. The distinction matters:
+this repository is public because the owner chose a sanitised public distribution, not because
+OPEN OCEAN is finished. Conditions 2 and 3 remain open work, and nothing here should be read as
+a claim that they are done.
 
 ---
 

@@ -6,7 +6,7 @@
   "carrier": {
     "id": "session-checkpoint",
     "repository": "https://github.com/ellmos-ai/session-checkpoint",
-    "commit": "2a9ce5ec5c5c47fb07615ae7b0aa19b04ef53098",
+    "commit": "45dd20212345df679a1ed7a29e3da5e152c4f54f",
     "version": "0.1.0",
     "visibility": "private",
     "network": "none",

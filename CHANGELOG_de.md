@@ -19,6 +19,10 @@
 
 ### Behoben
 
+- Die öffentliche Repository-Oberfläche entspricht jetzt ihrer tatsächlichen Sichtbarkeit:
+  Konkrete Entwicklungsrechner-Kennungen wurden aus ausgelieferter Dokumentation und Fixtures
+  entfernt, Instanzpfade durch neutrale Platzhalter ersetzt und veraltete Aussagen über einen
+  weiterhin privaten Repository-Aufbau gestrichen.
 - `architecture/INSTALLER-TARGET.md` wurde vom Platzhalter vor der Implementierung zum Vertrag des
   implementierten unterstützten Pfads korrigiert; weitere Hostadapter, Upgrades und BACH-Setup-
   Parität bleiben ausdrücklich offen. Beide BACH-Roadmaps und READMEs wurden daran ausgerichtet.
@@ -41,7 +45,7 @@
 
 ### Geprüft
 
-- Ein zweiter, unabhängiger Fresh-Install-Host, `WORKSTATION-LG`, erreichte dasselbe Ergebnis:
+- Ein zweiter, unabhängiger Fresh-Install-Host, `<FRESH-HOST>`, erreichte dasselbe Ergebnis:
   Eingangs-Worktrees `open-ocean@243a703c` (Tag `ocean-full-laptop-hafenlicht-20260829`) und
   `ellmos-development-system@1b461c9c`, beide detached und sauber; Suite vor der Installation
   pytest 137/137, unittest 125/125, ruff ohne Befunde, `compileall` Exit 0.
@@ -186,7 +190,7 @@ Sichtbarkeitsänderung noch eine Änderung an `PRIVATE.txt`.
 - **CI-Matrix und Workflow-Härtung**: pip-Caching (`cache: 'pip'`) für `actions/setup-python@v5` ergänzt und `timeout-minutes: 15` als Ausreißerschutz für die Test-Jobs in `.github/workflows/ci.yml` gesetzt.
 - **Automatisierte Lifecycle-Workflows**: Den ökosystemweiten Standard-Workflow für veraltete Issues und PRs in `.github/workflows/stale.yml` ausgerollt.
 - **Packaging- und Testabhängigkeiten**: `[project.optional-dependencies]` mit den Testabhängigkeiten (`pytest`, `ruff`) in `pyproject.toml` ergänzt und die Version auf `0.1.2` angehoben.
-- **Multi-Host-Gitignore-Absicherung**: `.gitignore` gegen Multi-Host-Sync-Konflikte (`*-WORKSTATION*`, `*-ASUS-GEI*`, `* (kopie)*`, `* (copy)*`, `*-conflict-*`, `*.sync-temp-*`), Multi-Agenten-Locks (`LOCK`, `LOCK.*`, `*.lock`, `LOCK.permissions.json`) und Wheel-Packaging-Artefakte (`wheelhouse/`, `.wheel-smoke/`) gehärtet.
+- **Multi-Host-Gitignore-Absicherung**: `.gitignore` gegen Multi-Host-Sync-Konflikte (`*-WORKSTATION*`, `*-ASUS-*`, `* (kopie)*`, `* (copy)*`, `*-conflict-*`, `*.sync-temp-*`), Multi-Agenten-Locks (`LOCK`, `LOCK.*`, `*.lock`, `LOCK.permissions.json`) und Wheel-Packaging-Artefakte (`wheelhouse/`, `.wheel-smoke/`) gehärtet.
 - **Statusabgleich des Publikationsgatters**: Die formale Aufhebung des Publikationsgatters `PRIVATE.txt` gemäß Entscheidung D-20260909-003 und Nutzeranweisung in `README.md`, `README_de.md` und `llms.txt` dokumentiert.
 - **Vertrags- und Metadatentests**: `tests/test_metadata.py` um Tests für die Integrität des Stale-Workflows, das pip-Caching, die optionalen Testabhängigkeiten und die Multi-Host-Gitignore-Muster erweitert; die Testzahlen der Suite abgeglichen (113 bestandene Tests).
 

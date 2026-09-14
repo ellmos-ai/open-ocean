@@ -42,9 +42,9 @@ The free community system of the ellmos ecosystem.
 > [!NOTE]
 > For machine-readable architecture maps and LLM context, see [`llms.txt`](llms.txt). Security policy and invariants are documented in [`SECURITY.md`](SECURITY.md). Third-party dependencies are inventoried in [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md). Release changes are tracked in [`CHANGELOG.md`](CHANGELOG.md).
 
-> **Private build, and early on purpose.** This repository exists before the system does, so the
-> architecture has somewhere to live while it is being decided. It opens when the water reaches
-> the ocean — see *[Release conditions](#release-conditions)*.
+> **Public architecture, honest maturity.** This repository is the public OPEN OCEAN build.
+> Its Full Ocean development composition is usable, while release-scope parity and fresh
+> non-development-host acceptance remain open — see *[Release conditions](#release-conditions)*.
 
 ---
 
@@ -70,7 +70,7 @@ offline identity, and evicts provider service workers/caches before they can cla
 | Repository | What it is | State |
 |---|---|---|
 | **bundles** | the recipe layer: manifests, catalogue, export tool | private, releasing wave by wave |
-| **open-ocean** (here) | the system build: architecture, installer, the thing that consumes recipes | private, early |
+| **open-ocean** (here) | the system build: architecture, installer, the thing that consumes recipes | public, under active development |
 
 ---
 
@@ -322,8 +322,8 @@ record through task-master, COMA or the module starter. `--dry-run` proves the
 resolved chain without starting a provider.
 On Windows, the supervisor also retries transient atomic state-file replacement contention within
 a bounded one-second window, so a successful stop cannot leave a stale `running` record behind.
-On ASUS-GEI, the hidden limited-user logon task `EllmosOceanFullUserStart` now launches the exact
-`ocean-full-laptop-hafenlicht-20260829` checkout and `C:\_Local_DEV\ocean-full`; its controlled
+On `<DEV-HOST>`, the hidden limited-user logon task `EllmosOceanFullUserStart` now launches the exact
+accepted checkout and `<workspace>`; its controlled
 demand-start acceptance returned task result `0` with one supervisor, one child and one listener.
 This proves the configured logon path, not an actual reboot. The former BACH session sidecar was
 then stopped through BACH's own CLI.
@@ -356,7 +356,7 @@ then stopped through BACH's own CLI.
 | Component | Status & Evidence |
 |---|---|
 | Architecture skeleton | present, 13 bundles referenced |
-| BACH extraction baseline | present — 114 source-declared names; historic 113-name runtime bar retained; re-audited 2026-08-18 (106 handler classes, +1 vs. the 2026-08-08 baseline — traced to a host-suffixed duplicate file in BACH, `upgrade-WORKSTATION-LG.py` alongside `upgrade.py`; not fixed here, BACH is out of scope for this repository's changes). `registered_names` unchanged at 114. |
+| BACH extraction baseline | present — 114 source-declared names; historic 113-name runtime bar retained; re-audited 2026-08-18 (106 handler classes, +1 vs. the 2026-08-08 baseline — traced to a host-suffixed duplicate file in BACH, `upgrade-<FRESH-HOST>.py` alongside `upgrade.py`; not fixed here, BACH is out of scope for this repository's changes). `registered_names` unchanged at 114. |
 | K9-1 data/checkpoint gate | two carrier fixtures green; adapter and BACH equivalence remain open |
 | Installer and lifecycle | **Resolve, Verify, source-provenance pins, SHA-pinned Fetch/Place, exact provider bindings, sandboxed skill Activate, append-preserving activation logging, target-validated Roll back, installed-snapshot recovery, runtime start/status/stop/restart and delegated user bootstrap are implemented.** The accepted Windows Full Ocean workspace is `C:\_Local_DEV\ocean-full`. It verifies **28/28** OCEAN-family bundle pins, resolves **54 of 65 module references and all 80 skills**, has no missing required component, reports `full_composition: true`, and runs at `http://127.0.0.1:8810/control/`. The eleven unresolved module references are optional. The separately placed `automation-runtime` provider passed native provider/scheduler readback, immutable-receipt, redaction and bounded-statistics acceptance at commit `c2de7188626510b181c4ecf2708c15f2395e32aa`. The active-runtime preflight stops a second `up --apply` before Fetch/Activate can write. The product-owned origin redirects Root to OCEAN and clears legacy provider PWA workers/caches without clearing cookies or other browser storage. Live HTTP and a real browser confirm `307 / → /control/`, the `OCEAN Full Dev` surface and no TerminPilot product markers. A real stop/start/stop/start cycle proves the Windows state-file fix. The suite now contains **181 passing tests plus 2 passing subtests on Windows**. This is a composition-complete private Full Dev build for its declared required scope, not an OPEN OCEAN release or BACH-parity claim. Full Ocean selection commit `1b461c9cb900ada15b8e104f2586a6b4a1ea5278` is adopted in canonical recipe `main`, whose post-adoption readback is `b13f1b11626141d6dc6927028dc10008bc406866`. See the [staged build plan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
 | Runtime | **available for private Full Dev** through the declared `runtime.host` provider `ellmos-core`, with the resolved `unified-gui.host` exposed as the OCEAN operator surface; an OPEN OCEAN runtime is not shipped and the private provider is not a public dependency |
@@ -379,13 +379,13 @@ None of the four repositories that blocked *other* parts of the wider ecosystem 
 `policy-registry`) are referenced by this repository's 13-bundle skeleton at all; they gate bundles
 outside this repository's scope (`core-discovery`, `prompt-workflow`, `runtime-options`,
 `governance-assurance`, `automation-control`). Condition 1, read strictly for what this repository
-actually references, is met as of 2026-08-18. What still blocks publication is conditions 2 and 3
-below, not condition 1.
+actually references, is met as of 2026-08-18. Conditions 2 and 3 below still block broader
+release-maturity claims, not repository publication.
 
-### WORKSTATION-LG fresh install (2026-08-30)
+### Independent development-host fresh install (2026-08-30)
 
 A second, independent Windows host completed the same Full Dev composition on 2026-08-30:
-`WORKSTATION-LG`, workspace `C:\_Local_DEV\ocean-full`, target directory absent beforehand (a
+`<FRESH-HOST>`, workspace `<workspace>`, target directory absent beforehand (a
 genuine fresh install). Input worktrees: `open-ocean` at tag
 `ocean-full-laptop-hafenlicht-20260829` (`243a703c60e295f050a2dc68bdde13ef8e847d29`),
 `ellmos-development-system` at `1b461c9cb900ada15b8e104f2586a6b4a1ea5278` — both detached and
@@ -436,7 +436,7 @@ The four conditions and how they stand:
 2. **Sluice test passed** — the whole line works end to end: a fresh install from these recipes
    reaches a working state on a machine that is not the development host. **Not met yet.**
    *Which host counts was itself a question, and it is answered:* user decision D-20260906-003
-   (2026-09-11) = **1B** — the fresh install on WORKSTATION-LG of 2026-08-30 does **not** settle
+   (2026-09-11) = **1B** — the fresh install on `<FRESH-HOST>` of 2026-08-30 does **not** settle
    this, because a second development machine is still a development host. Only the Full Ocean
    installation on the Mac Studio does (tracked as remaining work in `T-20260818-903104603`). The
    installer seam remains foreign-host integration-proven by the 2026-08-20 Mac Studio run. On

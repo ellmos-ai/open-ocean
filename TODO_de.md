@@ -8,14 +8,14 @@
   vom OS gehaltene Byte-Range-/flock-Sperre, wird beim Tod des Starters vom OS freigegeben;
   ein zweiter gleichzeitiger Start scheitert an der CLI geschlossen). Ursprungsbeschreibung: Zwei direkte
   Lebenszyklusaufrufe können derzeit die Leerer-Zustand-Vorprüfung passieren, bevor einer der
-  Supervisoren den Laufzeitstatus schreibt. Der ASUS-GEI-Logon-Task vermeidet das durch
+  Supervisoren den Laufzeitstatus schreibt. Der `<DEV-HOST>`-Logon-Task vermeidet das durch
   deaktiviertes `StartWhenAvailable` und genau einen Trigger; der Lebenszyklus selbst muss bei
   gleichzeitigen Starts jedoch geschlossen fehlschlagen.
 - [x] Favicon ausgeliefert: `ellmos-core` beantwortet `/favicon.ico` mit seinem PWA-Icon
   (ellmos-core `6185504`); wirkt auf einem Host, sobald dessen Runtime-Provider-Kopie diesen
   Commit trägt. Ursprungsbeschreibung: Ein OCEAN-Favicon ausliefern oder die Favicon-Anforderung entfernen. Die aktuelle
   Browserabnahme ist gesund, protokolliert aber einen nicht funktionalen `/favicon.ico`-404.
-- [ ] ASUS-GEI tatsächlich neu starten und danach den unveränderten Task
+- [ ] `<DEV-HOST>` tatsächlich neu starten und danach den unveränderten Task
   `EllmosOceanFullUserStart`, den exakten Tag-Checkout, das Prozess-Tupel, die Portbelegung, die
   HTTP-Identität und die Full-Ocean-Bereitschaft nachlesen.
   **2026-09-02: de facto geschehen und FEHLGESCHLAGEN.** Nach dem Boot um 21:04 lief der
@@ -24,7 +24,7 @@
   Lesekopien, und OneDrive.exe startete erst um 21:14:27 — sieben Minuten nach dem Task. Ein
   manueller `ocean.py start` danach ist grün. Ticket T-20260902-313385481 (Provider in den Workspace
   platzieren; kein OneDrive-Laufzeitpfad; Kind-stderr nach `logs/runtime.log`). Übergangsweise
-  auf ASUS-GEI: Task-Neustart bei Fehler 5× alle 2 min (XML-Backup in `logs/`). Bleibt offen,
+  auf `<DEV-HOST>`: Task-Neustart bei Fehler 5× alle 2 min (XML-Backup in `logs/`). Bleibt offen,
   bis ein Reboot-Readback grün ist.
   **2026-09-02, später am selben Tag: beide Code-Fixes gelandet (b59d1ee).**
   `fetch_place.plan_and_fetch()` kopiert ("placed") jetzt jedes von Resolve gefundene Modul ohne
@@ -33,7 +33,7 @@
   Provider; `ocean.py start` spiegelt `sys.stderr` zusätzlich nach
   `<workspace>/logs/runtime.log` (pythonw hat keine Konsole, ein headless `LifecycleError`-Print
   — oder jede unbehandelte Ausnahme, da Pythons Default-Excepthook ebenfalls nach stderr
-  schreibt — verschwand bisher spurlos, übrig blieb nur der nackte Exitcode). Auf ASUS-GEI ohne
+  schreibt — verschwand bisher spurlos, übrig blieb nur der nackte Exitcode). Auf `<DEV-HOST>` ohne
   Neustart nachgeprüft: der gepinnte Runtime-Checkout wurde auf `b59d1ee` vorgespult, `ocean.py
   down` + `up --apply` (mit denselben bundles-root/system-manifest/catalog/skills-registry wie
   bei der ursprünglichen Installation) lief sauber durch, und das entstandene
@@ -49,7 +49,7 @@
   nicht reproduzieren; es belegt nur, dass der Fix dieses Wettrennen konstruktiv beseitigt (kein
   OneDrive-Pfad mehr, gegen den gelaufen werden könnte) und dass die Kette
   Task/Prozess/Port/Health auf dem reparierten Checkout Ende-zu-Ende funktioniert. Bleibt offen,
-  bis ein echter ASUS-GEI-Neustart es live bestätigt.
+  bis ein echter `<DEV-HOST>`-Neustart es live bestätigt.
   **2026-09-10: Der echte Neustart hat endlich stattgefunden — und ist ERNEUT FEHLGESCHLAGEN,
   aus einem anderen Grund.** `LastBootUpTime 2026-09-10T19:42:24+02:00`; der Logon-Task lief um
   19:42:38 und endete wieder mit Exit 4. Die OneDrive-Ursache war beseitigt
@@ -79,7 +79,7 @@
   **Ende-zu-Ende mit dem finalen Wert verifiziert** (2026-09-12 09:00:28, aus gestoppter
   Laufzeit): `LastTaskResult 0`, einziger Listener `127.0.0.1:8810` (PID 5184), `/api/health` 200
   nach 38,9 s, Receipt `running`. **Bleibt offen, bis ein echter Neustart es bestätigt** — der
-  Kaltstartpfad selbst ist ohne Neustart nicht reproduzierbar. WORKSTATION-LG braucht sehr
+  Kaltstartpfad selbst ist ohne Neustart nicht reproduzierbar. `<FRESH-HOST>` braucht sehr
   wahrscheinlich dasselbe Task-Argument (dort prüfen, nicht unterstellen).
 - [ ] Klären, warum ein OCEAN-Start überhaupt 39 s warm und 210 s kalt braucht. Durch Messung am
   2026-09-12 ausgeschlossen (siehe Reboot-Punkt oben): Modulimporte, `OceanOriginApp()`,
@@ -167,7 +167,7 @@
   ControlCenter-Konfiguration werden erst danach relevant.
 - [ ] Geräteseitige OS-Konto-Kopplung für die OCEAN-Benutzeridentität prüfen (ein
   Windows-/macOS-Konto je Gerät) statt eines zusätzlichen App-Passworts; Anlass: Die
-  WORKSTATION-LG-Installation läuft ohne OCEAN-Benutzer, während `/control/` und `/api/health`
+  `<FRESH-HOST>`-Installation läuft ohne OCEAN-Benutzer, während `/control/` und `/api/health`
   ohne Auth erreichbar bleiben.
 
 Diese Punkte autorisieren keine Sichtbarkeitsänderung. (Das Veröffentlichungsgatter

@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Aligned the public repository surface with its actual visibility: removed concrete development
+  host identifiers from shipped documentation and fixtures, replaced instance paths with neutral
+  placeholders, and removed stale claims that the repository itself is still a private build.
 - Reclassified `architecture/INSTALLER-TARGET.md` from a pre-implementation placeholder to the
   implemented supported-path contract, while keeping additional host adapters, upgrades and BACH
   setup parity explicitly open; aligned both BACH roadmaps and READMEs with that boundary.
@@ -45,7 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Verified
 
-- A second, independent fresh-install host, `WORKSTATION-LG`, reached the same result:
+- A second, independent fresh-install host, `<FRESH-HOST>`, reached the same result:
   input worktrees `open-ocean@243a703c` (tag `ocean-full-laptop-hafenlicht-20260829`) and
   `ellmos-development-system@1b461c9c`, both detached and clean; pre-install suite pytest
   137/137, unittest 125/125, ruff clean, `compileall` exit 0.
@@ -175,7 +178,7 @@ part of this entry.
 - **CI Matrix & Workflow Hardening**: Added pip caching (`cache: 'pip'`) to `actions/setup-python@v5` and configured `timeout-minutes: 15` runaway protection on test jobs in `.github/workflows/ci.yml`.
 - **Automated Lifecycle Workflows**: Deployed standard ecosystem stale issue & PR workflow in `.github/workflows/stale.yml`.
 - **Packaging & Test Dependencies**: Added `[project.optional-dependencies]` with test dependencies (`pytest`, `ruff`) in `pyproject.toml` and bumped version to `0.1.2`.
-- **Multi-Host Gitignore Defense**: Hardened `.gitignore` against multi-host sync conflicts (`*-WORKSTATION*`, `*-ASUS-GEI*`, `* (kopie)*`, `* (copy)*`, `*-conflict-*`, `*.sync-temp-*`), multi-agent locks (`LOCK`, `LOCK.*`, `*.lock`, `LOCK.permissions.json`), and wheel packaging artifacts (`wheelhouse/`, `.wheel-smoke/`).
+- **Multi-Host Gitignore Defense**: Hardened `.gitignore` against multi-host sync conflicts (`*-WORKSTATION*`, `*-ASUS-*`, `* (kopie)*`, `* (copy)*`, `*-conflict-*`, `*.sync-temp-*`), multi-agent locks (`LOCK`, `LOCK.*`, `*.lock`, `LOCK.permissions.json`), and wheel packaging artifacts (`wheelhouse/`, `.wheel-smoke/`).
 - **Publication Gate Status Alignment**: Documented formal lifting of publication gate `PRIVATE.txt` per decision D-20260909-003 and user directive across `README.md`, `README_de.md`, and `llms.txt`.
 - **Contract & Metadata Tests**: Expanded `tests/test_metadata.py` with tests for stale workflow integrity, pip caching, optional test dependencies, and multi-host gitignore patterns; synchronized test suite counts (113 passed tests).
 

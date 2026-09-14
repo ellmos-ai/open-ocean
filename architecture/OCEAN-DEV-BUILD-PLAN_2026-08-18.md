@@ -575,7 +575,7 @@ work present, then used the resulting single activation log for one rollback.
 - **Process and evidence readback:** an independent SSH process check after the invoking session
   had exited found no remaining ocean-dev/fetch process. The retained evidence lives under the
   bounded remote work directory
-  `~/compute/open-ocean-sluice-combined-20260820T2350B-ASUS-GEI/`; its pulled `summary.json` has
+  `~/compute/open-ocean-sluice-combined-20260820T2350B-<DEV-HOST>/`; its pulled `summary.json` has
   SHA-256 `398C0664…8BB6A5B`.
 - **Claim boundary:** this closes the formerly untried combined mechanism path, not PRIVATE.txt
   release condition 2. The destination was a sandbox, only one Ring-1 Git module was fetchable at
@@ -835,8 +835,8 @@ commit. `ellmos-scheduler` is not substituted for the separate `automation-runti
   not yet a claim that canonical recipe `main` has merged it.
 - Recipe verification passed its skill/hash generators, README generator, compile check and
   whitespace check. The host-independent suite passed **148 tests, 5 skips and 20 subtests**. The
-  unabridged suite additionally stayed fail-closed on an expired WORKSTATION-LG currentness receipt
-  and WORKSTATION-LG-only local files; ASUS-GEI did not forge replacements for either host proof.
+  unabridged suite additionally stayed fail-closed on an expired `<FRESH-HOST>` currentness receipt
+  and `<FRESH-HOST>`-only local files; `<DEV-HOST>` did not forge replacements for either host proof.
 
 ### Exact provider binding and applied Full Dev state
 
@@ -980,7 +980,7 @@ membership.
 - TDD first failed on the missing product contract/manifest and the stale 30-bundle assumptions.
   The focused recipe suite is now **41 passed, 1 skipped**, and the generated README catalogue is
   in sync. The unabridged recipe suite still fails closed only on the previously reproduced
-  external evidence gates: one missing WORKSTATION-LG local file and an expired System Explorer
+  external evidence gates: one missing `<FRESH-HOST>` local file and an expired System Explorer
   currentness receipt (**152 passed, 5 skipped, 1 failed, 14 errors**).
 
 ### Controlled apply and live readback
@@ -1093,7 +1093,7 @@ Selection remains result-driven rather than ordered. At the next section start, 
 The named checkpoint for this private integration cycle is
 `ocean-full-dev-gezeitenstrom-20260829`. It is not a public release tag.
 
-## 14. ASUS-GEI Full Ocean cutover and lifecycle closure — 2026-08-29
+## 14. `<DEV-HOST>` Full Ocean cutover and lifecycle closure — 2026-08-29
 
 This result-driven cycle repeated the section-start lift through `.AI`, Gardener, USMC and the
 applicable release/visibility policies. It then selected the laptop cutover because the canonical
@@ -1169,11 +1169,11 @@ The code-and-cutover checkpoint is `ocean-full-laptop-hafenlicht-20260829`; the 
 host-activation checkpoint is `ocean-full-laptop-leuchtfeuer-20260829`. Neither is an OPEN OCEAN
 release, and neither changes repository visibility or `PRIVATE.txt`.
 
-## 15. WORKSTATION-LG Full Ocean fresh install — 2026-08-30
+## 15. `<FRESH-HOST>` Full Ocean fresh install — 2026-08-30
 
 This cycle repeated the section-start lift through `.AI`, Gardener, USMC and the applicable
 release/visibility policies, then reproduced the same Full Ocean composition as an independent
-fresh install on a second Windows host, `WORKSTATION-LG`.
+fresh install on a second Windows host, `<FRESH-HOST>`.
 
 ### Input worktrees and pins
 
@@ -1192,7 +1192,7 @@ fresh install on a second Windows host, `WORKSTATION-LG`.
 
 - The read-only plan reported 28/28 verified bundle pins and 80/80 skills, but only 51 of 65
   module references, with `full_composition: false` — the same three required providers as the
-  ASUS-GEI cutover (§14) were not yet local on this host.
+  `<DEV-HOST>` cutover (§14) were not yet local on this host.
 
 ### Apply and provider fetch
 
@@ -1233,7 +1233,7 @@ fresh install on a second Windows host, `WORKSTATION-LG`.
 
 ### BACH negative finding
 
-- Unlike the ASUS-GEI cutover (§14), no BACH session sidecar was ever running on this host
+- Unlike the `<DEV-HOST>` cutover (§14), no BACH session sidecar was ever running on this host
   (`service.running: false`, `pid: null`) at any point before, during or after the OCEAN
   installation. Nothing was stopped, because nothing was running. BACH code, databases, tasks and
   configuration on this host are unchanged.

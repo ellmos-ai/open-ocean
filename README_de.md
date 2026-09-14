@@ -42,9 +42,10 @@ Das kostenlose Community-System des ellmos-Ökosystems.
 > [!NOTE]
 > Für maschinenlesbare Architekturübersichten und LLM-Kontext siehe [`llms.txt`](llms.txt). Sicherheitsrichtlinien und Invarianten sind in [`SECURITY.md`](SECURITY.md) dokumentiert. Drittanbieter-Lizenzen sind in [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md) inventarisiert. Versionsänderungen werden in [`CHANGELOG.md`](CHANGELOG.md) gepflegt.
 
-> **Privater Aufbau, und bewusst früh.** Dieses Repository existiert, bevor das System existiert —
-> damit die Architektur einen Ort hat, während sie entschieden wird. Es öffnet sich, wenn das
-> Wasser im Ozean ankommt; siehe *[Freigabebedingungen](#freigabebedingungen)*.
+> **Öffentliche Architektur mit ehrlichem Reifegrad.** Dieses Repository ist der öffentliche
+> OPEN-OCEAN-Bau. Die Full-Ocean-Entwicklungskomposition ist nutzbar; Parität im Freigabeumfang
+> und die frische Abnahme auf einem Nicht-Entwicklungsrechner bleiben offen; siehe
+> *[Freigabebedingungen](#freigabebedingungen)*.
 
 ---
 
@@ -73,7 +74,7 @@ Anbieter-Service-Worker sowie -Caches, bevor sie die OCEAN-Adresse beanspruchen 
 | Repository | Was es ist | Zustand |
 |---|---|---|
 | **bundles** | die Rezept-Schicht: Manifeste, Katalog, Export-Werkzeug | privat, Freigabe Welle für Welle |
-| **open-ocean** (hier) | der Systembau: Architektur, Installer, das Konsumierende | privat, früh |
+| **open-ocean** (hier) | der Systembau: Architektur, Installer, das Konsumierende | öffentlich, in aktiver Entwicklung |
 
 ---
 
@@ -345,9 +346,8 @@ den Modulstarter. `--dry-run` belegt die aufgelöste Kette ohne Anbieterstart.
 Unter Windows wiederholt der Supervisor außerdem eine vorübergehend blockierte atomare Ersetzung
 der Statusdatei innerhalb eines begrenzten Ein-Sekunden-Fensters. Damit kann ein erfolgreicher
 Stopp keinen veralteten `running`-Eintrag zurücklassen.
-Auf ASUS-GEI startet der verborgene Logon-Task mit eingeschränkten Benutzerrechten
-`EllmosOceanFullUserStart` jetzt den exakten Checkout
-`ocean-full-laptop-hafenlicht-20260829` und `C:\_Local_DEV\ocean-full`. Seine kontrollierte
+Auf `<DEV-HOST>` startet der verborgene Logon-Task mit eingeschränkten Benutzerrechten
+`EllmosOceanFullUserStart` jetzt den exakt abgenommenen Checkout und `<workspace>`. Seine kontrollierte
 Bedarfsstart-Abnahme endete mit Task-Ergebnis `0`, genau einem Supervisor, einem Kind und einem
 Listener. Das belegt den konfigurierten Logon-Pfad, aber keinen tatsächlich ausgeführten Neustart.
 Anschließend wurde der frühere BACH-Session-Sidecar über BACHs eigene CLI beendet.
@@ -359,7 +359,7 @@ Anschließend wurde der frühere BACH-Session-Sidecar über BACHs eigene CLI bee
 | Komponente | Status und Nachweis |
 |---|---|
 | Architektur-Gerüst | vorhanden, 13 Bundles referenziert |
-| BACH-Extraktionsbasis | vorhanden — 114 quellseitige Namen; historische 113er Runtime-Messlatte bleibt erhalten; erneut geprüft am 2026-08-18 (106 Handler-Klassen, +1 gegenüber der 2026-08-08-Basis — zurückverfolgt auf eine hostgebundene Duplikatdatei in BACH, `upgrade-WORKSTATION-LG.py` neben `upgrade.py`; hier NICHT behoben, BACH liegt außerhalb des Änderungsumfangs dieses Repositories). `registered_names` unverändert bei 114. |
+| BACH-Extraktionsbasis | vorhanden — 114 quellseitige Namen; historische 113er Runtime-Messlatte bleibt erhalten; erneut geprüft am 2026-08-18 (106 Handler-Klassen, +1 gegenüber der 2026-08-08-Basis — zurückverfolgt auf eine hostgebundene Duplikatdatei in BACH, `upgrade-<FRESH-HOST>.py` neben `upgrade.py`; hier NICHT behoben, BACH liegt außerhalb des Änderungsumfangs dieses Repositories). `registered_names` unverändert bei 114. |
 | K9-1 Daten-/Checkpoint-Gate | zwei Träger-Fixtures grün; Adapter und BACH-Äquivalenz bleiben offen |
 | Installer und Lebenszyklus | **Resolve, Verify, Quellprovenienz-Pins, SHA-gepinnte Fetch/Place-Schritte, exakte Anbieterbindungen, isolierte Skill-Aktivierung, erhaltende Aktivierungsprotokollierung, zielvalidiertes Rollback, Wiederherstellung des installierten Snapshots, Runtime-Start/Status/Stopp/Neustart und delegierte Benutzeranlage sind implementiert.** Der abgenommene Windows-Full-Ocean-Workspace ist `C:\_Local_DEV\ocean-full`. Er bestätigt **28/28** OCEAN-Familien-Bundle-Pins, löst **54 von 65 Modulreferenzen und alle 80 Skills** auf, hat keine fehlende Pflichtkomponente, meldet `full_composition: true` und läuft unter `http://127.0.0.1:8810/control/`. Die elf unaufgelösten Modulreferenzen sind optional. Der getrennt platzierte Anbieter für `automation-runtime` bestand am Commit `c2de7188626510b181c4ecf2708c15f2395e32aa` die Abnahme für natives Provider-/Scheduler-Rücklesen, unveränderliche Belege, Bereinigung und begrenzte Statistik. Die Vorprüfung der aktiven Laufzeit stoppt ein zweites `up --apply` vor jedem Fetch/Activate-Schreibzugriff. Der produkteigene Ursprung leitet Root auf OCEAN um und entfernt alte Anbieter-PWA-Worker und -Caches, ohne Cookies oder anderen Browserspeicher zu löschen. Live-HTTP und ein echter Browser bestätigen `307 / → /control/`, die Oberfläche `OCEAN Full Dev` und keine TerminPilot-Produktmarker. Ein echter Stopp-/Start-/Stopp-/Start-Zyklus belegt die Windows-Statusdatei-Reparatur. Die Suite umfasst jetzt **181 grüne Tests plus 2 grüne Subtests unter Windows**. Dies ist für den deklarierten Pflichtumfang ein kompositionsvollständiger privater Full-Dev-Build, aber weder eine OPEN-OCEAN-Freigabe noch ein BACH-Paritätsclaim. Der Full-Ocean-Auswahlcommit `1b461c9cb900ada15b8e104f2586a6b4a1ea5278` ist in den kanonischen Rezept-Branch `main` übernommen; dessen Nachlesestand lautet `b13f1b11626141d6dc6927028dc10008bc406866`. Siehe [gestuften Bauplan](architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md). |
 | Laufzeit | **für das private Full Dev verfügbar** über den deklarierten `runtime.host`-Anbieter `ellmos-core`, mit dem aufgelösten `unified-gui.host` als OCEAN-Operator-Oberfläche; eine OPEN-OCEAN-Laufzeit wird noch nicht ausgeliefert, und der private Anbieter ist keine öffentliche Abhängigkeit |
@@ -383,15 +383,15 @@ Keines der vier Repositories, die andere Teile des Ökosystems am 2026-08-08 blo
 `system-explorer`, `policy-registry`), wird vom 13-Bundle-Skelett dieses Repositories referenziert;
 sie betreffen Bundles außerhalb dieses Scopes (`core-discovery`, `prompt-workflow`,
 `runtime-options`, `governance-assurance`, `automation-control`). Bedingung 1 ist für den Umfang
-dieses Repositories mit Stand 2026-08-18 erfüllt. Was die Veröffentlichung noch hemmt, sind die
-Bedingungen 2 und 3.
+dieses Repositories mit Stand 2026-08-18 erfüllt. Die Bedingungen 2 und 3 hemmen weiterhin
+weitergehende Reifeclaims, nicht die Veröffentlichung des Repositories.
 
 ---
 
-### WORKSTATION-LG-Fresh-Install (2026-08-30)
+### Fresh-Install auf einem unabhängigen Entwicklungsrechner (2026-08-30)
 
 Ein zweiter, unabhängiger Windows-Host hat dieselbe Full-Dev-Komposition am 2026-08-30
-durchlaufen: `WORKSTATION-LG`, Workspace `C:\_Local_DEV\ocean-full`, Zielverzeichnis existierte
+durchlaufen: `<FRESH-HOST>`, Workspace `<workspace>`, Zielverzeichnis existierte
 vorher nicht (ein echter Fresh-Install). Eingangs-Worktrees: `open-ocean` am Tag
 `ocean-full-laptop-hafenlicht-20260829` (`243a703c60e295f050a2dc68bdde13ef8e847d29`),
 `ellmos-development-system` an `1b461c9cb900ada15b8e104f2586a6b4a1ea5278` — beide detached und
@@ -447,7 +447,7 @@ Die vier Bedingungen und ihr Stand:
    Rezepten erreicht auf einer Maschine, die nicht der Entwicklungsrechner ist, einen
    arbeitsfähigen Zustand. **Noch nicht erfüllt.**
    *Welcher Rechner dabei zählt, war selbst eine Frage, und sie ist beantwortet:* Nutzerentscheid
-   D-20260906-003 (2026-09-11) = **1B** — die frische Installation auf WORKSTATION-LG vom
+   D-20260906-003 (2026-09-11) = **1B** — die frische Installation auf `<FRESH-HOST>` vom
    2026-08-30 entscheidet das **nicht**, denn ein zweiter Entwicklungsrechner ist weiterhin ein
    Entwicklungsrechner. Nur die Full-Ocean-Installation auf dem Mac Studio tut das (als
    Restarbeit in `T-20260818-903104603` geführt). Die Installer-Naht bleibt durch den Mac-Studio-

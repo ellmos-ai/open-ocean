@@ -296,7 +296,7 @@ def test_gitignore_hygiene():
     assert "*-CONFLIT-*" in content
     assert "*-conflict-*" in content
     assert "*-WORKSTATION*" in content
-    assert "*-ASUS-GEI*" in content
+    assert "*-ASUS-*" in content
     assert "LOCK" in content
     assert "LOCK*.txt" in content
     assert "LOCK.permissions.json" in content

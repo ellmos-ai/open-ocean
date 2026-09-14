@@ -12,18 +12,18 @@
 ## Current private Full Ocean development state
 
 - Accepted workspaces:
-  - ASUS-GEI: `C:\_Local_DEV\ocean-full`
-  - WORKSTATION-LG: `C:\_Local_DEV\ocean-full` (fresh install, 2026-08-30)
+  - `<DEV-HOST>`: `<workspace>`
+  - `<FRESH-HOST>`: `<workspace>` (fresh install, 2026-08-30)
 - Product URL: `http://127.0.0.1:8810/control/`
 - Composition: 28/28 verified bundles, 54/65 resolved modules, 80/80 resolved skills
 - Required gaps: 0; optional unresolved module references: 11
 - Product identity: `OCEAN Full Dev`; no TerminPilot product surface on the OCEAN origin
 - Logon task `EllmosOceanFullUserStart`, hidden limited-user action pinned to the accepted tag,
-  verified on both ASUS-GEI and WORKSTATION-LG
-- BACH session sidecar: stopped on ASUS-GEI after OCEAN/autostart acceptance; never running on
-  WORKSTATION-LG, so nothing was stopped there
-- This is not an OPEN OCEAN release, BACH-parity claim, visibility change or permission to remove
-  `PRIVATE.txt`.
+  verified on both `<DEV-HOST>` and `<FRESH-HOST>`
+- BACH session sidecar: stopped on `<DEV-HOST>` after OCEAN/autostart acceptance; never running on
+  `<FRESH-HOST>`, so nothing was stopped there
+- This is not a tagged OPEN OCEAN release or a BACH-parity claim. The historical publication
+  marker was removed after the user-approved public sanitised distribution decision.
 
 ## Lifecycle CLI
 
@@ -51,7 +51,7 @@ task-master, COMA, then the module-declared starter.
 - Living build plan and evidence: `architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md`
 - Product boundaries: `architecture/PRODUCT-STACK-BOUNDARIES.md`
 - German product boundaries: `architecture/PRODUKT-STACK-GRENZEN.md`
-- Publication gate: `PRIVATE.txt`
+- Release-maturity record: `README.md` and `README_de.md` release conditions
 - Current tasks: `TODO.md`
 - Current tasks (German): `TODO_de.md`
 

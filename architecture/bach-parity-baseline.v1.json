@@ -24,7 +24,7 @@
     "baseline_drift_vs_2026-08-08": [
       "count handler_classes: expected 105, got 106"
     ],
-    "root_cause_identified": "BACH's system/hub/ carries two files that both define a class whose profile_name() returns 'upgrade': upgrade.py and upgrade-WORKSTATION-LG.py (a host-suffixed duplicate). This is the extra handler_classes count; registered_names stayed at 114 because both collapse to the same profile name. NOT fixed here: BACH is read-only for this ticket (user lock, buildweek-no-push) and the fix belongs upstream, not in this repository.",
+    "root_cause_identified": "BACH's system/hub/ carries two files that both define a class whose profile_name() returns 'upgrade': upgrade.py and upgrade-<FRESH-HOST>.py (a host-suffixed duplicate). This is the extra handler_classes count; registered_names stayed at 114 because both collapse to the same profile name. NOT fixed here: BACH is read-only for this ticket (user lock, buildweek-no-push) and the fix belongs upstream, not in this repository.",
     "registered_names_count_unchanged": true,
     "dangling_aliases_unchanged": true,
     "conclusion": "The 114-name/113-name release bar from 2026-08-08 is still current and accurate as of 2026-08-18; the only drift is the duplicate-file artifact above, which does not change scope or coverage."

@@ -79,7 +79,7 @@ Das Ticket- und Aufgabenmanagement wird innerhalb von `ticket-master` in eine re
 Ein zentraler Grundsatz von Ocean ist, dass alle Maschinen gleichwertige Nodes sind, aber spezialisierte Schwerpunkte übernehmen können:
 
 ### 3.1 Mehrere Trithons (Multi-Node)
-Theoretisch und praktisch kann auf jedem Rechner (Workstation-LG, ASUS-GEI, Mac Studio, künftiger Mac Mini) eine eigene Trithon-Instanz laufen. Dies erlaubt vollkommen autonomes lokales Arbeiten ohne Netzwerkverbindung.
+Theoretisch und praktisch kann auf jedem Rechner (`<FRESH-HOST>`, `<DEV-HOST>`, Mac Studio, künftiger Mac Mini) eine eigene Trithon-Instanz laufen. Dies erlaubt vollkommen autonomes lokales Arbeiten ohne Netzwerkverbindung.
 
 ### 3.2 Die Rolle des `Lead Trithon`
 Sobald mehrere Systeme an gemeinsamen Projekten arbeiten und die **Salt-Funktionen** (`claim-salt` und `lock-salt`) genutzt werden sollen, um Cloud-Latenzen abzufangen, wird **ein Lead Trithon** bestimmt:
@@ -94,7 +94,7 @@ $$\mathbf{Lead\text{ }Trithon\text{ (Aufgaben, Ollama, Salt)}} \quad\mathbf{\neq
 * **Konfigurationsbeispiele:**
   * **Szenario 1 (Empfohlener Standard):**
     * *Lead Trithon:* Mac Studio (läuft 24/7, 64 GB Unified Memory, treibt lokale Ollama-Inferenz, fungiert als Zero-Cloud-Enklave und Salt-Schiedsstelle).
-    * *USMC Lead (Muschelgrund):* Workstation-LG (große NVMe-Speicher, primäre Entwickler-Konsole).
+    * *USMC Lead (Muschelgrund):* `<FRESH-HOST>` (großer NVMe-Speicher, primäre Entwickler-Konsole).
   * **Szenario 2 (Vollständige Server-Zentrierung):**
     * Mac Studio übernimmt sowohl *Lead Trithon* als auch *Muschelgrund* (Lead-USMC).
   * **Szenario 3 (Dezentraler Wanderbetrieb):**
@@ -182,7 +182,7 @@ flowchart TB
     subgraph Federation["Multi-Host Koordination"]
         LeadTrithonNode["👑 LEAD TRITHON (z.B. Mac Studio)<br/>• Relationale Task-DB<br/>• Salt-Schiedsgericht (claim/lock)<br/>• Zero-Cloud Enklave"]
         WorkerOllama["🤖 Ollama Adapter<br/>Qwen 2.5 27B MLX (Idle-Loop)"]
-        LocalTrithonNode["💻 Lokaler Trithon Node<br/>(z.B. Workstation-LG)"]
+        LocalTrithonNode["💻 Lokaler Trithon Node<br/>(z. B. &lt;FRESH-HOST&gt;)"]
     end
 
     subgraph MemoryLayer["Gedächtnis-Schicht (Entkoppelt)"]

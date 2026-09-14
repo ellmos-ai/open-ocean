@@ -8,20 +8,20 @@
   OS-held byte-range/flock lock, released by the OS if the starter dies; second concurrent
   start fails closed at the CLI). Original description: Two direct lifecycle invocations can
   currently pass the empty-state preflight before either supervisor writes runtime state. The
-  ASUS-GEI logon task avoids this by disabling `StartWhenAvailable` and using one trigger, but the
+  `<DEV-HOST>` logon task avoids this by disabling `StartWhenAvailable` and using one trigger, but the
   lifecycle itself must fail closed under simultaneous starts.
 - [x] Favicon served: `ellmos-core` answers `/favicon.ico` with its PWA icon (ellmos-core
   `6185504`); takes effect on hosts once their runtime provider copy carries that commit.
   Original description: Serve an OCEAN favicon or remove the favicon request; current browser
   acceptance is healthy but records one non-functional `/favicon.ico` 404.
-- [ ] Perform a real ASUS-GEI reboot and read back the unchanged `EllmosOceanFullUserStart` task,
+- [ ] Perform a real `<DEV-HOST>` reboot and read back the unchanged `EllmosOceanFullUserStart` task,
   exact tagged checkout, process tuple, port ownership, HTTP identity and Full Ocean readiness.
   **2026-09-02: happened de facto and FAILED.** After the 21:04 boot the logon task ran at
   21:07:23 and exited 4 (runtime child exit 1 after 21 s, port 8810 never bound). Cause: 12 of
   14 runtime providers on the spec PYTHONPATH are OneDrive read copies, and OneDrive.exe only
   started at 21:14:27 — seven minutes after the task. A manual `ocean.py start` afterwards is
   green. Ticket T-20260902-313385481 (place providers into the workspace; no OneDrive runtime path;
-  child stderr into `logs/runtime.log`). Interim on ASUS-GEI: task restart-on-failure 5× every
+  child stderr into `logs/runtime.log`). Interim on `<DEV-HOST>`: task restart-on-failure 5× every
   2 min (XML backup in `logs/`). Stays open until a reboot readback is green.
   **2026-09-02, later same day: both code fixes landed (b59d1ee).**
   `fetch_place.plan_and_fetch()` now copies ("places") every Resolve-found module with no exact
@@ -30,7 +30,7 @@
   `sys.stderr` into `<workspace>/logs/runtime.log` (pythonw has no console, so a headless
   `LifecycleError` print — or any unhandled traceback, since Python's default excepthook also
   writes to stderr — used to vanish with nothing but the bare exit code). Re-verified on
-  ASUS-GEI without a reboot: the pinned runtime checkout was fast-forwarded to `b59d1ee`,
+  `<DEV-HOST>` without a reboot: the pinned runtime checkout was fast-forwarded to `b59d1ee`,
   `ocean.py down` + `up --apply` (same bundles-root/system-manifest/catalog/skills-registry as
   the original install) re-ran cleanly, and the resulting `ocean.runtime-spec.json` now carries
   **zero** OneDrive entries across all 14 PYTHONPATH paths (all under
@@ -43,7 +43,7 @@
   for** — OneDrive was already running throughout this test, so it cannot reproduce the actual
   race (OneDrive not yet mounted at logon); it only proves the fix removes that race by
   construction (no OneDrive path left to race against) and that the task/process/port/health
-  chain works end-to-end on the fixed checkout. Stays open until an actual ASUS-GEI reboot
+  chain works end-to-end on the fixed checkout. Stays open until an actual `<DEV-HOST>` reboot
   confirms it live.
   **2026-09-10, a real boot finally happened — and it FAILED AGAIN, for a different reason.**
   `LastBootUpTime 2026-09-10T19:42:24+02:00`; the logon task ran at 19:42:38 and exited 4 once
@@ -72,7 +72,7 @@
   **Verified end-to-end with the final value** (2026-09-12 09:00:28, from a stopped runtime):
   `LastTaskResult 0`, sole listener `127.0.0.1:8810` (PID 5184), `/api/health` 200 after 38.9 s,
   receipt `running`. **Still open until a real reboot confirms it** — the cold path itself cannot
-  be reproduced without one. WORKSTATION-LG most likely needs the same task argument (check
+  be reproduced without one. `<FRESH-HOST>` most likely needs the same task argument (check
   there, do not assume).
 - [ ] Find out why an OCEAN start needs 39 s warm and 210 s cold at all. Ruled out by
   measurement on 2026-09-12 (see the reboot item above): module imports, `OceanOriginApp()`,
@@ -153,7 +153,7 @@
   yet; host-local registry init, Gardener system sources and ControlCenter configuration only
   become relevant afterward.
 - [ ] Explore device-bound OS-account coupling for OCEAN user identity (a Windows/macOS account
-  per device) instead of a separate app password; motivated by the WORKSTATION-LG install running
+  per device) instead of a separate app password; motivated by the `<FRESH-HOST>` install running
   without an OCEAN user while `/control/` and `/api/health` remain reachable without auth.
 
 These items do not authorize a visibility change. (The publication gate `PRIVATE.txt` was lifted

@@ -127,27 +127,34 @@
 - [ ] Derive and test the default-deny OPEN OCEAN public allowlist independently from FULL OCEAN.
 - [ ] Continue BACH functional-parity work; treat newly discovered BACH-only extraction as an
   exceptional, value-gated module cycle.
-  **Readiness measured 2026-09-12 — a module-pair transfer is currently blocked on one shared
-  precondition.** A cycle in the sense of the build plan §5 wires a module into BACH and/or OCEAN
-  and then disconnects the superseded legacy path. Measured across the five named P8 pairs:
+  **Historical readiness measurement from 2026-09-12.** A cycle in the sense of the build plan §5
+  wires a module into BACH and/or OCEAN and then disconnects the superseded legacy path. The table
+  below records the five candidates as they were measured then; it is evidence, not current state:
 
   | pair | clone | foreign dirty files | target module importable | BACH legacy path |
   |---|---|---|---|---|
   | `agent-launcher` | yes | 0 | **no** | `system/hub/agent_launcher.py`, 2637 lines |
   | `ellmos-scheduler` | yes | 0 | **no** | `system/hub/scheduler.py`, 2092 lines |
-  | `swarm-ai` | yes | 0 | **no** | `system/hub/schwarm.py`, 793 lines |
+  | ~~`swarm-ai`~~ | yes | 0 | see recertification below | `system/hub/schwarm.py`, 793 lines |
   | `web-scraper` | yes | 5 | **no** | `system/hub/web_scrape.py`, 415 lines |
   | `doc-services` | yes | 1 | **no** | `system/hub/_services/document` |
 
-  Not one target module resolves via `importlib.util.find_spec`, and BACH holds no seam to any of
-  them, so BACH cannot consume what would replace its legacy path. Three further constraints: the
-  two largest pairs cannot have equivalence proven in one bounded cycle; `web-scraper` and
-  `doc-services` carry foreign uncommitted changes; and `swarm-ai` is an experiments/docs
-  repository without a consumable library API, which matches the earlier finding that `swarm_ai`
-  appeared only as test provenance. BACH itself is available (no lock, its feature branch is
-  contained in `main`, the only dirty entry is an untracked test-results directory) — the blocker
-  is the missing installable/consumable target module, and that is the next step, ahead of
-  choosing any pair.
+  At that point no target resolved via `importlib.util.find_spec`, and BACH held no seam to any of
+  them. The two largest pairs were also too broad for one bounded equivalence cycle. Later work on
+  `web-scraper` and `doc-services`, and later BACH lock/branch state, supersedes this snapshot and
+  must be read from the programme ticket rather than inferred from this table.
+
+  **`swarm-ai` recertification and OC-C decision (2026-09-15): pair removed.** The earlier
+  description of the repository as an experiments/docs collection without a consumable API was
+  factually wrong. The clean canonical repository at `63476d0` contains a PEP 621 package contract
+  (present since `5393acd`, 2026-08-13), five console entry points and reusable Python APIs; its
+  current suite passes 220/220 tests and Ruff. A real wheel build still fails on conflicting
+  PEP 639 license metadata, so this is not a package-release claim. Decision D-20260913-003,
+  question 2 / OC-C = B is therefore applied narrowly and truthfully: the proposed
+  `swarm-ai` ↔ BACH `system/hub/schwarm.py` P8 pair is struck because no compatible replacement
+  seam or second consumer has been demonstrated. The independent public experimental toolkit is
+  preserved as-is; it is not downgraded, deleted or relabelled as documentation-only. A future
+  integration needs a new value-gated proposal and compatibility evidence.
 - [x] (2026-09-02) Merged: `gardener` #4 (master ddd3a84), `ellmos-controlcenter-mcp` #9 (main 34cd95d); `policy-registry` #3 closed in favour of the decision-index path slice (https://github.com/ellmos-ai/policy-registry/pull/4). Adoption (host-local registry seed, ControlCenter config, ccm 0.6.0 npm release) is still open. Original: Merge and adopt the pending governance PRs (`policy-registry` #3, `gardener` #4,
   `ellmos-controlcenter-mcp` #9) — all open, mergeable, CI green as of 2026-08-30, none merged
   yet; host-local registry init, Gardener system sources and ControlCenter configuration only

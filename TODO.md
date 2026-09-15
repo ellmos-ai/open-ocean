@@ -14,7 +14,7 @@
   `6185504`); takes effect on hosts once their runtime provider copy carries that commit.
   Original description: Serve an OCEAN favicon or remove the favicon request; current browser
   acceptance is healthy but records one non-functional `/favicon.ico` 404.
-- [ ] Perform a real `<DEV-HOST>` reboot and read back the unchanged `EllmosOceanFullUserStart` task,
+- [x] Perform a real `<DEV-HOST>` reboot and read back the configured `EllmosOceanFullUserStart` task,
   exact tagged checkout, process tuple, port ownership, HTTP identity and Full Ocean readiness.
   **2026-09-02: happened de facto and FAILED.** After the 21:04 boot the logon task ran at
   21:07:23 and exited 4 (runtime child exit 1 after 21 s, port 8810 never bound). Cause: 12 of
@@ -74,6 +74,19 @@
   receipt `running`. **Still open until a real reboot confirms it** — the cold path itself cannot
   be reproduced without one. `<FRESH-HOST>` most likely needs the same task argument (check
   there, do not assume).
+  **2026-09-14 reboot acceptance: confirmed on the actual host, without initiating a reboot.**
+  Windows `LastBootUpTime` was 21:59:03 local; the logon task ran at 21:59:39 with
+  `LastTaskResult 0` and its action still passes `--health-timeout 600`. The tagged runtime
+  checkout is `bb12d54193b10c7b4c35b799da9678d6a229cad7`. The runtime receipt is
+  `running`: supervisor PID 23284 began at 22:02:58, child PID 7876 at 22:03:00, and
+  that child is the sole listener on `127.0.0.1:8810`. The new server-process line for
+  PID 7876 is present in `logs/runtime.log`. HTTP `/api/health` returned 200 with
+  `ok=true`, app `ellmos Sovereign`, tier `L2`, `local_models_only=true`, and DB check
+  `ok=true` (20 tables). The runtime spec has 14 existing local PYTHONPATH directories,
+  none in OneDrive. The read-only `ocean.py status --json` reported runtime control
+  `running`, health `ok`, `full_composition=true`, `runtime_host=true`, and zero missing
+  required components. This closes the logon/reboot gate for this host, not the separate
+  cold-start performance investigation or Full Ocean release breadth.
 - [ ] Find out why an OCEAN start needs 39 s warm and 210 s cold at all. Ruled out by
   measurement on 2026-09-12 (see the reboot item above): module imports, `OceanOriginApp()`,
   `validate_production_security()`, `validate_model_locality()` and `init_db()` together account

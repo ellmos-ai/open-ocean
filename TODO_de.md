@@ -15,7 +15,7 @@
   (ellmos-core `6185504`); wirkt auf einem Host, sobald dessen Runtime-Provider-Kopie diesen
   Commit trägt. Ursprungsbeschreibung: Ein OCEAN-Favicon ausliefern oder die Favicon-Anforderung entfernen. Die aktuelle
   Browserabnahme ist gesund, protokolliert aber einen nicht funktionalen `/favicon.ico`-404.
-- [ ] `<DEV-HOST>` tatsächlich neu starten und danach den unveränderten Task
+- [x] `<DEV-HOST>` tatsächlich neu starten und danach den konfigurierten Task
   `EllmosOceanFullUserStart`, den exakten Tag-Checkout, das Prozess-Tupel, die Portbelegung, die
   HTTP-Identität und die Full-Ocean-Bereitschaft nachlesen.
   **2026-09-02: de facto geschehen und FEHLGESCHLAGEN.** Nach dem Boot um 21:04 lief der
@@ -81,6 +81,20 @@
   nach 38,9 s, Receipt `running`. **Bleibt offen, bis ein echter Neustart es bestätigt** — der
   Kaltstartpfad selbst ist ohne Neustart nicht reproduzierbar. `<FRESH-HOST>` braucht sehr
   wahrscheinlich dasselbe Task-Argument (dort prüfen, nicht unterstellen).
+  **2026-09-14 Neustartabnahme: auf dem tatsächlichen Host bestätigt, ohne selbst einen
+  Neustart auszulösen.** Windows `LastBootUpTime` war 21:59:03 Ortszeit; der Logon-Task lief
+  um 21:59:39 mit `LastTaskResult 0`, seine Aktion übergibt weiterhin
+  `--health-timeout 600`. Der angeheftete Runtime-Checkout ist
+  `bb12d54193b10c7b4c35b799da9678d6a229cad7`. Der Laufzeitbeleg zeigt `running`:
+  Supervisor-PID 23284 begann um 22:02:58, Kind-PID 7876 um 22:03:00; dieses Kind ist
+  der einzige Listener auf `127.0.0.1:8810`. Die neue Serverprozess-Zeile für PID 7876
+  steht in `logs/runtime.log`. HTTP `/api/health` lieferte 200 mit `ok=true`, App
+  `ellmos Sovereign`, Tier `L2`, `local_models_only=true` und DB-Check `ok=true`
+  (20 Tabellen). Die Runtime-Spec enthält 14 vorhandene lokale PYTHONPATH-Verzeichnisse,
+  keines in OneDrive. Das lesende `ocean.py status --json` meldete Runtime-Control
+  `running`, Health `ok`, `full_composition=true`, `runtime_host=true` und null fehlende
+  Pflichtkomponenten. Damit ist das Logon-/Neustart-Gate für diesen Host geschlossen,
+  nicht aber die getrennte Kaltstart-Performanceanalyse oder die volle Ocean-Releasebreite.
 - [ ] Klären, warum ein OCEAN-Start überhaupt 39 s warm und 210 s kalt braucht. Durch Messung am
   2026-09-12 ausgeschlossen (siehe Reboot-Punkt oben): Modulimporte, `OceanOriginApp()`,
   `validate_production_security()`, `validate_model_locality()` und `init_db()` machen zusammen

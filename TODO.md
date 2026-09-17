@@ -4,6 +4,11 @@
 
 ## Immediate reliability follow-ups
 
+- [x] (2026-09-17, local T-20260818-903104603 slice) Fenced the POSIX runtime child in its own
+  session/process group. The supervisor now records the group receipt before GO, stops the whole
+  group with bounded SIGTERM/SIGKILL escalation, and confirms group emptiness before stopped.
+  Windows Job Object containment, provider setsid()/daemon escapes, independent review, CI and
+  authorized integration remain open.
 - [x] Added a workspace-scoped interprocess start lock (`_start_lock`, `ocean.start.lock`,
   OS-held byte-range/flock lock, released by the OS if the starter dies; second concurrent
   start fails closed at the CLI). Original description: Two direct lifecycle invocations can

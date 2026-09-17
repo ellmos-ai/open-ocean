@@ -242,7 +242,8 @@ tools/
   source_pins.py                fail-closed source-provenance verification before Resolve/Fetch
   accounts_projection.py       verify/read the minimal account projection without state writes
   ocean_lifecycle.py            capability-driven plan/up/status/down/user lifecycle
-  runtime_supervisor.py         authenticated loopback supervisor for one runtime instance
+  runtime_supervisor.py         authenticated loopback supervisor with a POSIX session-fenced
+                                runtime-child stop
   runtime_user.py               password-safe user bootstrap delegated to the runtime
 ocean.py                        user-facing OCEAN Full Dev CLI
 ```

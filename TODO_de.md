@@ -4,6 +4,11 @@
 
 ## Unmittelbare Zuverlässigkeitsaufgaben
 
+- [x] (2026-09-17, lokaler T-20260818-903104603-Schnitt) Der POSIX-Laufzeit-Kindprozess ist in
+  eine eigene Session/Prozessgruppe eingefasst. Der Supervisor schreibt den Gruppenbeleg vor GO,
+  stoppt die vollständige Gruppe mit begrenzter SIGTERM-/SIGKILL-Eskalation und bestätigt die
+  Gruppenleere vor stopped. Windows-Job-Object-Eindämmung, Provider-setsid()/Daemon-Escapes,
+  unabhängiges Review, CI und autorisierte Integration bleiben offen.
 - [x] Workspacegebundene Interprozess-Startsperre ergänzt (`_start_lock`, `ocean.start.lock`,
   vom OS gehaltene Byte-Range-/flock-Sperre, wird beim Tod des Starters vom OS freigegeben;
   ein zweiter gleichzeitiger Start scheitert an der CLI geschlossen). Ursprungsbeschreibung: Zwei direkte

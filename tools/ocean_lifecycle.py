@@ -674,8 +674,10 @@ def _terminate_supervisor(supervisor: subprocess.Popen) -> None:
     """End a supervisor whose start did not succeed, best effort.
 
     POSIX spawns get their own session (see the spawn below), so signalling the group
-    reaches the supervisor and the runtime child it may already have started, without
-    touching the caller. On Windows the new process group serves the same purpose.
+    reaches the supervisor without touching the caller. The supervisor owns a separate
+    fenced runtime-child group and performs its bounded cleanup before exiting. On
+    Windows the new process group isolates the supervisor for Ctrl-Break; recursive
+    descendant containment still depends on the host job-object gate.
     """
     if supervisor.poll() is not None:
         return
@@ -687,14 +689,14 @@ def _terminate_supervisor(supervisor: subprocess.Popen) -> None:
     except (OSError, ValueError):
         pass
     try:
-        supervisor.wait(timeout=5)
+        supervisor.wait(timeout=10)
         return
     except subprocess.TimeoutExpired:
         pass
     with contextlib.suppress(OSError):
         supervisor.kill()
     with contextlib.suppress(subprocess.TimeoutExpired, OSError):
-        supervisor.wait(timeout=5)
+        supervisor.wait(timeout=10)
 
 
 def _start_runtime_locked(

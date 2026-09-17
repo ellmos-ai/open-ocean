@@ -247,7 +247,8 @@ tools/
   source_pins.py                fail-closed Prüfung der Quellprovenienz vor Resolve/Fetch
   accounts_projection.py        minimale Kontoprojektion ohne Zustandswrites prüfen/lesen
   ocean_lifecycle.py            fähigkeitsgesteuerter plan/up/status/down/user-Lebenszyklus
-  runtime_supervisor.py         authentifizierter Loopback-Supervisor für eine Laufzeitinstanz
+  runtime_supervisor.py         authentifizierter Loopback-Supervisor mit POSIX-Session-Fence
+                                für den Laufzeit-Kindprozess
   runtime_user.py               passwortsichere Nutzeranlage, an die Laufzeit delegiert
 ocean.py                        nutzerseitige OCEAN-Full-Dev-CLI
 ```

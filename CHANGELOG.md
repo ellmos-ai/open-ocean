@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 *[Deutsch](CHANGELOG_de.md)*
 
+## Unreleased — 2026-09-17
+
+### Fixed
+
+- Fenced the POSIX runtime child in its own session/process group. Authenticated stop now
+  signals the complete group, escalates from SIGTERM to SIGKILL within one bounded budget, and
+  does not write stopped while the group is still non-empty. Missing or changed fences fail
+  closed; provider setsid()/daemon escapes and Windows Job Object containment remain explicit
+  host gates.
+
+### Verified
+
+- Windows full suite: 209 passed, 3 skipped. Ubuntu 24.04 WSL full suite: 210 passed,
+  2 skipped, including a real late-descendant stop test. Ruff, compileall and git diff --check
+  are clean.
+
 ## Unreleased — 2026-09-09
 
 ### Added

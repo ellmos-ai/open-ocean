@@ -52,8 +52,6 @@ task-master, COMA, then the module-declared starter.
 - Product boundaries: `architecture/PRODUCT-STACK-BOUNDARIES.md`
 - German product boundaries: `architecture/PRODUKT-STACK-GRENZEN.md`
 - Release-maturity record: `README.md` and `README_de.md` release conditions
-- Current tasks: `TODO.md`
-- Current tasks (German): `TODO_de.md`
 
 ## Project Information
 

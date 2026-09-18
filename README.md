@@ -21,7 +21,7 @@ The free community system of the ellmos ecosystem.
 [![Changelog](https://img.shields.io/badge/changelog-v0.1.2-orange.svg)](CHANGELOG.md)
 [![ellmos](https://img.shields.io/badge/ellmos-community%20full%20system-4b5563.svg)](https://github.com/ellmos-ai)
 [![open-bricks](https://img.shields.io/badge/open--bricks-ecosystem-0284c7.svg)](https://github.com/open-bricks)
-[![Audited](https://img.shields.io/badge/audited-2026--09--12-success.svg)](MARKETING-LOG.txt)
+
 
 > **Quick Navigation:**
 > 1. [Overview & Core Mission](#read-this-first-this-repository-is-a-building-site)
@@ -414,8 +414,8 @@ reboot was tested.
 
 No BACH session sidecar was ever running on this host (`service.running: false`, `pid: null`), so
 none was stopped; BACH code, databases, tasks and configuration are unchanged. No user account was
-created for OCEAN on this host — a deliberate decision, not an installation gap; see TODO for the
-device-bound OS-account coupling this is meant to become.
+created for OCEAN on this host — a deliberate decision, not an installation gap; device-bound
+OS-account coupling is planned for a future release.
 
 ---
 
@@ -590,4 +590,3 @@ Third-party development dependencies and their licenses are inventoried in [`THI
 
 For autonomous AI coding agents, context injectors, and automated discovery pipelines:
 - Machine-readable architectural summaries and command indexes are maintained in [`llms.txt`](llms.txt).
-- Local marketing, visibility, and directory listing recommendations are tracked in [`MARKETING-LOG.txt`](MARKETING-LOG.txt).

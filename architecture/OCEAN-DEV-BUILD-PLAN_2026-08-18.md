@@ -1267,7 +1267,7 @@ fresh install on a second Windows host, `<FRESH-HOST>`.
   open, mergeable and CI-green as of this cycle; none has been merged, so the Phase-J governance
   follow-up (host-local registry init, Gardener system sources, ControlCenter configuration) is
   pending, not performed.
-- See `TODO.md` / `TODO_de.md` for the tracked form of these items.
+- Historical follow-up items are tracked in the respective subsystem roadmaps.
 
 The checkpoint names for this cycle are `ocean-full-workstation-mondmuschel-20260830` (fresh
 install and manual cutover) and `ocean-full-workstation-kuestenlicht-20260830` (logon-task/host

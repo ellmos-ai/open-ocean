@@ -21,7 +21,6 @@ Das kostenlose Community-System des ellmos-Ökosystems.
 [![Changelog](https://img.shields.io/badge/changelog-v0.1.2-orange.svg)](CHANGELOG.md)
 [![ellmos](https://img.shields.io/badge/ellmos-community%20full%20system-4b5563.svg)](https://github.com/ellmos-ai)
 [![open-bricks](https://img.shields.io/badge/open--bricks-ecosystem-0284c7.svg)](https://github.com/open-bricks)
-[![Geprüft](https://img.shields.io/badge/gepr%C3%BCft-2026--09--12-success.svg)](MARKETING-LOG.txt)
 
 > **Schnellnavigation:**
 > 1. [Überblick und Kernmission](#zuerst-lesen-dieses-repository-ist-eine-baustelle)
@@ -426,8 +425,8 @@ getestet.
 Auf diesem Host lief zu keinem Zeitpunkt ein BACH-Session-Sidecar (`service.running: false`,
 `pid: null`), daher wurde keiner gestoppt; BACH-Code, -Datenbanken, -Tasks und -Konfiguration sind
 unverändert. Für OCEAN wurde auf diesem Host kein Benutzerkonto angelegt — eine bewusste
-Entscheidung, keine Installationslücke; siehe TODO zur geräteseitigen OS-Konto-Kopplung, auf die
-das hinauslaufen soll.
+Entscheidung, keine Installationslücke; eine geräteseitige OS-Konto-Kopplung ist für ein
+zukünftiges Release vorgesehen.
 
 ## Freigabebedingungen
 
@@ -604,4 +603,3 @@ Drittanbieter-Entwicklungswerkzeuge und deren Lizenzen sind in [`THIRD_PARTY_LIC
 
 Für autonome KI-Programmieragenten, Kontext-Injektoren und automatisierte Discovery-Pipelines:
 - Maschinenlesbare Architekturzusammenfassungen und Befehlsindizes werden in [`llms.txt`](llms.txt) geführt.
-- Lokale Marketing-, Sichtbarkeits- und Verzeichnisempfehlungen sind in [`MARKETING-LOG.txt`](MARKETING-LOG.txt) protokolliert.

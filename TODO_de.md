@@ -153,28 +153,36 @@
   ableiten und testen.
 - [ ] Die funktionale BACH-Parität weiterführen; neu entdeckte BACH-Eigenheiten nur ausnahmsweise
   und wertgebunden in einem eigenen Modulzyklus extrahieren.
-  **Reife gemessen am 2026-09-12 — ein Modulpaar-Rücktransport hängt derzeit an einer einzigen
-  gemeinsamen Vorbedingung.** Ein Zyklus im Sinne von Bauplan §5 verdrahtet ein Modul in BACH
-  und/oder OCEAN und schaltet danach den abgelösten Altpfad ab. Über die fünf benannten
-  P8-Paare gemessen:
+  **Historische Reifemessung vom 2026-09-12.** Ein Zyklus im Sinne von Bauplan §5 verdrahtet ein
+  Modul in BACH und/oder OCEAN und schaltet danach den abgelösten Altpfad ab. Die Tabelle hält die
+  fünf damals gemessenen Kandidaten als Beleg fest; sie beschreibt nicht den aktuellen Zustand:
 
   | Paar | Klon | fremde Dirty-Dateien | Zielmodul importierbar | BACH-Altpfad |
   |---|---|---|---|---|
   | `agent-launcher` | ja | 0 | **nein** | `system/hub/agent_launcher.py`, 2637 Zeilen |
   | `ellmos-scheduler` | ja | 0 | **nein** | `system/hub/scheduler.py`, 2092 Zeilen |
-  | `swarm-ai` | ja | 0 | **nein** | `system/hub/schwarm.py`, 793 Zeilen |
+  | ~~`swarm-ai`~~ | ja | 0 | siehe Nachzertifizierung unten | `system/hub/schwarm.py`, 793 Zeilen |
   | `web-scraper` | ja | 5 | **nein** | `system/hub/web_scrape.py`, 415 Zeilen |
   | `doc-services` | ja | 1 | **nein** | `system/hub/_services/document` |
 
-  Kein einziges Zielmodul löst über `importlib.util.find_spec` auf, und BACH hält zu keinem einen
-  Seam — BACH kann also nicht konsumieren, was seinen Altpfad ersetzen soll. Drei weitere
-  Einschränkungen: Bei den beiden grössten Paaren ist Äquivalenz nicht in einem begrenzten Zyklus
-  belegbar; `web-scraper` und `doc-services` tragen fremde uncommittete Änderungen; und
-  `swarm-ai` ist ein Experimente-/Doku-Repository ohne konsumierbare Bibliotheks-API, was zum
-  früheren Befund passt, dass `swarm_ai` nur als Testherkunft auftauchte. BACH selbst ist
-  verfügbar (kein Lock, sein Feature-Branch ist in `main` enthalten, einziger Dirty-Eintrag ist
-  ein untracked Testergebnis-Verzeichnis) — der Blocker ist das fehlende installier-/
-  konsumierbare Zielmodul, und das ist der nächste Schritt, noch vor der Wahl eines Paares.
+  Zu diesem Zeitpunkt löste kein Ziel über `importlib.util.find_spec` auf, und BACH hielt zu keinem
+  einen Seam. Die beiden größten Paare waren außerdem zu breit für einen begrenzten
+  Äquivalenzzyklus. Spätere Arbeiten an `web-scraper` und `doc-services` sowie spätere BACH-Lock-
+  und Branchzustände haben diese Momentaufnahme überholt; der aktuelle Stand ist aus dem
+  Programmticket zu lesen und darf nicht aus dieser Tabelle abgeleitet werden.
+
+  **Nachzertifizierung von `swarm-ai` und OC-C-Entscheid (2026-09-15): Paar gestrichen.** Die
+  frühere Beschreibung als Experimente-/Doku-Sammlung ohne konsumierbare API war sachlich falsch.
+  Das saubere kanonische Repository auf `63476d0` enthält einen PEP-621-Paketvertrag (seit
+  `5393acd`, 2026-08-13), fünf Konsolen-Einstiegspunkte und wiederverwendbare Python-APIs; aktuell
+  bestehen 220/220 Tests sowie Ruff. Ein echter Wheel-Build scheitert noch an widersprüchlichen
+  PEP-639-Lizenzmetadaten, daher ist dies kein Paketfreigabe-Claim. D-20260913-003, Frage 2 /
+  OC-C = B wird deshalb eng und wahrheitsgemäß umgesetzt: Das vorgeschlagene P8-Paar
+  `swarm-ai` ↔ BACH `system/hub/schwarm.py` wird gestrichen, weil weder ein kompatibler Ersatz-Seam
+  noch ein zweiter Abnehmer belegt ist. Das eigenständige öffentliche experimentelle Toolkit
+  bleibt unverändert erhalten; es wird weder zurückgebaut noch gelöscht oder als reine
+  Dokumentation umetikettiert. Eine spätere Integration benötigt einen neuen wertgebundenen
+  Vorschlag und Kompatibilitätsbelege.
 - [x] (2026-09-02) Gemergt: `gardener` #4 (master ddd3a84), `ellmos-controlcenter-mcp` #9 (main 34cd95d); `policy-registry` #3 zugunsten des Decision-Index-Pfad-Slices geschlossen (https://github.com/ellmos-ai/policy-registry/pull/4). Übernahme (hostlokaler Registry-Seed, ControlCenter-Konfiguration, ccm-0.6.0-npm-Release) bleibt offen. Ursprünglich: Die offenen Governance-PRs mergen und übernehmen (`policy-registry` #3, `gardener` #4,
   `ellmos-controlcenter-mcp` #9) — alle offen, mergefähig, CI grün zum Stand 2026-08-30, keiner
   gemergt. Hostlokale Registry-Initialisierung, Gardener-Systemquellen und

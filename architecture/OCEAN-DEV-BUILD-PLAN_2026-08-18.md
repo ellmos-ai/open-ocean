@@ -1325,3 +1325,12 @@ evidence. Details and negative cases are specified in `architecture/OCEAN-INSPEC
 This cycle changes no installation recipe, provider pin, runtime status, live workspace, BACH state,
 Task 1339, EDS projection or Mac acceptance record. Source completion requires an independent
 review before push, merge, deployment or any live recipe re-pin.
+
+### 17.1 Explicit root-only resolution transport — 2026-09-21
+
+The native provider rejects resolutions with subsystems unless its caller explicitly selects
+root-only projection. `ocean inspect` therefore gains the opt-in `--root-only-resolution` flag and
+passes it unchanged to the pinned provider. The default remains fail-closed. Successful output
+surfaces the provider's own `projection_scope` and `subsystems_omitted` values so a no-gap verdict
+cannot be mistaken for subsystem coverage. This transport change neither re-pins System Explorer
+nor changes coverage, receipt, signature or resolution semantics.

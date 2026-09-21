@@ -28,6 +28,11 @@ und Version. Danach ruft es die nativen Funktionen `import_resolution`,
 temporären SQLite-Datenbank auf. Der temporäre Speicher wird anschließend entfernt. Ziel-Workspace
 und Evidenzeingaben bleiben unverändert.
 
+System Explorer weist Resolutionen mit Subsystemen standardmäßig ab. OCEAN erhält dieses
+Fail-closed-Verhalten. Nur die ausdrückliche Option `--root-only-resolution` übergibt
+`root_only=True` an den nativen Importer. OCEAN schneidet Subsystemdaten nicht selbst ab und zählt
+sie nicht selbst.
+
 Alle Belege werden in einer gemeinsamen Transaktion importiert. Ein einziger ungültiger,
 abgelaufener, gefälschter, hostfremder, anbieterfremder oder unbekannte Felder enthaltender Beleg
 weist die gesamte Operation ab; es gibt keinen Teilerfolgsbericht.
@@ -35,9 +40,12 @@ weist die gesamte Operation ab; es gibt keinen Teilerfolgsbericht.
 ## Ausgabevertrag
 
 Die JSON-Hülle verwendet `ellmos.open-ocean-inspect.v1` und enthält Auswertungszeit, erwarteten
-Scope, Belege zum Anbieter-Pin, SHA-256-Hashes aller öffentlichen Eingaben und das native
-Coverage-Ergebnis. Exit `0` bedeutet gültig ohne Pflichtlücken, Exit `1` gültig mit Pflichtlücken
-und Exit `2` abgewiesen.
+Scope, Belege zum Anbieter-Pin, SHA-256-Hashes aller öffentlichen Eingaben, die nativen Felder
+`projection_scope` und `subsystems_omitted` des Resolution-Imports sowie das native
+Coverage-Ergebnis. Dadurch bleibt `valid-no-required-gaps` bei ausdrücklich gewählter
+Root-only-Projektion sichtbar auf diesen Prüfbereich begrenzt. Exit `0` bedeutet gültig ohne
+Pflichtlücken im ausgewiesenen Projektionsbereich, Exit `1` gültig mit Pflichtlücken und Exit `2`
+abgewiesen.
 
 Native Coverage-Datensätze des System Explorers enthalten Einfügezeitpunkte des Stores. Diese sind
 flüchtige Buchhaltung und keine Evidenzzeit. Für eine deterministische Präsentation entfernt OCEAN
@@ -57,7 +65,9 @@ Evidenz-IDs und -Bezüge, Anbieteridentität, Scopes, Verdicts und Lückenklasse
 Die Abnahme verwendet einen echten sauberen Checkout des gepinnten Anbieters und ein temporäres
 Ed25519-Schlüsselpaar. Die Tests decken gültige Evidenz, Pflichtlücken, Ablauf, Signaturfehler,
 falschen Host, falschen Anbieter, unbekannte Felder, einen falschen Trust-Pin,
-Anbieterversion-Drift und eine gemischte gültige/ungültige Belegmenge ab. Zwei Läufe mit identischen
+Anbieterversion-Drift und eine gemischte gültige/ungültige Belegmenge ab. Mit dem echten gepinnten
+Anbieter belegen sie außerdem die Standardablehnung einer Resolution mit Subsystemen und ihre
+ausdrückliche Root-only-Annahme samt nativem Auslassungsergebnis. Zwei Läufe mit identischen
 Eingaben und Auswertungszeitpunkt müssen nach der dokumentierten Präsentationsauslassung
 byteidentisches kanonisches JSON liefern. BACH-Datenbank, Zielscanner, Plugins,
 Credential-Aktualisierung, Netzwerkdienste und Live-Installation bleiben unberührt.

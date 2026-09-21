@@ -314,6 +314,22 @@ def _inspect(case: dict, *, receipts: list[Path] | None = None, **overrides):
     return inspect_workspace(**arguments)
 
 
+def _nested_resolution(case: dict, tmp_path: Path) -> Path:
+    value = json.loads(case["resolution"].read_text(encoding="utf-8"))
+    child = deepcopy(value)
+    child.pop("instance", None)
+    child["system"] = {**child["system"], "id": "fixture-child-system"}
+    child["subsystems"] = []
+    child = _with_content_hash(child)
+    value["subsystems"] = [{
+        "role": "child-service",
+        "profile": "default",
+        "source_ref": {"path": "systems/child.json", "version": "1.0.0"},
+        "resolution": child,
+    }]
+    return _write_json(tmp_path / "nested-resolution.json", _with_content_hash(value))
+
+
 def _native_raw_coverage(case: dict, output: Path) -> dict:
     script = output.with_suffix(".py")
     script.write_text(
@@ -379,6 +395,10 @@ def test_native_signed_receipt_is_read_only_and_byte_deterministic(native_case: 
     assert first["provider"]["provider_id"] == "system-explorer"
     assert first["provider"]["package"] == "system_explorer"
     assert first["provider"]["commit"] == PINNED_PROVIDER
+    assert first["resolution_projection"] == {
+        "projection_scope": "full",
+        "subsystems_omitted": 0,
+    }
     assert json.dumps(first, ensure_ascii=False, sort_keys=True, separators=(",", ":")) == json.dumps(
         second, ensure_ascii=False, sort_keys=True, separators=(",", ":")
     )
@@ -452,6 +472,85 @@ def test_cli_without_outer_bytecode_guard_does_not_touch_provider_tree(native_ca
         ["git", "status", "--porcelain=v1", "--untracked-files=all"],
         cwd=native_case["provider"], capture_output=True, text=True, check=True,
     ).stdout == ""
+
+
+def test_native_subsystem_resolution_requires_explicit_root_only_scope(
+    native_case: dict,
+    tmp_path: Path,
+):
+    nested = _nested_resolution(native_case, tmp_path)
+
+    with pytest.raises(InspectError) as raised:
+        _inspect(native_case, resolution=nested)
+
+    assert raised.value.code == "native-provider-rejected"
+    assert "subsystems are not importable" in str(raised.value)
+
+    report = _inspect(
+        native_case,
+        resolution=nested,
+        root_only_resolution=True,
+    )
+
+    assert report["status"] == "valid-no-required-gaps"
+    assert report["resolution_projection"] == {
+        "projection_scope": "root-only",
+        "subsystems_omitted": 1,
+    }
+
+
+def test_cli_subsystem_resolution_requires_explicit_root_only_flag(
+    native_case: dict,
+    tmp_path: Path,
+):
+    nested = _nested_resolution(native_case, tmp_path)
+    command = [
+        sys.executable,
+        str(REPO_ROOT / "ocean.py"),
+        "inspect",
+        "--workspace",
+        str(native_case["workspace"]),
+        "--resolution",
+        str(nested),
+        "--receipt",
+        str(native_case["receipt"]),
+        "--trust-store",
+        str(native_case["trust"]),
+        "--trust-store-sha256",
+        native_case["trust_sha256"],
+        "--expected-instance-id",
+        "fixture-development-system@TEST-HOST",
+        "--expected-host-id",
+        "TEST-HOST",
+        "--evaluated-at",
+        EVALUATED_AT,
+        "--json",
+    ]
+
+    rejected = subprocess.run(
+        command,
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    accepted = subprocess.run(
+        [*command[:-1], "--root-only-resolution", "--json"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+
+    assert rejected.returncode == 2
+    assert json.loads(rejected.stderr)["error"]["code"] == "native-provider-rejected"
+    assert accepted.returncode == 0, accepted.stderr
+    assert json.loads(accepted.stdout)["resolution_projection"] == {
+        "projection_scope": "root-only",
+        "subsystems_omitted": 1,
+    }
 
 
 def test_cli_rejects_invalid_resolution_object_shape_without_traceback(

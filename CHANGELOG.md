@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   trust and coverage semantics to native APIs in a temporary store, rejects mixed valid/invalid
   receipt sets atomically, and emits deterministic JSON after omitting only four documented
   Store-bookkeeping `created_at` positions.
+- Added explicit `ocean inspect --root-only-resolution` transport for native subsystem omission.
+  Subsystem resolutions remain rejected by default; successful results expose the provider's
+  `projection_scope` and `subsystems_omitted` fields so coverage status retains its exact boundary.
 
 - `ocean start <role>` forwards an authoritative module `roles[]` entry to the
   Unified GUI console start window. The existing `ocean start --workspace ...`

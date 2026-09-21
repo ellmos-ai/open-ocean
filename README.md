@@ -307,7 +307,7 @@ python ocean.py status --workspace <local-sandbox>
 python ocean.py inspect --workspace <local-sandbox> --resolution <resolution.json> \
   --receipt <actual-self.json> --trust-store <receipt-trust.json> \
   --trust-store-sha256 <sha256> --expected-instance-id <instance> \
-  --expected-host-id <host> --evaluated-at <ISO-8601> --json
+  --expected-host-id <host> [--root-only-resolution] --evaluated-at <ISO-8601> --json
 python ocean.py user add --workspace <local-sandbox> --username <name> --email <address>
 python ocean.py down --workspace <local-sandbox>
 ```
@@ -332,7 +332,11 @@ verified provider remains `system-explorer` from `ellmos-ai/system-explorer`, pa
 repository, manifest identity and expected provider version before importing the native APIs.
 System Explorer then validates the resolution, trust-store pin and every signed Actual-Self
 receipt in a fresh temporary evidence store and computes coverage. Any invalid receipt rejects the
-whole operation. Exit `0` means a valid report without required gaps, exit `1` a valid report with
+whole operation. A resolution with subsystems is rejected by default. The explicit
+`--root-only-resolution` option asks the native provider to omit those subsystems; the result shows
+the provider's `projection_scope` and `subsystems_omitted`, so even a
+`valid-no-required-gaps` status remains visibly limited to the root-only projection. Exit `0` means
+a valid report without required gaps in the reported projection, exit `1` a valid report with
 required gaps, and exit `2` a rejected input or provider. The JSON presentation omits only Store
 bookkeeping `created_at` fields at the four documented coverage-record positions; signed and
 effective timestamps, verdicts, evidence references and metadata are unchanged. See

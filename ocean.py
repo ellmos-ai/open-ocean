@@ -193,6 +193,14 @@ def build_parser() -> argparse.ArgumentParser:
     inspect.add_argument("--expected-instance-id", required=True)
     inspect.add_argument("--expected-host-id", required=True)
     inspect.add_argument(
+        "--root-only-resolution",
+        action="store_true",
+        help=(
+            "Subsysteme ausdrücklich aus dem nativen Resolution-Import auslassen; "
+            "ohne diese Option werden Resolutionen mit Subsystemen abgewiesen"
+        ),
+    )
+    inspect.add_argument(
         "--evaluated-at",
         help="ISO-8601-Zeitpunkt mit Zeitzone; Standard ist die aktuelle UTC-Zeit",
     )
@@ -422,6 +430,7 @@ def main(argv: list[str] | None = None) -> int:
                 trust_store_sha256=args.trust_store_sha256,
                 expected_instance_id=args.expected_instance_id,
                 expected_host_id=args.expected_host_id,
+                root_only_resolution=args.root_only_resolution,
                 evaluated_at=args.evaluated_at,
                 expected_provider_version=args.expected_provider_version,
                 component_bindings=args.component_bindings,
@@ -443,10 +452,13 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(report, indent=2, ensure_ascii=False))
         else:
             summary = report["coverage"]["desired_summary"]
+            projection = report["resolution_projection"]
             print(
                 "OCEAN-Inspektion gültig: "
                 f"{summary['functions']} Soll-Funktionen, "
-                f"{summary['hard_gaps']} Pflichtlücken."
+                f"{summary['hard_gaps']} Pflichtlücken; "
+                f"Prüfbereich {projection['projection_scope']}, "
+                f"{projection['subsystems_omitted']} ausgelassene Subsysteme."
             )
         return 1 if report["status"] == "valid-with-required-gaps" else 0
     if args.command == "start":

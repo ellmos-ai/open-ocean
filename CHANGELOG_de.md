@@ -11,6 +11,10 @@
   Ed25519-Belege, Vertrauen und Coverage an die nativen APIs in einem temporären Speicher, weist
   gemischte gültige/ungültige Belegmengen atomar ab und erzeugt deterministisches JSON, nachdem nur
   vier dokumentierte `created_at`-Positionen der Store-Buchhaltung ausgelassen wurden.
+- Den ausdrücklichen Transport `ocean inspect --root-only-resolution` für die native Auslassung von
+  Subsystemen ergänzt. Resolutionen mit Subsystemen bleiben standardmäßig abgewiesen; erfolgreiche
+  Ergebnisse zeigen `projection_scope` und `subsystems_omitted` des Anbieters und begrenzen damit
+  den Coverage-Status auf den ausgewiesenen Prüfbereich.
 
 - `ocean start <rolle>` leitet einen autoritativen `roles[]`-Manifesteintrag an
   das Konsolenstartfenster der Unified GUI weiter. Der bestehende Runtime-Pfad

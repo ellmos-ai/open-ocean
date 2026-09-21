@@ -91,11 +91,20 @@ class ExampleHandler:
         forbidden = ("C:\\Users", "OneDrive", "bach.db", "@", "ASUS" + "-GEI")
         self.assertTrue(all(value not in encoded for value in forbidden))
         self.assertEqual(
-            {"session_id", "open_tasks", "recent_memory", "created_at"},
+            {
+                "session_id",
+                "open_tasks",
+                "recent_memory",
+                "active_files",
+                "token_usage",
+                "created_at",
+            },
             set(fixture["payload"]),
         )
         self.assertEqual(2, len(fixture["payload"]["open_tasks"]))
         self.assertEqual(2, len(fixture["payload"]["recent_memory"]))
+        self.assertEqual(2, len(fixture["payload"]["active_files"]))
+        self.assertEqual(4242, fixture["payload"]["token_usage"])
 
     def test_adapter_specs_cover_exact_handler_surfaces_without_accepting_parity(self):
         contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
@@ -120,6 +129,14 @@ class ExampleHandler:
         self.assertTrue(all(item["parity"] == "not-accepted" for item in dbsync["operations"]))
         self.assertTrue(
             all(item["parity"] == "not-accepted" for item in checkpoint["operation_mapping"])
+        )
+        self.assertIn(
+            "No Ocean restore adapter is implemented.",
+            next(
+                item["adapter_work"]
+                for item in checkpoint["operation_mapping"]
+                if item["bach_operation"] == "load"
+            ),
         )
 
 

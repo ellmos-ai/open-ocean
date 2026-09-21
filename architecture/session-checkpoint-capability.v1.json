@@ -1,8 +1,8 @@
 {
   "schema": "ellmos.open-ocean-session-checkpoint-capability.v1",
   "status": "carrier-hardened-fixture-green-not-bach-equivalence",
-  "recorded_at": "2026-08-22",
-  "claim_boundary": "This defines and pins the neutral session-checkpoint carrier. It does not collect BACH state, restore BACH state, prove old/new output parity, modify BACH, provide a bundle or pass an off-host sluice test.",
+  "recorded_at": "2026-09-21",
+  "claim_boundary": "This defines and pins the neutral session-checkpoint carrier. It does not collect BACH state, itself restore BACH state, prove old/new output parity, modify BACH, provide a bundle or pass an off-host sluice test. Ocean has no BACH restore adapter.",
   "carrier": {
     "id": "session-checkpoint",
     "repository": "https://github.com/ellmos-ai/session-checkpoint",
@@ -11,7 +11,10 @@
     "visibility": "private",
     "network": "none",
     "state": "dedicated configurable local SQLite file owned by the module",
-    "surfaces": ["Python API", "JSON-only CLI"]
+    "surfaces": [
+      "Python API",
+      "JSON-only CLI"
+    ]
   },
   "record": {
     "id": "positive local integer preserved by export/import",
@@ -41,18 +44,22 @@
     "collects": [
       "system_config current_session value",
       "at most ten pending task id/title pairs",
-      "at most five newest memory_working content values",
+      "at most five newest active memory_working content values",
+      "at most ten existing files_truth paths",
+      "latest monitor_tokens total or null when unavailable",
       "one application-local created_at value"
     ],
     "payload_fields": {
       "session_id": "string",
       "open_tasks": "array of objects with id and title",
       "recent_memory": "array of strings",
+      "active_files": "array of strings; empty when files_truth is unavailable",
+      "token_usage": "integer or null when monitor_tokens is unavailable",
       "created_at": "application timestamp string"
     },
     "forbidden": [
       "carrier SQL against BACH tables",
-      "implicit task or memory restoration",
+      "carrier-driven or implicit task or memory restoration",
       "database file copy or merge",
       "parallel writes to legacy session_snapshots after BACH-IN"
     ]
@@ -61,7 +68,7 @@
     {
       "bach_operation": "create",
       "carrier_surface": "CheckpointStore.create",
-      "adapter_work": "collect the four payload fields, choose name, namespace bach and kind manual, then translate the returned row to the legacy tuple text",
+      "adapter_work": "collect the six payload fields, choose name, namespace bach and kind manual, then translate the returned row to the legacy tuple text",
       "parity": "not-accepted"
     },
     {
@@ -79,7 +86,7 @@
     {
       "bach_operation": "load",
       "carrier_surface": "CheckpointStore.get or newest CheckpointStore.list result followed by get",
-      "adapter_work": "materialize and format payload only; preserve the current fact that load does not restore application state",
+      "adapter_work": "materialize and validate payload; a future adapter must explicitly restore the documented tasks and working memory in default mode, preserve current_session, and support a read-only display mode. No Ocean restore adapter is implemented.",
       "parity": "not-accepted"
     }
   ],

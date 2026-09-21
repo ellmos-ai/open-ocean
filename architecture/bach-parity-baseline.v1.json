@@ -29,6 +29,29 @@
     "dangling_aliases_unchanged": true,
     "conclusion": "The 114-name/113-name release bar from 2026-08-08 is still current and accurate as of 2026-08-18; the only drift is the duplicate-file artifact above, which does not change scope or coverage."
   },
+  "re_audit_2026-09-21": {
+    "purpose": "T-20260920-157560721: read-only composition re-measurement against clean BACH main 39d2457adeb0bcbcd9f1205dfb2c08f3086b30ed and the current module, bundle and Skills Registry catalogues. This is appended evidence; it does not replace the historic 113/114 release record.",
+    "counts": {
+      "handler_classes": 109,
+      "canonical_profiles": 109,
+      "aliases_declared": 13,
+      "aliases_effective": 9,
+      "registered_names": 118
+    },
+    "historic_surface": {
+      "registered_names": 114,
+      "preserved": true,
+      "additions": ["cloud", "mcp", "security", "theme"],
+      "removals": []
+    },
+    "composition_matrix": "architecture/bach-composition-matrix.v1.json",
+    "catalogue_snapshot": {
+      "modules": 75,
+      "bundles": 33,
+      "skills": 142
+    },
+    "conclusion": "Current source has grown to 118 names. The matrix records one explicit carrier, gap or intentional-non-module outcome per name, while keeping declared carriers and functional use-case evidence separate. It proves neither equivalence nor release parity."
+  },
   "source_audit": {
     "counts": {
       "handler_classes": 105,

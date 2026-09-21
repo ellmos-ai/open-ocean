@@ -463,6 +463,11 @@ The four conditions and how they stand:
    reachable names and retains the historic 113-name runtime snapshot; re-measured 2026-08-18
    (read-only, BACH untouched) the 114-name bar was unchanged. See the
    [extraction roadmap](architecture/BACH-EXTRACTION-ROADMAP.md).
+   A later read-only composition re-measurement on 2026-09-21 preserved those 114 names and
+   found four source additions (`cloud`, `mcp`, `security`, `theme`), for 118 current names.
+   Its [composition matrix](architecture/bach-composition-matrix.v1.json) separates declared
+   carriers from gaps and intentional non-modules, and marks every carrier's functional
+   use-case evidence as open. It is a wiring backlog, not a parity claim.
    Measured functionally, the picture does not improve: [Cluster 9's operation matrix](architecture/BACH-EXTRACTION-ROADMAP.md#cluster-9-operation-matrix)
    is the only cluster with active work (8 of 9 clusters have not started), and within it 0 of 30
    command names are functionally equivalent yet — 20 are `candidate-partial`, 9 are `gap`, 1 is

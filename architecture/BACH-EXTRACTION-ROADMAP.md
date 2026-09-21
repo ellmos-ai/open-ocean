@@ -237,7 +237,7 @@ It does not prove functional parity, an installer or the sluice test.
 ## 2026-09-21 composition re-measurement and wiring backlog
 
 Ticket `T-20260920-157560721` reran the side-effect-free AST audit against the
-clean BACH worktree at `66532475a7b952a6817ac355c85b519fdcb80ee0`. The historic 114-name surface is
+clean BACH worktree at `39d2457adeb0bcbcd9f1205dfb2c08f3086b30ed`. The historic 114-name surface is
 preserved as a subset. Current source adds `cloud`, `mcp`, `security` and `theme`,
 so the current surface is **118 names**, not 114. The historical release record is
 not rewritten to make this pass.

@@ -23,10 +23,16 @@ EXPECTED_BACH_COMMIT = "8392ed8cecd9ac598d1b3b711b8e3df1b7c1dc4d"
 
 
 def _snapshot_handler(bach_root: Path, base_path: Path):
+    for name in tuple(sys.modules):
+        if name == "system" or name.startswith("system."):
+            sys.modules.pop(name, None)
     sys.path.insert(0, str(bach_root))
     try:
         module = importlib.import_module("system.hub.snapshot")
-        return module.SnapshotHandler(base_path)
+        module_path = Path(module.__file__).resolve()
+        if not module_path.is_relative_to(bach_root.resolve()):
+            raise AssertionError(f"snapshot import escaped requested BACH root: {module_path}")
+        return module.SnapshotHandler(base_path), module_path
     finally:
         sys.path.pop(0)
 
@@ -56,7 +62,9 @@ class BachSnapshotContractFixtureTests(unittest.TestCase):
         db_path.parent.mkdir(parents=True)
         self._create_database(db_path)
         self.db_path = db_path
-        self.handler = _snapshot_handler(self.bach_root, self.base)
+        self.handler, self.handler_module_path = _snapshot_handler(self.bach_root, self.base)
+        self.assertTrue(self.handler_module_path.is_relative_to(self.bach_root))
+        self.assertEqual(self.db_path.resolve(), self.handler.db_path.resolve())
 
     def tearDown(self):
         self.temp.cleanup()

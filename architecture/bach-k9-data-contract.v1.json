@@ -57,7 +57,7 @@
       "semantic_domain": "verified SQLite snapshot transit and row merge",
       "adapter_spec": "architecture/bach-k9-dbsync-adapter.v1.json",
       "source_return": "tuple[bool, str]",
-      "source_dry_run": "The current handler receives dry_run but does not honor it for any dbsync operation; the external TransitSync seam is selected lazily and fails closed to legacy ProSync on import or contract errors.",
+      "source_dry_run": "The current handler receives dry_run but does not honor it for any dbsync operation; the external TransitSync seam is selected lazily and falls back to legacy ProSync on import or contract errors.",
       "state_owners": [
         "local BACH SQLite database",
         "transit .bachdb files",

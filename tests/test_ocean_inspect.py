@@ -454,6 +454,78 @@ def test_cli_without_outer_bytecode_guard_does_not_touch_provider_tree(native_ca
     ).stdout == ""
 
 
+def test_cli_rejects_invalid_resolution_object_shape_without_traceback(
+    native_case: dict,
+    tmp_path: Path,
+):
+    resolution = json.loads(native_case["resolution"].read_text(encoding="utf-8"))
+    resolution["instance"] = ["invalid-object-shape"]
+    invalid_resolution = _write_json(tmp_path / "invalid-resolution.json", resolution)
+    command = [
+        sys.executable,
+        str(REPO_ROOT / "ocean.py"),
+        "inspect",
+        "--workspace",
+        str(native_case["workspace"]),
+        "--resolution",
+        str(invalid_resolution),
+        "--receipt",
+        str(native_case["receipt"]),
+        "--trust-store",
+        str(native_case["trust"]),
+        "--trust-store-sha256",
+        native_case["trust_sha256"],
+        "--expected-instance-id",
+        "fixture-development-system@TEST-HOST",
+        "--expected-host-id",
+        "TEST-HOST",
+        "--evaluated-at",
+        EVALUATED_AT,
+        "--json",
+    ]
+
+    completed = subprocess.run(
+        command,
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+
+    assert completed.returncode == 2
+    assert completed.stdout == ""
+    assert "Traceback" not in completed.stderr
+    rejection = json.loads(completed.stderr)
+    assert rejection["status"] == "rejected"
+    assert rejection["error"]["code"] == "resolution-invalid"
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        ("plan",),
+        ("plan", "transaction"),
+        ("plan", "transaction", "components", 0, "detail"),
+        ("plan", "transaction", "components", 0, "detail", "binding"),
+        ("plan", "transaction", "fetch", 0, "detail"),
+    ],
+    ids=("plan", "transaction", "component-detail", "recorded-binding", "fetch-detail"),
+)
+def test_install_state_object_shapes_fail_closed(native_case: dict, path: tuple):
+    install = json.loads(native_case["install"].read_text(encoding="utf-8"))
+    cursor = install
+    for part in path[:-1]:
+        cursor = cursor[part]
+    cursor[path[-1]] = ["invalid-object-shape"]
+    _write_json(native_case["install"], install)
+
+    with pytest.raises(InspectError) as raised:
+        _inspect(native_case)
+
+    assert raised.value.code == "install-state-invalid"
+
+
 def test_native_no_receipts_is_valid_report_with_required_gap(native_case: dict):
     report = _inspect(native_case, receipts=[])
     assert report["status"] == "valid-with-required-gaps"

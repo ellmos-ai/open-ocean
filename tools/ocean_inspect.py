@@ -108,6 +108,19 @@ def _read_json_snapshot(snapshot: FileSnapshot, label: str) -> dict[str, Any]:
     return value
 
 
+def _required_object(
+    parent: dict[str, Any],
+    key: str,
+    label: str,
+    *,
+    code: str,
+) -> dict[str, Any]:
+    value = parent.get(key)
+    if not isinstance(value, dict):
+        raise InspectError(code, f"{label} muss ein JSON-Objekt sein")
+    return value
+
+
 def _same_path(left: str | Path, right: Path) -> bool:
     try:
         return Path(left).expanduser().resolve() == right.resolve()
@@ -131,7 +144,13 @@ def _provider_from_install(
         bindings = load_component_bindings(bindings_snapshot.path)
     except ResolveError as exc:
         raise InspectError("provider-binding-invalid", str(exc)) from exc
-    binding = (bindings.get("bindings") or {}).get(PROVIDER_BINDING_REF)
+    binding_map = _required_object(
+        bindings,
+        "bindings",
+        "Komponenten-Binding.bindings",
+        code="provider-binding-invalid",
+    )
+    binding = binding_map.get(PROVIDER_BINDING_REF)
     if not isinstance(binding, dict):
         raise InspectError(
             "provider-binding-missing",
@@ -143,7 +162,18 @@ def _provider_from_install(
             f"Binding-Alias {PROVIDER_BINDING_REF!r} verweist nicht auf {PROVIDER_ID!r}",
         )
 
-    transaction = ((install.get("plan") or {}).get("transaction") or {})
+    plan = _required_object(
+        install,
+        "plan",
+        "OCEAN-Installationsstand.plan",
+        code="install-state-invalid",
+    )
+    transaction = _required_object(
+        plan,
+        "transaction",
+        "OCEAN-Installationsstand.plan.transaction",
+        code="install-state-invalid",
+    )
     components = transaction.get("components")
     fetches = transaction.get("fetch")
     if not isinstance(components, list) or not isinstance(fetches, list):
@@ -154,7 +184,18 @@ def _provider_from_install(
             "provider-installation-unproven",
             f"Installationsstand muss genau eine Komponente {PROVIDER_BINDING_REF!r} belegen",
         )
-    recorded_binding = ((matched[0].get("detail") or {}).get("binding") or {})
+    component_detail = _required_object(
+        matched[0],
+        "detail",
+        "Installierte Provider-Komponente.detail",
+        code="install-state-invalid",
+    )
+    recorded_binding = _required_object(
+        component_detail,
+        "binding",
+        "Installierte Provider-Komponente.detail.binding",
+        code="install-state-invalid",
+    )
     for field, expected in binding.items():
         if recorded_binding.get(field) != expected:
             raise InspectError(
@@ -171,7 +212,13 @@ def _provider_from_install(
     fetch = matching_fetches[0]
     if fetch.get("action") not in {"fetched", "present-pinned-provider"}:
         raise InspectError("provider-installation-unproven", "Provider wurde nicht gepinnt bereitgestellt")
-    if not _same_path((fetch.get("detail") or {}).get("dest", ""), provider_root):
+    fetch_detail = _required_object(
+        fetch,
+        "detail",
+        "Provider-Fetchbeleg.detail",
+        code="install-state-invalid",
+    )
+    if not _same_path(fetch_detail.get("dest", ""), provider_root):
         raise InspectError("provider-installation-drift", "Provider-Fetchbeleg zeigt auf einen anderen Pfad")
     return provider_root, binding, bindings, [install_snapshot, bindings_snapshot]
 
@@ -187,7 +234,12 @@ def _verify_provider_identity(
         raise InspectError("provider-verification-failed", str(exc)) from exc
     manifest_snapshot = _snapshot(provider_root / binding["provider_manifest"], "Provider-Manifest")
     manifest = _read_json_snapshot(manifest_snapshot, "Provider-Manifest")
-    entrypoints = manifest.get("entrypoints") or {}
+    entrypoints = _required_object(
+        manifest,
+        "entrypoints",
+        "Provider-Manifest.entrypoints",
+        code="provider-identity-mismatch",
+    )
     if (
         proof.get("provider_id") != PROVIDER_ID
         or manifest.get("id") != PROVIDER_ID
@@ -329,8 +381,18 @@ def inspect_workspace(
     trust_snapshot = _snapshot(trust_store, "Receipt-Trust-Store")
     all_input_snapshots = stable_snapshots + [resolution_snapshot, trust_snapshot, *receipt_snapshots]
     resolution_value = _read_json_snapshot(resolution_snapshot, "Resolution")
-    system = resolution_value.get("system") or {}
-    instance = resolution_value.get("instance") or {}
+    system = _required_object(
+        resolution_value,
+        "system",
+        "Resolution.system",
+        code="resolution-invalid",
+    )
+    instance = _required_object(
+        resolution_value,
+        "instance",
+        "Resolution.instance",
+        code="resolution-invalid",
+    )
     if instance.get("instance_id") != expected_instance_id or instance.get("host_id") != expected_host_id:
         raise InspectError(
             "resolution-scope-mismatch",
@@ -380,7 +442,13 @@ def inspect_workspace(
     except FetchError as exc:
         raise InspectError("provider-changed-during-inspection", str(exc)) from exc
     coverage, omitted_count = _coverage_presentation(raw_coverage)
-    hard_gaps = ((coverage.get("desired_summary") or {}).get("hard_gaps"))
+    desired_summary = _required_object(
+        coverage,
+        "desired_summary",
+        "Native Coverage.desired_summary",
+        code="native-provider-contract-error",
+    )
+    hard_gaps = desired_summary.get("hard_gaps")
     if not isinstance(hard_gaps, int) or isinstance(hard_gaps, bool):
         raise InspectError("native-provider-contract-error", "Native Coverage enthält keine gültige Hard-Gap-Zahl")
     status = "valid-with-required-gaps" if hard_gaps else "valid-no-required-gaps"

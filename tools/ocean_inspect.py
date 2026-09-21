@@ -363,6 +363,7 @@ def inspect_workspace(
     trust_store_sha256: str,
     expected_instance_id: str,
     expected_host_id: str,
+    root_only_resolution: bool = False,
     evaluated_at: str | None = None,
     expected_provider_version: str = DEFAULT_PROVIDER_VERSION,
     component_bindings: Path = DEFAULT_COMPONENT_BINDINGS,
@@ -414,7 +415,12 @@ def inspect_workspace(
                 with api.Store(Path(temporary) / "system-explorer.db") as store:
                     store.begin_immediate()
                     try:
-                        api.import_resolution(resolution_snapshot.path, store, defer_commit=True)
+                        resolution_import = api.import_resolution(
+                            resolution_snapshot.path,
+                            store,
+                            root_only=root_only_resolution,
+                            defer_commit=True,
+                        )
                         for receipt in ordered_receipts:
                             api.import_actual_self_receipt(
                                 receipt.path,
@@ -453,6 +459,23 @@ def inspect_workspace(
     if not isinstance(hard_gaps, int) or isinstance(hard_gaps, bool):
         raise InspectError("native-provider-contract-error", "Native Coverage enthält keine gültige Hard-Gap-Zahl")
     status = "valid-with-required-gaps" if hard_gaps else "valid-no-required-gaps"
+    projection_scope = resolution_import.get("projection_scope")
+    subsystems_omitted = resolution_import.get("subsystems_omitted")
+    expected_projection_scope = "root-only" if root_only_resolution else "full"
+    if projection_scope != expected_projection_scope:
+        raise InspectError(
+            "native-provider-contract-error",
+            "Nativer Resolution-Import meldet nicht den angeforderten Projektionsbereich",
+        )
+    if (
+        not isinstance(subsystems_omitted, int)
+        or isinstance(subsystems_omitted, bool)
+        or subsystems_omitted < 0
+    ):
+        raise InspectError(
+            "native-provider-contract-error",
+            "Nativer Resolution-Import enthält keine gültige Zahl ausgelassener Subsysteme",
+        )
     receipt_hashes = sorted(snapshot.sha256 for snapshot in receipt_snapshots)
     return {
         "schema": INSPECT_SCHEMA,
@@ -462,6 +485,10 @@ def inspect_workspace(
             "system_id": system.get("id"),
             "instance_id": expected_instance_id,
             "host_id": expected_host_id,
+        },
+        "resolution_projection": {
+            "projection_scope": projection_scope,
+            "subsystems_omitted": subsystems_omitted,
         },
         "provider": {
             "binding_ref": PROVIDER_BINDING_REF,

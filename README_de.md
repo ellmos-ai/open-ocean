@@ -328,7 +328,7 @@ python ocean.py status --workspace <local-sandbox>
 python ocean.py inspect --workspace <local-sandbox> --resolution <resolution.json> \
   --receipt <actual-self.json> --trust-store <receipt-trust.json> \
   --trust-store-sha256 <sha256> --expected-instance-id <instanz> \
-  --expected-host-id <host> --evaluated-at <ISO-8601> --json
+  --expected-host-id <host> [--root-only-resolution] --evaluated-at <ISO-8601> --json
 python ocean.py user add --workspace <local-sandbox> --username <name> --email <address>
 python ocean.py down --workspace <local-sandbox>
 ```
@@ -355,8 +355,12 @@ Installationsbeleg, Git-Pin, sauberen Baum, Repository, Manifestidentität und e
 Anbieterversion, bevor es die nativen APIs importiert. Danach validiert System Explorer die
 Resolution, den Trust-Store-Pin und jeden signierten Actual-Self-Beleg in einem frischen temporären
 Evidenzspeicher und berechnet die Coverage. Ein ungültiger Beleg weist die gesamte Operation ab.
-Exit `0` bedeutet gültig ohne Pflichtlücken, Exit `1` gültig mit Pflichtlücken und Exit `2`
-abgewiesen. Die JSON-Präsentationssicht lässt ausschließlich die Store-Buchhaltungsfelder
+Eine Resolution mit Subsystemen wird standardmäßig abgewiesen. Die ausdrückliche Option
+`--root-only-resolution` weist den nativen Anbieter an, diese Subsysteme auszulassen. Das Ergebnis
+zeigt dessen `projection_scope` und `subsystems_omitted`, sodass auch der Status
+`valid-no-required-gaps` sichtbar auf die Root-only-Projektion begrenzt bleibt. Exit `0` bedeutet
+gültig ohne Pflichtlücken im ausgewiesenen Projektionsbereich, Exit `1` gültig mit Pflichtlücken und
+Exit `2` abgewiesen. Die JSON-Präsentationssicht lässt ausschließlich die Store-Buchhaltungsfelder
 `created_at` an vier dokumentierten Coverage-Positionen aus; signierte und fachliche Zeitpunkte,
 Verdicts, Evidenzbezüge und Metadaten bleiben unverändert. Siehe
 [OCEAN-Inspektion](architecture/OCEAN-INSPEKTION.md).

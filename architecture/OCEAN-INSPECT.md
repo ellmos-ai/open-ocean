@@ -24,6 +24,10 @@ the native `import_resolution`, `load_receipt_trust_store`, `import_actual_self_
 `coverage_report` functions in a new temporary SQLite store. The temporary store is deleted after
 the call. The target workspace and input evidence remain unchanged.
 
+System Explorer rejects resolutions that contain subsystems by default. OCEAN preserves that
+fail-closed behavior. Only the explicit `--root-only-resolution` option passes `root_only=True` to
+the native importer. OCEAN does not trim or count subsystem data itself.
+
 Receipt imports share one transaction. A single invalid, expired, forged, wrong-host,
 wrong-provider or unknown-field receipt rejects the whole operation; no partial success report is
 returned.
@@ -31,9 +35,11 @@ returned.
 ## Output contract
 
 The JSON envelope uses `ellmos.open-ocean-inspect.v1` and contains the evaluation time, expected
-scope, provider pin evidence, SHA-256 hashes of all public inputs, and the native coverage result.
-Exit `0` means valid without required gaps, exit `1` means valid with required gaps, and exit `2`
-means rejected.
+scope, provider pin evidence, SHA-256 hashes of all public inputs, the native resolution-import
+fields `projection_scope` and `subsystems_omitted`, and the native coverage result. Thus
+`valid-no-required-gaps` is visibly limited to `root-only` whenever explicit root-only projection
+was selected. Exit `0` means valid without required gaps in the reported projection, exit `1`
+means valid with required gaps, and exit `2` means rejected.
 
 System Explorer's native coverage records include Store insertion timestamps. They are volatile
 bookkeeping, not evidence time. For deterministic presentation OCEAN removes only `created_at` at:
@@ -52,6 +58,8 @@ evidence IDs and links, provider identity, scopes, verdicts and gap classificati
 Acceptance uses a real clean checkout of the pinned provider and an ephemeral Ed25519 key pair.
 Tests cover valid evidence, required gaps, expiry, signature failure, wrong host, wrong provider,
 unknown fields, a wrong trust pin, provider-version mismatch and a mixed valid/invalid receipt set.
+They also use the real pinned provider to prove default rejection of a subsystem resolution and
+explicit root-only acceptance with the provider's own omission result.
 Two runs with identical inputs and evaluation time must produce byte-identical canonical JSON after
 the documented presentation omission. No BACH database, target scanner, plugin, credential refresh,
 network service or live installation is involved.

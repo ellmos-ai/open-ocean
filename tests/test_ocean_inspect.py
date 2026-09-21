@@ -501,6 +501,54 @@ def test_cli_rejects_invalid_resolution_object_shape_without_traceback(
     assert rejection["error"]["code"] == "resolution-invalid"
 
 
+def test_cli_rejects_non_object_component_bindings_without_traceback(
+    native_case: dict,
+    tmp_path: Path,
+):
+    invalid_bindings = tmp_path / "invalid-component-bindings.json"
+    invalid_bindings.write_text("[]\n", encoding="utf-8")
+    command = [
+        sys.executable,
+        str(REPO_ROOT / "ocean.py"),
+        "inspect",
+        "--workspace",
+        str(native_case["workspace"]),
+        "--resolution",
+        str(native_case["resolution"]),
+        "--receipt",
+        str(native_case["receipt"]),
+        "--trust-store",
+        str(native_case["trust"]),
+        "--trust-store-sha256",
+        native_case["trust_sha256"],
+        "--expected-instance-id",
+        "fixture-development-system@TEST-HOST",
+        "--expected-host-id",
+        "TEST-HOST",
+        "--evaluated-at",
+        EVALUATED_AT,
+        "--component-bindings",
+        str(invalid_bindings),
+        "--json",
+    ]
+
+    completed = subprocess.run(
+        command,
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+
+    assert completed.returncode == 2
+    assert completed.stdout == ""
+    assert "Traceback" not in completed.stderr
+    rejection = json.loads(completed.stderr)
+    assert rejection["status"] == "rejected"
+    assert rejection["error"]["code"] == "input-invalid"
+
+
 @pytest.mark.parametrize(
     "path",
     [

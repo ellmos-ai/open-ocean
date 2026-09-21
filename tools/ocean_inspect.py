@@ -136,6 +136,7 @@ def _provider_from_install(
     install_snapshot = _snapshot(workspace / INSTALL_STATE, "OCEAN-Installationsstand")
     bindings_snapshot = _snapshot(component_bindings, "Komponenten-Binding")
     install = _read_json_snapshot(install_snapshot, "OCEAN-Installationsstand")
+    _read_json_snapshot(bindings_snapshot, "Komponenten-Binding")
     if install.get("schema") != "ellmos.open-ocean-install-state.v1":
         raise InspectError("install-state-invalid", "Nicht unterstützter OCEAN-Installationsstand")
     if not _same_path(install.get("workspace", ""), workspace):

@@ -304,6 +304,10 @@ python ocean.py up <composition arguments> --apply
 python ocean.py start --workspace <local-sandbox>
 python ocean.py start <role> --manifest <ellmos-module.v2.json> [--provider <name>]
 python ocean.py status --workspace <local-sandbox>
+python ocean.py inspect --workspace <local-sandbox> --resolution <resolution.json> \
+  --receipt <actual-self.json> --trust-store <receipt-trust.json> \
+  --trust-store-sha256 <sha256> --expected-instance-id <instance> \
+  --expected-host-id <host> --evaluated-at <ISO-8601> --json
 python ocean.py user add --workspace <local-sandbox> --username <name> --email <address>
 python ocean.py down --workspace <local-sandbox>
 ```
@@ -320,6 +324,19 @@ does not enter the runtime lifecycle or touch the installed workspace. If that
 optional console is absent, OCEAN prints `[FALLBACK]` and uses the same manifest
 record through task-master, COMA or the module starter. `--dry-run` proves the
 resolved chain without starting a provider.
+
+`ocean inspect` is a read-only adapter to the System Explorer checkout already installed by the
+exact `module:software-endpoint-registry` binding. The binding name is the composition role; the
+verified provider remains `system-explorer` from `ellmos-ai/system-explorer`, package
+`system_explorer`, CLI `system-explorer`. OCEAN verifies the install receipt, Git pin, clean tree,
+repository, manifest identity and expected provider version before importing the native APIs.
+System Explorer then validates the resolution, trust-store pin and every signed Actual-Self
+receipt in a fresh temporary evidence store and computes coverage. Any invalid receipt rejects the
+whole operation. Exit `0` means a valid report without required gaps, exit `1` a valid report with
+required gaps, and exit `2` a rejected input or provider. The JSON presentation omits only Store
+bookkeeping `created_at` fields at the four documented coverage-record positions; signed and
+effective timestamps, verdicts, evidence references and metadata are unchanged. See
+[OCEAN inspect](architecture/OCEAN-INSPECT.md).
 On Windows, the supervisor also retries transient atomic state-file replacement contention within
 a bounded one-second window, so a successful stop cannot leave a stale `running` record behind.
 On `<DEV-HOST>`, the hidden limited-user logon task `EllmosOceanFullUserStart` now launches the exact
@@ -494,7 +511,8 @@ a claim that they are done.
 
 ### Prerequisites & Installation
 
-`open-ocean` requires Python 3.10+ and operates completely without external runtime libraries.
+`open-ocean` requires Python 3.10+ and `cryptography>=41` for System Explorer's native Ed25519
+receipt verification used by `ocean inspect`.
 
 ```bash
 # Clone the repository

@@ -1305,3 +1305,23 @@ the Git whitespace check are also green. This is not a silent re-pin, merge, tag
 deployment or new live Full Ocean acceptance run. The simultaneously observed module-catalog and
 ControlCenter/Homebase source
 drifts remain separate work; the foreign active module-catalog lock was not touched.
+
+## 17. Read-only native function inspection — 2026-09-21
+
+The next adaptive Stage-3 cycle adds `ocean inspect` as a thin adapter to the already pinned System
+Explorer provider. It uses the existing `module:software-endpoint-registry` integration alias and
+does not reinterpret it as a second module owner: the verified repository, manifest, package and
+CLI remain `ellmos-ai/system-explorer`, `system-explorer`, `system_explorer` and
+`system-explorer`, respectively, at the unchanged commit
+`ec50c92319ba8fc262d695b86818fc85666feff7`.
+
+The operation accepts a source-verified resolution and signed Actual-Self receipts, verifies the
+installed provider and delegates all receipt/trust/coverage semantics to four native APIs. Its only
+presentation transform removes the four documented Store-level `created_at` positions whose values
+otherwise vary with temporary-database insertion time; raw native probe outputs remain acceptance
+evidence. Details and negative cases are specified in `architecture/OCEAN-INSPECT.md` and
+`architecture/OCEAN-INSPEKTION.md`.
+
+This cycle changes no installation recipe, provider pin, runtime status, live workspace, BACH state,
+Task 1339, EDS projection or Mac acceptance record. Source completion requires an independent
+review before push, merge, deployment or any live recipe re-pin.

@@ -23,6 +23,12 @@ from tools.ocean_lifecycle import (
     up_from_paths,
     user_add_for_workspace,
 )
+from tools.ocean_inspect import (
+    DEFAULT_PROVIDER_VERSION,
+    InspectError,
+    inspect_workspace,
+    rejection_report,
+)
 from tools.resolve_bundles import DEFAULT_COMPONENT_BINDINGS
 from tools.source_pins import DEFAULT_SOURCE_PINS
 
@@ -147,7 +153,7 @@ def build_parser() -> argparse.ArgumentParser:
         "start",
         help="installierten OCEAN-Stand oder eine deklarierte Modulrolle starten",
     )
-    start.add_argument("role", nargs="?", help="optionale Rollen-ID fuer das Konsolenstartfenster")
+    start.add_argument("role", nargs="?", help="optionale Rollen-ID für das Konsolenstartfenster")
     start.add_argument("--workspace", type=Path)
     start.add_argument("--host", choices=["127.0.0.1", "localhost"])
     start.add_argument("--port", type=int, help="optional neuer Port; sonst wird der installierte Port verwendet")
@@ -159,9 +165,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     start.add_argument("--json", action="store_true")
     start.add_argument("--manifest", action="append", default=[], help="roles[]-Modulmanifest; wiederholbar")
-    start.add_argument("--provider", help="Anbieter fuer den Rollenstart")
-    start.add_argument("--model", default="", help="optionales Modell nur fuer diesen Rollenstart")
-    start.add_argument("--effort", default="", help="optionaler Effort nur fuer diesen Rollenstart")
+    start.add_argument("--provider", help="Anbieter für den Rollenstart")
+    start.add_argument("--model", default="", help="optionales Modell nur für diesen Rollenstart")
+    start.add_argument("--effort", default="", help="optionaler Effort nur für diesen Rollenstart")
     start.add_argument("--request", default="", help="optionaler Nutzerauftrag statt Manifest-Default")
     start.add_argument("--cwd", type=Path, help="Arbeitsverzeichnis der Rolle")
     start.add_argument("--name", default="", help="Name des Rollenprozesses")
@@ -169,6 +175,39 @@ def build_parser() -> argparse.ArgumentParser:
     status = commands.add_parser("status", help="Installations- und Laufzeitstatus live prüfen")
     status.add_argument("--workspace", type=Path, required=True)
     status.add_argument("--json", action="store_true")
+    inspect = commands.add_parser(
+        "inspect",
+        help="installierte Komponenten mit nativer System-Explorer-Evidenz rein lesend prüfen",
+    )
+    inspect.add_argument("--workspace", type=Path, required=True)
+    inspect.add_argument("--resolution", type=Path, required=True)
+    inspect.add_argument(
+        "--receipt",
+        action="append",
+        default=[],
+        type=Path,
+        help="signierter Actual-Self-Beleg; wiederholbar",
+    )
+    inspect.add_argument("--trust-store", type=Path, required=True)
+    inspect.add_argument("--trust-store-sha256", required=True)
+    inspect.add_argument("--expected-instance-id", required=True)
+    inspect.add_argument("--expected-host-id", required=True)
+    inspect.add_argument(
+        "--evaluated-at",
+        help="ISO-8601-Zeitpunkt mit Zeitzone; Standard ist die aktuelle UTC-Zeit",
+    )
+    inspect.add_argument(
+        "--expected-provider-version",
+        default=DEFAULT_PROVIDER_VERSION,
+        help=f"erwartete System-Explorer-Version (Standard: {DEFAULT_PROVIDER_VERSION})",
+    )
+    inspect.add_argument(
+        "--component-bindings",
+        type=Path,
+        default=DEFAULT_COMPONENT_BINDINGS,
+        help="exaktes OCEAN-Integrations-Overlay für den installierten Provider",
+    )
+    inspect.add_argument("--json", action="store_true")
     down = commands.add_parser("down", help="Nur die zugehörige OCEAN-Laufzeit kontrolliert beenden")
     down.add_argument("--workspace", type=Path, required=True)
     down.add_argument("--json", action="store_true")
@@ -251,7 +290,7 @@ def _fallback_role_command(args: argparse.Namespace) -> tuple[list[str], list[st
     providers = [str(value).strip().lower() for value in role.get("providers", [])]
     provider = str(args.provider or (providers[0] if providers else "")).strip().lower()
     if not provider or provider not in providers:
-        raise ValueError(f"Provider {provider!r} ist fuer {module_id}:{role.get('id')} nicht erlaubt")
+        raise ValueError(f"Provider {provider!r} ist für {module_id}:{role.get('id')} nicht erlaubt")
     cwd = Path(args.cwd).expanduser().resolve() if args.cwd else Path.cwd().resolve()
     notices = ["[FALLBACK] unified-gui-Konsole fehlt; verwende den nächsten Startweg."]
 
@@ -373,6 +412,43 @@ def main(argv: list[str] | None = None) -> int:
             return exc.exit_code
         print(json.dumps(report, indent=2, ensure_ascii=False) if args.json else f"OCEAN: {report['runtime']['control']} ({report['runtime']['health']})")
         return 0 if report["runtime"]["control"] == "running" and report["runtime"]["health"] == "ok" else 1
+    if args.command == "inspect":
+        try:
+            report = inspect_workspace(
+                workspace=args.workspace,
+                resolution=args.resolution,
+                receipts=args.receipt,
+                trust_store=args.trust_store,
+                trust_store_sha256=args.trust_store_sha256,
+                expected_instance_id=args.expected_instance_id,
+                expected_host_id=args.expected_host_id,
+                evaluated_at=args.evaluated_at,
+                expected_provider_version=args.expected_provider_version,
+                component_bindings=args.component_bindings,
+            )
+        except InspectError as exc:
+            if args.json:
+                print(
+                    json.dumps(
+                        rejection_report(exc, args.evaluated_at),
+                        indent=2,
+                        ensure_ascii=False,
+                    ),
+                    file=sys.stderr,
+                )
+            else:
+                print(f"[ABGEWIESEN] {exc}", file=sys.stderr)
+            return exc.exit_code
+        if args.json:
+            print(json.dumps(report, indent=2, ensure_ascii=False))
+        else:
+            summary = report["coverage"]["desired_summary"]
+            print(
+                "OCEAN-Inspektion gültig: "
+                f"{summary['functions']} Soll-Funktionen, "
+                f"{summary['hard_gaps']} Pflichtlücken."
+            )
+        return 1 if report["status"] == "valid-with-required-gaps" else 0
     if args.command == "start":
         if args.role:
             try:

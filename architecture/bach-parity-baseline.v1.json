@@ -30,7 +30,7 @@
     "conclusion": "The 114-name/113-name release bar from 2026-08-08 is still current and accurate as of 2026-08-18; the only drift is the duplicate-file artifact above, which does not change scope or coverage."
   },
   "re_audit_2026-09-21": {
-    "purpose": "T-20260920-157560721: read-only composition re-measurement against BACH main 39d2457adeb0bcbcd9f1205dfb2c08f3086b30ed and the current module, bundle and Skills Registry catalogues. This is appended evidence; it does not replace the historic 113/114 release record.",
+    "purpose": "T-20260920-157560721: read-only composition re-measurement against clean BACH main 66532475a7b952a6817ac355c85b519fdcb80ee0 and the current module, bundle and Skills Registry catalogues. This is appended evidence; it does not replace the historic 113/114 release record.",
     "counts": {
       "handler_classes": 109,
       "canonical_profiles": 109,

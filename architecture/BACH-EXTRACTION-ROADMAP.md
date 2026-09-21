@@ -236,8 +236,8 @@ It does not prove functional parity, an installer or the sluice test.
 
 ## 2026-09-21 composition re-measurement and wiring backlog
 
-Ticket `T-20260920-157560721` reran the side-effect-free AST audit against BACH
-`39d2457adeb0bcbcd9f1205dfb2c08f3086b30ed`. The historic 114-name surface is
+Ticket `T-20260920-157560721` reran the side-effect-free AST audit against the
+clean BACH worktree at `66532475a7b952a6817ac355c85b519fdcb80ee0`. The historic 114-name surface is
 preserved as a subset. Current source adds `cloud`, `mcp`, `security` and `theme`,
 so the current surface is **118 names**, not 114. The historical release record is
 not rewritten to make this pass.
@@ -262,12 +262,15 @@ components. They make more potential carriers visible than the 2026-08-08
 
 ### Ordered wiring work
 
-1. Resolve `M-20260920-role-capability-declarations`: declare and validate the
+1. Execute `T-20260921-916843500` (source finding
+   `M-20260920-role-capability-declarations`): declare and validate the
    missing provider capabilities for all four affected roles before claiming any
    corresponding carrier usable.
-2. Resolve `M-20260920-systems-projection-bundle-pins`: refresh stale
+2. Execute `T-20260921-835725997` (source finding
+   `M-20260920-systems-projection-bundle-pins`): refresh stale
    system/bundle projection pins through the canonical projection path.
-3. Resolve `M-20260920-bundle-projection-direct-edit-loss`: make the projection
+3. Execute `T-20260921-776221937` (source finding
+   `M-20260920-bundle-projection-direct-edit-loss`): make the projection
    path own edits, then re-run the matrix so direct changes cannot disappear.
 4. For each `carrier` row, capture its operation contract, bind it to its role and
    bundle, add the BACH adapter with rollback, then add an old/new use-case test.

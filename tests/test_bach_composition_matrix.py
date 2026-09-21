@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from tools.build_bach_composition_matrix import classify, validate_carriers
+from tools.build_bach_composition_matrix import classify, source_locators, validate_carriers
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -40,7 +40,8 @@ def test_every_current_name_has_one_explicit_non_equivalence_classification():
 
 def test_builder_remains_exhaustive_for_the_recorded_current_surface():
     matrix = json.loads(MATRIX.read_text(encoding="utf-8"))
-    rows = classify(matrix["source_audit"]["registered_names"])
+    locators = {row["name"]: row["source_locator"] for row in matrix["rows"]}
+    rows = classify(matrix["source_audit"]["registered_names"], locators)
     assert rows == matrix["rows"]
 
 
@@ -48,3 +49,25 @@ def test_catalog_validation_rejects_a_declared_carrier_missing_from_its_catalog(
     rows = [{"class": "carrier", "carrier": "missing", "carrier_locator": "module:missing"}]
     with pytest.raises(ValueError, match="missing"):
         validate_carriers(rows, modules=[], skills=[])
+
+
+def test_matrix_uses_host_neutral_fingerprints_and_static_bach_sources():
+    matrix = json.loads(MATRIX.read_text(encoding="utf-8"))
+
+    assert len(matrix["source_audit"]["bach_commit"]) == 40
+    assert all("path" not in catalog for catalog in matrix["catalogues"].values())
+    assert all(catalog["locator"].startswith("catalog://") for catalog in matrix["catalogues"].values())
+    assert all(row["source_locator"].startswith("bach://") for row in matrix["rows"])
+
+
+def test_source_locators_reject_ambiguous_or_partially_parsed_audits():
+    source = {
+        "diagnostics": {
+            "parse_errors": [{"file": "broken.py", "error": "invalid syntax"}],
+            "duplicate_profiles": [],
+        },
+        "handlers": [],
+        "effective_aliases": {},
+    }
+    with pytest.raises(ValueError, match="not clean"):
+        source_locators(source, "a" * 40)

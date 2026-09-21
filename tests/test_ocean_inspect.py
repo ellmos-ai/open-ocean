@@ -480,10 +480,38 @@ def test_native_bad_signature_and_mixed_set_fail_closed(native_case: dict):
     value = json.loads(native_case["receipt"].read_text(encoding="utf-8"))
     value["signature"]["value"] = base64.b64encode(b"0" * 64).decode("ascii")
     forged = _write_json(native_case["receipt"].parent / "forged.actual.json", value)
+    protected_inputs = [
+        native_case["resolution"],
+        native_case["receipt"],
+        forged,
+        native_case["trust"],
+        native_case["public_key"],
+        native_case["install"],
+    ]
+    before_hashes = _file_hashes(protected_inputs)
+    before_workspace = sorted(
+        str(path.relative_to(native_case["workspace"]))
+        for path in native_case["workspace"].rglob("*")
+    )
+    before_provider_status = subprocess.run(
+        ["git", "status", "--porcelain=v1", "--untracked-files=all"],
+        cwd=native_case["provider"], capture_output=True, text=True, check=True,
+    ).stdout
+
     for receipts in ([forged], [native_case["receipt"], forged]):
         with pytest.raises(InspectError) as raised:
             _inspect(native_case, receipts=list(receipts))
         assert raised.value.code == "native-provider-rejected"
+
+    assert _file_hashes(protected_inputs) == before_hashes
+    assert sorted(
+        str(path.relative_to(native_case["workspace"]))
+        for path in native_case["workspace"].rglob("*")
+    ) == before_workspace
+    assert subprocess.run(
+        ["git", "status", "--porcelain=v1", "--untracked-files=all"],
+        cwd=native_case["provider"], capture_output=True, text=True, check=True,
+    ).stdout == before_provider_status == ""
 
 
 def test_native_trust_pin_and_provider_version_mismatch_fail_closed(native_case: dict):

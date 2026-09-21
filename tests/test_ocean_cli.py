@@ -53,6 +53,7 @@ def test_root_help_exposes_the_complete_first_usable_lifecycle():
     assert "up" in proc.stdout
     assert "start" in proc.stdout
     assert "status" in proc.stdout
+    assert "inspect" in proc.stdout
     assert "down" in proc.stdout
     assert "user" in proc.stdout
     assert "prüfen" in proc.stdout

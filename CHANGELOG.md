@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `ocean inspect`, a read-only adapter to the exact installed System Explorer pin. It
+  verifies the OCEAN install/binding and provider identity, delegates resolution, Ed25519 receipt,
+  trust and coverage semantics to native APIs in a temporary store, rejects mixed valid/invalid
+  receipt sets atomically, and emits deterministic JSON after omitting only four documented
+  Store-bookkeeping `created_at` positions.
+
 - `ocean start <role>` forwards an authoritative module `roles[]` entry to the
   Unified GUI console start window. The existing `ocean start --workspace ...`
   runtime path is unchanged. Missing optional console code degrades visibly to

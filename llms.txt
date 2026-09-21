@@ -33,11 +33,17 @@ python ocean.py up <composition arguments> --apply
 python ocean.py start --workspace <local-sandbox>
 python ocean.py start <role> --manifest <ellmos-module.v2.json> [--provider <name>]
 python ocean.py status --workspace <local-sandbox>
+python ocean.py inspect --workspace <local-sandbox> --resolution <resolution.json> \
+  --receipt <actual-self.json> --trust-store <receipt-trust.json> \
+  --trust-store-sha256 <sha256> --expected-instance-id <instance> --expected-host-id <host> --json
 python ocean.py user add --workspace <local-sandbox> --username <name> --email <address>
 python ocean.py down --workspace <local-sandbox>
 ```
 
 Use `python ocean.py --help` and subcommand help for the complete argument surface.
+`inspect` verifies the installed `module:software-endpoint-registry` binding as the pinned
+`system-explorer` provider, then delegates resolution, signed Actual-Self receipt, trust and
+coverage semantics to its native APIs in a temporary store. It never scans or mutates the target.
 The positional role path delegates to `python -m unified_gui.console start` and
 never enters the installed-runtime lifecycle. Its explicit fallback order is
 task-master, COMA, then the module-declared starter.

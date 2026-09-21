@@ -4,9 +4,15 @@
 
 ## Runtime Dependencies
 
-**Zero external runtime dependencies.**
+The core installer and lifecycle mechanisms rely on the Python Standard Library. The read-only
+`ocean inspect` adapter additionally uses the same Ed25519 implementation as its pinned native
+System Explorer provider:
 
-The core CLI, installer mechanisms, and verification engines rely exclusively on the Python Standard Library:
+| Package | Purpose | License | Source / Upstream |
+|---|---|---|---|
+| **cryptography** | Verify signed Actual-Self evidence through System Explorer | Apache-2.0 OR BSD-3-Clause | [pyca/cryptography](https://github.com/pyca/cryptography) |
+
+Standard-library components include:
 - `argparse` — Command-line argument parsing
 - `dataclasses` — Structured state and receipt modeling
 - `hashlib` — SHA-256 cryptographic verification of bundle manifests and components
@@ -36,4 +42,4 @@ The following tools are used during development, testing, and continuous integra
 
 ## Summary & Compliance
 
-All direct and transitive components used across `open-ocean` comply with the permissive MIT and Apache-2.0 open-source licensing guidelines of the `open-bricks` umbrella ecosystem.
+All direct components used across `open-ocean` use permissive MIT, Apache-2.0, or BSD licensing.

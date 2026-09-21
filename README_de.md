@@ -325,6 +325,10 @@ python ocean.py up <composition arguments> --apply
 python ocean.py start --workspace <local-sandbox>
 python ocean.py start <rolle> --manifest <ellmos-module.v2.json> [--provider <name>]
 python ocean.py status --workspace <local-sandbox>
+python ocean.py inspect --workspace <local-sandbox> --resolution <resolution.json> \
+  --receipt <actual-self.json> --trust-store <receipt-trust.json> \
+  --trust-store-sha256 <sha256> --expected-instance-id <instanz> \
+  --expected-host-id <host> --evaluated-at <ISO-8601> --json
 python ocean.py user add --workspace <local-sandbox> --username <name> --email <address>
 python ocean.py down --workspace <local-sandbox>
 ```
@@ -342,6 +346,20 @@ Decks weiter. Der Befehl betritt dabei den Runtime-Lifecycle nicht und veränder
 den installierten Workspace nicht. Fehlt die optionale Konsole, meldet OCEAN
 `[FALLBACK]` und verwendet denselben Manifesteintrag über task-master, COMA oder
 den Modulstarter. `--dry-run` belegt die aufgelöste Kette ohne Anbieterstart.
+
+`ocean inspect` ist ein rein lesender Adapter zum System-Explorer-Checkout, den das exakte Binding
+`module:software-endpoint-registry` bereits installiert hat. Der Binding-Name bezeichnet die
+Kompositionsrolle; der geprüfte Anbieter bleibt `system-explorer` aus
+`ellmos-ai/system-explorer`, Paket `system_explorer`, CLI `system-explorer`. OCEAN prüft
+Installationsbeleg, Git-Pin, sauberen Baum, Repository, Manifestidentität und erwartete
+Anbieterversion, bevor es die nativen APIs importiert. Danach validiert System Explorer die
+Resolution, den Trust-Store-Pin und jeden signierten Actual-Self-Beleg in einem frischen temporären
+Evidenzspeicher und berechnet die Coverage. Ein ungültiger Beleg weist die gesamte Operation ab.
+Exit `0` bedeutet gültig ohne Pflichtlücken, Exit `1` gültig mit Pflichtlücken und Exit `2`
+abgewiesen. Die JSON-Präsentationssicht lässt ausschließlich die Store-Buchhaltungsfelder
+`created_at` an vier dokumentierten Coverage-Positionen aus; signierte und fachliche Zeitpunkte,
+Verdicts, Evidenzbezüge und Metadaten bleiben unverändert. Siehe
+[OCEAN-Inspektion](architecture/OCEAN-INSPEKTION.md).
 Unter Windows wiederholt der Supervisor außerdem eine vorübergehend blockierte atomare Ersetzung
 der Statusdatei innerhalb eines begrenzten Ein-Sekunden-Fensters. Damit kann ein erfolgreicher
 Stopp keinen veralteten `running`-Eintrag zurücklassen.
@@ -502,7 +520,8 @@ bleiben offene Arbeit, und nichts hier ist als Behauptung des Gegenteils zu lese
 
 ### Voraussetzungen & Installation
 
-`open-ocean` setzt Python 3.10+ voraus und kommt vollständig ohne externe Laufzeitbibliotheken aus.
+`open-ocean` setzt Python 3.10+ sowie `cryptography>=41` für die native
+Ed25519-Belegprüfung des System Explorers in `ocean inspect` voraus.
 
 ```bash
 # Repository klonen

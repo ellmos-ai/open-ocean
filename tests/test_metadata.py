@@ -236,7 +236,8 @@ def test_third_party_licenses_inventory():
     assert lic_file.is_file(), "THIRD_PARTY_LICENSES.md must exist"
 
     content = lic_file.read_text(encoding="utf-8")
-    assert "Zero external runtime dependencies" in content
+    assert "cryptography" in content
+    assert "Ed25519" in content
     assert "Python Standard Library" in content
     assert "pytest" in content
     assert "ruff" in content

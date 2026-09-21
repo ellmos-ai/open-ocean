@@ -141,6 +141,32 @@ def validate_specs(contract: dict[str, Any], repo_root: Path) -> list[str]:
         "session_checkpoint_carrier"
     ]["commit"]:
         problems.append("session-checkpoint carrier pin differs from the K9 data contract")
+    expected_bach = contract["sources"]["bach"]
+    dbsync_source = dbsync.get("sources", {}).get("bach", {})
+    expected_dbsync = expected_bach["handler_files"]["dbsync"]
+    if dbsync_source.get("commit") != expected_bach["commit"]:
+        problems.append("dbsync adapter BACH commit differs from the K9 data contract")
+    if dbsync_source.get("handler") != expected_dbsync["path"]:
+        problems.append("dbsync adapter BACH handler differs from the K9 data contract")
+    if dbsync_source.get("sha256") != expected_dbsync["sha256"]:
+        problems.append("dbsync adapter BACH hash differs from the K9 data contract")
+    payload_fields = checkpoint.get("application_adapter", {}).get("payload_fields", {})
+    expected_payload_fields = {
+        "session_id",
+        "open_tasks",
+        "recent_memory",
+        "active_files",
+        "token_usage",
+        "created_at",
+    }
+    if set(payload_fields) != expected_payload_fields:
+        problems.append("session-checkpoint payload fields drift from the six-field contract")
+    load_mapping = next(
+        (item for item in checkpoint.get("operation_mapping", []) if item.get("bach_operation") == "load"),
+        {},
+    )
+    if "No Ocean restore adapter is implemented." not in load_mapping.get("adapter_work", ""):
+        problems.append("session-checkpoint load mapping must retain the missing-adapter boundary")
     return problems
 
 
@@ -363,6 +389,7 @@ def run_session_checkpoint_fixture(
                 "import_apply_inserted": import_apply["inserted"],
                 "roundtrip_source_ref": roundtrip.source_ref,
                 "roundtrip_payload_matches": roundtrip.payload == payload,
+                "payload_fields": sorted(payload),
                 "default_max_import_checkpoints": module.DEFAULT_MAX_IMPORT_CHECKPOINTS,
                 "default_max_import_payload_bytes": module.DEFAULT_MAX_IMPORT_PAYLOAD_BYTES,
                 "import_record_limit_enforced": import_record_limit_enforced,

@@ -1,13 +1,13 @@
 {
   "schema": "ellmos.open-ocean-bach-k9-dbsync-adapter.v1",
   "status": "specified-carrier-surfaces-green-not-implemented",
-  "recorded_at": "2026-08-08",
-  "claim_boundary": "This specification makes the future BACH adapter implementable without copying generic merge mechanics. It is not an implemented BACH adapter, old/new equivalence, BACH-IN, migration, rollback, bundle, installer, or off-host evidence.",
+  "recorded_at": "2026-09-21",
+  "claim_boundary": "This specification makes the future BACH adapter implementable without copying generic merge mechanics. The inspected BACH source can lazily select its existing external TransitSync seam, but this document is not an implemented Ocean adapter, old/new equivalence, BACH-IN, migration, rollback, bundle, installer, or off-host evidence.",
   "sources": {
     "bach": {
-      "commit": "5e8fe80607091378477523b2b6dc99e8c17d7d18",
+      "commit": "8392ed8cecd9ac598d1b3b711b8e3df1b7c1dc4d",
       "handler": "system/hub/db_sync.py",
-      "sha256": "bd14fc108bd8c88b70df1f5babbfcc160c7a0c13aa6a744c52c469ef8e367d08"
+      "sha256": "9947344814dc65feff22bdd0ef078de9255d202f4f8252a64c76e43415e96444"
     },
     "carrier": {
       "id": "sqlite-transit-sync",
@@ -108,7 +108,9 @@
   "operations": [
     {
       "name": "backup",
-      "carrier_calls": ["TransitSync.push"],
+      "carrier_calls": [
+        "TransitSync.push"
+      ],
       "dry_run_target": "plan without publishing",
       "success_output": "Backup erstellt: {snapshot_basename}",
       "failure_output": "Backup fehlgeschlagen: {safe_error}",
@@ -116,7 +118,9 @@
     },
     {
       "name": "cleanup",
-      "carrier_calls": ["TransitSync.cleanup"],
+      "carrier_calls": [
+        "TransitSync.cleanup"
+      ],
       "dry_run_target": "honored",
       "success_output": "Cleanup abgeschlossen: {deleted_count} Backups gelöscht",
       "failure_output": "Cleanup fehlgeschlagen: {safe_error}",
@@ -148,7 +152,10 @@
     },
     {
       "name": "pull",
-      "carrier_calls": ["TransitSync.pending", "TransitSync.pull_selected"],
+      "carrier_calls": [
+        "TransitSync.pending",
+        "TransitSync.pull_selected"
+      ],
       "dry_run_target": "honored",
       "success_output": "ProSync Pull: {merged_rows} Zeilen aus {snapshot_basename} gemergt",
       "failure_output": "ProSync Pull fehlgeschlagen: {snapshot_basename} ({safe_error})",
@@ -156,7 +163,9 @@
     },
     {
       "name": "push",
-      "carrier_calls": ["TransitSync.push"],
+      "carrier_calls": [
+        "TransitSync.push"
+      ],
       "dry_run_target": "honored",
       "success_output": "ProSync Push: {snapshot_basename}",
       "guard_output": "ProSync Push: Bereits heute gepusht",
@@ -165,14 +174,20 @@
     },
     {
       "name": "status",
-      "carrier_calls": ["TransitSync.status"],
+      "carrier_calls": [
+        "TransitSync.status"
+      ],
       "dry_run_target": "read-only operation",
       "output": "legacy-compatible text assembled from carrier status, verified snapshot metadata and heartbeat compatibility state",
       "parity": "not-accepted"
     },
     {
       "name": "sync",
-      "carrier_calls": ["TransitSync.pending", "TransitSync.pull_selected", "TransitSync.push"],
+      "carrier_calls": [
+        "TransitSync.pending",
+        "TransitSync.pull_selected",
+        "TransitSync.push"
+      ],
       "dry_run_target": "honored",
       "rule": "check heartbeat conflicts, select at most one pending snapshot, merge it, then publish one snapshot; never publish after a failed merge",
       "success_output": "Sync erfolgreich",
@@ -214,4 +229,3 @@
     "legacy parallel writes proven disabled during BACH-IN"
   ]
 }
-

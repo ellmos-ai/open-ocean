@@ -2,6 +2,23 @@
 
 *[English](CHANGELOG.md)*
 
+## Unveröffentlicht — 2026-09-17
+
+### Behoben
+
+- Der POSIX-Laufzeit-Kindprozess wird in eine eigene Session/Prozessgruppe eingefasst. Der
+  authentifizierte Stopp signalisiert jetzt die vollständige Gruppe, eskaliert innerhalb eines
+  gemeinsamen begrenzten Zeitbudgets von SIGTERM zu SIGKILL und schreibt stopped nicht, solange
+  die Gruppe noch nicht leer ist. Fehlende oder veränderte Fences brechen geschlossen ab;
+  Provider-setsid()/Daemonisierung und Windows-Job-Object-Eindämmung bleiben ausdrückliche
+  Host-Gatter.
+
+### Geprüft
+
+- Windows-Vollsuite: 209 bestanden, 3 übersprungen. Ubuntu-24.04-WSL-Vollsuite: 210 bestanden,
+  2 übersprungen, einschließlich eines echten Stopps eines verspätet erzeugten
+  Nachkommenprozesses. Ruff, compileall und git diff --check sind sauber.
+
 ## Unveröffentlicht — 2026-09-09
 
 ### Hinzugefügt

@@ -26,6 +26,13 @@
    - The default target is an isolated sandbox (`<workspace>/skills`) that starts empty, ensuring active host agent configurations cannot be silently altered or polluted during testing.
 5. **Non-Elevation & Least Privilege**:
    - All scripts and tools run completely unprivileged in standard user space. Root or administrator privileges are never requested or required.
+6. **Fenced Runtime Shutdown**:
+   - On POSIX, the runtime child starts in its own session/process group. The supervisor captures
+     that identity before writing the running receipt, sends stop signals to the whole group, and
+     reports stopped only after a bounded empty-group check.
+   - A missing, malformed, or changed POSIX fence fails closed. This does not claim containment
+     of a provider that calls setsid()/daemonizes, nor a Windows Job Object guarantee; those
+     remain separate host gates.
 
 ### Supported Versions
 
@@ -67,6 +74,13 @@ If you discover a security vulnerability or unexpected privilege escalation in `
    - Standardziel ist eine isolierte Sandbox (`<workspace>/skills`), sodass aktive Agenten-Konfigurationen bei Test- und Entwicklungsläufen nicht unbemerkt modifiziert werden können.
 5. **Keine Rechteausweitung (User-Mode-Betrieb)**:
    - Alle Skripte und Werkzeuge laufen vollständig im normalen Benutzerkontext ohne Administrator- oder Root-Rechte.
+6. **Prozessgruppen-Fence beim Laufzeitstopp**:
+   - Unter POSIX startet der Laufzeit-Kindprozess in einer eigenen Session/Prozessgruppe. Der
+     Supervisor übernimmt deren Identität vor dem laufenden Beleg, signalisiert die gesamte Gruppe
+     und meldet stopped erst nach einer begrenzten Bestätigung der Gruppenleere.
+   - Ein fehlender, fehlerhafter oder veränderter POSIX-Beleg führt zum geschlossenen Abbruch.
+     Das garantiert weder die Eindämmung eines Providers mit setsid()/Daemonisierung noch ein
+     Windows-Job-Object; beide Fälle bleiben eigene Host-Gatter.
 
 ### Unterstützte Versionen
 

@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import signal
 import subprocess
 import time
 from datetime import datetime, timezone
@@ -22,6 +23,9 @@ from typing import Any
 STATE_SCHEMA = "ellmos.open-ocean-runtime-state.v1"
 ATOMIC_REPLACE_ATTEMPTS = 20
 ATOMIC_REPLACE_RETRY_SECONDS = 0.05
+POSIX_SIGTERM = getattr(signal, "SIGTERM", 15)
+POSIX_SIGKILL = getattr(signal, "SIGKILL", 9)
+POSIX_GROUP_POLL_SECONDS = 0.05
 
 
 def _now() -> str:
@@ -95,7 +99,199 @@ def _write_json_atomic(path: Path, value: dict[str, Any]) -> None:
         raise
 
 
-def _terminate_child(child: subprocess.Popen[Any], timeout: float = 5.0) -> None:
+class ProcessFenceError(RuntimeError):
+    """A runtime process group could not be stopped and positively verified."""
+
+
+def _capture_posix_process_fence(pid: int) -> dict[str, int | str]:
+    """Capture the session/process-group identity created for one runtime child."""
+    try:
+        getpgid = getattr(os, "getpgid")
+        getsid = getattr(os, "getsid")
+        process_group_id = int(getpgid(pid))
+        session_id = int(getsid(pid))
+    except (AttributeError, OSError, TypeError, ValueError) as exc:
+        raise ProcessFenceError(
+            f"POSIX-Prozessgruppe für Runtime-PID {pid} nicht belegbar."
+        ) from exc
+    if process_group_id != pid or session_id != pid:
+        raise ProcessFenceError(
+            f"POSIX-Fence für Runtime-PID {pid} ist nicht an Session-/"
+            f"Prozessgruppenführer gebunden (sid={session_id}, pgid={process_group_id})."
+        )
+    return {
+        "kind": "posix-session-group",
+        "pgid": process_group_id,
+        "sid": session_id,
+    }
+
+
+def _validate_posix_process_fence(
+    child: subprocess.Popen[Any],
+    process_fence: dict[str, Any],
+) -> tuple[int, int]:
+    if process_fence.get("kind") != "posix-session-group":
+        raise ProcessFenceError("Unbekannter oder fehlender POSIX-Prozessgruppenbeleg.")
+    process_group_id = process_fence.get("pgid")
+    session_id = process_fence.get("sid")
+    if (
+        isinstance(process_group_id, bool)
+        or not isinstance(process_group_id, int)
+        or process_group_id <= 0
+        or isinstance(session_id, bool)
+        or not isinstance(session_id, int)
+        or session_id <= 0
+        or process_group_id != child.pid
+        or session_id != child.pid
+    ):
+        raise ProcessFenceError(
+            f"Ungültiger POSIX-Prozessgruppenbeleg für Runtime-PID {child.pid}."
+        )
+    return process_group_id, session_id
+
+
+def _posix_group_empty(process_group_id: int) -> bool:
+    killpg = getattr(os, "killpg", None)
+    if killpg is None:
+        return False
+    try:
+        killpg(process_group_id, 0)
+    except ProcessLookupError:
+        return True
+    except OSError:
+        return False
+    return False
+
+
+def _wait_posix_group_empty(process_group_id: int, timeout: float) -> bool:
+    deadline = time.monotonic() + timeout
+    while True:
+        if _posix_group_empty(process_group_id):
+            return True
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return False
+        time.sleep(min(POSIX_GROUP_POLL_SECONDS, remaining))
+
+
+def _signal_posix_group(process_group_id: int, signum: int) -> bool:
+    killpg = getattr(os, "killpg", None)
+    if killpg is None:
+        return False
+    try:
+        killpg(process_group_id, signum)
+    except ProcessLookupError:
+        return True
+    except OSError:
+        return False
+    return True
+
+
+def _wait_child(child: subprocess.Popen[Any], timeout: float) -> bool:
+    try:
+        child.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return False
+    except OSError as exc:
+        raise ProcessFenceError(f"Runtime-Kind konnte nicht abgefragt werden: {exc}") from exc
+    return True
+
+
+def _terminate_posix_group(
+    child: subprocess.Popen[Any],
+    process_fence: dict[str, Any],
+    timeout: float,
+) -> None:
+    if timeout <= 0:
+        raise ProcessFenceError("POSIX-Stop benötigt ein positives Zeitbudget.")
+    process_group_id, _session_id = _validate_posix_process_fence(child, process_fence)
+    deadline = time.monotonic() + timeout
+
+    # While the direct child is still alive, refuse to signal if its identity
+    # drifted. Once it has exited, the captured group receipt remains the only
+    # safe handle to late descendants; the bounded empty-group check prevents
+    # reporting success while they remain.
+    if child.poll() is None:
+        try:
+            current_group_id = getattr(os, "getpgid")(child.pid)
+            current_session_id = getattr(os, "getsid")(child.pid)
+        except (AttributeError, ProcessLookupError):
+            pass
+        except OSError as exc:
+            raise ProcessFenceError(
+                f"POSIX-Fence für Runtime-PID {child.pid} nicht erneut prüfbar."
+            ) from exc
+        else:
+            if current_group_id != process_group_id or current_session_id != child.pid:
+                raise ProcessFenceError(
+                    f"POSIX-Fence für Runtime-PID {child.pid} hat sich verändert."
+                )
+
+    if _posix_group_empty(process_group_id):
+        return
+    if not _signal_posix_group(process_group_id, POSIX_SIGTERM):
+        raise ProcessFenceError(
+            f"SIGTERM für POSIX-Prozessgruppe {process_group_id} konnte nicht zugestellt werden."
+        )
+    remaining = max(0.0, deadline - time.monotonic())
+    _wait_child(child, remaining)
+    if _wait_posix_group_empty(process_group_id, max(0.0, deadline - time.monotonic())):
+        return
+
+    if not _signal_posix_group(process_group_id, POSIX_SIGKILL):
+        raise ProcessFenceError(
+            f"SIGKILL für POSIX-Prozessgruppe {process_group_id} konnte nicht zugestellt werden."
+        )
+    _wait_child(child, max(0.0, deadline - time.monotonic()))
+    if not _wait_posix_group_empty(process_group_id, max(0.0, deadline - time.monotonic())):
+        raise ProcessFenceError(
+            f"POSIX-Prozessgruppe {process_group_id} blieb nach SIGKILL nicht leer."
+        )
+
+
+def _terminate_unfenced_posix_child(child: subprocess.Popen[Any], timeout: float = 5.0) -> None:
+    """Best-effort bootstrap cleanup when the promised fence could not be captured.
+
+    A group signal is used only after the requested new-session invariant is
+    independently observed. If that observation is unavailable, direct-child
+    cleanup is the only signal that cannot accidentally reach the caller.
+    """
+    try:
+        process_group_id = getattr(os, "getpgid")(child.pid)
+        session_id = getattr(os, "getsid")(child.pid)
+    except (AttributeError, OSError):
+        process_group_id = None
+        session_id = None
+    if (
+        process_group_id == child.pid
+        and session_id == child.pid
+        and _signal_posix_group(process_group_id, POSIX_SIGKILL)
+    ):
+        pass
+    else:
+        try:
+            child.kill()
+        except OSError:
+            pass
+    try:
+        child.wait(timeout=timeout)
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+
+
+def _terminate_child(
+    child: subprocess.Popen[Any],
+    timeout: float = 5.0,
+    *,
+    process_fence: dict[str, Any] | None = None,
+) -> None:
+    if os.name != "nt":
+        if process_fence is None:
+            raise ProcessFenceError(
+                "POSIX-Stop ohne Prozessgruppenbeleg verweigert; kein Direkt-Kind-Only-Fallback."
+            )
+        _terminate_posix_group(child, process_fence, timeout)
+        return
     if child.poll() is not None:
         return
     child.terminate()
@@ -107,7 +303,12 @@ def _terminate_child(child: subprocess.Popen[Any], timeout: float = 5.0) -> None
         child.wait(timeout=timeout)
 
 
-def _handler(server: ThreadingHTTPServer, token: str, child: subprocess.Popen[Any]):
+def _handler(
+    server: ThreadingHTTPServer,
+    token: str,
+    child: subprocess.Popen[Any],
+    process_fence: dict[str, Any] | None,
+):
     class Handler(BaseHTTPRequestHandler):
         def _authorized(self) -> bool:
             return self.headers.get("Authorization") == f"Bearer {token}"
@@ -128,10 +329,16 @@ def _handler(server: ThreadingHTTPServer, token: str, child: subprocess.Popen[An
                 self._json(404, {"error": "not-found"})
                 return
             returncode = child.poll()
+            group_empty = (
+                _posix_group_empty(int(process_fence["pgid"]))
+                if os.name != "nt" and process_fence is not None
+                else returncode is not None
+            )
             self._json(200, {
-                "status": "running" if returncode is None else "stopped",
+                "status": "stopped" if returncode is not None and group_empty else "running",
                 "child_pid": child.pid,
                 "returncode": returncode,
+                "process_group_empty": group_empty,
             })
 
         def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler contract
@@ -141,7 +348,15 @@ def _handler(server: ThreadingHTTPServer, token: str, child: subprocess.Popen[An
             if self.path != "/stop":
                 self._json(404, {"error": "not-found"})
                 return
-            _terminate_child(child)
+            try:
+                _terminate_child(child, process_fence=process_fence)
+            except ProcessFenceError as exc:
+                self._json(409, {
+                    "status": "stop-failed",
+                    "child_pid": child.pid,
+                    "error": str(exc),
+                })
+                return
             setattr(server, "stop_requested", True)
             self._json(200, {"status": "stopped", "child_pid": child.pid})
 
@@ -170,43 +385,93 @@ def supervise(spec_path: Path) -> int:
     env.pop("OCEAN_RUNTIME_TOKEN", None)
     env.update({str(k): str(v) for k, v in (spec.get("env") or {}).items()})
     creationflags = 0
+    start_new_session = os.name != "nt"
     if os.name == "nt":
         creationflags = subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
-    with log_path.open("ab", buffering=0) as log_handle:
-        child = subprocess.Popen(
-            [str(item) for item in spec["command"]],
-            cwd=spec["cwd"],
-            env=env,
-            stdin=subprocess.DEVNULL,
-            stdout=log_handle,
-            stderr=log_handle,
-            creationflags=creationflags,
-        )
-        server = ThreadingHTTPServer(("127.0.0.1", 0), lambda *args: None)
-        server.RequestHandlerClass = _handler(server, token, child)
-        server.timeout = 0.2
-        state = {
-            "schema": STATE_SCHEMA,
-            "instance_id": spec["instance_id"],
-            "runtime_id": spec["runtime_id"],
-            "status": "running",
-            "supervisor_pid": os.getpid(),
-            "child_pid": child.pid,
-            "control": {"host": "127.0.0.1", "port": server.server_address[1], "token": token},
-            "runtime_url": spec["runtime_url"],
-            "health_url": spec["health_url"],
-            "started_at": _now(),
-        }
-        _write_json_atomic(state_path, state)
-        try:
-            while child.poll() is None and not getattr(server, "stop_requested", False):
-                server.handle_request()
-        finally:
-            server.server_close()
-            _terminate_child(child)
-            state.update({"status": "stopped", "returncode": child.poll(), "stopped_at": _now()})
+    shutdown_requested = False
+    previous_sigterm = None
+
+    def request_shutdown(_signum: int, _frame: Any) -> None:
+        nonlocal shutdown_requested
+        shutdown_requested = True
+
+    if os.name != "nt":
+        previous_sigterm = signal.signal(signal.SIGTERM, request_shutdown)
+
+    child: subprocess.Popen[Any] | None = None
+    process_fence: dict[str, Any] | None = None
+    server: ThreadingHTTPServer | None = None
+    state: dict[str, Any] | None = None
+    try:
+        with log_path.open("ab", buffering=0) as log_handle:
+            child = subprocess.Popen(
+                [str(item) for item in spec["command"]],
+                cwd=spec["cwd"],
+                env=env,
+                stdin=subprocess.DEVNULL,
+                stdout=log_handle,
+                stderr=log_handle,
+                creationflags=creationflags,
+                start_new_session=start_new_session,
+            )
+            if os.name != "nt":
+                process_fence = _capture_posix_process_fence(child.pid)
+            server = ThreadingHTTPServer(("127.0.0.1", 0), lambda *args: None)
+            server.stop_requested = False
+            server.RequestHandlerClass = _handler(server, token, child, process_fence)
+            server.timeout = 0.2
+            state = {
+                "schema": STATE_SCHEMA,
+                "instance_id": spec["instance_id"],
+                "runtime_id": spec["runtime_id"],
+                "status": "running",
+                "supervisor_pid": os.getpid(),
+                "child_pid": child.pid,
+                "process_fence": process_fence,
+                "control": {"host": "127.0.0.1", "port": server.server_address[1], "token": token},
+                "runtime_url": spec["runtime_url"],
+                "health_url": spec["health_url"],
+                "started_at": _now(),
+            }
             _write_json_atomic(state_path, state)
-    return int(child.returncode or 0)
+            while not shutdown_requested and not getattr(server, "stop_requested", False):
+                group_empty = (
+                    _posix_group_empty(int(process_fence["pgid"]))
+                    if os.name != "nt" and process_fence is not None
+                    else True
+                )
+                if child.poll() is not None and group_empty:
+                    break
+                server.handle_request()
+    finally:
+        if server is not None:
+            server.server_close()
+        cleanup_error: ProcessFenceError | None = None
+        if child is not None:
+            try:
+                if os.name != "nt" and process_fence is None:
+                    _terminate_unfenced_posix_child(child)
+                else:
+                    _terminate_child(child, process_fence=process_fence)
+            except ProcessFenceError as exc:
+                cleanup_error = exc
+                if state is not None:
+                    state.update({
+                        "status": "stop-failed",
+                        "returncode": child.poll(),
+                        "stop_error": str(exc),
+                        "stopped_at": _now(),
+                    })
+                    _write_json_atomic(state_path, state)
+            else:
+                if state is not None:
+                    state.update({"status": "stopped", "returncode": child.poll(), "stopped_at": _now()})
+                    _write_json_atomic(state_path, state)
+        if previous_sigterm is not None:
+            signal.signal(signal.SIGTERM, previous_sigterm)
+        if cleanup_error is not None:
+            raise cleanup_error
+    return int(child.returncode if child is not None and child.returncode is not None else 0)
 
 
 def main(argv: list[str] | None = None) -> int:

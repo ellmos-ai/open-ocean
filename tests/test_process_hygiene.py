@@ -134,6 +134,16 @@ def test_the_supervisor_is_spawned_into_its_own_session_on_posix():
     )
 
 
+def test_the_runtime_child_is_spawned_into_its_own_session_on_posix():
+    """The supervisor must have a separate fence for its runtime child group."""
+    import tools.runtime_supervisor as runtime_supervisor
+
+    spawn = _call_keywords(runtime_supervisor.supervise, "Popen")
+    assert "start_new_session" in spawn, (
+        "the runtime child spawn no longer passes start_new_session"
+    )
+
+
 def test_a_failed_start_does_not_walk_away_from_its_supervisor():
     """The orphan the macOS CI actually tripped over.
 

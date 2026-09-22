@@ -122,7 +122,6 @@ def test_readme_badges_and_parity():
         assert "llms.txt" in doc, f"{name} missing llms.txt reference"
         assert "ci.yml" in doc, f"{name} missing CI badge reference"
         assert "THIRD_PARTY_LICENSES.md" in doc, f"{name} missing THIRD_PARTY_LICENSES reference"
-        assert "MARKETING-LOG.txt" in doc, f"{name} missing MARKETING-LOG reference"
 
 
 def test_readme_quick_navigation_anchors():
@@ -237,23 +236,12 @@ def test_third_party_licenses_inventory():
     assert lic_file.is_file(), "THIRD_PARTY_LICENSES.md must exist"
 
     content = lic_file.read_text(encoding="utf-8")
-    assert "Zero external runtime dependencies" in content
+    assert "cryptography" in content
+    assert "Ed25519" in content
     assert "Python Standard Library" in content
     assert "pytest" in content
     assert "ruff" in content
     assert "setuptools" in content
-
-
-def test_marketing_log_audit():
-    """Verify MARKETING-LOG.txt is present, up to date, and documents discoverability."""
-    log_file = ROOT / "MARKETING-LOG.txt"
-    assert log_file.is_file(), "MARKETING-LOG.txt must exist"
-
-    content = log_file.read_text(encoding="utf-8")
-    assert "MARKETING & DISCOVERABILITY AUDIT LOG: ellmos-ai/open-ocean" in content
-    assert "2026-09-09" in content
-    assert "PRIVATE.txt" in content
-    assert "INV-LOCAL-01" in content or "INV-LOCAL" in content or "Invariants" in content
 
 
 def test_llms_txt_contract():

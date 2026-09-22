@@ -518,7 +518,7 @@ class OceanDevRealGitFetchIntegrationTests(unittest.TestCase):
 class SkillHostFlagTests(unittest.TestCase):
     """`--skill-host` names the Activate adapter; `--host` stays a legacy alias.
     Guards the rename that removed the name clash with `ocean.py up --host`
-    (a loopback network bind, unrelated) -- see TODO.md."""
+    (a loopback network bind, unrelated)."""
 
     def test_unknown_adapter_fails_closed_under_both_spellings(self):
         for flag in ("--skill-host", "--host"):

@@ -30,7 +30,7 @@ classifiers = [
     "Topic :: System :: Systems Administration",
     "Topic :: Utilities",
 ]
-dependencies = []
+dependencies = ["cryptography>=41"]
 
 [project.optional-dependencies]
 test = [

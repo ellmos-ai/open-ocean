@@ -21,7 +21,7 @@ The free community system of the ellmos ecosystem.
 [![Changelog](https://img.shields.io/badge/changelog-v0.1.2-orange.svg)](CHANGELOG.md)
 [![ellmos](https://img.shields.io/badge/ellmos-community%20full%20system-4b5563.svg)](https://github.com/ellmos-ai)
 [![open-bricks](https://img.shields.io/badge/open--bricks-ecosystem-0284c7.svg)](https://github.com/open-bricks)
-[![Audited](https://img.shields.io/badge/audited-2026--09--12-success.svg)](MARKETING-LOG.txt)
+
 
 > **Quick Navigation:**
 > 1. [Overview & Core Mission](#read-this-first-this-repository-is-a-building-site)
@@ -305,6 +305,10 @@ python ocean.py up <composition arguments> --apply
 python ocean.py start --workspace <local-sandbox>
 python ocean.py start <role> --manifest <ellmos-module.v2.json> [--provider <name>]
 python ocean.py status --workspace <local-sandbox>
+python ocean.py inspect --workspace <local-sandbox> --resolution <resolution.json> \
+  --receipt <actual-self.json> --trust-store <receipt-trust.json> \
+  --trust-store-sha256 <sha256> --expected-instance-id <instance> \
+  --expected-host-id <host> [--root-only-resolution] --evaluated-at <ISO-8601> --json
 python ocean.py user add --workspace <local-sandbox> --username <name> --email <address>
 python ocean.py down --workspace <local-sandbox>
 ```
@@ -321,6 +325,23 @@ does not enter the runtime lifecycle or touch the installed workspace. If that
 optional console is absent, OCEAN prints `[FALLBACK]` and uses the same manifest
 record through task-master, COMA or the module starter. `--dry-run` proves the
 resolved chain without starting a provider.
+
+`ocean inspect` is a read-only adapter to the System Explorer checkout already installed by the
+exact `module:software-endpoint-registry` binding. The binding name is the composition role; the
+verified provider remains `system-explorer` from `ellmos-ai/system-explorer`, package
+`system_explorer`, CLI `system-explorer`. OCEAN verifies the install receipt, Git pin, clean tree,
+repository, manifest identity and expected provider version before importing the native APIs.
+System Explorer then validates the resolution, trust-store pin and every signed Actual-Self
+receipt in a fresh temporary evidence store and computes coverage. Any invalid receipt rejects the
+whole operation. A resolution with subsystems is rejected by default. The explicit
+`--root-only-resolution` option asks the native provider to omit those subsystems; the result shows
+the provider's `projection_scope` and `subsystems_omitted`, so even a
+`valid-no-required-gaps` status remains visibly limited to the root-only projection. Exit `0` means
+a valid report without required gaps in the reported projection, exit `1` a valid report with
+required gaps, and exit `2` a rejected input or provider. The JSON presentation omits only Store
+bookkeeping `created_at` fields at the four documented coverage-record positions; signed and
+effective timestamps, verdicts, evidence references and metadata are unchanged. See
+[OCEAN inspect](architecture/OCEAN-INSPECT.md).
 On Windows, the supervisor also retries transient atomic state-file replacement contention within
 a bounded one-second window, so a successful stop cannot leave a stale `running` record behind.
 On `<DEV-HOST>`, the hidden limited-user logon task `EllmosOceanFullUserStart` now launches the exact
@@ -415,8 +436,8 @@ reboot was tested.
 
 No BACH session sidecar was ever running on this host (`service.running: false`, `pid: null`), so
 none was stopped; BACH code, databases, tasks and configuration are unchanged. No user account was
-created for OCEAN on this host — a deliberate decision, not an installation gap; see TODO for the
-device-bound OS-account coupling this is meant to become.
+created for OCEAN on this host — a deliberate decision, not an installation gap; device-bound
+OS-account coupling is planned for a future release.
 
 ---
 
@@ -464,6 +485,11 @@ The four conditions and how they stand:
    reachable names and retains the historic 113-name runtime snapshot; re-measured 2026-08-18
    (read-only, BACH untouched) the 114-name bar was unchanged. See the
    [extraction roadmap](architecture/BACH-EXTRACTION-ROADMAP.md).
+   A later read-only composition re-measurement on 2026-09-21 preserved those 114 names and
+   found four source additions (`cloud`, `mcp`, `security`, `theme`), for 118 current names.
+   Its [composition matrix](architecture/bach-composition-matrix.v1.json) separates declared
+   carriers from gaps and intentional non-modules, and marks every carrier's functional
+   use-case evidence as open. It is a wiring backlog, not a parity claim.
    Measured functionally, the picture does not improve: [Cluster 9's operation matrix](architecture/BACH-EXTRACTION-ROADMAP.md#cluster-9-operation-matrix)
    is the only cluster with active work (8 of 9 clusters have not started), and within it 0 of 30
    command names are functionally equivalent yet — 20 are `candidate-partial`, 9 are `gap`, 1 is
@@ -490,7 +516,8 @@ a claim that they are done.
 
 ### Prerequisites & Installation
 
-`open-ocean` requires Python 3.10+ and operates completely without external runtime libraries.
+`open-ocean` requires Python 3.10+ and `cryptography>=41` for System Explorer's native Ed25519
+receipt verification used by `ocean inspect`.
 
 ```bash
 # Clone the repository
@@ -591,4 +618,3 @@ Third-party development dependencies and their licenses are inventoried in [`THI
 
 For autonomous AI coding agents, context injectors, and automated discovery pipelines:
 - Machine-readable architectural summaries and command indexes are maintained in [`llms.txt`](llms.txt).
-- Local marketing, visibility, and directory listing recommendations are tracked in [`MARKETING-LOG.txt`](MARKETING-LOG.txt).

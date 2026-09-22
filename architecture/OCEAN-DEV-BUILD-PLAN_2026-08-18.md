@@ -1267,7 +1267,7 @@ fresh install on a second Windows host, `<FRESH-HOST>`.
   open, mergeable and CI-green as of this cycle; none has been merged, so the Phase-J governance
   follow-up (host-local registry init, Gardener system sources, ControlCenter configuration) is
   pending, not performed.
-- See `TODO.md` / `TODO_de.md` for the tracked form of these items.
+- Historical follow-up items are tracked in the respective subsystem roadmaps.
 
 The checkpoint names for this cycle are `ocean-full-workstation-mondmuschel-20260830` (fresh
 install and manual cutover) and `ocean-full-workstation-kuestenlicht-20260830` (logon-task/host
@@ -1305,3 +1305,32 @@ the Git whitespace check are also green. This is not a silent re-pin, merge, tag
 deployment or new live Full Ocean acceptance run. The simultaneously observed module-catalog and
 ControlCenter/Homebase source
 drifts remain separate work; the foreign active module-catalog lock was not touched.
+
+## 17. Read-only native function inspection — 2026-09-21
+
+The next adaptive Stage-3 cycle adds `ocean inspect` as a thin adapter to the already pinned System
+Explorer provider. It uses the existing `module:software-endpoint-registry` integration alias and
+does not reinterpret it as a second module owner: the verified repository, manifest, package and
+CLI remain `ellmos-ai/system-explorer`, `system-explorer`, `system_explorer` and
+`system-explorer`, respectively, at the unchanged commit
+`ec50c92319ba8fc262d695b86818fc85666feff7`.
+
+The operation accepts a source-verified resolution and signed Actual-Self receipts, verifies the
+installed provider and delegates all receipt/trust/coverage semantics to four native APIs. Its only
+presentation transform removes the four documented Store-level `created_at` positions whose values
+otherwise vary with temporary-database insertion time; raw native probe outputs remain acceptance
+evidence. Details and negative cases are specified in `architecture/OCEAN-INSPECT.md` and
+`architecture/OCEAN-INSPEKTION.md`.
+
+This cycle changes no installation recipe, provider pin, runtime status, live workspace, BACH state,
+Task 1339, EDS projection or Mac acceptance record. Source completion requires an independent
+review before push, merge, deployment or any live recipe re-pin.
+
+### 17.1 Explicit root-only resolution transport — 2026-09-21
+
+The native provider rejects resolutions with subsystems unless its caller explicitly selects
+root-only projection. `ocean inspect` therefore gains the opt-in `--root-only-resolution` flag and
+passes it unchanged to the pinned provider. The default remains fail-closed. Successful output
+surfaces the provider's own `projection_scope` and `subsystems_omitted` values so a no-gap verdict
+cannot be mistaken for subsystem coverage. This transport change neither re-pins System Explorer
+nor changes coverage, receipt, signature or resolution semantics.

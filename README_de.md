@@ -21,7 +21,6 @@ Das kostenlose Community-System des ellmos-Ökosystems.
 [![Changelog](https://img.shields.io/badge/changelog-v0.1.2-orange.svg)](CHANGELOG.md)
 [![ellmos](https://img.shields.io/badge/ellmos-community%20full%20system-4b5563.svg)](https://github.com/ellmos-ai)
 [![open-bricks](https://img.shields.io/badge/open--bricks-ecosystem-0284c7.svg)](https://github.com/open-bricks)
-[![Geprüft](https://img.shields.io/badge/gepr%C3%BCft-2026--09--12-success.svg)](MARKETING-LOG.txt)
 
 > **Schnellnavigation:**
 > 1. [Überblick und Kernmission](#zuerst-lesen-dieses-repository-ist-eine-baustelle)
@@ -327,6 +326,10 @@ python ocean.py up <composition arguments> --apply
 python ocean.py start --workspace <local-sandbox>
 python ocean.py start <rolle> --manifest <ellmos-module.v2.json> [--provider <name>]
 python ocean.py status --workspace <local-sandbox>
+python ocean.py inspect --workspace <local-sandbox> --resolution <resolution.json> \
+  --receipt <actual-self.json> --trust-store <receipt-trust.json> \
+  --trust-store-sha256 <sha256> --expected-instance-id <instanz> \
+  --expected-host-id <host> [--root-only-resolution] --evaluated-at <ISO-8601> --json
 python ocean.py user add --workspace <local-sandbox> --username <name> --email <address>
 python ocean.py down --workspace <local-sandbox>
 ```
@@ -344,6 +347,24 @@ Decks weiter. Der Befehl betritt dabei den Runtime-Lifecycle nicht und veränder
 den installierten Workspace nicht. Fehlt die optionale Konsole, meldet OCEAN
 `[FALLBACK]` und verwendet denselben Manifesteintrag über task-master, COMA oder
 den Modulstarter. `--dry-run` belegt die aufgelöste Kette ohne Anbieterstart.
+
+`ocean inspect` ist ein rein lesender Adapter zum System-Explorer-Checkout, den das exakte Binding
+`module:software-endpoint-registry` bereits installiert hat. Der Binding-Name bezeichnet die
+Kompositionsrolle; der geprüfte Anbieter bleibt `system-explorer` aus
+`ellmos-ai/system-explorer`, Paket `system_explorer`, CLI `system-explorer`. OCEAN prüft
+Installationsbeleg, Git-Pin, sauberen Baum, Repository, Manifestidentität und erwartete
+Anbieterversion, bevor es die nativen APIs importiert. Danach validiert System Explorer die
+Resolution, den Trust-Store-Pin und jeden signierten Actual-Self-Beleg in einem frischen temporären
+Evidenzspeicher und berechnet die Coverage. Ein ungültiger Beleg weist die gesamte Operation ab.
+Eine Resolution mit Subsystemen wird standardmäßig abgewiesen. Die ausdrückliche Option
+`--root-only-resolution` weist den nativen Anbieter an, diese Subsysteme auszulassen. Das Ergebnis
+zeigt dessen `projection_scope` und `subsystems_omitted`, sodass auch der Status
+`valid-no-required-gaps` sichtbar auf die Root-only-Projektion begrenzt bleibt. Exit `0` bedeutet
+gültig ohne Pflichtlücken im ausgewiesenen Projektionsbereich, Exit `1` gültig mit Pflichtlücken und
+Exit `2` abgewiesen. Die JSON-Präsentationssicht lässt ausschließlich die Store-Buchhaltungsfelder
+`created_at` an vier dokumentierten Coverage-Positionen aus; signierte und fachliche Zeitpunkte,
+Verdicts, Evidenzbezüge und Metadaten bleiben unverändert. Siehe
+[OCEAN-Inspektion](architecture/OCEAN-INSPEKTION.md).
 Unter Windows wiederholt der Supervisor außerdem eine vorübergehend blockierte atomare Ersetzung
 der Statusdatei innerhalb eines begrenzten Ein-Sekunden-Fensters. Damit kann ein erfolgreicher
 Stopp keinen veralteten `running`-Eintrag zurücklassen.
@@ -427,8 +448,8 @@ getestet.
 Auf diesem Host lief zu keinem Zeitpunkt ein BACH-Session-Sidecar (`service.running: false`,
 `pid: null`), daher wurde keiner gestoppt; BACH-Code, -Datenbanken, -Tasks und -Konfiguration sind
 unverändert. Für OCEAN wurde auf diesem Host kein Benutzerkonto angelegt — eine bewusste
-Entscheidung, keine Installationslücke; siehe TODO zur geräteseitigen OS-Konto-Kopplung, auf die
-das hinauslaufen soll.
+Entscheidung, keine Installationslücke; eine geräteseitige OS-Konto-Kopplung ist für ein
+zukünftiges Release vorgesehen.
 
 ## Freigabebedingungen
 
@@ -504,7 +525,8 @@ bleiben offene Arbeit, und nichts hier ist als Behauptung des Gegenteils zu lese
 
 ### Voraussetzungen & Installation
 
-`open-ocean` setzt Python 3.10+ voraus und kommt vollständig ohne externe Laufzeitbibliotheken aus.
+`open-ocean` setzt Python 3.10+ sowie `cryptography>=41` für die native
+Ed25519-Belegprüfung des System Explorers in `ocean inspect` voraus.
 
 ```bash
 # Repository klonen
@@ -605,4 +627,3 @@ Drittanbieter-Entwicklungswerkzeuge und deren Lizenzen sind in [`THIRD_PARTY_LIC
 
 Für autonome KI-Programmieragenten, Kontext-Injektoren und automatisierte Discovery-Pipelines:
 - Maschinenlesbare Architekturzusammenfassungen und Befehlsindizes werden in [`llms.txt`](llms.txt) geführt.
-- Lokale Marketing-, Sichtbarkeits- und Verzeichnisempfehlungen sind in [`MARKETING-LOG.txt`](MARKETING-LOG.txt) protokolliert.

@@ -44,7 +44,31 @@ jobs:
       - name: Bytecode compilation check
         run: python -m compileall -q tools tests architecture
 
-      - name: Run test suite
+      - name: Run fast test suite
         env:
           PYTHONIOENCODING: utf-8
-        run: python -m pytest -q
+        run: python -m pytest -q -m "not slow"
+
+  slow-tests:
+    name: Slow integration tests
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest ruff
+
+      - name: Run slow integration tests
+        env:
+          PYTHONIOENCODING: utf-8
+        run: python -m pytest -q -m slow

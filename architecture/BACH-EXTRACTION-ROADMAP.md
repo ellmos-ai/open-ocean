@@ -233,3 +233,61 @@ python tools\audit_bach_handlers.py `
 
 A green baseline check proves only that the registry and catalogue have not drifted unnoticed.
 It does not prove functional parity, an installer or the sluice test.
+
+## 2026-09-21 composition re-measurement and wiring backlog
+
+Ticket `T-20260920-157560721` reran the side-effect-free AST audit against the
+clean BACH worktree at `39d2457adeb0bcbcd9f1205dfb2c08f3086b30ed`. The historic 114-name surface is
+preserved as a subset. Current source adds `cloud`, `mcp`, `security` and `theme`,
+so the current surface is **118 names**, not 114. The historical release record is
+not rewritten to make this pass.
+
+[`bach-composition-matrix.v1.json`](bach-composition-matrix.v1.json) is the
+machine-readable, 118-row composition list. Every name has exactly one outcome:
+
+| Outcome | Current count | Meaning |
+|---|---:|---|
+| `carrier` | 89 | A declared module or Skills Registry carrier exists; its contract binding, BACH adapter, bundle membership and use-case evidence are still open. |
+| `gap` | 19 | No declared carrier for the BACH contract was found in the examined catalogues. |
+| `not-adopted` | 10 | A BACH alias or the external Ollama surface; it needs no independent module. |
+
+The matrix records the BACH registry locator, declared carrier or gap finding, and a
+separate `use_case_state`. All carrier rows remain `not-evidenced`; a name or role
+match does not count as functional parity. This preserves decision `D-20260906-003`:
+only end-to-end use cases measure release parity.
+
+The current catalogues contain 75 modules, 33 bundles and 142 Skills Registry
+components. They make more potential carriers visible than the 2026-08-08
+70-candidate/35-gap snapshot, but do not change any `accepted` state.
+
+### Ordered wiring work
+
+1. Execute `T-20260921-916843500` (source finding
+   `M-20260920-role-capability-declarations`): declare and validate the
+   missing provider capabilities for all four affected roles before claiming any
+   corresponding carrier usable.
+2. Execute `T-20260921-835725997` (source finding
+   `M-20260920-systems-projection-bundle-pins`): refresh stale
+   system/bundle projection pins through the canonical projection path.
+3. Execute `T-20260921-776221937` (source finding
+   `M-20260920-bundle-projection-direct-edit-loss`): make the projection
+   path own edits, then re-run the matrix so direct changes cannot disappear.
+4. For each `carrier` row, capture its operation contract, bind it to its role and
+   bundle, add the BACH adapter with rollback, then add an old/new use-case test.
+   Only that evidence may move a row beyond a composition lead.
+5. Turn each `gap` row into an explicit scope decision or a bounded extraction
+   proposal; do not create a replacement solely because its BACH name lacks a
+   catalogue match.
+
+Rebuild the matrix only against explicit sources; the command validates that
+every declared carrier is present in its module or Skills Registry catalogue:
+
+```powershell
+python tools\build_bach_composition_matrix.py `
+  --bach-root C:\path\to\bach `
+  --baseline architecture\bach-parity-baseline.v1.json `
+  --module-catalog C:\path\to\modules.catalog.json `
+  --bundle-catalog C:\path\to\bundles.catalog.v1.json `
+  --skills-registry C:\path\to\components.json `
+  --output architecture\bach-composition-matrix.v1.json
+```

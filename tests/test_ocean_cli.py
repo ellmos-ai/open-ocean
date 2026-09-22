@@ -53,6 +53,7 @@ def test_root_help_exposes_the_complete_first_usable_lifecycle():
     assert "up" in proc.stdout
     assert "start" in proc.stdout
     assert "status" in proc.stdout
+    assert "inspect" in proc.stdout
     assert "down" in proc.stdout
     assert "user" in proc.stdout
     assert "prüfen" in proc.stdout
@@ -496,6 +497,7 @@ def test_up_rejects_registry_drift_before_fetch_or_workspace_writes(tmp_path):
     assert not fixture["workspace"].exists()
 
 
+@pytest.mark.slow
 def test_up_status_down_runs_one_real_sandboxed_runtime_round_trip(tmp_path):
     """Catches a lifecycle that writes files but never reaches a live usable system."""
     fixture = _write_runnable_ellmos_core_fixture(tmp_path)
@@ -667,6 +669,7 @@ def test_up_rejects_a_non_positive_or_non_finite_health_timeout_before_starting_
             probe.connect(("127.0.0.1", port))
 
 
+@pytest.mark.slow
 def test_second_up_rejects_a_running_runtime_before_fetch_or_activate(tmp_path):
     """A running sandbox is a write preflight gate, not a late start error."""
     fixture = _write_runnable_ellmos_core_fixture(tmp_path)
@@ -748,6 +751,7 @@ def test_second_up_rejects_a_running_runtime_before_fetch_or_activate(tmp_path):
         _run_ocean("down", "--workspace", str(fixture["workspace"]), "--json")
 
 
+@pytest.mark.slow
 def test_start_recovers_an_installed_runtime_from_stale_running_state(tmp_path):
     """Catches an OS/process loss leaving OCEAN permanently blocked by stale JSON."""
     fixture = _write_runnable_ellmos_core_fixture(tmp_path)
@@ -970,6 +974,7 @@ def test_assert_runtime_start_available_settles_a_momentarily_busy_reading(
     _assert_runtime_start_available(tmp_path, host="127.0.0.1", port=port)  # must not raise
 
 
+@pytest.mark.slow
 def test_start_fails_closed_while_another_process_holds_the_workspace_lock(tmp_path):
     """End to end: `ocean start` in a second process must not spawn a supervisor while
     a starter holds the workspace lock, and must succeed once it is released."""

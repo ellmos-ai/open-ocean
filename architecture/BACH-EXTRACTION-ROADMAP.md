@@ -265,14 +265,15 @@ fast suite; the `parity-evidence` CI job checks out BACH and the carrier at the
 recorded pins and runs every referenced test with `--run`. A `divergent` use case
 records a finding and never counts. Historic `accepted` values are not evidence.
 
-State on 2026-09-23: `dbsync` is `partially-evidenced` (use case
-`k9.dbsync.push-pull`: BACH native ProSync, BACH through its sqlite-transit-sync
-seam and OCEAN's direct module use produce the same state). The related use case
-`k9.dbsync.pull-with-newer-local-rows` is `divergent`: native ProSync merges only
-rows newer than the table-wide maximum and drops newer foreign rows, while the
-module merges per row. The `snapshot` row stays `not-evidenced`; BACH's snapshot
-handler has no route into `session-checkpoint`, so there is no shared module path
-to compare yet. All other carrier rows remain `not-evidenced`.
+State on 2026-09-23: `dbsync` is `partially-evidenced` with two evidenced use
+cases, `k9.dbsync.push-pull` and `k9.dbsync.pull-with-newer-local-rows`: BACH native
+ProSync, BACH through its sqlite-transit-sync seam and OCEAN's direct module use
+produce the same state (pins BACH `e619345`, carrier `7648a20`). The second use case
+was `divergent` at BACH `8392ed8` (table-maximum watermark dropped newer foreign rows)
+and became evidence after the fix in bach#87. Operations covered: `push`, `pull`
+(2 of 9). The `snapshot` row stays `not-evidenced`; BACH's snapshot handler has no
+route into `session-checkpoint`, so there is no shared module path to compare yet.
+All other carrier rows remain `not-evidenced`.
 
 The current catalogues contain 75 modules, 33 bundles and 142 Skills Registry
 components. They make more potential carriers visible than the 2026-08-08

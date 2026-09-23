@@ -57,7 +57,7 @@ def test_missing_test_or_baseline_reference_fails_closed():
 def test_row_is_only_fully_evidenced_when_every_operation_is_covered():
     row = copy.deepcopy(EVIDENCE["rows"]["dbsync"])
     assert row_state(row) == "partially-evidenced"
-    row["use_cases"] = [case for case in row["use_cases"] if case["state"] == "divergent"]
+    row["use_cases"] = [dict(case, state="divergent") for case in row["use_cases"]]
     assert row_state(row) == "not-evidenced"
     row = copy.deepcopy(EVIDENCE["rows"]["dbsync"])
     row["operations_in_scope"] = ["push", "pull"]

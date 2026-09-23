@@ -92,12 +92,14 @@ def run(mode: str, bach_root: Path, transit_root: Path, fixture: Path, work: Pat
     work.mkdir(parents=True, exist_ok=True)
     os.environ["BACH_LOCAL_DIR"] = str(work / "local" / "unused")
     os.environ["BACH_DB"] = str(work / "local" / "unused" / "bach.db")
+    # Since BACH e619345 the native ProSync merge itself uses the module's row
+    # policy, so every mode imports it from the pinned root.
+    sys.path.insert(0, str(transit_root))
+    _import_under(transit_root, "sqlite_transit_sync")
     if mode == "bach-legacy":
         os.environ["BACH_USE_EXTERNAL_TRANSITSYNC"] = "0"
     else:
         os.environ.pop("BACH_USE_EXTERNAL_TRANSITSYNC", None)
-        sys.path.insert(0, str(transit_root))
-        _import_under(transit_root, "sqlite_transit_sync")
 
     transit = work / "transit"
     transit.mkdir()

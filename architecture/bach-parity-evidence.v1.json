@@ -15,13 +15,26 @@
   "rows": {
     "dbsync": {
       "carrier": "sqlite-transit-sync",
-      "operations_in_scope": ["backup", "cleanup", "disable", "enable", "init", "pull", "push", "status", "sync"],
+      "operations_in_scope": [
+        "backup",
+        "cleanup",
+        "disable",
+        "enable",
+        "init",
+        "pull",
+        "push",
+        "status",
+        "sync"
+      ],
       "operations_source": "architecture/bach-k9-data-contract.v1.json#profiles.dbsync.operations",
       "use_cases": [
         {
           "id": "k9.dbsync.push-pull",
           "state": "evidenced",
-          "operations": ["push", "pull"],
+          "operations": [
+            "push",
+            "pull"
+          ],
           "summary": "Host A publishes its database to the shared transit directory, host B pulls: newer foreign rows arrive, local-only rows and local secret rows stay, no secret row is published, a repeated pull changes nothing.",
           "fixture": "tests/fixtures/k9_data",
           "test": "tests/test_bach_k9_dbsync_parity.py::test_push_pull_is_identical_in_bach_legacy_bach_module_and_ocean",
@@ -31,21 +44,28 @@
             "ocean": "sqlite_transit_sync.TransitSync push/pull in namespace bach"
           },
           "pins": {
-            "bach_commit": "8392ed8cecd9ac598d1b3b711b8e3df1b7c1dc4d",
+            "bach_commit": "e619345f358b100ea677a7e6a6d398c42db4e6d4",
             "carrier_commit": "7648a20b11ca958e9622d2b5d8a13fd02613e92a"
           }
         },
         {
           "id": "k9.dbsync.pull-with-newer-local-rows",
-          "state": "divergent",
-          "operations": ["pull"],
-          "summary": "Target already holds a row newer than every incoming row. Native ProSync merges only rows newer than the table-wide maximum timestamp and drops the newer foreign rows; the module merges per row (last write wins). BACH with the module and OCEAN agree.",
+          "state": "evidenced",
+          "operations": [
+            "pull"
+          ],
+          "summary": "Target already holds a row newer than every incoming row. Since BACH e619345 (bach#87) native ProSync merges per row through the module's TimestampMergePolicy; BACH legacy, BACH with the module and OCEAN produce the same state.",
           "fixture": "tests/fixtures/k9_data_newer_local",
-          "test": "tests/test_bach_k9_dbsync_parity.py::test_native_prosync_watermark_diverges_from_the_module",
-          "finding": "Native ProSync table-maximum watermark loses newer foreign rows. Not parity; decision needed whether the module behavior is the accepted target.",
+          "test": "tests/test_bach_k9_dbsync_parity.py::test_pull_with_newer_local_rows_is_identical_after_bach_row_merge_fix",
           "pins": {
-            "bach_commit": "8392ed8cecd9ac598d1b3b711b8e3df1b7c1dc4d",
+            "bach_commit": "e619345f358b100ea677a7e6a6d398c42db4e6d4",
             "carrier_commit": "7648a20b11ca958e9622d2b5d8a13fd02613e92a"
+          },
+          "history": "Divergent at BACH 8392ed8: the table-maximum watermark dropped newer foreign rows (T-20260923-657419590), fixed by bach#87.",
+          "implementations": {
+            "old": "BACH DBSyncManager.sync_on_exit/sync_on_start with BACH_USE_EXTERNAL_TRANSITSYNC=0 (native ProSync)",
+            "bach_new": "the same BACH handler through its sqlite-transit-sync provider seam",
+            "ocean": "sqlite_transit_sync.TransitSync push/pull in namespace bach"
           }
         }
       ]

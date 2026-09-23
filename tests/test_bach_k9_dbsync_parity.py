@@ -83,12 +83,14 @@ def test_push_pull_is_identical_in_bach_legacy_bach_module_and_ocean(roots):
     assert observed["repeat_pull_changed"] == 0
 
 
-def test_native_prosync_watermark_diverges_from_the_module(roots):
+def test_pull_with_newer_local_rows_is_identical_after_bach_row_merge_fix(roots):
     results = {mode: _probe(mode, "tests/fixtures/k9_data_newer_local", roots) for mode in MODES}
 
-    assert _observed(results["bach-module"]) == _observed(results["ocean-module"])
-    assert results["ocean-module"]["target_items"] == [
+    assert results["bach-legacy"]["provider"] == "bach-legacy"
+    assert results["bach-module"]["provider"] == "sqlite-transit-sync"
+    assert _observed(results["bach-legacy"]) == _observed(results["bach-module"]) == _observed(results["ocean-module"])
+    # Before BACH e619345 native ProSync dropped the two newer foreign rows here.
+    assert results["bach-legacy"]["target_items"] == [
         ["shared", "source-newer"], ["source-only", "source-value"], ["target-only", "target-value"]]
-    # Recorded finding, not parity: native ProSync keeps its table-maximum watermark.
-    assert results["bach-legacy"]["target_items"] == [["shared", "target-older"], ["target-only", "target-value"]]
-    assert results["bach-legacy"]["first_pull_changed"] == 0
+    assert results["bach-legacy"]["first_pull_changed"] == 2
+    assert results["bach-legacy"]["repeat_pull_changed"] == 0

@@ -85,7 +85,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ellmos-ai/bach
-          ref: 8392ed8cecd9ac598d1b3b711b8e3df1b7c1dc4d
+          ref: e619345f358b100ea677a7e6a6d398c42db4e6d4
           path: _parity/bach
 
       - name: Check out sqlite-transit-sync at the evidence pin

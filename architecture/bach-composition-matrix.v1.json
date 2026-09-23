@@ -526,7 +526,8 @@
       "carrier": "sqlite-transit-sync",
       "carrier_locator": "module:sqlite-transit-sync",
       "binding": "Contract, adapter/reintegration, bundle membership and functional use-case evidence remain open.",
-      "use_case_state": "not-evidenced"
+      "use_case_state": "partially-evidenced",
+      "use_case_evidence": "architecture/bach-parity-evidence.v1.json#rows.dbsync"
     },
     {
       "name": "denkarium",

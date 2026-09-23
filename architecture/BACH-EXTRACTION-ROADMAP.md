@@ -252,9 +252,27 @@ machine-readable, 118-row composition list. Every name has exactly one outcome:
 | `not-adopted` | 10 | A BACH alias or the external Ollama surface; it needs no independent module. |
 
 The matrix records the BACH registry locator, declared carrier or gap finding, and a
-separate `use_case_state`. All carrier rows remain `not-evidenced`; a name or role
-match does not count as functional parity. This preserves decision `D-20260906-003`:
-only end-to-end use cases measure release parity.
+separate `use_case_state`. A name or role match does not count as functional parity.
+This preserves decision `D-20260906-003`: only end-to-end use cases measure release
+parity.
+
+`use_case_state` is fail-closed (stage 3, P3.1). Only the evidence register
+[`bach-parity-evidence.v1.json`](bach-parity-evidence.v1.json) can move a carrier
+row to `partially-evidenced` or `evidenced`, and only with an evidenced use case
+whose old/new fixture test exists and refuses to skip under
+`REQUIRE_PARITY_EVIDENCE=1`. `tools/check_parity_evidence.py` enforces this in the
+fast suite; the `parity-evidence` CI job checks out BACH and the carrier at the
+recorded pins and runs every referenced test with `--run`. A `divergent` use case
+records a finding and never counts. Historic `accepted` values are not evidence.
+
+State on 2026-09-23: `dbsync` is `partially-evidenced` (use case
+`k9.dbsync.push-pull`: BACH native ProSync, BACH through its sqlite-transit-sync
+seam and OCEAN's direct module use produce the same state). The related use case
+`k9.dbsync.pull-with-newer-local-rows` is `divergent`: native ProSync merges only
+rows newer than the table-wide maximum and drops newer foreign rows, while the
+module merges per row. The `snapshot` row stays `not-evidenced`; BACH's snapshot
+handler has no route into `session-checkpoint`, so there is no shared module path
+to compare yet. All other carrier rows remain `not-evidenced`.
 
 The current catalogues contain 75 modules, 33 bundles and 142 Skills Registry
 components. They make more potential carriers visible than the 2026-08-08

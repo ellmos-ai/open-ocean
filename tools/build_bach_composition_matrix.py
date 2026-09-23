@@ -19,8 +19,10 @@ import subprocess
 
 try:  # Supports both ``python tools/...`` and package imports in tests.
     from .audit_bach_handlers import audit
+    from .check_parity_evidence import row_state
 except ImportError:  # pragma: no cover - exercised by the documented CLI path
     from audit_bach_handlers import audit
+    from check_parity_evidence import row_state
 
 
 # Every value is a real catalog module or public Skills Registry entry.  The
@@ -104,8 +106,10 @@ def expand(groups: dict[str, str]) -> dict[str, str]:
     return {name: value for names, value in groups.items() for name in names.split()}
 
 
-def classify(names: list[str], source_locators: dict[str, str]) -> list[dict[str, str]]:
+def classify(names: list[str], source_locators: dict[str, str],
+             evidence_rows: dict | None = None) -> list[dict[str, str]]:
     carriers = expand(CARRIERS)
+    evidence_rows = evidence_rows or {}
     gaps = expand(GAPS)
     rows: list[dict[str, str]] = []
     for name in names:
@@ -129,6 +133,10 @@ def classify(names: list[str], source_locators: dict[str, str]) -> list[dict[str
                          "carrier": carrier, "carrier_locator": f"{carrier_type}:{carrier}",
                          "binding": "Contract, adapter/reintegration, bundle membership and functional use-case evidence remain open.",
                          "use_case_state": "not-evidenced"})
+            if name in evidence_rows:
+                # Only the evidence register can move a row; see check_parity_evidence.py.
+                rows[-1]["use_case_state"] = row_state(evidence_rows[name])
+                rows[-1]["use_case_evidence"] = f"architecture/bach-parity-evidence.v1.json#rows.{name}"
         elif name in gaps:
             rows.append({"name": name, "class": "gap", "source_locator": source,
                          "finding": gaps[name], "use_case_state": "not-evidenced"})
@@ -215,6 +223,8 @@ def main() -> int:
     parser.add_argument("--module-catalog", type=Path, required=True)
     parser.add_argument("--bundle-catalog", type=Path, required=True)
     parser.add_argument("--skills-registry", type=Path, required=True)
+    parser.add_argument("--evidence", type=Path,
+                        default=Path(__file__).resolve().parents[1] / "architecture" / "bach-parity-evidence.v1.json")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--recorded-at", default="2026-09-21")
     args = parser.parse_args()
@@ -229,7 +239,8 @@ def main() -> int:
     removals = [name for name in historic_names if name not in set(source["registered_names"])]
     if removals:
         raise ValueError(f"Current registry lost historic names: {removals}")
-    rows = classify(source["registered_names"], locators)
+    evidence = json.loads(args.evidence.read_text(encoding="utf-8"))
+    rows = classify(source["registered_names"], locators, evidence["rows"])
     _, modules = load_catalog(args.module_catalog, "modules")
     _, bundles = load_catalog(args.bundle_catalog, "bundles")
     _, skills = load_catalog(args.skills_registry, "components")

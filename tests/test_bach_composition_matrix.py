@@ -9,6 +9,7 @@ from tools.build_bach_composition_matrix import classify, source_locators, valid
 ROOT = Path(__file__).resolve().parents[1]
 BASELINE = ROOT / "architecture" / "bach-parity-baseline.v1.json"
 MATRIX = ROOT / "architecture" / "bach-composition-matrix.v1.json"
+EVIDENCE = ROOT / "architecture" / "bach-parity-evidence.v1.json"
 
 
 def test_matrix_covers_the_historic_surface_and_current_additions():
@@ -32,7 +33,10 @@ def test_every_current_name_has_one_explicit_non_equivalence_classification():
     assert len({row["name"] for row in rows}) == 118
     assert {row["class"] for row in rows} <= {"carrier", "gap", "not-adopted"}
     assert all(row["source_locator"] for row in rows)
-    assert all(row["use_case_state"] == "not-evidenced" for row in rows if row["class"] != "not-adopted")
+    evidence_rows = json.loads(EVIDENCE.read_text(encoding="utf-8"))["rows"]
+    assert all(row["use_case_state"] == "not-evidenced"
+               for row in rows if row["class"] != "not-adopted" and row["name"] not in evidence_rows)
+    assert "accepted" not in {row["use_case_state"] for row in rows}
     assert all(row.get("carrier") for row in rows if row["class"] == "carrier")
     assert all(row.get("finding") for row in rows if row["class"] == "gap")
     assert all(row.get("decision_ref") for row in rows if row["class"] == "not-adopted")
@@ -41,7 +45,8 @@ def test_every_current_name_has_one_explicit_non_equivalence_classification():
 def test_builder_remains_exhaustive_for_the_recorded_current_surface():
     matrix = json.loads(MATRIX.read_text(encoding="utf-8"))
     locators = {row["name"]: row["source_locator"] for row in matrix["rows"]}
-    rows = classify(matrix["source_audit"]["registered_names"], locators)
+    evidence_rows = json.loads(EVIDENCE.read_text(encoding="utf-8"))["rows"]
+    rows = classify(matrix["source_audit"]["registered_names"], locators, evidence_rows)
     assert rows == matrix["rows"]
 
 

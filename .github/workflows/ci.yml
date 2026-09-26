@@ -44,6 +44,9 @@ jobs:
       - name: Bytecode compilation check
         run: python -m compileall -q tools tests architecture
 
+      - name: "TEMP probe: loopback reverse DNS timing"
+        run: python -c "import socket,time; t=time.perf_counter(); n=socket.getfqdn('127.0.0.1'); print('getfqdn(127.0.0.1) =', n, round(time.perf_counter()-t, 3), 's')"
+
       - name: Run fast test suite
         env:
           PYTHONIOENCODING: utf-8

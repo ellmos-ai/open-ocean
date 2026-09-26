@@ -12,6 +12,7 @@ import argparse
 import json
 import os
 import signal
+import socketserver
 import subprocess
 import time
 from datetime import datetime, timezone
@@ -303,6 +304,19 @@ def _terminate_child(
         child.wait(timeout=timeout)
 
 
+class _LoopbackControlServer(ThreadingHTTPServer):
+    """Loopback-only control server without HTTPServer's reverse DNS lookup.
+
+    ``HTTPServer.server_bind`` resolves ``socket.getfqdn(host)``. The name is
+    never used here, but the lookup runs before the state receipt is written
+    and can block for seconds on hosts with slow resolvers.
+    """
+
+    def server_bind(self) -> None:
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
+
+
 def _handler(
     server: ThreadingHTTPServer,
     token: str,
@@ -416,7 +430,7 @@ def supervise(spec_path: Path) -> int:
             )
             if os.name != "nt":
                 process_fence = _capture_posix_process_fence(child.pid)
-            server = ThreadingHTTPServer(("127.0.0.1", 0), lambda *args: None)
+            server = _LoopbackControlServer(("127.0.0.1", 0), lambda *args: None)
             server.stop_requested = False
             server.RequestHandlerClass = _handler(server, token, child, process_fence)
             server.timeout = 0.2

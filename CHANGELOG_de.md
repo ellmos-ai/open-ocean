@@ -2,6 +2,15 @@
 
 *[English](CHANGELOG.md)*
 
+## Unveröffentlicht — 2026-09-26
+
+### Hinzugefügt
+
+- BACH-Paritätsbeleg: Use Case `k9.dbsync.sync-roundtrip` (Host B führt einen vollständigen
+  Sync aus, Host A zieht ihn zurück) ist in BACH-nativem ProSync, BACH über seine
+  sqlite-transit-sync-Naht und OCEANs direkter Modulnutzung identisch. Die Zeile `dbsync` bleibt
+  `partially-evidenced`; abgedeckt sind push, pull und sync (3 von 9).
+
 ## Unveröffentlicht — 2026-09-17
 
 ### Behoben

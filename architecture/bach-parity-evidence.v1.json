@@ -67,6 +67,26 @@
             "bach_new": "the same BACH handler through its sqlite-transit-sync provider seam",
             "ocean": "sqlite_transit_sync.TransitSync push/pull in namespace bach"
           }
+        },
+        {
+          "id": "k9.dbsync.sync-roundtrip",
+          "state": "evidenced",
+          "operations": [
+            "sync",
+            "pull"
+          ],
+          "summary": "Host A publishes, host B runs a full sync (merge pending foreign snapshots, then publish its own), host A pulls it back: both hosts converge on the merged rows, every published snapshot carries zero secret rows and each host keeps its own local secret row.",
+          "fixture": "tests/fixtures/k9_data",
+          "test": "tests/test_bach_k9_dbsync_parity.py::test_sync_roundtrip_is_identical_in_bach_legacy_bach_module_and_ocean",
+          "implementations": {
+            "old": "BACH DBSyncManager.sync(auto_confirm=True) (dbsync sync -y) and sync_on_start with BACH_USE_EXTERNAL_TRANSITSYNC=0 (native ProSync)",
+            "bach_new": "the same BACH handler through its sqlite-transit-sync provider seam",
+            "ocean": "sqlite_transit_sync.TransitSync sync/pull in namespace bach"
+          },
+          "pins": {
+            "bach_commit": "e619345f358b100ea677a7e6a6d398c42db4e6d4",
+            "carrier_commit": "7648a20b11ca958e9622d2b5d8a13fd02613e92a"
+          }
         }
       ]
     }

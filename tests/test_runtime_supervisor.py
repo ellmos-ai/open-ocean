@@ -178,6 +178,15 @@ class RuntimeSupervisorStateTests(unittest.TestCase):
             ],
         )
 
+    def test_control_server_does_not_resolve_the_loopback_name(self) -> None:
+        with patch("socket.getfqdn", side_effect=AssertionError("reverse DNS lookup")):
+            server = runtime_supervisor._LoopbackControlServer(("127.0.0.1", 0), lambda *args: None)
+        try:
+            self.assertEqual(server.server_name, "127.0.0.1")
+            self.assertGreater(server.server_port, 0)
+        finally:
+            server.server_close()
+
     @unittest.skipIf(os.name == "nt", "real process groups require POSIX")
     def test_real_posix_fence_stops_a_late_descendant(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -247,8 +256,14 @@ class RuntimeSupervisorStateTests(unittest.TestCase):
                         if state.get("control", {}).get("port"):
                             break
                     time.sleep(0.02)
-                self.assertIsNotNone(state)
-                assert state is not None
+                if state is None:
+                    log_tail = log_path.read_text(encoding="utf-8", errors="replace")[-2000:] if log_path.is_file() else ""
+                    self.fail(
+                        "kein State-Receipt nach 10 s: "
+                        f"supervisor_alive={supervisor.poll() is None}, "
+                        f"state_file={state_path.is_file()}, "
+                        f"descendant_file={descendant_pid_file.is_file()}, log={log_tail!r}"
+                    )
                 descendant_pid = int(descendant_pid_file.read_text(encoding="ascii"))
                 self.assertTrue(_pid_exists(descendant_pid))
                 control = state["control"]

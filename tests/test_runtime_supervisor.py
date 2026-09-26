@@ -197,6 +197,7 @@ class RuntimeSupervisorStateTests(unittest.TestCase):
                 textwrap.dedent(
                     """
                     from pathlib import Path
+                    import os
                     import subprocess
                     import sys
                     import time
@@ -205,7 +206,10 @@ class RuntimeSupervisorStateTests(unittest.TestCase):
                     descendant = subprocess.Popen(
                         [sys.executable, "-c", "import time; time.sleep(120)"]
                     )
-                    marker.write_text(str(descendant.pid), encoding="ascii")
+                    # Atomic: the test must never see the file before its content.
+                    temporary = marker.with_suffix(".tmp")
+                    temporary.write_text(str(descendant.pid), encoding="ascii")
+                    os.replace(temporary, marker)
                     time.sleep(120)
                     """
                 ).strip()

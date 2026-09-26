@@ -3,7 +3,7 @@
 Activate for one skeleton ring or a complete system manifest
 (architecture/INSTALLER-TARGET.md's four-step model,
 plus Roll back as a separate `--rollback` mode). This is the "ocean-dev up"
-item from architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md Section 5.
+item of the OCEAN build plan (Section 5; kept in the private recipe repository).
 
 Composition, not re-implementation: Resolve/Verify reuse
 tools/resolve_bundles.py's own tested functions directly (load_bundle_selection,

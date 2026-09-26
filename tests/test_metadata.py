@@ -125,7 +125,7 @@ def test_readme_badges_and_parity():
 
 
 def test_readme_quick_navigation_anchors():
-    """Verify 14-point quick navigation menu and headings in both READMEs."""
+    """Verify 13-point quick navigation menu and headings in both READMEs."""
     readme_en = (ROOT / "README.md").read_text(encoding="utf-8")
     readme_de = (ROOT / "README_de.md").read_text(encoding="utf-8")
 
@@ -133,17 +133,16 @@ def test_readme_quick_navigation_anchors():
     assert "Schnellnavigation:" in readme_de
 
     en_headings = [
-        "## Read this first: this repository is a building site",
-        "## The name, and the architecture it carries",
+        "## What it is",
+        "## Where it comes from",
         "## System Architecture",
         "## Installation & Rollback Lifecycle",
-        "## What is actually in here",
-        "## Governance & Runtime Invariants",
-        "## Status",
-        "## Release conditions",
+        "## Guarantees",
         "## Quickstart & Usage",
-        "## Sibling Ecosystem & Partner Repositories",
-        "## Verification & Test Suite",
+        "## What is in the repository",
+        "## Status",
+        "## Contributing",
+        "## Related Projects",
         "## Security Policy",
         "## Licence",
         "## LLM Context & Discovery",
@@ -153,17 +152,16 @@ def test_readme_quick_navigation_anchors():
         assert heading in readme_en, f"English README missing heading: {heading}"
 
     de_headings = [
-        "## Zuerst lesen: dieses Repository ist eine Baustelle",
-        "## Der Name und die Architektur, die er trägt",
+        "## Was es ist",
+        "## Woher es kommt",
         "## Systemarchitektur",
         "## Installations- und Rollback-Lebenszyklus",
-        "## Was sich tatsächlich hier befindet",
-        "## Governance- und Laufzeit-Invarianten",
-        "## Status",
-        "## Freigabebedingungen",
+        "## Garantien",
         "## Schnellstart und CLI-Nutzung",
-        "## Geschwister-Ökosystem und Partner-Repositories",
-        "## Verifikation und Testsuite",
+        "## Was im Repository liegt",
+        "## Status",
+        "## Mitmachen",
+        "## Verwandte Projekte",
         "## Sicherheitsrichtlinie",
         "## Lizenz",
         "## LLM-Kontext und Discovery",
@@ -189,7 +187,11 @@ def test_readme_dual_mermaid_diagrams():
 
 
 def test_readme_governance_invariants_matrix():
-    """Verify that all 10 governance and runtime invariants are documented in both READMEs."""
+    """Verify the 8 public invariants are documented in both READMEs.
+
+    INV-GATE-07 and INV-PARITY-08 were internal release/parity gates and moved
+    out of the public README (T-20260927-387681197).
+    """
     invariants = [
         "INV-LOCAL-01",
         "INV-TRANS-02",
@@ -197,8 +199,6 @@ def test_readme_governance_invariants_matrix():
         "INV-PIN-04",
         "INV-SAND-05",
         "INV-PRIV-06",
-        "INV-GATE-07",
-        "INV-PARITY-08",
         "INV-PLAT-09",
         "INV-SLA-10",
     ]
@@ -209,10 +209,21 @@ def test_readme_governance_invariants_matrix():
             assert inv_id in content, f"{filename} missing invariant: {inv_id}"
 
 
+def test_public_readmes_keep_internal_product_terms_out():
+    """Internal product boundaries live in the private recipe repository."""
+    for filename in ["README.md", "README_de.md", "llms.txt"]:
+        content = (ROOT / filename).read_text(encoding="utf-8")
+        for term in ("SPEEDBOAT", "FULL OCEAN", "PRIVATE OCEAN", "private-ocean", "full-ocean"):
+            assert term not in content, f"{filename} mentions internal term {term}"
+        assert "Bach" in content or "BACH" in content
+
+
 def test_readme_sibling_ecosystem_table():
     """Verify that sibling ecosystem repos across orgs are represented in both READMEs."""
     siblings = [
-        "ellmos-ai/ellmos-core",
+        "ellmos-ai/bundles",
+        "ellmos-ai/bach",
+        "ellmos-ai/rinnsal",
         "ellmos-ai/policy-registry",
         "ellmos-ai/system-explorer",
         "ellmos-ai/sqlite-transit-sync",
@@ -220,14 +231,18 @@ def test_readme_sibling_ecosystem_table():
         "dev-bricks/DevCenter",
         "file-bricks/ExplorerPro",
         "doc-bricks/CleanMarkdown",
-        "entertain-and-more/BattleStage",
-        "open-bricks/open-bricks",
     ]
 
     for filename in ["README.md", "README_de.md"]:
         content = (ROOT / filename).read_text(encoding="utf-8")
         for sib in siblings:
             assert sib in content, f"{filename} missing sibling repository: {sib}"
+        for private_or_missing in (
+            "ellmos-ai/ellmos-core",
+            "entertain-and-more/BattleStage",
+            "open-bricks/open-bricks",
+        ):
+            assert private_or_missing not in content
 
 
 def test_third_party_licenses_inventory():
@@ -256,7 +271,7 @@ def test_llms_txt_contract():
     assert "## Safety & Invariants" in content
     assert "## Repository Structure" in content
     assert "## Usage" in content
-    assert "2026-09-12" in content
+    assert "2026-09-27" in content
     assert "v0.1.2" in content
     assert "INV-LOCAL-01" in content
     assert "INV-SLA-10" in content

@@ -265,13 +265,14 @@ fast suite; the `parity-evidence` CI job checks out BACH and the carrier at the
 recorded pins and runs every referenced test with `--run`. A `divergent` use case
 records a finding and never counts. Historic `accepted` values are not evidence.
 
-State on 2026-09-23: `dbsync` is `partially-evidenced` with two evidenced use
-cases, `k9.dbsync.push-pull` and `k9.dbsync.pull-with-newer-local-rows`: BACH native
+State on 2026-09-26: `dbsync` is `partially-evidenced` with three evidenced use
+cases, `k9.dbsync.push-pull`, `k9.dbsync.pull-with-newer-local-rows` and
+`k9.dbsync.sync-roundtrip` (host B runs `dbsync sync -y`, host A pulls it back): BACH native
 ProSync, BACH through its sqlite-transit-sync seam and OCEAN's direct module use
 produce the same state (pins BACH `e619345`, carrier `7648a20`). The second use case
 was `divergent` at BACH `8392ed8` (table-maximum watermark dropped newer foreign rows)
-and became evidence after the fix in bach#87. Operations covered: `push`, `pull`
-(2 of 9). The `snapshot` row stays `not-evidenced`; BACH's snapshot handler has no
+and became evidence after the fix in bach#87. Operations covered: `push`, `pull`,
+`sync` (3 of 9). The `snapshot` row stays `not-evidenced`; BACH's snapshot handler has no
 route into `session-checkpoint`, so there is no shared module path to compare yet.
 All other carrier rows remain `not-evidenced`.
 

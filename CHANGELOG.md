@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 *[Deutsch](CHANGELOG_de.md)*
 
+## Unreleased — 2026-09-26
+
+### Added
+
+- BACH parity evidence: use case `k9.dbsync.sync-roundtrip` (host B runs a full sync, host A
+  pulls it back) is identical in BACH native ProSync, BACH through its sqlite-transit-sync seam
+  and OCEAN's direct module use. The `dbsync` row stays `partially-evidenced`; operations
+  covered: push, pull, sync (3 of 9).
+
 ## Unreleased — 2026-09-17
 
 ### Fixed

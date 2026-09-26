@@ -49,12 +49,12 @@ def roots() -> tuple[Path, Path]:
     return _root("BACH_PARITY_ROOT", PINS["bach_commit"]), _root("TRANSIT_SYNC_ROOT", PINS["carrier_commit"])
 
 
-def _probe(mode: str, fixture: str, roots: tuple[Path, Path]) -> dict:
+def _probe(mode: str, fixture: str, roots: tuple[Path, Path], use_case: str = "push-pull") -> dict:
     with tempfile.TemporaryDirectory(prefix="k9-parity-") as work:
         completed = subprocess.run(
             [sys.executable, str(PROBE), "--mode", mode, "--bach-root", str(roots[0]),
              "--transit-root", str(roots[1]), "--fixture", str(ROOT / fixture),
-             "--workdir", str(Path(work) / "run")],
+             "--workdir", str(Path(work) / "run"), "--use-case", use_case],
             capture_output=True, text=True, encoding="utf-8",
             env={**os.environ, "PYTHONIOENCODING": "utf-8"},
         )
@@ -94,3 +94,18 @@ def test_pull_with_newer_local_rows_is_identical_after_bach_row_merge_fix(roots)
         ["shared", "source-newer"], ["source-only", "source-value"], ["target-only", "target-value"]]
     assert results["bach-legacy"]["first_pull_changed"] == 2
     assert results["bach-legacy"]["repeat_pull_changed"] == 0
+
+
+def test_sync_roundtrip_is_identical_in_bach_legacy_bach_module_and_ocean(roots):
+    results = {mode: _probe(mode, "tests/fixtures/k9_data", roots, "sync-roundtrip") for mode in MODES}
+
+    assert results["bach-legacy"]["provider"] == "bach-legacy"
+    assert results["bach-module"]["provider"] == "sqlite-transit-sync"
+    assert _observed(results["bach-legacy"]) == _observed(results["bach-module"]) == _observed(results["ocean-module"])
+
+    merged = [["shared", "source-newer"], ["source-only", "source-value"], ["target-only", "target-value"]]
+    observed = _observed(results["ocean-module"])
+    assert observed["target_items"] == observed["target_snapshot_items"] == observed["source_items"] == merged
+    assert observed["source_snapshot_secret_rows"] == observed["target_snapshot_secret_rows"] == 0
+    assert observed["target_secrets"] == [["local-placeholder", "target-local-placeholder"]]
+    assert observed["source_secrets"] == [["placeholder", "synthetic-secret-placeholder"]]

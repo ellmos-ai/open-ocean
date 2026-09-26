@@ -3,8 +3,8 @@
 > **Status: target contract with an implemented supported path.** This file was written before
 > the installer existed. Since 2026-08-18, the six stages below are implemented for the supported
 > component path in `tools/resolve_bundles.py`, `tools/fetch_place.py`, `tools/host_adapters.py`
-> and `tools/ocean_dev.py`. Current evidence and remaining limits live in
-> `OCEAN-DEV-BUILD-PLAN_2026-08-18.md`; this file retains the original target and invariants.
+> and `tools/ocean_dev.py`. Current evidence and remaining limits are tracked in the maintainers'
+> build plan; this file retains the original target and invariants.
 
 ## Why this target document was created
 

@@ -2,7 +2,18 @@
 
 *[English](CHANGELOG.md)*
 
-## Unveröffentlicht — 2026-09-26
+## Unveröffentlicht — 2026-09-27
+
+### Geändert
+
+- Die öffentliche README (EN/DE) beschreibt jetzt, was open-ocean ist, woher es kommt
+  (Bach → Rinnsal → Ozean), Garantien, Schnellstart, Status und Mitmachen. Interne
+  Produktgrenzen, der Entwicklungs-Bauplan, Host-Abnahmeprotokolle und Freigabe-Gates liegen jetzt
+  im privaten Rezept-Repository der Entwickler; dort ist nichts gelöscht. `INV-GATE-07` und
+  `INV-PARITY-08` sind keine öffentlichen Garantien mehr. Die Liste verwandter Projekte enthält
+  nur noch öffentliche, existierende Repositories, und die README nennt `ellmos-ai/bundles` nicht
+  mehr privat.
+- Ältere Einträge unten enthalten keine Host-Pfade und Prozessnummern mehr.
 
 ### Hinzugefügt
 
@@ -100,7 +111,7 @@
 - Der verborgene Logon-Task mit eingeschränkten Benutzerrechten `EllmosOceanFullUserStart`
   startete den gepinnten Checkout bei der Bedarfsabnahme: `LastTaskResult 267009`
   (`SCHED_S_TASK_RUNNING` — der erwartete Code für einen absichtlich dauerhaft laufenden
-  Serverprozess, nicht `0`), genau ein Supervisor (PID 6460) und ein Kind (PID 37676) unter
+  Serverprozess, nicht `0`), genau ein Supervisor und ein Kind unter
   `pythonw.exe`, wobei das Kind der einzige Listener auf `8810` ist; `full_composition: true`
   blieb danach bestätigt. Ein physischer Neustart wurde nicht getestet.
 - Auf diesem Host lief kein BACH-Session-Sidecar (`service.running: false`, `pid: null`), daher
@@ -112,8 +123,8 @@
 
 ### Hinzugefügt
 
-- Gekoppelte englische/deutsche Produkt- und Stackgrenzen-Dokumente für OPEN OCEAN, PRIVATE OCEAN,
-  FULL OCEAN und den eigenständigen Geschwister-Stack SPEEDBOAT, abgesichert durch Dokumentvertragstests.
+- Gekoppelte englische/deutsche Produkt- und Stackgrenzen-Dokumente, abgesichert durch
+  Dokumentvertragstests (am 2026-09-27 ins private Rezept-Repository verschoben).
 - Wurzel-CLI `ocean.py` mit `plan`, `up`, `start`, `status`, `down` und `user add`.
 - Fähigkeitsgesteuerte Auswahl genau eines aufgelösten `runtime.host`.
 - Lokaler authentifizierter Runtime-Supervisor und Kompatibilitätsprojektionen für den
@@ -142,8 +153,8 @@
 ### Behoben
 
 - Die veraltete Gleichsetzung `ocean-full / open-ocean` wurde aus der aktuellen Produktsprache
-  entfernt und im lebenden Plan als überholt markiert: OPEN OCEAN ist öffentlich, PRIVATE OCEAN
-  ist privat und nicht proprietär, und FULL OCEAN ist exakt ihre Vereinigung.
+  entfernt und im lebenden Plan als überholt markiert: open-ocean ist der öffentliche Teil, nicht
+  die ganze Entwicklungskomposition.
 - Der Reload-Prozess des Runtime-Hosts ist abgeschaltet; jeder Start erhält einen eigenen lokalen
   Secret-Key, damit ein authentifizierter Stopp keinen Reload-Kindprozess zurücklässt.
 - Ein veralteter Stopp-Status der vorherigen Instanz löst beim Neustart keinen Fehlalarm mehr aus.
@@ -195,7 +206,7 @@
 - Der Full-Ocean-Auswahlcommit `1b461c9cb900ada15b8e104f2586a6b4a1ea5278` ist in den kanonischen
   Rezept-Branch `main` übernommen; dessen Nachlesestand lautet
   `b13f1b11626141d6dc6927028dc10008bc406866`.
-- Ein frischer lokaler Blue-Green-Apply nach `C:\_Local_DEV\ocean-full` erhielt den vorherigen
+- Ein frischer lokaler Blue-Green-Apply nach `<workspace>` erhielt den vorherigen
   Workspace als Rücksprungpunkt, holte alle drei exakten Anbieterpins, erreichte
   `full_composition: true` und bestand nach der Windows-Statusdatei-Reparatur einen echten
   Stopp-/Start-/Stopp-/Start-Zyklus.

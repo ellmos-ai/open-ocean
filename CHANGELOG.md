@@ -7,7 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 *[Deutsch](CHANGELOG_de.md)*
 
-## Unreleased — 2026-09-26
+## Unreleased — 2026-09-27
+
+### Changed
+
+- The public README (EN/DE) now covers what open-ocean is, where it comes from
+  (Bach → Rinnsal → ocean), guarantees, quickstart, status and contributing. Internal product
+  boundaries, the development build plan, host acceptance records and release gates moved to the
+  maintainers' private recipe repository; nothing was deleted there. `INV-GATE-07` and
+  `INV-PARITY-08` are no longer public guarantees. The related-projects list now contains only
+  public, existing repositories, and the README no longer calls `ellmos-ai/bundles` private.
+- Older entries below no longer carry host paths or process IDs.
 
 ### Added
 
@@ -99,8 +109,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   running again with no state reuse), followed by the same HTTP/browser/process identity checks.
 - The hidden limited-user logon task `EllmosOceanFullUserStart` demand-started the pinned
   checkout: `LastTaskResult 267009` (`SCHED_S_TASK_RUNNING` — the expected code for an
-  intentionally still-running server process, not `0`), one supervisor (PID 6460) and one child
-  (PID 37676) under `pythonw.exe`, the child the sole listener on `8810`; `full_composition: true`
+  intentionally still-running server process, not `0`), one supervisor and one child
+  under `pythonw.exe`, the child the sole listener on `8810`; `full_composition: true`
   held afterward. No physical reboot was tested.
 - No BACH session sidecar was running on this host (`service.running: false`, `pid: null`), so
   none was stopped; BACH code, databases, tasks and configuration are unchanged.
@@ -111,8 +121,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Paired English/German product-stack boundary documents for OPEN OCEAN, PRIVATE OCEAN,
-  FULL OCEAN and the independent SPEEDBOAT sibling stack, backed by documentation-contract tests.
+- Paired English/German product-stack boundary documents, backed by documentation-contract tests
+  (moved to the private recipe repository on 2026-09-27).
 - Root `ocean.py` lifecycle with `plan`, `up`, `start`, `status`, `down`, and `user add`.
 - Capability-driven selection of exactly one resolved `runtime.host`.
 - Local authenticated runtime supervisor and compatibility projections for the selected host.
@@ -137,8 +147,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Removed the obsolete `ocean-full / open-ocean` equivalence from current product wording and
-  marked it as superseded in the living plan: OPEN OCEAN is public, PRIVATE OCEAN is private and
-  non-proprietary, and FULL OCEAN is their exact union.
+  marked it as superseded in the living plan: open-ocean is the public part, not the whole
+  development composition.
 - Disabled the runtime host's reload process and generated a per-start local secret so an
   authenticated stop cannot leave a reload child behind.
 - Ignored stale stopped state from a previous instance during restart.
@@ -184,7 +194,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   public-release, BACH-parity, or foreign-host full-system claim.
 - Full Ocean selection commit `1b461c9cb900ada15b8e104f2586a6b4a1ea5278` is adopted in canonical
   recipe `main`; post-adoption readback is `b13f1b11626141d6dc6927028dc10008bc406866`.
-- A fresh local Blue-Green apply into `C:\_Local_DEV\ocean-full` preserved the prior workspace as
+- A fresh local Blue-Green apply into `<workspace>` preserved the prior workspace as
   rollback, fetched all three exact provider pins, reached `full_composition: true`, and passed a
   real stop/start/stop/start cycle after the Windows state-file regression was fixed.
 - A controlled stop/apply/start readback retained healthy OCEAN identity: Root returns `307` to

@@ -1,29 +1,19 @@
 # open-ocean
 
-> Free community system and private Full Ocean integration/runtime builder for the ellmos ecosystem.
+> Local-first, verifiable installer that composes AI-agent systems from declarative recipes; the free community system of the ellmos ecosystem.
 
-## Product boundary
+## Where it comes from
 
-- OPEN OCEAN = PUBLIC
-- PRIVATE OCEAN = PRIVATE, NON-PROPRIETARY
-- FULL OCEAN = OPEN OCEAN + PRIVATE OCEAN
-- SPEEDBOAT is an independent proprietary sibling stack with explicit shared-component allowlists.
+The ecosystem names its layers after water: the grown streams BACH and Rinnsal, modules and
+bundles as water pipes, the recipe catalogues as the waterfall, and the ocean where the streams
+arrive (Bach -> Rinnsal -> ocean). open-ocean is the part that belongs to everyone. Some parts of
+the wider ellmos system are private or commercial and are not in this repository.
 
-## Current private Full Ocean development state
+## Status
 
-- Accepted workspaces:
-  - `<DEV-HOST>`: `<workspace>`
-  - `<FRESH-HOST>`: `<workspace>` (fresh install, 2026-08-30)
-- Product URL: `http://127.0.0.1:8810/control/`
-- Composition: 28/28 verified bundles, 54/65 resolved modules, 80/80 resolved skills
-- Required gaps: 0; optional unresolved module references: 11
-- Product identity: `OCEAN Full Dev`; no TerminPilot product surface on the OCEAN origin
-- Logon task `EllmosOceanFullUserStart`, hidden limited-user action pinned to the accepted tag,
-  verified on both `<DEV-HOST>` and `<FRESH-HOST>`
-- BACH session sidecar: stopped on `<DEV-HOST>` after OCEAN/autostart acceptance; never running on
-  `<FRESH-HOST>`, so nothing was stopped there
-- This is not a tagged OPEN OCEAN release or a BACH-parity claim. The historical publication
-  marker was removed after the user-approved public sanitised distribution decision.
+Resolve, Verify, SHA-pinned Fetch/Place, sandboxed Activate, rollback and the `ocean.py` runtime
+lifecycle work end to end on the maintainers' machines. Open: a fresh installation outside the
+development setup and functional coverage of BACH. Not a tagged release yet.
 
 ## Lifecycle CLI
 
@@ -54,22 +44,20 @@ task-master, COMA, then the module-declared starter.
 - German overview: `README_de.md`
 - English changes: `CHANGELOG.md`
 - German changes: `CHANGELOG_de.md`
-- Living build plan and evidence: `architecture/OCEAN-DEV-BUILD-PLAN_2026-08-18.md`
-- Product boundaries: `architecture/PRODUCT-STACK-BOUNDARIES.md`
-- German product boundaries: `architecture/PRODUKT-STACK-GRENZEN.md`
-- Release-maturity record: `README.md` and `README_de.md` release conditions
+- Installer contract: `architecture/INSTALLER-TARGET.md`
+- Read-only inspection: `architecture/OCEAN-INSPECT.md`
 
 ## Project Information
 
 - **Repository**: https://github.com/ellmos-ai/open-ocean
 - **Organization**: ellmos-ai
 - **License**: MIT
-- **Last Checked**: 2026-09-12
+- **Last Checked**: 2026-09-27
 - **Language**: Python 3.10+
 - **Package / CLI**: `open-ocean` (v0.1.2)
 - **Security & Privacy**: Local-first, zero egress, fail-closed verification, transactional rollback, unprivileged user mode. Full policy in [`SECURITY.md`](SECURITY.md).
 - **CI / Testing**: Multi-OS & multi-version GitHub Actions workflow in [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
-- **Verified Suite**: 180 tests and 2 subtests passed on Windows on the integrated PR #2 tree on 2026-09-09; Ruff and `compileall` passed. POSIX skips the Windows-only temporary-file cleanup regression while exercising the same fail-closed `icacls` result handling through mocks.
+- **Verified Suite**: 224 passed, 27 skipped (platform-specific) and 2 subtests on Windows on 2026-09-27; Ruff and `compileall` passed.
 
 ## Overview
 
@@ -87,8 +75,6 @@ task-master, COMA, then the module-declared starter.
 - **INV-PIN-04 (SHA-256 Pinning)**: Every bundle manifest and component reference is cryptographically verified; fails closed on any mismatch.
 - **INV-SAND-05 (Sandboxed Activation)**: `--skills-dir` defaults to `<workspace>/skills` (never a live agent's active configuration directory like `~/.claude/skills`).
 - **INV-PRIV-06 (Non-Elevation)**: All tools run strictly in user space without requiring administrative or root elevation.
-- **INV-GATE-07 (Publication Gate)**: Publication gate formally lifted per D-20260909-003 / user directive; release conditions and audit log preserved.
-- **INV-PARITY-08 (Conservation Law)**: Extraction changes the bed, never the water; strict functional parity against BACH baseline.
 - **INV-PLAT-09 (Cross-Platform Parity)**: Universal execution across Linux, Windows, and macOS with normalized path handling.
 - **INV-SLA-10 (48h / 5d Security SLA)**: Vulnerability reports acknowledged within 48 hours with a 5-business-day triage guarantee.
 
@@ -98,8 +84,7 @@ task-master, COMA, then the module-declared starter.
 architecture/
   open-ocean.skeleton.v1.json          Declarative recipe consumption specification pinned by hash
   INSTALLER-TARGET.md                  Installer invariant rules and anti-patterns
-  OCEAN-DEV-BUILD-PLAN_2026-08-18.md   Staged build plan and verification evidence
-  BACH-EXTRACTION-ROADMAP.md           Extraction roadmap, parity gates, and Cluster 9 map
+  BACH-EXTRACTION-ROADMAP.md           Contracts for moving BACH capabilities into modules
   bach-parity-baseline.v1.json         Machine-readable registry baseline
   bach-k9-data-contract.v1.json        Data snapshot and transaction contract
   bach-k9-dbsync-adapter.v1.json       Lifecycle-adapter specification

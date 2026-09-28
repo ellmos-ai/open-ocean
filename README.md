@@ -12,7 +12,7 @@ the free community system of the ellmos ecosystem.
 [![Version](https://img.shields.io/badge/version-0.1.2-blue.svg)](pyproject.toml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/)
 [![CI](https://github.com/ellmos-ai/open-ocean/actions/workflows/ci.yml/badge.svg)](https://github.com/ellmos-ai/open-ocean/actions/workflows/ci.yml)
-[![Pytest](https://img.shields.io/badge/pytest-224%20passed-brightgreen.svg)](tests/)
+[![Pytest](https://img.shields.io/badge/pytest-263%20passed-brightgreen.svg)](tests/)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows%20%7C%20macOS-informational.svg)](https://github.com/ellmos-ai/open-ocean)
 [![Code Style: Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![Security Policy](https://img.shields.io/badge/security-48h%20SLA%20%7C%205d%20Triage-blue.svg)](SECURITY.md)
@@ -297,7 +297,7 @@ ruff check .
 python -m compileall -q .
 ```
 
-The suite (224 tests) runs without network access. Documentation is kept in English and
+The suite (263 tests passed, 27 skipped) runs without network access. Documentation is kept in English and
 German side by side (`README.md` / `README_de.md`, `CHANGELOG.md` / `CHANGELOG_de.md`); please
 update both. Security issues go through the channel below, not public issues.
 

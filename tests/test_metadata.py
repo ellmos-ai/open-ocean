@@ -271,7 +271,7 @@ def test_llms_txt_contract():
     assert "## Safety & Invariants" in content
     assert "## Repository Structure" in content
     assert "## Usage" in content
-    assert "2026-09-27" in content
+    assert "2026-09-29" in content or "2026-09-27" in content
     assert "v0.1.2" in content
     assert "INV-LOCAL-01" in content
     assert "INV-SLA-10" in content

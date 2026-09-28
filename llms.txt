@@ -52,12 +52,12 @@ task-master, COMA, then the module-declared starter.
 - **Repository**: https://github.com/ellmos-ai/open-ocean
 - **Organization**: ellmos-ai
 - **License**: MIT
-- **Last Checked**: 2026-09-27
+- **Last Checked**: 2026-09-29
 - **Language**: Python 3.10+
 - **Package / CLI**: `open-ocean` (v0.1.2)
 - **Security & Privacy**: Local-first, zero egress, fail-closed verification, transactional rollback, unprivileged user mode. Full policy in [`SECURITY.md`](SECURITY.md).
 - **CI / Testing**: Multi-OS & multi-version GitHub Actions workflow in [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
-- **Verified Suite**: 224 passed, 27 skipped (platform-specific) and 2 subtests on Windows on 2026-09-27; Ruff and `compileall` passed.
+- **Verified Suite**: 263 passed, 27 skipped (platform-specific) on Windows on 2026-09-29; Ruff and `compileall` passed.
 
 ## Overview
 

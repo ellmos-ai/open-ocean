@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 *[Deutsch](CHANGELOG_de.md)*
 
+## Unreleased — 2026-09-29
+
+### Documentation
+
+- Synchronized test coverage badges and verification records in `README.md`, `README_de.md`, and `llms.txt` to the measured suite (263 passed, 27 skipped on Windows on 2026-09-29) reflecting S6 (task union), S7 (memory transit), and S8 (skills projection) contract tests.
+
 ## Unreleased — 2026-09-27
 
 ### Changed

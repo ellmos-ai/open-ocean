@@ -2,6 +2,12 @@
 
 *[English](CHANGELOG.md)*
 
+## Unveröffentlicht — 2026-09-29
+
+### Dokumentation
+
+- Testabdeckungs-Badges und Verifikationsnachweise in `README.md`, `README_de.md` und `llms.txt` auf die gemessene Suite (263 bestanden, 27 übersprungen auf Windows am 2026-09-29) synchronisiert, inklusive der neuen Vertragstests aus S6 (Task-Union), S7 (Memory-Transit) und S8 (Skills-Projektion).
+
 ## Unveröffentlicht — 2026-09-27
 
 ### Geändert

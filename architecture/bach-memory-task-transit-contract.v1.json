@@ -1,0 +1,87 @@
+{
+  "schema": "ellmos.open-ocean-bach-memory-task-transit.v1",
+  "status": "memory-task-transit-schema-specified-fixtures-green-no-live-cutover",
+  "recorded_at": "2026-09-20",
+  "claim_boundary": "This memory-task-transit contract, its host-receipt schema and its synthetic receipts are a schema-level alignment artifact only. No live cutover, no BACH runtime change, no working-memory write, no BACH-IN, no migration, no rollback, and no parity acceptance is performed or implied.",
+  "hold": {
+    "bach_mode": "read-only",
+    "rule": "Do not modify, push, boot, or wire BACH working memory into a live transit during the active hold. Receipts are static, synthetic and temporary; the checker validates shape and reconciliation only."
+  },
+  "stable_id": "mem-transit-2026-001",
+  "task_uid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+  "transit_scope": "memory-task-transit",
+  "privacy_class": "bach-working-memory-pointer-row",
+  "hosts": [
+    "mac-studio",
+    "WORKSTATION-LG",
+    "ASUS-GEI"
+  ],
+  "receipt_schema": "ellmos.open-ocean-memory-task-host-receipt.v1",
+  "required_receipt_fields": [
+    "schema",
+    "host_id",
+    "task_uid",
+    "stable_id",
+    "claim_salt_hash",
+    "receipt_signature",
+    "sequence",
+    "privacy_class",
+    "transit_scope",
+    "contents",
+    "observed_at"
+  ],
+  "required_contents_fields": [
+    "logical_task_id",
+    "payload_digest"
+  ],
+  "claim_signal": {
+    "description": "A host participates in the memory-task transit by emitting a signed receipt that binds its host_id to the shared task_uid, stable_id and contents. The receipt signature is a SHA-256 over the ordered canonical receipt fields plus the claim salt; the salt itself is never published in clear.",
+    "salt_field": "claim_salt_hash",
+    "signature_field": "receipt_signature",
+    "signature_algorithm": "sha256"
+  },
+  "reconciliation": {
+    "description": "All three host receipts must agree on task_uid, stable_id, transit_scope, privacy_class, logical_task_id and payload_digest. Any divergence is a reconciliation failure.",
+    "identity_fields": [
+      "task_uid",
+      "stable_id"
+    ],
+    "scope_fields": [
+      "transit_scope",
+      "privacy_class"
+    ],
+    "content_fields": [
+      "logical_task_id",
+      "payload_digest"
+    ]
+  },
+  "double_claim_prohibition": {
+    "description": "A host_id may appear in exactly one receipt per stable_id. Sequences must be unique across all receipts for the same stable_id. A host may not claim the same transit row twice.",
+    "unique_per_stable_id": [
+      "host_id",
+      "sequence"
+    ]
+  },
+  "fixtures": {
+    "host_receipts": [
+      "tests/fixtures/memory_task_transit/mac-studio.json",
+      "tests/fixtures/memory_task_transit/WORKSTATION-LG.json",
+      "tests/fixtures/memory_task_transit/ASUS-GEI.json"
+    ],
+    "expected": "tests/fixtures/memory_task_transit/expected.json"
+  },
+  "classification": {
+    "memory_task_transit": {
+      "description": "Transport of a single BACH working-memory pointer row across three anonymized hosts.",
+      "parity": "not-accepted",
+      "notes": "Receipts are synthetic fingerprints; they do not prove real host possession."
+    }
+  },
+  "next_gates": [
+    "Keep tools/check_memory_task_transit.py as a required regression gate and stop on receipt schema or host-set drift.",
+    "Keep the memory-task-transit contract free of any live cutover, runtime wiring, migration, or parity acceptance until explicit review.",
+    "After the hold, run one anonymized real working-memory row through the same schema and compare receipts.",
+    "Only then design BACH-IN memory-transit adapters and rollback guards.",
+    "Keep the claim salt exclusively with LEAD TRITHON; any additional claim authority is a separate reviewed change."
+  ]
+}

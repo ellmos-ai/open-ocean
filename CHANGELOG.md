@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `tools/project_workflows.py`: S8 skills- and workflow-projection tool resolving
+  skills registry, modules catalog, and optional toolchain definitions into verified Markdown
+  documentation (`SKILLS.md`, `MODULES.md`, `TOOLCHAINS.md`).
 - BACH parity evidence: use case `k9.dbsync.sync-roundtrip` (host B runs a full sync, host A
   pulls it back) is identical in BACH native ProSync, BACH through its sqlite-transit-sync seam
   and OCEAN's direct module use. The `dbsync` row stays `partially-evidenced`; operations

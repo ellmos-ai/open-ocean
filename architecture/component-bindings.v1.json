@@ -1,0 +1,108 @@
+{
+  "schema": "ellmos.open-ocean.component-bindings.v1",
+  "id": "component-bindings",
+  "version": "0.1.0",
+  "status": "skeleton",
+  "authority": {
+    "kind": "documentation",
+    "runtime_authority": false,
+    "note": "Maps open-ocean bundle_refs to BACH implementation components. Derived from open-ocean.skeleton.v1.json. Scope: This file binds skeleton-level bundles to BACH components such as exporter or skill_generator. The ellmos-agents-bundle already contains the ResearchAgent implementation (system/tools/agents/research_agent.py), so no separate component-binding entry for ResearchAgent is required here. ResearchAgent source defaults are governed by default-source-pins.v1.json."
+  },
+  "recipe_source": {
+    "repository": "ellmos-ai/bundles",
+    "role": "recipe layer consumed by this skeleton"
+  },
+  "bindings": [
+    {
+      "bundle_ref": "ellmos-agents-bundle",
+      "version": "1.0.0",
+      "component": "agents",
+      "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
+      "ring": 1
+    },
+    {
+      "bundle_ref": "ellmos-coordination-choice-bundle",
+      "version": "1.0.0",
+      "component": "coordination",
+      "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
+      "ring": 1
+    },
+    {
+      "bundle_ref": "ellmos-knowledge-bundle",
+      "version": "1.0.0",
+      "component": "knowledge",
+      "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
+      "ring": 1
+    },
+    {
+      "bundle_ref": "ellmos-memory-human-context-bundle",
+      "version": "1.0.0",
+      "component": "memory_human_context",
+      "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
+      "ring": 1
+    },
+    {
+      "bundle_ref": "ellmos-working-memory-bundle",
+      "version": "1.0.0",
+      "component": "working_memory",
+      "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
+      "ring": 1
+    },
+    {
+      "bundle_ref": "ellmos-briefing-bundle",
+      "version": "1.0.0",
+      "component": "briefing",
+      "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
+      "ring": 2
+    },
+    {
+      "bundle_ref": "ellmos-daily-life-bundle",
+      "version": "1.0.0",
+      "component": "daily_life",
+      "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
+      "ring": 2
+    },
+    {
+      "bundle_ref": "ellmos-doc-handler-bundle",
+      "version": "1.0.0",
+      "component": "doc_handler",
+      "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
+      "ring": 2
+    },
+    {
+      "bundle_ref": "ellmos-finance-assist-bundle",
+      "version": "1.0.0",
+      "component": "finance_assist",
+      "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
+      "ring": 2
+    },
+    {
+      "bundle_ref": "ellmos-health-assist-bundle",
+      "version": "1.0.0",
+      "component": "health_assist",
+      "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
+      "ring": 2
+    },
+    {
+      "bundle_ref": "ellmos-knowledge-search-choice-bundle",
+      "version": "1.0.0",
+      "component": "knowledge_search_choice",
+      "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
+      "ring": 2
+    },
+    {
+      "bundle_ref": "ellmos-media-production-bundle",
+      "version": "1.0.0",
+      "component": "media_production",
+      "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
+      "ring": 2
+    },
+    {
+      "bundle_ref": "ellmos-voice-media-assist-bundle",
+      "version": "1.0.0",
+      "component": "voice_media_assist",
+      "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
+      "ring": 2
+    }
+  ]
+}

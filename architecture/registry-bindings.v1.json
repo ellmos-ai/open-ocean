@@ -1,0 +1,56 @@
+{
+  "schema": "ellmos.open-ocean.registry-bindings.v1",
+  "id": "registry-bindings",
+  "version": "0.1.0",
+  "status": "skeleton",
+  "authority": {
+    "kind": "documentation",
+    "runtime_authority": false,
+    "note": "Maps BACH registry/generator tools to open-ocean bundle_refs and artifact types. Kept in the private architecture repo; public code must fail closed when this file is absent."
+  },
+  "tools": {
+    "exporter": {
+      "path": "system/tools/exporter.py",
+      "version": "1.0.0",
+      "role": "exports BACH agents, skills and OS packages to portable standalone artifacts",
+      "artifacts": ["agent_zip", "skill_zip", "os_fresh_zip", "os_reset_package"],
+      "bundle_refs": [
+        "ellmos-agents-bundle",
+        "ellmos-coordination-choice-bundle",
+        "ellmos-knowledge-bundle",
+        "ellmos-memory-human-context-bundle",
+        "ellmos-working-memory-bundle",
+        "ellmos-briefing-bundle",
+        "ellmos-daily-life-bundle",
+        "ellmos-doc-handler-bundle",
+        "ellmos-finance-assist-bundle",
+        "ellmos-health-assist-bundle",
+        "ellmos-knowledge-search-choice-bundle",
+        "ellmos-media-production-bundle",
+        "ellmos-voice-media-assist-bundle"
+      ]
+    },
+    "skill_generator": {
+      "path": "system/tools/skill_generator.py",
+      "version": "3.0.0",
+      "role": "generates skill folder structures from MICRO to EXTENDED profiles",
+      "artifacts": ["micro_skill", "light_skill", "standard_skill", "extended_skill"],
+      "bundle_refs": [
+        "ellmos-agents-bundle",
+        "ellmos-knowledge-bundle",
+        "ellmos-briefing-bundle",
+        "ellmos-daily-life-bundle",
+        "ellmos-doc-handler-bundle",
+        "ellmos-finance-assist-bundle",
+        "ellmos-health-assist-bundle",
+        "ellmos-knowledge-search-choice-bundle",
+        "ellmos-media-production-bundle",
+        "ellmos-voice-media-assist-bundle"
+      ]
+    }
+  },
+  "defaults": {
+    "default_source_pins_file": "default-source-pins.v1.json",
+    "component_bindings_file": "component-bindings.v1.json"
+  }
+}

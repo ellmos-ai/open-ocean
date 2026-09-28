@@ -7,8 +7,6 @@ from pathlib import Path
 from tools.check_task_union_contract import (
     create_database,
     extract_transit_assignments,
-    git_head,
-    inspect_task_master,
     query,
     run_union_fixture,
     validate_contract,

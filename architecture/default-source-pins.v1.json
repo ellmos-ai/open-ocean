@@ -1,0 +1,23 @@
+{
+  "schema": "ellmos.open-ocean.default-source-pins.v1",
+  "id": "default-source-pins",
+  "version": "0.1.0",
+  "status": "active",
+  "authority": {
+    "kind": "private",
+    "runtime_authority": true,
+    "note": "Fail-closed source pins for open-ocean components. Public code must not hard-code enabled sources; it loads this private schema or uses an explicit runtime config."
+  },
+  "default_sources": {
+    "ResearchAgent": {
+      "enabled": [],
+      "blocked": ["perplexity"],
+      "note": "Fail-closed: no sources enabled by default. Perplexity requires a private API key and is blocked unless explicitly enabled."
+    }
+  },
+  "global_blocked_sources": ["perplexity"],
+  "notes": [
+    "A blocked source must not be returned as a default source, even if listed in enabled.",
+    "If default_sources.ResearchAgent.enabled is empty, the agent returns no sources unless the caller passes sources explicitly."
+  ]
+}

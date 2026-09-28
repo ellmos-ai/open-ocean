@@ -1,0 +1,164 @@
+{
+  "schema": "ellmos.open-ocean-bach-skills-workflow-projection.v1",
+  "status": "skills-workflow-projection-schema-specified-fixtures-green-no-live-cutover",
+  "recorded_at": "2026-09-20",
+  "claim_boundary": "This skills-workflow projection contract, its projection-item schema and its synthetic projection items are a schema-level alignment artifact only. Skills and tools are projected from the BACH ControlCenter registry shape (read-only counts, trigger_phrases field, keyword-to-carrier pattern) into an open-ocean contract; no BACH registry row, skill, tool, toolchain or runtime state is exported, migrated or accepted. No live cutover, no BACH runtime change, no working-memory write, no BACH-IN, no migration, no rollback, and no parity acceptance is performed or implied.",
+  "hold": {
+    "bach_mode": "read-only",
+    "rule": "Do not modify, push, boot, or wire the BACH ControlCenter registry, any skills or tools row, or any toolchain/workflow state into a live projection during the active hold. Projection items are static, synthetic and temporary; the checker validates shape, uniqueness and toolchain alignment only."
+  },
+  "provenance": {
+    "ticket": "T-20260920-823767362",
+    "slice": "S8",
+    "task": 1446,
+    "recorded_from": [
+      "BACH ControlCenter registry working copy, inspected read-only via sqlite (immutable mode); table row counts recorded, no row content exported into this contract",
+      "architecture/registry-bindings.v1.json (schema ellmos.open-ocean.registry-bindings.v1, status skeleton, runtime_authority false)",
+      "tools/build_bach_composition_matrix.py CARRIERS keyword-to-carrier pattern",
+      "workflowhooker service manifest, version 0.2.1",
+      "MarbleRun git mirror, HEAD 938f3d5 on branch main"
+    ]
+  },
+  "projection_scope": "skills-workflow-projection",
+  "language": "de",
+  "source_registry": {
+    "read_only": true,
+    "runtime_authority": false,
+    "claim": "All registry facts below were captured read-only. The registry-bindings skeleton has no runtime authority and is not a projection source of truth.",
+    "counts": {
+      "tool_registry": 45,
+      "ati_tool_registry": 137,
+      "skills": 128,
+      "toolchain_runs": 6,
+      "tool_patterns": 5,
+      "agents": 6
+    },
+    "skills_shape": {
+      "trigger_phrases_field": "trigger_phrases",
+      "trigger_phrases_state": "exists-not-populated-in-inspected-rows",
+      "language": "de"
+    },
+    "tool_patterns_shape": {
+      "fields": ["pattern_name", "keywords", "suggested_tools"],
+      "value_format": "json-strings"
+    },
+    "toolchain_runs_shape": {
+      "fields": ["triggered_by"],
+      "row_nature": "windows-side run logs",
+      "note": "run-log rows only; they reference no workflow_tuev chain object"
+    },
+    "registry_bindings": {
+      "schema": "ellmos.open-ocean.registry-bindings.v1",
+      "status": "skeleton",
+      "runtime_authority": false,
+      "tools": {
+        "tools.exporter": {
+          "component": "system/tools/exporter.py",
+          "version": "1.0.0",
+          "artifacts": ["agent_zip", "skill_zip", "os_fresh_zip", "os_reset_package"],
+          "bundle_ref_count": 13
+        },
+        "tools.skill_generator": {
+          "component": "system/tools/skill_generator.py",
+          "version": "3.0.0",
+          "artifacts": ["micro_skill", "light_skill", "standard_skill", "extended_skill"],
+          "bundle_ref_count": 10
+        }
+      },
+      "defaults": ["default-source-pins.v1.json", "component-bindings.v1.json"],
+      "marblerun_refs": false,
+      "workflowhooker_refs": false
+    }
+  },
+  "projection": {
+    "description": "Skills, tools and tool patterns from the BACH ControlCenter registry are projected as static open-ocean items carrying German trigger_phrases. Trigger phrases follow the registry skills trigger_phrases field (language de) and the CARRIERS keyword-to-carrier pattern from tools/build_bach_composition_matrix.py. registry-bindings.v1.json documents the exporter and skill_generator pair that would produce such artifacts but stays a skeleton without runtime authority.",
+    "item_schema": "ellmos.open-ocean-skills-workflow-projection-item.v1",
+    "required_item_fields": [
+      "schema",
+      "projection_id",
+      "projection_scope",
+      "item_type",
+      "source_registry",
+      "registry_key",
+      "carrier",
+      "carrier_locator",
+      "trigger_phrases",
+      "language",
+      "projection_digest",
+      "observed_at"
+    ],
+    "allowed_item_sources": ["skills", "tool_registry", "ati_tool_registry", "tool_pattern"],
+    "allowed_item_types": ["skill", "tool", "tool_pattern"],
+    "keyword_to_carrier": {
+      "chain routine recurring": "marblerun",
+      "agent agents": "agent-launcher",
+      "ati task": "task-master",
+      "backup db dbsync restore sync": "sqlite-transit-sync",
+      "connector email msg": "connectors",
+      "scheduler": "ellmos-scheduler",
+      "schwarm": "swarm_ai"
+    },
+    "projection_signal": {
+      "description": "Each projection item carries a SHA-256 projection_digest fingerprint over the ordered canonical item fields. The digest identifies the projected shape only; it does not encode registry row content.",
+      "digest_field": "projection_digest",
+      "digest_algorithm": "sha256",
+      "trigger_phrases_field": "trigger_phrases"
+    },
+    "trigger_uniqueness": {
+      "description": "A trigger phrase may appear in exactly one projection item per projection scope, and a projection_id may map to exactly one item. Carriers and keywords may repeat.",
+      "unique_across_projection": ["trigger_phrases", "projection_id"]
+    },
+    "reconciliation": {
+      "description": "All projection items must agree on projection scope and language, and every item must carry at least one trigger phrase. Carriers may differ per item.",
+      "scope_fields": ["projection_scope", "language"],
+      "content_fields": ["trigger_phrases"]
+    }
+  },
+  "toolchain_alignment": {
+    "workflowhooker": {
+      "repo": "ellmos-ai/workflowhooker",
+      "version": "0.2.1",
+      "provides": ["workflow.hook", "workflow.check"],
+      "kind": "workflow",
+      "category": "control",
+      "toolchain_strings_found": false,
+      "workflow_tuev_present": false,
+      "finding": "No toolchain or workflow_tuev string exists anywhere in the workflowhooker service; it provides workflow.hook and workflow.check lifecycle hooks only."
+    },
+    "marblerun": {
+      "repo": "git-mirror/MarbleRun.git",
+      "git_head": "938f3d5",
+      "git_branch": "main",
+      "toolchain_strings_found": false,
+      "workflow_tuev_present": false,
+      "carrier_locator": "module:marblerun",
+      "carrier_use_cases": ["chain", "recurring", "routine"],
+      "use_case_state": "not-evidenced",
+      "binding_note": "Contract, adapter/reintegration, bundle membership and functional use-case evidence remain open.",
+      "finding": "git grep over HEAD 938f3d5 found no toolchain and no workflow_tuev match; MarbleRun is documented as carrier for the chain, recurring and routine use cases via module:marblerun in bach-composition-matrix.v1.json only."
+    },
+    "verdict": "workflow_tuev and toolchain objects are absent from both workflowhooker (0.2.1) and MarbleRun (HEAD 938f3d5, main); the six registry toolchain_runs rows are triggered_by run logs and reference no workflow_tuev chain object in either carrier. Toolchain alignment is therefore recorded as not-present in both carriers, with MarbleRun carrier use for chain, recurring and routine remaining not-evidenced."
+  },
+  "fixtures": {
+    "projection_items": [
+      "tests/fixtures/skills_workflow_projection/marblerun-chain-skill.json",
+      "tests/fixtures/skills_workflow_projection/taskmaster-ati-tool.json",
+      "tests/fixtures/skills_workflow_projection/connectors-msg-pattern.json"
+    ],
+    "expected": "tests/fixtures/skills_workflow_projection/expected.json"
+  },
+  "classification": {
+    "skills_workflow_projection": {
+      "description": "Read-only projection of the BACH skills and tools registry shape into open-ocean projection items with German trigger_phrases, aligned against workflowhooker and MarbleRun for toolchain and workflow_tuev presence.",
+      "parity": "not-accepted",
+      "notes": "Projection items are synthetic fingerprints of registry shape; they do not prove real registry row content or live carrier behaviour."
+    }
+  },
+  "next_gates": [
+    "Keep tools/check_skills_workflow_projection.py as a required regression gate and stop on item schema, carrier-set, keyword-to-carrier or registry count drift.",
+    "Keep the skills-workflow projection contract free of any live cutover, registry row export, runtime wiring, migration, or parity acceptance until explicit review.",
+    "After the hold, re-run the six registry counts (tool_registry, ati_tool_registry, skills, toolchain_runs, tool_patterns, agents) against the real BACH ControlCenter registry and record drift before promoting any projection.",
+    "Only then design real skill projection adapters (registry trigger_phrases into open-ocean skill definitions) with rollback guards; keep registry-bindings.v1.json runtime authority out of scope until reviewed.",
+    "Re-verify the workflow_tuev and toolchain absence findings for workflowhooker and MarbleRun on every version or HEAD bump; carrier use cases chain, recurring and routine stay not-evidenced until functionally proven."
+  ]
+}

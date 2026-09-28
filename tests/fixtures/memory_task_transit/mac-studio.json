@@ -1,0 +1,16 @@
+{
+  "schema": "ellmos.open-ocean-memory-task-host-receipt.v1",
+  "host_id": "mac-studio",
+  "task_uid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+  "stable_id": "mem-transit-2026-001",
+  "claim_salt_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000001",
+  "receipt_signature": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "sequence": 1,
+  "privacy_class": "bach-working-memory-pointer-row",
+  "transit_scope": "memory-task-transit",
+  "contents": {
+    "logical_task_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "payload_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+  },
+  "observed_at": "2026-09-20T12:00:00Z"
+}

@@ -1,0 +1,24 @@
+{
+  "schema": "ellmos.open-ocean-memory-task-transit-expected.v1",
+  "stable_id": "mem-transit-2026-001",
+  "task_uid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+  "transit_scope": "memory-task-transit",
+  "privacy_class": "bach-working-memory-pointer-row",
+  "contents": {
+    "logical_task_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "payload_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+  },
+  "hosts": [
+    "ASUS-GEI",
+    "WORKSTATION-LG",
+    "mac-studio"
+  ],
+  "host_count": 3,
+  "sequences": [
+    1,
+    2,
+    3
+  ],
+  "reconciliation": "agreed",
+  "double_claim_found": false
+}

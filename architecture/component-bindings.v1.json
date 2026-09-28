@@ -6,7 +6,7 @@
   "authority": {
     "kind": "documentation",
     "runtime_authority": false,
-    "note": "Maps open-ocean bundle_refs to BACH implementation components. Derived from open-ocean.skeleton.v1.json. Scope: This file binds skeleton-level bundles to BACH components such as exporter or skill_generator. The ellmos-agents-bundle already contains the ResearchAgent implementation (system/tools/agents/research_agent.py), so no separate component-binding entry for ResearchAgent is required here. ResearchAgent source defaults are governed by default-source-pins.v1.json."
+    "note": "Public skeleton/documentation only. This file intentionally carries no runtime authority. Active component bindings for bach live in the private .ocean-work repository (BACH_ROOT/.ocean-work/architecture/component-bindings.v1.json) or may be supplied via the BACH_OCEAN_PRIVATE_ARCH environment variable. Derived from open-ocean.skeleton.v1.json. Scope: This file documents skeleton-level bundle-to-component mappings for the open-ocean product stack; it is not consumed as a runtime manifest."
   },
   "recipe_source": {
     "repository": "ellmos-ai/bundles",
@@ -104,5 +104,10 @@
       "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
       "ring": 2
     }
+  ],
+  "notes": [
+    "The ellmos-agents-bundle already contains the ResearchAgent implementation (system/tools/agents/research_agent.py), so no separate component-binding entry for ResearchAgent is required here.",
+    "ResearchAgent source defaults are governed by default-source-pins.v1.json in the same directory.",
+    "Active private binding overlay repository: .ocean-work (BACH_ROOT/.ocean-work/architecture). This public file is documentation-only and must not be used as a runtime authority."
   ]
 }

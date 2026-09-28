@@ -2,22 +2,23 @@
   "schema": "ellmos.open-ocean.default-source-pins.v1",
   "id": "default-source-pins",
   "version": "0.1.0",
-  "status": "active",
+  "status": "skeleton",
   "authority": {
-    "kind": "private",
-    "runtime_authority": true,
-    "note": "Fail-closed source pins for open-ocean components. Public code must not hard-code enabled sources; it loads this private schema or uses an explicit runtime config."
+    "kind": "documentation",
+    "runtime_authority": false,
+    "note": "Public skeleton/documentation only. This file intentionally carries no runtime authority. Active fail-closed source pins and runtime authority live in the private .ocean-work repository (BACH_ROOT/.ocean-work/architecture/default-source-pins.v1.json) or may be supplied via the BACH_OCEAN_PRIVATE_ARCH environment variable. Public code must not hard-code enabled sources; it loads the private schema or uses an explicit runtime config."
   },
   "default_sources": {
     "ResearchAgent": {
       "enabled": [],
       "blocked": ["perplexity"],
-      "note": "Fail-closed: no sources enabled by default. Perplexity requires a private API key and is blocked unless explicitly enabled."
+      "note": "Fail-closed public example: no sources enabled by default. Perplexity requires a private API key and is blocked unless explicitly enabled by a caller-provided runtime configuration."
     }
   },
   "global_blocked_sources": ["perplexity"],
   "notes": [
     "A blocked source must not be returned as a default source, even if listed in enabled.",
-    "If default_sources.ResearchAgent.enabled is empty, the agent returns no sources unless the caller passes sources explicitly."
+    "If default_sources.ResearchAgent.enabled is empty, the agent returns no sources unless the caller passes sources explicitly.",
+    "Active private override repository: .ocean-work (BACH_ROOT/.ocean-work/architecture). This public file is documentation-only and must not be used as a runtime authority."
   ]
 }

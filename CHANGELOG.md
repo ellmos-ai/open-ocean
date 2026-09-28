@@ -25,6 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   pulls it back) is identical in BACH native ProSync, BACH through its sqlite-transit-sync seam
   and OCEAN's direct module use. The `dbsync` row stays `partially-evidenced`; operations
   covered: push, pull, sync (3 of 9).
+- Added versioned private architecture schemas under `architecture/`:
+  `default-source-pins.v1.json`, `component-bindings.v1.json` and
+  `registry-bindings.v1.json`. The `bach` `ResearchAgent` consumes
+  `default-source-pins.v1.json` with fail-closed defaults (`enabled=[]`,
+  `blocked=["perplexity"]`, `global_blocked=["perplexity"]`) and validates all schema IDs.
 
 ## Unreleased — 2026-09-17
 

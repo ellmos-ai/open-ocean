@@ -21,6 +21,11 @@
   Sync aus, Host A zieht ihn zurück) ist in BACH-nativem ProSync, BACH über seine
   sqlite-transit-sync-Naht und OCEANs direkter Modulnutzung identisch. Die Zeile `dbsync` bleibt
   `partially-evidenced`; abgedeckt sind push, pull und sync (3 von 9).
+- Versionierte private Architektur-Schemas unter `architecture/` ergänzt:
+  `default-source-pins.v1.json`, `component-bindings.v1.json` und
+  `registry-bindings.v1.json`. Der `bach`-`ResearchAgent` nutzt
+  `default-source-pins.v1.json` mit fail-closed-Defaults (`enabled=[]`,
+  `blocked=["perplexity"]`, `global_blocked=["perplexity"]`) und prüft alle Schema-IDs.
 
 ## Unveröffentlicht — 2026-09-17
 

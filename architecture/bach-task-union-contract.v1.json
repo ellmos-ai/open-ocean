@@ -1,0 +1,232 @@
+{
+  "schema": "ellmos.open-ocean-bach-task-union.v1",
+  "status": "union-schema-specified-fixtures-green-no-live-cutover",
+  "recorded_at": "2026-09-21",
+  "claim_boundary": "This union schema contract, its field mapping and its synthetic fixtures are a schema-level alignment artifact only. No live cutover, no BACH runtime change, no task-master runtime change, no BACH-IN, no migration, no rollback, and no parity acceptance is performed or implied.",
+  "hold": {
+    "bach_mode": "read-only",
+    "rule": "Do not modify, push, boot, or wire BACH or task-master into a live union during the active hold. Source inspection is static only; fixtures are synthetic and temporary."
+  },
+  "sources": {
+    "bach": {
+      "commit": "5e8fe80607091378477523b2b6dc99e8c17d7d18",
+      "inspection": "AST plus SHA-256; no import or runtime boot",
+      "backlog_fields": [
+        "id",
+        "title",
+        "status",
+        "priority",
+        "depends_on",
+        "due",
+        "history",
+        "assigned_to",
+        "completion_comment"
+      ],
+      "status_set": [
+        "pending",
+        "in_progress",
+        "done",
+        "blocked",
+        "deferred"
+      ]
+    },
+    "task_master": {
+      "repository": "https://github.com/ellmos-ai/task-master",
+      "commit": "88941bf49a2ec52a741a75d90053f42491d15e90",
+      "inspection": "AST plus SHA-256 of taskplan/transit; no import or runtime boot",
+      "transit_contract_version": "v1alpha1",
+      "handler_files": {
+        "transit_schema": {
+          "path": "taskplan/transit/schema.py",
+          "sha256": "cf5bf4a760b74a42900c073e8909f5d3b422f2c386982fb954f8d89bf2624c8d"
+        },
+        "transit_models": {
+          "path": "taskplan/transit/models.py",
+          "sha256": "6f9acd04160bba7b8ac50befd881781dca57ef696d699168d4d8bb1bb965f718"
+        },
+        "transit_policy": {
+          "path": "taskplan/transit/policy.py",
+          "sha256": "d64fbb5d0d5965b771c2645d1ac3c2c0d887519bc599cbcf3369b28f01150746"
+        },
+        "transit_selector_gate": {
+          "path": "taskplan/transit/selector_gate.py",
+          "sha256": "5fd7f666feb740f3eb3d86063d7a340e4eb93c5c3f5ba49a110a32d0876065d7"
+        },
+        "transit_migrations": {
+          "path": "taskplan/transit/migrations.py",
+          "sha256": "e5aec2f50f578c56826a735f338054e9fc51826a355b24d5c4f0ff209018b55f"
+        }
+      },
+      "rinnsal_columns": [
+        "task_uid",
+        "logical_task_id",
+        "transit_scope",
+        "origin_system_id",
+        "task_authority_system_id",
+        "project_id",
+        "content_revision",
+        "transit_contract_version",
+        "terminal_conflict",
+        "identity_collision"
+      ],
+      "event_kinds": [
+        "task_created",
+        "categorized",
+        "deferred",
+        "claim_requested",
+        "claim_granted",
+        "claim_released",
+        "completed",
+        "cancelled",
+        "reopened",
+        "tombstoned",
+        "scope_migration_started",
+        "scope_migration_committed",
+        "scope_migration_rolled_back",
+        "conflict_resolved"
+      ]
+    }
+  },
+  "field_mapping": {
+    "identity": {
+      "bach_id": "Integer local backlog id; never transited as union identity.",
+      "union_identity": "task_uid (uuid4) plus logical_task_id (sha256) identify the union row.",
+      "logical_task_id_computation": "compute_logical_task_id(scope_id, project_id, source_kind, source_locator, fingerprint, source_revision, contract_version) in taskplan/transit/models.py.",
+      "migration_id": "mig:<task_id>:<ltid> idempotent commit marker with dry-run projection and crash-before-commit simulation.",
+      "working_memory": "BACH working memory stores only logical_task_id and task_uid pointers, never union payload copies."
+    },
+    "status_mapping": {
+      "pending": {
+        "union_state": "open",
+        "events": ["task_created"],
+        "terminal": false,
+        "notes": "A new BACH backlog task projects to an open rinnsal_tasks row plus an append-only task_created event."
+      },
+      "in_progress": {
+        "union_state": "claimed",
+        "events": ["claim_requested", "claim_granted"],
+        "terminal": false,
+        "notes": "assigned_to maps to the claim/lease holder only after claim_granted; no autonomous claim when transit_scope is central."
+      },
+      "done": {
+        "union_state": "completed",
+        "events": ["completed"],
+        "terminal": true,
+        "notes": "completion_comment is carried as completed-event payload; the union row becomes terminal and later mutation is refused."
+      },
+      "blocked": {
+        "union_state": "blocked-local-projection",
+        "events": [],
+        "terminal": false,
+        "notes": "blocked has no taskplan transit event kind; it stays a BACH-local projection flag and must not be forced into the union event log."
+      },
+      "deferred": {
+        "union_state": "deferred",
+        "events": ["deferred"],
+        "terminal": false,
+        "notes": "deferred round-trips through the deferred event kind; a later reopen returns the task to open."
+      }
+    },
+    "priority": "BACH-local ordering field; no rinnsal_tasks column; stays in the BACH projection and is never transited.",
+    "depends_on": "BACH-local dependency list; the union schema does not transit edges; dependency order remains a BACH projection concern.",
+    "due": "BACH-local due timestamp; not transited.",
+    "history": "BACH history entries project to append-only taskplan_transit_events rows; the union event log is never rewritten.",
+    "terminal_rules": {
+      "terminal_states": ["completed", "cancelled", "tombstoned"],
+      "rule": "Mutations on terminal rows fail closed; identity or terminal conflicts set identity_collision or terminal_conflict and project to tombstoned.",
+      "tombstone": "Tombstoned rows remain append-only history; no resurrection."
+    },
+    "scope_guard": {
+      "central": "scope=central tasks are never claimed or mutated autonomously.",
+      "fail_closed": "Empty or local:* transit_scope fails closed for shared claims; shared scope requires the registry; an uncertain clock pauses claims."
+    },
+    "claim_race_protection": "Only LEAD TRITHON holds the claim salt; claims serialize through claim_requested then claim_granted, which closes the race window between parallel backlog writers."
+  },
+  "fixtures": {
+    "source_sql": "tests/fixtures/task_union/source.sql",
+    "expected": "tests/fixtures/task_union/expected.json",
+    "privacy": "Synthetic task ids, titles, actors, scopes, and timestamps only; no BACH database, paths, logs, tokens, personal records, or real task content."
+  },
+  "classification": {
+    "union-direct": "The union mechanism matches the BACH backlog semantic directly, but parity is still not accepted.",
+    "adapter-required": "The union supplies related mechanics; BACH-specific projection, output, or lifecycle behavior remains in a future thin adapter.",
+    "bach-local-only": "The field or status exists only in the BACH backlog and must not be forced into taskplan transit.",
+    "guard-fail-closed": "Policy or selector gate refuses autonomous handling; manual review is required."
+  },
+  "profiles": {
+    "backlog": {
+      "semantic_domain": "BACH task backlog lifecycle projection onto taskplan rinnsal transit",
+      "adapter_spec": null,
+      "state_owners": [
+        "BACH backlog store",
+        "BACH working memory (pointer rows only)",
+        "taskplan rinnsal_tasks",
+        "taskplan_transit_events append-only log",
+        "claim salt held exclusively by LEAD TRITHON"
+      ],
+      "operations": [
+        {
+          "name": "create",
+          "input": "title, priority, due, depends_on",
+          "source_effect": "Insert a BACH backlog row with status pending and append a history entry.",
+          "union_surface": "rinnsal_tasks row (open) plus task_created event",
+          "classification": "adapter-required",
+          "remaining_difference": "Backlog id is local only; union identity (task_uid, logical_task_id) is computed from scope, project, and fingerprint pins.",
+          "parity": "not-accepted"
+        },
+        {
+          "name": "claim",
+          "input": "task id plus actor",
+          "source_effect": "Set status in_progress and record assigned_to.",
+          "union_surface": "claim_requested then claim_granted events; lease on the rinnsal row",
+          "classification": "guard-fail-closed",
+          "remaining_difference": "scope=central plus identity or terminal conflicts refuse autonomous claims; an uncertain clock pauses them.",
+          "parity": "not-accepted"
+        },
+        {
+          "name": "complete",
+          "input": "task id plus completion_comment",
+          "source_effect": "Set status done and record completion_comment.",
+          "union_surface": "completed event; terminal row",
+          "classification": "adapter-required",
+          "remaining_difference": "completion_comment is event payload, not a union column; terminal rows refuse later mutation.",
+          "parity": "not-accepted"
+        },
+        {
+          "name": "defer",
+          "input": "task id",
+          "source_effect": "Set status deferred.",
+          "union_surface": "deferred event",
+          "classification": "union-direct",
+          "remaining_difference": "Round-trip and due handling stay BACH-local.",
+          "parity": "not-accepted"
+        },
+        {
+          "name": "block",
+          "input": "task id plus blocker note",
+          "source_effect": "Set status blocked.",
+          "union_surface": "none",
+          "classification": "bach-local-only",
+          "remaining_difference": "No taskplan transit event kind carries blocked; it must remain a BACH-local projection flag.",
+          "parity": "not-accepted"
+        },
+        {
+          "name": "history",
+          "input": "task id",
+          "source_effect": "Read backlog history entries.",
+          "union_surface": "taskplan_transit_events append-only scan",
+          "classification": "union-direct",
+          "remaining_difference": "Backlog history ordering and wording differ; the union log is append-only and authoritative.",
+          "parity": "not-accepted"
+        }
+      ]
+    }
+  },
+  "next_gates": [
+    "Keep tools/check_task_union_contract.py as a required regression gate and stop on BACH or task-master pin drift.",
+    "Keep the union contract free of any live cutover, runtime wiring, migration, or parity acceptance until explicit review.",
+    "After the hold, run one anonymized backlog fixture through both projections and compare allowed state changes.",
+    "Only then design BACH-IN task-union adapters, rollback guards, and the scope=central manual-claim workflow.",
+    "Keep the claim salt exclusively with LEAD TRITHON; any additional claim authority is a separate reviewed change."
+  ]
+}

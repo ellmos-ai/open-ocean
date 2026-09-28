@@ -36,6 +36,11 @@ from pathlib import Path
 
 import pytest
 
+# Make the repo root importable no matter what the caller's cwd is: invoking
+# pytest from a foreign project root would otherwise leave the in-repo
+# helpers (tools/, src/) unimportable during collection (T-20260920-823767362).
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 SUPERVISOR_MARKER = "runtime_supervisor.py"
 JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000
 JOB_OBJECT_EXTENDED_LIMIT_INFORMATION_CLASS = 9

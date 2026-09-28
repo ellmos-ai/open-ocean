@@ -1,0 +1,1 @@
+{"schema":"ellmos.open-ocean-task-union-fixture.v1","tasks":[{"id":1,"status":"pending"},{"id":2,"status":"in_progress"},{"id":3,"status":"done"},{"id":4,"status":"blocked"},{"id":5,"status":"deferred"}],"union_events":[[1,1,"task_created"],[2,2,"claim_requested"],[3,2,"claim_granted"],[4,3,"completed"],[5,5,"deferred"]],"terminal_mutation_refused":true}

@@ -220,6 +220,13 @@ python tools/ocean_dev.py --bundles-root ../bundles --ring 1 --apply
 
 # 3. Roll back using the generated activation receipt
 python tools/ocean_dev.py --rollback <workspace>/ocean-dev.activation-log.json
+
+# 4. S8 skills- and workflow-projection (read-only Markdown export)
+python tools/project_workflows.py --skills-registry <path-to-components.json> \
+    --modules-catalog <path-to-modules.catalog.json> \
+    --db-path <path-to-toolchains.json> \
+    --output-dir <workspace>/projections \
+    --include-toolchains
 ```
 
 The skeleton references 13 bundles in two rings — the functional core (`--ring 1`) and the breadth
@@ -250,6 +257,7 @@ tools/
   ocean_dev.py                  single entry point: Resolve -> Verify -> Fetch/Place -> Activate,
                                 dry-run by default, --apply for real writes, --rollback
   resolve_bundles.py            bundle refs -> flat, hash-checked component plan
+  project_workflows.py          S8 skills-/workflow-projection into SKILLS.md/MODULES.md/TOOLCHAINS.md
   fetch_place.py                SHA-pinned, fail-closed module placement
   host_adapters.py              vendor-neutral skill activation and rollback (Claude Code as reference)
   source_pins.py                source-provenance verification before Resolve/Fetch

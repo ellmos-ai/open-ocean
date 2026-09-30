@@ -50,6 +50,12 @@ def _path(value: Path) -> Path:
     return path.resolve()
 
 
+def _has_sidecars(path: Path) -> bool:
+    """Treat the database basename literally, including glob metacharacters."""
+    prefix = os.path.normcase(path.name + "-")
+    return any(os.path.normcase(entry.name).startswith(prefix) for entry in path.parent.iterdir())
+
+
 @dataclass(frozen=True)
 class AdapterConfig:
     database: Path
@@ -193,7 +199,7 @@ class DBSyncAdapter:
         path = self.config.database
         if not path.is_file():
             raise AdapterRefusal("application-database-missing")
-        if any(path.parent.glob(f"{path.name}-*")):
+        if _has_sidecars(path):
             raise AdapterRefusal("database-sidecars-refused")
         # An immutable read never creates SQLite journals or shared-memory files.
         with closing(sqlite3.connect(path.as_uri() + "?mode=ro&immutable=1", uri=True)) as connection:
@@ -202,12 +208,27 @@ class DBSyncAdapter:
             if connection.execute("PRAGMA user_version").fetchone()[0] != self.config.user_version:
                 raise AdapterRefusal("application-schema-version-mismatch")
             tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            # table_info omits generated/hidden columns: the pinned scanner has
+            # no coverage for them. Inspect every table, including undeclared
+            # extra tables, rather than implementing a second credential scan.
+            full_schema = {}
+            for table in tables:
+                quoted = table.replace('"', '""')
+                info = connection.execute(f'PRAGMA main.table_xinfo("{quoted}")').fetchall()
+                if not info or any(len(column) != 7 or column[6] != 0 for column in info):
+                    raise AdapterRefusal("unsupported-table-columns")
+                full_schema[table] = {column[1] for column in info}
+            # Visible-column virtual modules (e.g. rtree) need a separate kind
+            # guard. Unknown/incomplete SQLite introspection is not permission.
+            kinds = {row[1]: row[2] for row in connection.execute("PRAGMA main.table_list") if len(row) >= 6}
+            if not tables <= kinds.keys():
+                raise AdapterRefusal("schema-introspection-unavailable")
+            if any(kinds[table] != "table" for table in tables):
+                raise AdapterRefusal("unsupported-table-kind")
             for table, columns in self.config.required_schema.items():
                 if table not in tables:
                     raise AdapterRefusal("application-schema-mismatch")
-                quoted = table.replace('"', '""')
-                present = {row[1] for row in connection.execute(f'PRAGMA table_info("{quoted}")')}
-                if not set(columns) <= present:
+                if not set(columns) <= full_schema[table]:
                     raise AdapterRefusal("application-schema-mismatch")
             # The pinned redaction policy names this BACH table literally.
             if any(table.casefold() == "secrets" and table != "secrets" for table in tables):
@@ -249,7 +270,7 @@ class DBSyncAdapter:
                 continue
             _path(snapshot.path)
             _path(snapshot.manifest_path)
-            if any(snapshot.path.parent.glob(f"{snapshot.path.name}-*")):
+            if _has_sidecars(snapshot.path):
                 raise AdapterRefusal("snapshot-sidecars-refused")
 
     @classmethod

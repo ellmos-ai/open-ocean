@@ -13,6 +13,8 @@
     "scope": "All paths, application table/column contract, exact positive user_version, node and namespace are explicit. Existing data must be quiescent, paths must have no links/reparse points, and SQLite artifacts must have no sidecars. Caller owns authorization and the exclusive local writer claim.",
     "clock": "Injected clock timestamps the compatibility heartbeat. Carrier publication and retention retain the pinned carrier's UTC clock; no second retention algorithm or implicit carrier clock override is introduced.",
     "deadlines": "Calls are synchronous; the carrier pin has no bounded IO deadline. No retries or claim that a timeout cancels an operation. Live rollout needs a separately reviewed execution/deadline contract.",
+    "schema_scan_boundary": "Before init validation or backup, table_xinfo inspects every table, including extra tables. Hidden/generated columns and virtual/shadow table kinds are refused: the fixed carrier pin cannot safely credential-scan these forms. Complete table_xinfo/table_list introspection is required (SQLite 3.37+ for table_list); unavailable introspection fails closed. No second credential scanner or carrier repin.",
+    "sidecar_identity": "Database and snapshot sidecar detection compares literal basenames, including bracket/glob metacharacters; Windows comparison uses native case normalization. Sidecars are refused before SQLite or carrier DB opening.",
     "partial_failure": "A published backup with a failed heartbeat write is an error with snapshot metadata, not rollback or success. A failed applied carrier call reports unknown completed effects.",
     "legacy_differences": {
       "backup": "Carrier snapshot/manifest names and carrier secret validation replace legacy .bachdb publication. Invalid heartbeat or unsupported Secrets table case is refused before publication; secret-removal failures are not silently ignored.",
@@ -23,7 +25,7 @@
       "dry_run": "Honored for every supported changing operation; legacy handler dry_run is ignored. No publication, deletion or path preparation in preview."
     },
     "remaining_gates": [
-      "BACH lock release and init source-defect resolution",
+      "fresh BACH lock clearance before any BACH work and init source-defect resolution",
       "shared adapter wiring with no parallel legacy writers",
       "approved correction/equivalence classification and pinned three-way parity",
       "migration/rollback on copies and required parity CI without skips",

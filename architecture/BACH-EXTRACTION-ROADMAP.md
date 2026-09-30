@@ -301,9 +301,24 @@ marker ownership and fail-closed schema/heartbeat handling. These are not silent
 equivalence claims. Run Ocean-only conformance with `TRANSIT_SYNC_ROOT` at the existing pin and
 `REQUIRE_DBSYNC_ADAPTER=1`: `python -m pytest tests/test_dbsync_adapter.py`.
 
-BACH is hardlocked. Shared adapter wiring, its stale init-source correction, three-way tests,
+At the initial source implementation on 2026-09-30, BACH was hardlocked; that observation is
+historical. Every later BACH operation requires fresh authoritative lock clearance.
+Shared adapter wiring, its stale init-source correction, three-way tests,
 migration/rollback, required parity CI, foreign-host operation and release acceptance remain
 open. The evidence register and **3/9** parity count are unchanged by these Ocean-only tests.
+
+The independent review of `9219ede` found generated-column credential-scan gaps and a bracketed
+DB-name sidecar bypass. The local correction inspects `table_xinfo` for every table, including
+extra tables, and refuses hidden/generated columns and virtual/shadow kinds before init or
+backup. Complete SQLite introspection is required (`table_list`, SQLite 3.37+); unsupported
+introspection is refused. Literal basename matching replaces sidecar globbing in both guards.
+The existing carrier pin and credential scanner remain unchanged. Stored/virtual generated
+columns joining synthetic trigger fragments, FTS/rtree forms and `data[1].sqlite` with
+WAL/SHM/journal sidecars are covered by refusal/no-write regression tests for preview and apply.
+The 32 new regressions fail against `9219ede` and pass after correction. The full existing
+suite passes locally: Windows 387 passed / 29 skipped; Ubuntu 390 passed / 26 skipped.
+Ubuntu adapter/contract conformance passes all 138 tests without skips. These local results
+include synthetic fixture runtimes only and do not close the remaining parity/host gates.
 
 The current catalogues contain 75 modules, 33 bundles and 142 Skills Registry
 components. They make more potential carriers visible than the 2026-08-08

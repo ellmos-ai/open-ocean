@@ -497,3 +497,55 @@ def test_parity_register_preserves_the_three_existing_evidenced_operations():
     covered = {operation for case in evidence["rows"]["dbsync"]["use_cases"]
                if case["state"] == "evidenced" for operation in case["operations"]}
     assert covered == {"push", "pull", "sync"}
+
+
+@pytest.mark.parametrize("storage", ["STORED", "VIRTUAL"])
+@pytest.mark.parametrize("table", ["items", "extra_note"])
+@pytest.mark.parametrize("operation", ["init", "backup"])
+@pytest.mark.parametrize("dry_run", [True, False])
+def test_generated_columns_in_any_table_are_refused_before_publication(adapter, tmp_path, storage, table, operation, dry_run):
+    with closing(sqlite3.connect(adapter.config.database)) as connection:
+        if table == "items":
+            connection.execute("DROP TABLE items")
+        connection.execute(f"CREATE TABLE {table}(id TEXT PRIMARY KEY, value TEXT, updated_at TEXT, tail TEXT, "
+                           f"private_note TEXT GENERATED ALWAYS AS (value || tail) {storage})")
+        connection.execute(f"INSERT INTO {table}(id,value,updated_at,tail) VALUES "
+                           "('synthetic','-----BEGIN ','2026-09-30','PRIVATE KEY-----')")
+        assert connection.execute(f"SELECT private_note FROM {table}").fetchone()[0] == "-----BEGIN PRIVATE KEY-----"
+        connection.commit()
+    before = inventory(tmp_path)
+    result = adapter.handle(operation, dry_run=dry_run)
+    assert result.outcome == "refused" and result.code == "unsupported-table-columns"
+    assert inventory(tmp_path) == before
+    assert not adapter.config.transit.exists() and not adapter.config.heartbeat.exists()
+
+
+@pytest.mark.parametrize("module", ["fts5(value)", "rtree(id,x_min,x_max)"])
+@pytest.mark.parametrize("operation", ["init", "backup"])
+def test_virtual_and_hidden_table_forms_are_refused(adapter, tmp_path, module, operation):
+    with closing(sqlite3.connect(adapter.config.database)) as connection:
+        connection.execute(f"CREATE VIRTUAL TABLE extra_surface USING {module}")
+        connection.commit()
+    before = inventory(tmp_path)
+    result = adapter.handle(operation, dry_run=False)
+    assert result.outcome == "refused"
+    assert result.code in {"unsupported-table-columns", "unsupported-table-kind"}
+    assert inventory(tmp_path) == before
+
+
+@pytest.mark.parametrize("operation", ["init", "backup"])
+@pytest.mark.parametrize("dry_run", [True, False])
+@pytest.mark.parametrize("suffix", ["-wal", "-shm", "-journal"])
+def test_sidecars_with_glob_metacharacters_in_db_name_are_literal_and_refused_before_open(adapter, tmp_path, monkeypatch, operation, dry_run, suffix):
+    name = adapter.config.database.with_name("data[1].sqlite")
+    adapter.config.database.rename(name)
+    checked = DBSyncAdapter(replace(adapter.config, database=name), carrier_root=adapter.carrier_root, clock=lambda: NOW)
+    Path(str(name) + suffix).write_bytes(b"synthetic-sidecar")
+    before = inventory(tmp_path)
+    def forbidden_open(*args, **kwargs):
+        raise AssertionError("database/carrier must not open before sidecar refusal")
+    monkeypatch.setattr(sqlite3, "connect", forbidden_open)
+    monkeypatch.setattr(checked, "_engine", forbidden_open)
+    result = checked.handle(operation, dry_run=dry_run)
+    assert result.outcome == "refused" and result.code == "database-sidecars-refused"
+    assert inventory(tmp_path) == before

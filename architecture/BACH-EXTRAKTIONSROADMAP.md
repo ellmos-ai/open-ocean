@@ -258,10 +258,27 @@ stillen Legacy-Äquivalenzbehauptungen. Ocean-Konformität allein prüfen:
 `TRANSIT_SYNC_ROOT` am bestehenden Pin und `REQUIRE_DBSYNC_ADAPTER=1` setzen, dann
 `python -m pytest tests/test_dbsync_adapter.py` ausführen.
 
-BACH ist hardlocked. Gemeinsame Adapterverdrahtung, Korrektur der veralteten Init-Quelle,
+Bei der ersten Quellimplementierung am 2026-09-30 war BACH hardlocked; dies ist eine historische
+Beobachtung. Jede spätere BACH-Aktion benötigt eine frische autoritative Lockfreigabe.
+Gemeinsame Adapterverdrahtung, Korrektur der veralteten Init-Quelle,
 Dreifachtests, Migration/Rollback, erforderliche Paritäts-CI, Fremdhostbetrieb und Releaseabnahme
 bleiben offen. Das Evidenzregister und die Paritätsquote **3/9** bleiben durch diese reinen
 Ocean-Tests unverändert.
+
+Der unabhängige Review von `9219ede` fand eine Credential-Scan-Lücke bei generierten Spalten und
+eine Sidecar-Umgehung bei DB-Namen mit eckigen Klammern. Die lokale Korrektur prüft `table_xinfo`
+für sämtliche Tabellen einschließlich zusätzlicher Tabellen und verweigert versteckte/generierte
+Spalten sowie virtuelle/Shadow-Tabellen vor Init oder Backup. Vollständige SQLite-Introspektion
+ist nötig (`table_list`, SQLite 3.37+); fehlende Introspektion wird verweigert. Literaler
+Dateinamensvergleich ersetzt Sidecar-Globbing an beiden Prüfstellen. Trägerpin und Credential-
+Scanner bleiben unverändert. Stored/Virtual-Generated-Spalten mit zusammengefügten synthetischen
+Triggerteilen, FTS/Rtree-Formen und `data[1].sqlite` mit WAL-/SHM-/Journal-Sidecars sind durch
+Ablehnungsregressionen ohne Schreibzugriffe für Vorschau und Apply abgedeckt.
+Die 32 neuen Regressionen schlagen gegen `9219ede` fehl und bestehen nach der Korrektur.
+Die vollständige bestehende Suite besteht lokal: Windows 387 bestanden / 29 übersprungen;
+Ubuntu 390 bestanden / 26 übersprungen. Unter Ubuntu bestehen alle 138 Adapter-/Vertragstests
+ohne Skip. Diese lokalen Ergebnisse umfassen ausschließlich synthetische Fixture-Runtimes
+und schließen die verbleibenden Paritäts-/Hostgates nicht.
 
 ## Prüfbefehl für diese Basis
 

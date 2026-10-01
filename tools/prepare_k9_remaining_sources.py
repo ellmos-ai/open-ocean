@@ -69,8 +69,24 @@ def check_junit(path: Path) -> dict:
     cases = list(root.iter("testcase"))
     suites = [item for item in root.iter("testsuite") if list(item.findall("testcase"))]
     declared = sum(int(item.attrib["tests"]) for item in suites)
-    if declared != len(cases) or len(cases) < 146:
-        raise probe.ProbeRefusal("complete-k9-junit-required")
+    reference = json.loads(_regular(ROOT / "tests/fixtures/k9_remaining/ci-case-ids.v1.json"))
+    if (reference.get("schema") != "ellmos.k9.ci-case-ids.v1"
+            or reference.get("test_source_path") != "tests/test_bach_k9_dbsync_remaining_contract.py"
+            or reference.get("test_source_sha256") != "b2af003597d76eb1ab65b66d38321a95fcabccd5f9ebd277cf068b6e389ec909"
+            or reference.get("tests") != 146):
+        raise probe.ProbeRefusal("fixed-k9-case-contract-required")
+    expected = [(item["classname"], item["name"]) for item in reference["cases"]]
+    if (len(expected) != 146 or len(set(expected)) != 146
+            or any(cls != "tests.test_bach_k9_dbsync_remaining_contract"
+                   or not isinstance(name, str) or not name for cls, name in expected)):
+        raise probe.ProbeRefusal("unique-complete-k9-case-contract-required")
+    source = _regular(ROOT / reference["test_source_path"])
+    if probe.digest(source.replace(b"\r\n", b"\n")) != reference["test_source_sha256"]:
+        raise probe.ProbeRefusal("case-contract-source-mismatch")
+    actual = [(case.attrib.get("classname"), case.attrib.get("name")) for case in cases]
+    if (declared != len(cases) or len(actual) != len(set(actual))
+            or set(actual) != set(expected)):
+        raise probe.ProbeRefusal("exact-k9-case-identities-required")
     if any(list(root.iter(tag)) for tag in ("skipped", "failure", "error")):
         raise probe.ProbeRefusal("k9-errors-failures-or-skips-refused")
     if any(int(item.attrib.get(key, "0")) for item in root.iter("testsuite")

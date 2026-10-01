@@ -1,0 +1,593 @@
+{
+  "schema": "ellmos.k9.ci-case-ids.v1",
+  "test_source_path": "tests/test_bach_k9_dbsync_remaining_contract.py",
+  "test_source_sha256": "b2af003597d76eb1ab65b66d38321a95fcabccd5f9ebd277cf068b6e389ec909",
+  "source_junit_sha256": "3ea64169955862a68aa8458359955a08b060897a363e9ae3313b8dfc90b4db8b",
+  "tests": 146,
+  "cases": [
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_cleanup_retention_and_node_scope[apply-all-nodes]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_cleanup_retention_and_node_scope[apply-local-node]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_cleanup_retention_and_node_scope[preview-all-nodes]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_cleanup_retention_and_node_scope[preview-local-node]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-apply-backup-current-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-apply-backup-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-apply-backup-historical-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-apply-backup-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-apply-cleanup-current-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-apply-cleanup-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-apply-cleanup-historical-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-apply-cleanup-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-apply-disable-current-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-apply-disable-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-apply-disable-historical-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-apply-disable-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-apply-enable-current-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-apply-enable-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-apply-enable-historical-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-apply-enable-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-apply-init-current-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-apply-init-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-apply-init-historical-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-apply-init-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-apply-status-current-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-apply-status-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-apply-status-historical-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-apply-status-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-preview-backup-current-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-preview-backup-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-preview-backup-historical-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-preview-backup-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-preview-cleanup-current-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-preview-cleanup-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-preview-cleanup-historical-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-preview-cleanup-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-preview-disable-current-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-preview-disable-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-preview-disable-historical-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-preview-disable-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-preview-enable-current-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-preview-enable-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-preview-enable-historical-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-preview-enable-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-preview-init-current-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-preview-init-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-preview-init-historical-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-preview-init-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-preview-status-current-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-preview-status-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-preview-status-historical-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[minimal7-preview-status-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-apply-backup-current-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-apply-backup-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-apply-backup-historical-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-apply-backup-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-apply-cleanup-current-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-apply-cleanup-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-apply-cleanup-historical-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-apply-cleanup-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-apply-disable-current-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-apply-disable-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-apply-disable-historical-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-apply-disable-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-apply-enable-current-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-apply-enable-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-apply-enable-historical-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-apply-enable-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-apply-init-current-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-apply-init-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-apply-init-historical-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-apply-init-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-apply-status-current-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-apply-status-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-apply-status-historical-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-apply-status-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-preview-backup-current-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-preview-backup-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-preview-backup-historical-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-preview-backup-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-preview-cleanup-current-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-preview-cleanup-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-preview-cleanup-historical-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-preview-cleanup-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-preview-disable-current-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-preview-disable-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-preview-disable-historical-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-preview-disable-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-preview-enable-current-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-preview-enable-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-preview-enable-historical-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-preview-enable-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-preview-init-current-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-preview-init-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-preview-init-historical-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-preview-init-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-preview-status-current-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-preview-status-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-preview-status-historical-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_four_arm_operation[native0-preview-status-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_fts_shape_is_not_fixture7_acceptance[backup-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_fts_shape_is_not_fixture7_acceptance[backup-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_fts_shape_is_not_fixture7_acceptance[init-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_fts_shape_is_not_fixture7_acceptance[init-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_stale_first_copy_is_not_normalised[apply-current-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_stale_first_copy_is_not_normalised[apply-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_stale_first_copy_is_not_normalised[apply-historical-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_stale_first_copy_is_not_normalised[apply-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_stale_first_copy_is_not_normalised[preview-current-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_stale_first_copy_is_not_normalised[preview-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_stale_first_copy_is_not_normalised[preview-historical-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_actual_stale_first_copy_is_not_normalised[preview-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_cleanup_requires_explicit_scope[current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_cleanup_requires_explicit_scope[ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_corrupt_snapshot_cannot_be_cleaned[current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_corrupt_snapshot_cannot_be_cleaned[ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_explicit_selection_refuses_unknown_input_before_source_or_fixture"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_foreign_marker_is_refused_without_changes[apply-disable-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_foreign_marker_is_refused_without_changes[apply-disable-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_foreign_marker_is_refused_without_changes[apply-enable-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_foreign_marker_is_refused_without_changes[apply-enable-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_foreign_marker_is_refused_without_changes[preview-disable-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_foreign_marker_is_refused_without_changes[preview-disable-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_foreign_marker_is_refused_without_changes[preview-enable-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_foreign_marker_is_refused_without_changes[preview-enable-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_identical_initial_images_across_all_four_source_arms[minimal7]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_identical_initial_images_across_all_four_source_arms[native0]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_missing_directories_measured_before_construction[init-current-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_missing_directories_measured_before_construction[init-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_missing_directories_measured_before_construction[init-historical-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_missing_directories_measured_before_construction[init-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_missing_directories_measured_before_construction[status-current-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_missing_directories_measured_before_construction[status-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_missing_directories_measured_before_construction[status-historical-native]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_missing_directories_measured_before_construction[status-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_owned_enabled_marker_disable_is_explicit[apply-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_owned_enabled_marker_disable_is_explicit[apply-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_owned_enabled_marker_disable_is_explicit[preview-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_owned_enabled_marker_disable_is_explicit[preview-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_pinned_closure_cannot_be_replaced"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_untrusted_backup_inputs_preserve_originals[corrupt-heartbeat-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_untrusted_backup_inputs_preserve_originals[corrupt-heartbeat-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_untrusted_backup_inputs_preserve_originals[corrupt-state-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_untrusted_backup_inputs_preserve_originals[corrupt-state-ocean]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_untrusted_backup_inputs_preserve_originals[sidecar-current-shared]"
+    },
+    {
+      "classname": "tests.test_bach_k9_dbsync_remaining_contract",
+      "name": "test_untrusted_backup_inputs_preserve_originals[sidecar-ocean]"
+    }
+  ]
+}

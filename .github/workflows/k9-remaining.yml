@@ -105,6 +105,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
           path: |
+            tests/fixtures/k9_remaining/ci-case-ids.v1.json
             _k9/source-manifest.json
             _k9/k9-remaining.xml
             _k9/test-output/**/receipt.json

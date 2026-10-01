@@ -72,13 +72,14 @@ def _text(value):
 def _repository(value):
     if not _text(value):
         return None
-    value = value.rstrip("/")
     if value.startswith("git@github.com:"):
         value = "https://github.com/" + value.removeprefix("git@github.com:")
-    value = value.removesuffix(".git")
     if not re.fullmatch(r"https://[^/\\\s?#]+/[^\\\s?#]+", value):
         return None
-    return value.casefold()
+    if value.startswith("https://github.com/"):
+        # Only known GitHub transport notation aliases; preserve repository path case.
+        return value.rstrip("/").removesuffix(".git")
+    return value
 
 
 def _json_object(pairs):

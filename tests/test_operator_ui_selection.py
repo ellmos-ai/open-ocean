@@ -246,3 +246,57 @@ def test_more_than_two_catalogue_candidates_refused():
     full, _ = binding(FULL_ID, "full", FULL_SURFACES)
     other, _ = binding("fixture-extra-ui", "full", FULL_SURFACES)
     reject("invalid_provider_contract", contracts=(contract, full, other), facts=(actual,))
+
+@pytest.mark.parametrize("expected,observed", [
+    ("https://git.example/Team/UI", "https://git.example/team/ui"),
+    ("https://git.example/team/UI.git", "https://git.example/team/UI"),
+    ("https://git.example/team/UI/", "https://git.example/team/UI"),
+    ("https://github.com/Team/UI", "https://github.com/team/ui"),
+])
+def test_repository_path_aliases_need_explicit_authority(expected, observed):
+    contract, actual = binding()
+    value = json.loads(actual.manifest_bytes)
+    value["source_of_truth"]["repository"] = expected
+    blob = json.dumps(value).encode()
+    contract = replace(contract, repository=expected, manifest_sha256=hashlib.sha256(blob).hexdigest())
+    actual = replace(actual, repository=observed, manifest_bytes=blob)
+    reject("source_binding_mismatch", contracts=(contract,), facts=(actual,))
+
+
+@pytest.mark.parametrize("expected,observed", [
+    ("https://git.example/Team/UI", "https://git.example/team/ui"),
+    ("https://git.example/team/UI.git", "https://git.example/team/UI"),
+    ("https://git.example/team/UI/", "https://git.example/team/UI"),
+    ("https://github.com/Team/UI", "https://github.com/team/ui"),
+])
+def test_manifest_repository_path_cannot_alias_even_with_matching_byte_pin(expected, observed):
+    contract, actual = binding()
+    value = json.loads(actual.manifest_bytes)
+    value["source_of_truth"]["repository"] = observed
+    blob = json.dumps(value).encode()
+    contract = replace(contract, repository=expected, manifest_sha256=hashlib.sha256(blob).hexdigest())
+    actual = replace(actual, repository=expected, manifest_bytes=blob)
+    reject("invalid_manifest", contracts=(contract,), facts=(actual,))
+
+
+def test_known_github_ssh_transport_suffix_preserves_exact_path_binding():
+    contract, actual = binding()
+    result = select_operator_ui(
+        choice(), (contract,), (replace(actual, repository="git@github.com:example/ui.git"),),
+    )
+    assert result.module_id == LITE_PROVIDER_ID
+
+@pytest.mark.parametrize("repository", [
+    "https://git.example/Team/UI",
+    "https://git.example/Team/UI.git",
+    "https://git.example/Team/UI/",
+])
+def test_identical_generic_repository_source_remains_valid(repository):
+    contract, actual = binding()
+    value = json.loads(actual.manifest_bytes)
+    value["source_of_truth"]["repository"] = repository
+    blob = json.dumps(value).encode()
+    contract = replace(contract, repository=repository, manifest_sha256=hashlib.sha256(blob).hexdigest())
+    actual = replace(actual, repository=repository, manifest_bytes=blob)
+    result = select_operator_ui(choice(), (contract,), (actual,))
+    assert result.repository == repository

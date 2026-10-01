@@ -46,6 +46,15 @@ unknown_provider, selection_mismatch, ambiguous_binding, invalid_provider_contra
 source_binding_unavailable, source_binding_mismatch, manifest_mismatch,
 invalid_manifest, or missing_capability.
 
+## Repository address policy
+
+Generic HTTPS repository addresses must match exactly, including path case, a literal
+`.git` suffix, and a trailing slash. Those forms may name different resources on a
+generic host. For the explicit `github.com` transport forms only, `git@github.com:`
+maps to `https://github.com/`, and transport `.git` / trailing slash notation is
+normalized. Repository path case remains exact on GitHub as well. The policy applies
+equally to the observed source and the pinned manifest source; no remote lookup occurs.
+
 ## Remaining integration
 
 The current runtime dispatch is unchanged. Full still needs its actual neutral source

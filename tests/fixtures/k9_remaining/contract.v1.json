@@ -1,0 +1,65 @@
+{
+  "schema": "ellmos.k9.remaining-contract.v1",
+  "sources": {
+    "bach-old": {
+      "commit": "e619345f358b100ea677a7e6a6d398c42db4e6d4",
+      "files": {
+        "system/hub/db_sync.py": "969773bf6cebe452ab0374823998e5015e7bec526102ba18b71aab36472c2e09",
+        "system/hub/base.py": "be5f12efa31f2196a0190e3129293c257220dd336938adf435abbd930aed9d65",
+        "system/hub/transit_sync_provider.py": "ee029b05ec860b15e711f9304d3b42166b6c2e198e781452d6d6031200bd7911"
+      }
+    },
+    "bach-current": {
+      "commit": "d5ca8a2f117fb971c0d14da9c742e68fa5f3f91b",
+      "files": {
+        "system/hub/db_sync.py": "0ccf6a599ef6da12551ed74be14a2108d6ba8902c29750eb63ffd97a9e36fe2e",
+        "system/hub/base.py": "be5f12efa31f2196a0190e3129293c257220dd336938adf435abbd930aed9d65",
+        "system/hub/transit_sync_provider.py": "ee029b05ec860b15e711f9304d3b42166b6c2e198e781452d6d6031200bd7911",
+        "system/hub/db_sync_readiness.py": "2f21b5df0554ad1bd9f84bfc03e50ba80658e93eb43710438c29b3829fb60e1f",
+        "system/hub/db_sync_adapter.py": "6cd34c943e934a2788dd1abd9f7f7d8a86733cc3f5125a6fb0a73cd73d83f941",
+        "system/data/schema/schema.sql": "94a8a61981a2331e7272fc462d4574b9e4eb32d77bdc783fc0be263c8a8fea29",
+        "system/core/db.py": "579e07d8dabdbb373aa36c0e9f605f832f742328781f800f8de0601b1f7e993c"
+      }
+    },
+    "ocean": {
+      "commit": "7127a0f5beea7d3784121c89ca69a118af5ca32b",
+      "files": {
+        "tools/dbsync_adapter.py": "e0b46347849035d58d0464c3c0554a4d9594033a8617eeb7aaa34b290b0266a7"
+      }
+    },
+    "carrier": {
+      "commit": "7648a20b11ca958e9622d2b5d8a13fd02613e92a",
+      "files": {
+        "sqlite_transit_sync/__init__.py": "1f32dbe6bd51186ea66d05c7bf6376c3aa5b8d77469f9c54d205b10a9311832f",
+        "sqlite_transit_sync/core.py": "f90ac3134c64f68b4833650a44cb07fb4b020f664026b89d3820bd1b70dd2870",
+        "sqlite_transit_sync/credential-triggers.json": "8bc931754dd43cddfcebbfa3e20260ebfca3d16d12a6bfd6dafe37ee9b412e22"
+      }
+    }
+  },
+  "operations": [
+    "backup",
+    "status",
+    "enable",
+    "disable",
+    "cleanup",
+    "init"
+  ],
+  "measurement": "inventory before product import, constructor and call",
+  "full_goal": {
+    "contract_cases": 87,
+    "bundles": 28,
+    "original_historical_requirements": 50
+  },
+  "parity_register": "3/9 unchanged",
+  "profile_limits": {
+    "minimal7": "synthetic positive shared contract; current native refuses this schema",
+    "native0": "exact pinned BACH schema.sql, real native profile; shared positive-version gap remains",
+    "native7-fts": "same exact DDL with explicit fixture version7; hidden/virtual FTS coverage gap remains"
+  },
+  "acceptance": false,
+  "fixture_initial_image": {
+    "database_timestamp": "2026-01-01 00:00:00",
+    "filesystem_mtime_ns": 946684800000000000,
+    "scope": "synthetic preparation only; never post-product effects"
+  }
+}

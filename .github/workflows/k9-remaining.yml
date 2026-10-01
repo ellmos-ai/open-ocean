@@ -1,0 +1,110 @@
+name: K9 remaining operation evidence
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: k9-remaining-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  k9-remaining:
+    name: K9 remaining evidence (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    env:
+      PYTHONIOENCODING: utf-8
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONNOUSERSITE: "1"
+    steps:
+      - name: Check out candidate
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Check out historical BACH
+        uses: actions/checkout@v4
+        with:
+          repository: ellmos-ai/bach
+          ref: e619345f358b100ea677a7e6a6d398c42db4e6d4
+          path: _k9/bach-old
+          persist-credentials: false
+
+      - name: Check out current BACH evidence
+        uses: actions/checkout@v4
+        with:
+          repository: ellmos-ai/bach
+          ref: d5ca8a2f117fb971c0d14da9c742e68fa5f3f91b
+          path: _k9/bach-current
+          persist-credentials: false
+
+      - name: Check out Ocean adapter evidence
+        uses: actions/checkout@v4
+        with:
+          repository: ellmos-ai/open-ocean
+          ref: 7127a0f5beea7d3784121c89ca69a118af5ca32b
+          path: _k9/ocean
+          persist-credentials: false
+
+      - name: Check out carrier evidence
+        uses: actions/checkout@v4
+        with:
+          repository: ellmos-ai/sqlite-transit-sync
+          ref: 7648a20b11ca958e9622d2b5d8a13fd02613e92a
+          path: _k9/carrier
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pytest
+        run: python -m pip install pytest
+
+      - name: Bind complete immutable source closure
+        run: >-
+          python tools/prepare_k9_remaining_sources.py manifest
+          --bach-old "${{ github.workspace }}/_k9/bach-old"
+          --bach-current "${{ github.workspace }}/_k9/bach-current"
+          --ocean "${{ github.workspace }}/_k9/ocean"
+          --carrier "${{ github.workspace }}/_k9/carrier"
+          --output "${{ github.workspace }}/_k9/source-manifest.json"
+
+      - name: Run all remaining-operation observations with sources required
+        env:
+          OCEAN_REQUIRE_K9_REMAINING: "1"
+          OCEAN_K9_SOURCE_MANIFEST: ${{ github.workspace }}/_k9/source-manifest.json
+        run: >-
+          python -m pytest -q -rA -p no:cacheprovider
+          tests/test_bach_k9_dbsync_remaining_contract.py
+          --basetemp="_k9/test-output"
+          --junitxml="_k9/k9-remaining.xml"
+
+      - name: Refuse incomplete or skipped evidence
+        run: >-
+          python tools/prepare_k9_remaining_sources.py junit
+          --path "${{ github.workspace }}/_k9/k9-remaining.xml"
+
+      - name: Retain source manifest, JUnit and raw observations
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k9-remaining-${{ matrix.os }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            _k9/source-manifest.json
+            _k9/k9-remaining.xml
+            _k9/test-output/**/receipt.json

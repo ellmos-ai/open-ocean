@@ -12,7 +12,6 @@ import json
 from pathlib import Path, PurePosixPath
 import re
 import stat
-import sys
 import zipfile
 
 PIN_SCHEMA = "ellmos.open-ocean.gui-consumer.v1"

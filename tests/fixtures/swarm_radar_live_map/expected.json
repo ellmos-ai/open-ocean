@@ -1,0 +1,20 @@
+{
+  "schema": "ellmos.open-ocean-swarm-radar-live-map-expected.v1",
+  "hosts": [
+    "ASUS-GEI",
+    "WORKSTATION-LG",
+    "mac-studio"
+  ],
+  "host_count": 3,
+  "active_agent_total": 5,
+  "lease_targets": [
+    "connector-pattern-rotation",
+    "memory-task-transit-relay",
+    "memory-transit-claim-salt",
+    "skills-workflow-registry-sync"
+  ],
+  "lease_target_count": 4,
+  "collision_found": false,
+  "collision_targets": [],
+  "reconciliation": "agreed"
+}

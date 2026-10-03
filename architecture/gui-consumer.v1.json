@@ -1,0 +1,19 @@
+{
+  "schema": "ellmos.open-ocean.gui-consumer.v1",
+  "id": "ellmos-system-gui",
+  "version": "0.1.2",
+  "status": "pinned_artifact_only",
+  "source": {
+    "repository": "ellmos-ai/ellmos-system-gui",
+    "commit": "e289c0b5c56e0ccd207b24e560ffeb654dbcaaab",
+    "archive_sha256": "8174ddf9f5d9db6d375ef141d31dedfd068b8a271298e1424a6c01b95c207c54",
+    "dist_manifest_schema": "ellmos-system-gui.dist.v1"
+  },
+  "required_backend_routes": [
+    "/api/gui/brand",
+    "/api/gui/backend-origin",
+    "/api/gui/capabilities"
+  ],
+  "activation_ready": false,
+  "note": "A verified archive is a source artifact, not an installed Ocean GUI. No Ocean capability adapter or served backend is attested here."
+}

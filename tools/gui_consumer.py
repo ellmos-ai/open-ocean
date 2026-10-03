@@ -122,7 +122,7 @@ def inspect_archive(archive_path: Path, pin_path: Path = DEFAULT_PIN) -> dict:
         "dist_verified": False,
         "source_commit_verified": False,
         "dist_files_verified": 0,
-        "installed": "unknown",
+        "installed": False,
         "backend_capabilities": "not_probed",
         "activation_ready": False,
         "reason_code": "not_checked",

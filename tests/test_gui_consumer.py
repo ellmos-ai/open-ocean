@@ -77,6 +77,7 @@ class GuiConsumerTests(unittest.TestCase):
     def test_verified_archive_is_not_an_installation(self):
         report = inspect_archive(self.archive, self.pin)
         self.assertTrue(report["dist_verified"])
+        self.assertFalse(report["installed"])
         self.assertEqual(report["dist_files_verified"], 2)
         self.assertFalse(inspect_installation(None, None, self.archive, self.pin)["installed"])
 

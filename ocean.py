@@ -216,6 +216,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="exaktes OCEAN-Integrations-Overlay für den installierten Provider",
     )
     inspect.add_argument("--json", action="store_true")
+    gui = commands.add_parser("gui", help="gepinntes System-GUI-Kit prüfen oder lokal bereitstellen")
+    gui.add_argument("--archive", type=Path, required=True, help="lokales v0.1.2-Release-ZIP")
+    gui.add_argument("--dist-root", type=Path, help="vorhandener lokaler dist-Baum für Installationsprüfung")
+    gui.add_argument("--receipt", type=Path, help="zugehöriger Installationsbeleg")
+    gui.add_argument("--brand-config", type=Path, help="validierte Verbraucherbeschriftung")
+    gui.add_argument("--host", choices=["127.0.0.1", "localhost"], default="127.0.0.1")
+    gui.add_argument("--port", type=int, default=8811)
+    gui.add_argument("--serve", action="store_true", help="nur nach explizitem Aufruf lokal binden")
+    gui.add_argument("--json", action="store_true")
     down = commands.add_parser("down", help="Nur die zugehörige OCEAN-Laufzeit kontrolliert beenden")
     down.add_argument("--workspace", type=Path, required=True)
     down.add_argument("--json", action="store_true")
@@ -483,6 +492,35 @@ def main(argv: list[str] | None = None) -> int:
             print(str(exc), file=sys.stderr)
             return exc.exit_code
         print(json.dumps(report, indent=2, ensure_ascii=False) if args.json else report["runtime"]["url"])
+        return 0
+    if args.command == "gui":
+        from tools.gui_consumer import DEFAULT_PIN, InspectionError
+        from tools.gui_server import OceanGuiApp
+
+        pin_path = DEFAULT_PIN
+        try:
+            app = OceanGuiApp(
+                args.archive, pin_path=pin_path, brand_path=args.brand_config,
+                dist_root=args.dist_root, receipt_path=args.receipt,
+            )
+        except (InspectionError, OSError, ValueError, json.JSONDecodeError) as exc:
+            reason = exc.reason if isinstance(exc, InspectionError) else "gui_config_unavailable"
+            print(json.dumps({"status": "unavailable", "reason_code": reason}, ensure_ascii=False), file=sys.stderr)
+            return exc.exit_code if isinstance(exc, InspectionError) else 3
+        report = app._capabilities()
+        if not args.serve:
+            print(json.dumps(report, ensure_ascii=False, indent=2) if args.json else
+                  f"GUI-Kit geprüft; Installation: {report['kit']['reason_code']}; API-Adapter fehlen.")
+            return 0
+        if args.port < 1 or args.port > 65535:
+            print("Ungültiger GUI-Port.", file=sys.stderr)
+            return 2
+        try:
+            import uvicorn
+        except ImportError:
+            print("GUI-Serve benötigt das optionale Paket uvicorn; kein Paket wird automatisch installiert.", file=sys.stderr)
+            return 3
+        uvicorn.run(app, host=args.host, port=args.port, reload=False, workers=1, lifespan="off")
         return 0
     if args.command == "down":
         try:

@@ -40,7 +40,7 @@ def fixture(root: Path, *, malicious_name: str | None = None):
             handle.writestr(malicious_name, b"unsafe")
     pin = {
         "schema": "ellmos.open-ocean.gui-consumer.v1", "id": "ellmos-system-gui",
-        "version": "0.1.2", "status": "pinned_artifact_only", "activation_ready": False,
+        "version": "0.1.3", "status": "pinned_artifact_only", "activation_ready": False,
         "source": {"repository": "ellmos-ai/ellmos-system-gui", "commit": COMMIT,
                    "archive_sha256": digest(archive.read_bytes()),
                    "dist_manifest_schema": "ellmos-system-gui.dist.v1"},
@@ -110,7 +110,7 @@ class GuiConsumerTests(unittest.TestCase):
         receipt = self.root / "receipt.json"
         receipt.write_text(json.dumps({
             "schema": "ellmos.open-ocean.gui-install-receipt.v1",
-            "kit_id": "ellmos-system-gui", "version": "0.1.2",
+            "kit_id": "ellmos-system-gui", "version": "0.1.3",
             "source_commit": COMMIT, "archive_sha256": digest(self.archive.read_bytes()),
             "manifest_sha256": digest(self.manifest), "file_count": len(self.files),
         }), encoding="utf-8")

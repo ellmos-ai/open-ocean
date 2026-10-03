@@ -217,7 +217,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     inspect.add_argument("--json", action="store_true")
     gui = commands.add_parser("gui", help="gepinntes System-GUI-Kit prüfen oder lokal bereitstellen")
-    gui.add_argument("--archive", type=Path, required=True, help="lokales v0.1.2-Release-ZIP")
+    gui.add_argument("--archive", type=Path, required=True, help="lokales, gepinntes System-GUI-Release-ZIP")
     gui.add_argument("--dist-root", type=Path, help="vorhandener lokaler dist-Baum für Installationsprüfung")
     gui.add_argument("--receipt", type=Path, help="zugehöriger Installationsbeleg")
     gui.add_argument("--brand-config", type=Path, help="validierte Verbraucherbeschriftung")

@@ -57,3 +57,5 @@ Thumbs.db
 *.swo
 .vscode/
 .idea/
+
+_after-care/

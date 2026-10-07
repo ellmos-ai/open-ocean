@@ -1,0 +1,146 @@
+{
+  "schema": "ellmos.open-ocean-bach-ustg-invoice-check.v1",
+  "status": "ustg-invoice-check-schema-specified-fixtures-green-no-live-cutover",
+  "recorded_at": "2026-09-29",
+  "claim_boundary": "Schema-level validation of the seven mandatory invoice statements of § 14 Abs. 4 UStG plus a dispute-loop letter artifact for synthetic fixtures only. This contract specifies alignment: all fixtures are synthetic, there is no live cutover, no wiring into doc_handler or finance_assist runtime processes, no fiscal or legal advice, and no parity claim.",
+  "hold": {
+    "bach_mode": "read-only",
+    "rule": "Keine Verdrahtung in laufende Prozesse von doc_handler oder finance_assist; Schreiben dieses Artefakts hat keine Rechtswirkung."
+  },
+  "provenance": {
+    "ticket": "T-20260920-823767362",
+    "slice": "S10",
+    "task": 1516
+  },
+  "check_scope": "ustg-invoice-check",
+  "components": [
+    "doc_handler",
+    "finance_assist"
+  ],
+  "invoice_schema": "ellmos.open-ocean-ustg-invoice.v1",
+  "required_invoice_fields": [
+    "supplier_name",
+    "supplier_address",
+    "customer_name",
+    "customer_address",
+    "line_items",
+    "supply_date",
+    "net_amount",
+    "tax_rate",
+    "tax_amount",
+    "issue_date",
+    "sequential_number",
+    "tax_number",
+    "vat_id"
+  ],
+  "mandatory_statements": [
+    {
+      "statement_id": "nr1_parties",
+      "legal_reference": "§ 14 Abs. 4 Nr. 1 UStG",
+      "label": "vollständiger Name und vollständige Anschrift des leistenden Unternehmers und des Leistungsempfängers",
+      "fields": [
+        "supplier_name",
+        "supplier_address",
+        "customer_name",
+        "customer_address"
+      ],
+      "rule": "all-fields-required",
+      "remedy": "Bitte lassen Sie die Rechnung berichtigen und ergänzen Sie den vollständigen Namen und die vollständige Anschrift des leistenden Unternehmers sowie des Leistungsempfängers (§ 14 Abs. 7 UStG)."
+    },
+    {
+      "statement_id": "nr2_goods",
+      "legal_reference": "§ 14 Abs. 4 Nr. 2 UStG",
+      "label": "Menge und handelsübliche Bezeichnung der gelieferten Gegenstände oder Art und Umfang der sonstigen Leistung",
+      "fields": [
+        "line_items"
+      ],
+      "rule": "line-items-required",
+      "remedy": "Bitte lassen Sie die Rechnung berichtigen und weisen Sie je Position Menge und handelsübliche Bezeichnung des gelieferten Gegenstands oder Art und Umfang der sonstigen Leistung aus (§ 14 Abs. 7 UStG)."
+    },
+    {
+      "statement_id": "nr3_supply_date",
+      "legal_reference": "§ 14 Abs. 4 Nr. 3 UStG",
+      "label": "Zeitpunkt der Lieferung oder der sonstigen Leistung oder der Leistungszeitraum",
+      "fields": [
+        "supply_date"
+      ],
+      "rule": "required",
+      "remedy": "Bitte lassen Sie die Rechnung berichtigen und ergänzen Sie den Zeitpunkt der Lieferung oder sonstigen Leistung oder den Leistungszeitraum (§ 14 Abs. 7 UStG)."
+    },
+    {
+      "statement_id": "nr4_amount",
+      "legal_reference": "§ 14 Abs. 4 Nr. 4 UStG",
+      "label": "Entgelt, Steuersatz und Steuerbetrag in Euro",
+      "fields": [
+        "net_amount",
+        "tax_rate",
+        "tax_amount"
+      ],
+      "rule": "all-fields-required",
+      "remedy": "Bitte lassen Sie die Rechnung berichtigen und weisen Sie das Entgelt, den anzuwendenden Steuersatz und den auf das Entgelt entfallenden Steuerbetrag in Euro aus (§ 14 Abs. 7 UStG)."
+    },
+    {
+      "statement_id": "nr5_issue_date",
+      "legal_reference": "§ 14 Abs. 4 Nr. 5 UStG",
+      "label": "Ausstellungsdatum der Rechnung",
+      "fields": [
+        "issue_date"
+      ],
+      "rule": "required",
+      "remedy": "Bitte lassen Sie die Rechnung berichtigen und ergänzen Sie das Ausstellungsdatum (§ 14 Abs. 7 UStG)."
+    },
+    {
+      "statement_id": "nr6_sequential_number",
+      "legal_reference": "§ 14 Abs. 4 Nr. 6 UStG",
+      "label": "vom Aussteller einmalig vergebene fortlaufende Rechnungsnummer",
+      "fields": [
+        "sequential_number"
+      ],
+      "rule": "required",
+      "remedy": "Bitte lassen Sie die Rechnung berichtigen und ergänzen Sie eine einmalig vergebene fortlaufende Nummer, mit der die Rechnung identifiziert werden kann (§ 14 Abs. 7 UStG)."
+    },
+    {
+      "statement_id": "nr7_tax_identification",
+      "legal_reference": "§ 14 Abs. 4 Nr. 7 UStG",
+      "label": "Steuernummer oder Umsatzsteuer-Identifikationsnummer des leistenden Unternehmers (eine der beiden Angaben genügt)",
+      "fields": [
+        "tax_number",
+        "vat_id"
+      ],
+      "rule": "any-field-required",
+      "remedy": "Bitte lassen Sie die Rechnung berichtigen und ergänzen Sie die Steuernummer oder die Umsatzsteuer-Identifikationsnummer des leistenden Unternehmers; eine der beiden Angaben genügt (§ 14 Abs. 7 UStG)."
+    }
+  ],
+  "dispute_loop": {
+    "trigger": "one_or_more_missing_mandatory_statements",
+    "letter_parts": [
+      "ruege",
+      "empfehlung"
+    ],
+    "complete_invoice_letter": "",
+    "resolution": "berichtigte Rechnung mit vollständigen Pflichtangaben (§ 14 Abs. 7 UStG)"
+  },
+  "fixtures": {
+    "valid_invoice": "tests/fixtures/ustg_invoice/valid.json",
+    "deficient_invoices": [
+      "tests/fixtures/ustg_invoice/missing-nr1-parties.json",
+      "tests/fixtures/ustg_invoice/missing-nr2-goods.json",
+      "tests/fixtures/ustg_invoice/missing-nr3-supply-date.json",
+      "tests/fixtures/ustg_invoice/missing-nr4-amount.json",
+      "tests/fixtures/ustg_invoice/missing-nr5-issue-date.json",
+      "tests/fixtures/ustg_invoice/missing-nr6-sequential-number.json",
+      "tests/fixtures/ustg_invoice/missing-nr7-tax-identification.json"
+    ],
+    "expected": "tests/fixtures/ustg_invoice/expected.json"
+  },
+  "classification": {
+    "artifact": "schema-level alignment artifact",
+    "live_cutover": false,
+    "parity": "not-accepted"
+  },
+  "next_gates": [
+    "Schema review must be completed before any runtime projection of the ustg-invoice-check into doc_handler or finance_assist.",
+    "Applying the check to real invoices requires a separate fiscal gate, a privacy review and an explicit hold lift by LEAD TRITHON.",
+    "Dispute letters carry no legal effect; a separate template legal review gate is required before any use."
+  ]
+}

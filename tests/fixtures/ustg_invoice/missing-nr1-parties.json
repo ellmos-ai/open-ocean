@@ -1,0 +1,22 @@
+{
+  "deficient_for": "nr1_parties",
+  "schema": "ellmos.open-ocean-ustg-invoice.v1",
+  "invoice_id": "SYN-2026-042",
+  "supplier_address": "Musterstraße 12, 53111 Bonn",
+  "customer_name": "Werkzeugbau Rheinland GmbH",
+  "customer_address": "Industriestraße 8, 40210 Düsseldorf",
+  "line_items": [
+    {
+      "quantity": "3 Stück",
+      "description": "Industriegetriebe, Modell X-100"
+    }
+  ],
+  "supply_date": "2026-09-15",
+  "net_amount": "1500.00 EUR",
+  "tax_rate": "19 %",
+  "tax_amount": "285.00 EUR",
+  "issue_date": "2026-09-20",
+  "sequential_number": "RE-2026-0007",
+  "tax_number": "205/815/08154",
+  "vat_id": "DE114108275"
+}

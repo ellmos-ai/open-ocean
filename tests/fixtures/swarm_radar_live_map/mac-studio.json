@@ -1,0 +1,34 @@
+{
+  "schema": "ellmos.open-ocean-swarm-radar-host-report.v1",
+  "host_id": "mac-studio",
+  "radar_scope": "swarm-radar-live-map",
+  "agents": [
+    {
+      "agent_id": "agent-ms-alpha",
+      "agent_role": "lead-trithon",
+      "status": "active",
+      "started_at": "2026-09-29T09:30:00Z"
+    },
+    {
+      "agent_id": "agent-ms-beta",
+      "agent_role": "radar-observer",
+      "status": "active",
+      "started_at": "2026-09-29T09:45:00Z"
+    }
+  ],
+  "leases": [
+    {
+      "lease_target": "memory-transit-claim-salt",
+      "lease_token": "sha256:0000000000000000000000000000000000000000000000000000000000000001",
+      "lease_mode": "claim-insert-or-replace",
+      "acquired_at": "2026-09-29T11:00:00Z"
+    },
+    {
+      "lease_target": "skills-workflow-registry-sync",
+      "lease_token": "sha256:0000000000000000000000000000000000000000000000000000000000000002",
+      "lease_mode": "claim-insert-or-replace",
+      "acquired_at": "2026-09-29T11:05:00Z"
+    }
+  ],
+  "observed_at": "2026-09-29T12:00:00Z"
+}

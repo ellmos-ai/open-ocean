@@ -1,6 +1,6 @@
 # Ocean als Verbraucher der System GUI
 
-Der Pin in `architecture/gui-consumer.v1.json` bindet das gemeinsame Release v0.1.2 an einen Quellcommit und den SHA-256 des ZIP-Archivs. `python ocean.py gui --archive <release.zip> --json` prüft das ZIP, dessen `dist-manifest.json`, alle Dist-Dateien und die Lizenz rein lesend. Der Befehl installiert nichts. Ein falscher Hash oder ein unsicherer ZIP-Pfad wird abgewiesen.
+Der Pin in `architecture/gui-consumer.v1.json` bindet das gemeinsame Release v0.2.2 an einen Quellcommit und den SHA-256 des ZIP-Archivs. `python ocean.py gui --archive <release.zip> --json` prüft das ZIP, dessen `dist-manifest.json`, alle Dist-Dateien und die Lizenz rein lesend. Der Befehl installiert nichts. Ein falscher Hash oder ein unsicherer ZIP-Pfad wird abgewiesen.
 
 `python ocean.py gui --archive <release.zip> --serve` stellt das geprüfte Kit ausschließlich auf 127.0.0.1 bereit (Standardport 8811). Für diesen ausdrücklichen lokalen Start ist das optionale Paket `uvicorn` erforderlich; es wird nicht automatisch installiert. Statische Antworten kommen nur aus Dateien, die das geprüfte Dist-Manifest nennt. Jede Datei wird beim Abruf erneut gegen ihren Hash geprüft. Das Backend liefert `/api/gui/brand`, `/api/gui/backend-origin` und `/api/gui/capabilities`. Die Marke ist Ocean; ein Backend ohne gebundenen Ocean-Adapter bleibt `mode=unknown`. Ungebundene Fach-APIs antworten mit 503 und `ocean_api_adapter_unbound`; es gibt weder eine BACH-Datenbank noch erfundene Ocean-Daten.
 
@@ -12,7 +12,7 @@ Offene Integration: Geräteauthentisierung und Berechtigung der Fach-APIs, genau
 
 ## Gemeinsame Installer- und Laufzeitintegration
 
-Der Pin ist auf das tatsächliche GUI-Artefakt 0.2.1 aktualisiert. Ein Archivnachweis
+Der Pin ist auf das tatsächliche GUI-Artefakt 0.2.2 aktualisiert. Ein Archivnachweis
 bleibt von einer Installation und einer Geräte-/Browserabnahme getrennt.
 tools/gui_consumer.py ist der gemeinsame Prüfpfad für Inspektion, Platzierung und
 Readback. tools/gui_server.py bedient ein geprüftes Speicherabbild; Änderungen

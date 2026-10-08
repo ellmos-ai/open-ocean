@@ -34,6 +34,7 @@ def test_ci_workflow_integrity():
     assert "ruff check" in content
     assert "compileall" in content
     assert "pytest" in content
+    assert content.count('python -m pip install -e ".[test,gui]"') == 2
 
 
 def test_stale_workflow_integrity():
@@ -63,6 +64,10 @@ def test_pyproject_pep621_metadata():
     opt_deps = project.get("optional-dependencies", {})
     assert "test" in opt_deps
     assert any("pytest" in dep for dep in opt_deps["test"])
+    assert any(dep.startswith("fastapi>=") for dep in opt_deps["gui"])
+    assert any(dep.startswith("fastapi>=") for dep in opt_deps["test"])
+    assert any(dep.startswith("httpx>=") for dep in opt_deps["test"])
+    assert not any(dep.startswith("httpx") for dep in opt_deps["gui"])
 
     urls = project.get("urls", {})
     assert urls.get("Homepage") == "https://github.com/ellmos-ai/open-ocean"

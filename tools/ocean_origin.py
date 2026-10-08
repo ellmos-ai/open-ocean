@@ -8,7 +8,6 @@ runs standalone, but they must not claim OCEAN's dedicated browser origin.
 from __future__ import annotations
 
 import json
-import mimetypes
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -90,6 +89,11 @@ class OceanOriginApp:
         self.prefix = normalized
         self.title = title
         self.gui = gui
+        if gui is not None:
+            from tools.gui_server import OceanGuiApp
+            self.gui_consumer = OceanGuiApp.from_verified_release(gui)
+        else:
+            self.gui_consumer = None
 
     async def __call__(self, scope, receive, send) -> None:
         if scope.get("type") != "http":
@@ -110,26 +114,16 @@ class OceanOriginApp:
         await self.provider(scope, receive, send)
 
     async def _shared_gui_surface(self, path: str, head_only: bool, send) -> bool:
-        if self.gui is None or path.startswith(("/api/", "/login", "/logout", "/register")):
+        if self.gui_consumer is None:
             return False
-        relative = "index.html" if path in {self.prefix, self.prefix + "/"} else path.lstrip("/")
-        candidates = ["dist/" + relative, "dist/" + relative.rstrip("/") + "/index.html",
-                      "dist/" + relative.rstrip("/") + ".html"]
-        name = next((candidate for candidate in candidates if candidate in self.gui.payload), None)
-        if name is None or name.endswith("dist-manifest.json"):
-            return False
-        body = self.gui.payload[name]  # serve the hash-verified in-memory snapshot
-        content_type = mimetypes.guess_type(name)[0] or "application/octet-stream"
-        if content_type == "text/html":
+        static_path = "/" if path in {self.prefix, self.prefix + "/"} else path
+        def cleanup_html(body):
             marker = body.lower().rfind(b"</body>")
             script = _CLEANUP_SCRIPT.encode("utf-8")
-            body = body[:marker] + script + body[marker:] if marker >= 0 else body + script
-        if content_type.startswith("text/") or content_type in {"application/javascript", "application/json"}:
-            content_type += "; charset=utf-8"
-        await _respond(send, status=200, body=body,
-                       headers=_headers(("content-type", content_type), ("cache-control", "no-store"),
-                                        ("x-content-type-options", "nosniff")), head_only=head_only)
-        return True
+            return body[:marker] + script + body[marker:] if marker >= 0 else body + script
+        return await self.gui_consumer.serve_static(
+            {"path": static_path, "method": "HEAD" if head_only else "GET"},
+            send, html_transform=cleanup_html)
 
     async def _product_surface(self, path: str, head_only: bool, send) -> bool:
         no_store = ("cache-control", "no-store")

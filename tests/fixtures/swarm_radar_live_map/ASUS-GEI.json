@@ -1,0 +1,28 @@
+{
+  "schema": "ellmos.open-ocean-swarm-radar-host-report.v1",
+  "host_id": "ASUS-GEI",
+  "radar_scope": "swarm-radar-live-map",
+  "agents": [
+    {
+      "agent_id": "agent-gei-delta",
+      "agent_role": "skills-workflow-projector",
+      "status": "active",
+      "started_at": "2026-09-29T09:55:00Z"
+    },
+    {
+      "agent_id": "agent-gei-epsilon",
+      "agent_role": "radar-observer",
+      "status": "active",
+      "started_at": "2026-09-29T10:00:00Z"
+    }
+  ],
+  "leases": [
+    {
+      "lease_target": "connector-pattern-rotation",
+      "lease_token": "sha256:0000000000000000000000000000000000000000000000000000000000000004",
+      "lease_mode": "claim-insert-or-replace",
+      "acquired_at": "2026-09-29T11:02:00Z"
+    }
+  ],
+  "observed_at": "2026-09-29T12:00:00Z"
+}

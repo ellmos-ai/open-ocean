@@ -276,6 +276,50 @@ and became evidence after the fix in bach#87. Operations covered: `push`, `pull`
 route into `session-checkpoint`, so there is no shared module path to compare yet.
 All other carrier rows remain `not-evidenced`.
 
+### Local dbsync adapter source (2026-09-30)
+
+`tools/dbsync_adapter.py` covers the six remaining operation surfaces on explicit, synthetic
+local paths: `backup`, `status`, `enable`, `disable`, `cleanup`, and `init` as existing-schema
+validation. It delegates backup, redaction, verification and retention to TransitSync at the
+existing `7648a20` pin; verified source bytes are compiled without provider bytecode writes.
+`handle` defaults to dry-run and cleanup additionally requires the caller to choose
+`local-node` or `all-nodes`. There are no application, host, configuration or credential defaults.
+
+The operation result distinguishes `supported`, `dry-run`, `refused` and `error`. A snapshot
+published before heartbeat persistence fails is reported as a partial error with its metadata.
+The injected clock is used for heartbeats; the carrier retains its UTC publication/retention
+clock. Existing schemas require an explicit table/column contract and exact positive
+`user_version`. Init never creates, copies or migrates a DB, or claims to establish data freshness.
+The caller owns an exclusive local writer claim; linked paths, reparse points and SQLite
+sidecars are refused. This source path is for quiescent local data, not a concurrency guarantee.
+Calls are synchronous: this carrier pin has no bounded IO deadline, cancellation or automatic
+retry contract. A live execution/deadline contract requires a separate review.
+
+Behavior corrections are classified in `bach-k9-dbsync-adapter.v1.json#local_ocean_adapter`:
+honored dry-run, explicit cleanup scope, manifest-time retention, verified status, conservative
+marker ownership and fail-closed schema/heartbeat handling. These are not silent legacy
+equivalence claims. Run Ocean-only conformance with `TRANSIT_SYNC_ROOT` at the existing pin and
+`REQUIRE_DBSYNC_ADAPTER=1`: `python -m pytest tests/test_dbsync_adapter.py`.
+
+At the initial source implementation on 2026-09-30, BACH was hardlocked; that observation is
+historical. Every later BACH operation requires fresh authoritative lock clearance.
+Shared adapter wiring, its stale init-source correction, three-way tests,
+migration/rollback, required parity CI, foreign-host operation and release acceptance remain
+open. The evidence register and **3/9** parity count are unchanged by these Ocean-only tests.
+
+The independent review of `9219ede` found generated-column credential-scan gaps and a bracketed
+DB-name sidecar bypass. The local correction inspects `table_xinfo` for every table, including
+extra tables, and refuses hidden/generated columns and virtual/shadow kinds before init or
+backup. Complete SQLite introspection is required (`table_list`, SQLite 3.37+); unsupported
+introspection is refused. Literal basename matching replaces sidecar globbing in both guards.
+The existing carrier pin and credential scanner remain unchanged. Stored/virtual generated
+columns joining synthetic trigger fragments, FTS/rtree forms and `data[1].sqlite` with
+WAL/SHM/journal sidecars are covered by refusal/no-write regression tests for preview and apply.
+The 32 new regressions fail against `9219ede` and pass after correction. The full existing
+suite passes locally: Windows 387 passed / 29 skipped; Ubuntu 390 passed / 26 skipped.
+Ubuntu adapter/contract conformance passes all 138 tests without skips. These local results
+include synthetic fixture runtimes only and do not close the remaining parity/host gates.
+
 The current catalogues contain 75 modules, 33 bundles and 142 Skills Registry
 components. They make more potential carriers visible than the 2026-08-08
 70-candidate/35-gap snapshot, but do not change any `accepted` state.

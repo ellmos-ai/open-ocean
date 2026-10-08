@@ -112,3 +112,10 @@ jobs:
           BACH_PARITY_ROOT: ${{ github.workspace }}/_parity/bach
           TRANSIT_SYNC_ROOT: ${{ github.workspace }}/_parity/sqlite-transit-sync
         run: python tools/check_parity_evidence.py --run
+
+      - name: Run local dbsync adapter conformance (carrier required)
+        env:
+          PYTHONIOENCODING: utf-8
+          REQUIRE_DBSYNC_ADAPTER: "1"
+          TRANSIT_SYNC_ROOT: ${{ github.workspace }}/_parity/sqlite-transit-sync
+        run: python -m pytest -q -rA -p no:cacheprovider tests/test_dbsync_adapter.py

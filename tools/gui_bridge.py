@@ -200,6 +200,7 @@ class GuiBridge:
                               "reason": None if available else "Kein freigegebener nativer Leseadapter konfiguriert."})
         # A rendered page and a native executable service are different evidence.
         for method, path, kind in [("GET", "/api/tasks", "read"), ("POST", "/api/tasks", "write"),
+                                   ("GET", "/api/task-assignees", "read"),
                                    ("GET", "/api/agents/native/slots", "read"),
                                    ("GET", "/api/agents/native/tasks", "read"),
                                    ("POST", "/api/agents/native/tasks", "action"),
@@ -224,9 +225,19 @@ class GuiBridge:
                                            "runtime_verified": False, "reason_code": "adapter-missing"},
                          "tasks": {"adapter_registered": False, "available": False,
                                    "runtime_verified": False, "reason_code": "adapter-missing"}}
-        return {"schema": SCHEMA, "system": {"id": "open-ocean", "adapter_version": "1"},
+        installed = bool(self.gui and self.gui.installed_verified)
+        module_states["ellmos-system-gui"] = {"adapter_registered": True,
+            "available": self.gui is not None, "runtime_verified": False,
+            "verification_scope": "adapter", "reason_code": None if self.gui else "verified-release-unavailable"}
+        return {"schema": SCHEMA, "schema_version": 1,
+                "system": {"id": "open-ocean", "adapter_version": "1"},
                 "observed_at": datetime.now(timezone.utc).isoformat(),
-                "gui": {"status": "installed" if self.gui else "unavailable",
+                "kit": {"revision": self.gui.source_commit if self.gui else None,
+                        "version": None, "archive_sha256": self.gui.archive_sha256 if self.gui else None,
+                        "verified": self.gui is not None, "installed": installed, "served": False},
+                "brand": {"schema": "ellmos-system-gui.brand.v1", "label": "Ocean", "product": "Open Ocean",
+                          "logo_text": "OCEAN", "logo_path": None, "theme": "ocean"},
+                "gui": {"status": "installed" if installed else "unavailable",
                         "source_commit": self.gui.source_commit if self.gui else None,
                         "archive_sha256": self.gui.archive_sha256 if self.gui else None},
                 "modules": module_states, "module_sources": module_sources, "pages": pages, "endpoints": endpoints}

@@ -57,7 +57,7 @@ task-master, COMA, then the module-declared starter.
 - **Package / CLI**: `open-ocean` (v0.1.2)
 - **Security & Privacy**: Local-first, zero egress, fail-closed verification, transactional rollback, unprivileged user mode. Full policy in [`SECURITY.md`](SECURITY.md).
 - **CI / Testing**: Multi-OS & multi-version GitHub Actions workflow in [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
-- **Verified Suite**: 263 passed, 27 skipped (platform-specific) on Windows on 2026-09-29; Ruff and `compileall` passed.
+- **Verified Suite**: 360 passed, 297 skipped (gated on optional pinned checkouts and platform) on Windows on 2026-10-04; Ruff and `compileall` passed.
 
 ## Overview
 

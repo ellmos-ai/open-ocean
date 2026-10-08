@@ -1,0 +1,22 @@
+{
+  "schema": "ellmos.open-ocean-ustg-invoice-check-expected.v1",
+  "mandatory_statement_count": 7,
+  "valid_invoice": {
+    "problem_count": 0,
+    "dispute_letter": ""
+  },
+  "deficient_invoice": {
+    "problem_count": 1,
+    "dispute_letter_contains": [
+      "Bestreitungsschreiben",
+      "Rüge",
+      "Empfehlung",
+      "§ 15 Abs. 1 Satz 1 Nr. 1 UStG",
+      "§ 14 Abs. 4 Nr. 8 UStG"
+    ]
+  },
+  "dispute_loop": {
+    "trigger": "one_or_more_missing_mandatory_statements",
+    "letters_per_deficient_invoice": 1
+  }
+}

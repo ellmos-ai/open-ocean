@@ -1,0 +1,22 @@
+{
+  "schema": "ellmos.open-ocean-swarm-radar-host-report.v1",
+  "host_id": "WORKSTATION-LG",
+  "radar_scope": "swarm-radar-live-map",
+  "agents": [
+    {
+      "agent_id": "agent-wlg-gamma",
+      "agent_role": "memory-task-relay",
+      "status": "active",
+      "started_at": "2026-09-29T09:50:00Z"
+    }
+  ],
+  "leases": [
+    {
+      "lease_target": "memory-task-transit-relay",
+      "lease_token": "sha256:0000000000000000000000000000000000000000000000000000000000000003",
+      "lease_mode": "claim-insert-or-replace",
+      "acquired_at": "2026-09-29T11:00:00Z"
+    }
+  ],
+  "observed_at": "2026-09-29T12:00:00Z"
+}

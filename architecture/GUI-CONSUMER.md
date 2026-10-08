@@ -12,7 +12,7 @@ Quellencommit und den SHA-256 des vollständigen Archivs. Das ZIP enthält
 `ellmos-system-gui.dist.v1`, `source_commit` und `files` als Zuordnung von
 Dateinamen relativ zu `dist/` zu SHA-256. Es enthält sich nicht selbst.
 
-`tools/gui_release.py` prüft beide Pins, alle Datei-Hashes, die vollständige
+`tools/gui_consumer.py` prüft beide Pins, alle Datei-Hashes, die vollständige
 Dateimenge, Lizenzdatei, Pfade, Größenbegrenzungen und verbotene Links. API- und
 Loginrouten dürfen keine statischen Dateien überdecken. `tools/fetch_place.py`
 platziert nach Prüfung ausschließlich nach `<workspace>/modules/ellmos-system-gui`.
@@ -53,6 +53,10 @@ durch System Explorer aufgelöst und explizit ausgewählt sein. Der ergänzte
 Ocean-Kern. Änderungen benötigen weiterhin explizites Approval und den extern
 signierten Capability Grant. Die REST-Brücke bietet keine Apply-Route.
 
+tools/gui_release.py ist ausschließlich ein Importadapter für den nativen Consumer.
+tools/gui_server.py bedient die verifizierten Seiten für den CLI-Verbraucher und
+die Lifecycle-Origin-Brücke; es gibt keinen zweiten Archivprüfer oder Static-Server.
+
 Die Lifecycle-Projektion verwendet nach erneutem Release-Readback den bestehenden
 ellmos-core-Laufzeitanbieter und den Ocean-ASGI-Verbraucher. `/control/` liefert
 die gemeinsame Startseite; deklarierte Seiten und Assets werden aus dem geprüften
@@ -79,7 +83,9 @@ Grants oder Truststores auswählen. Status und Plan geben nur Strukturfelder aus
 | `endpoints` | Methode, Pfad, `kind`, `available`, Provideridentität, Auth, Prüfstatus, Grund |
 
 `kind` unterscheidet `read`, `write` und `action`. `auth` ist `none`,
-`provider-session` oder `device-token` (BACH). Ocean verwendet `provider-session`.
+`provider-session` oder `device-token` (BACH). Die Lifecycle-Brücke verwendet provider-session; der eigenständige, lesende
+Ocean-GUI-Verbraucher stellt ausschließlich die drei GUI-Metadatenrouten öffentlich
+bereit (auth=none, public_metadata=true). Seine übrigen API-Routen bleiben 503.
 Die Capability-Auskunft benötigt eine Providersession; alle Installer- und
 Registryrouten zusätzlich die vorhandene Adminrolle. Es werden keine neuen
 Geräteschlüssel oder Hostbindungen erzeugt.

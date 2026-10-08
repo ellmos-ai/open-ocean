@@ -1,0 +1,83 @@
+{
+  "schema": "ellmos.open-ocean-bach-swarm-radar-live-map.v1",
+  "status": "swarm-radar-live-map-schema-specified-fixtures-green-no-live-cutover",
+  "recorded_at": "2026-09-29",
+  "claim_boundary": "This swarm-radar-live-map contract, its host-report schema and its synthetic host reports are a schema-level alignment artifact only. No live cutover, no BACH runtime change, no agent runtime change, no lease runtime change, no BACH-IN, no migration, no rollback, and no parity acceptance is performed or implied.",
+  "hold": {
+    "bach_mode": "read-only",
+    "rule": "Do not modify, push, boot, or wire BACH swarm coordination into a live radar or live lease acquisition during the active hold. Host reports are static, synthetic and temporary; the checker validates shape, reconciliation and collision avoidance only."
+  },
+  "provenance": {
+    "ticket": "T-20260920-823767362",
+    "slice": "S9",
+    "task": 1520
+  },
+  "radar_scope": "swarm-radar-live-map",
+  "hosts": [
+    "mac-studio",
+    "WORKSTATION-LG",
+    "ASUS-GEI"
+  ],
+  "host_report_schema": "ellmos.open-ocean-swarm-radar-host-report.v1",
+  "required_report_fields": [
+    "host_id",
+    "radar_scope",
+    "agents",
+    "leases",
+    "observed_at"
+  ],
+  "agent_fields": [
+    "agent_id",
+    "agent_role",
+    "status",
+    "started_at"
+  ],
+  "lease_fields": [
+    "lease_target",
+    "lease_token",
+    "lease_mode",
+    "acquired_at"
+  ],
+  "lease_mode": "claim-insert-or-replace",
+  "collision_avoidance": {
+    "lease_target_exclusive_across_hosts": true
+  },
+  "double_agent_prohibition": {
+    "unique_per_agent_id": "swarm-global"
+  },
+  "reconciliation": {
+    "scope_fields": [
+      "radar_scope"
+    ],
+    "agent_fields": [
+      "agent_id",
+      "agent_role",
+      "status",
+      "started_at"
+    ],
+    "lease_fields": [
+      "lease_target",
+      "lease_token",
+      "lease_mode",
+      "acquired_at"
+    ]
+  },
+  "fixtures": {
+    "host_reports": [
+      "tests/fixtures/swarm_radar_live_map/mac-studio.json",
+      "tests/fixtures/swarm_radar_live_map/WORKSTATION-LG.json",
+      "tests/fixtures/swarm_radar_live_map/ASUS-GEI.json"
+    ],
+    "expected": "tests/fixtures/swarm_radar_live_map/expected.json"
+  },
+  "classification": {
+    "artifact": "schema-level alignment artifact",
+    "live_cutover": false,
+    "parity": "not-accepted"
+  },
+  "next_gates": [
+    "Schema-level review of the swarm-radar-live-map contract must pass before any runtime projection of the live map.",
+    "Live equivalence acceptance requires a pinned BACH checkout and a claim-salted lease acquisition path, both out of scope for this slice.",
+    "The swarm radar stays read-only until the active hold is lifted by LEAD TRITHON."
+  ]
+}

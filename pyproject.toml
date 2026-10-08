@@ -33,6 +33,7 @@ classifiers = [
 dependencies = ["cryptography>=41"]
 
 [project.optional-dependencies]
+gui = ["uvicorn>=0.30"]
 test = [
     "pytest>=8.0.0",
     "ruff>=0.5.0",

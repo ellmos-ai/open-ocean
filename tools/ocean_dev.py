@@ -60,13 +60,15 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from fetch_place import force_rmtree, plan_and_fetch  # noqa: E402
+from fetch_place import FetchError, force_rmtree, place_gui_release, plan_and_fetch  # noqa: E402
+from gui_release import GuiReleaseError, verify_gui_archive  # noqa: E402
 from host_adapters import known_adapters  # noqa: E402
 from resolve_bundles import (  # noqa: E402
     DEFAULT_COMPONENT_BINDINGS,
     DEFAULT_MODULES_CATALOG,
     DEFAULT_SKILLS_REGISTRY,
     ResolveError,
+    ResolvedComponent,
     apply_activation_check,
     component_bindings_summary,
     expand_components,
@@ -85,6 +87,31 @@ DEFAULT_WORKSPACE = Path.home() / "ocean-dev"
 
 class ActivationLogError(RuntimeError):
     """An existing rollback ledger is unreadable or conflicts with new writes."""
+
+
+def expected_component_scope(value: str | None) -> set[str] | None:
+    if value is None:
+        return None
+    try:
+        refs = json.loads(value)
+    except ValueError as exc:
+        raise ResolveError("expected component scope must be a JSON array") from exc
+    if not isinstance(refs, list) or any(not isinstance(ref, str) or ":" not in ref
+        or not all(ref.split(":", 1)) or "*" in ref or any(char.isspace() for char in ref) for ref in refs):
+        raise ResolveError("expected component scope must contain exact typed references, without wildcards")
+    if len(set(refs)) != len(refs):
+        raise ResolveError("expected component scope contains duplicate references")
+    return set(refs)
+
+
+def assert_component_scope(components: list[Any], expected: set[str] | None, *, gui_release: bool) -> set[str]:
+    observed = {component.ref for component in components}
+    if gui_release:
+        observed.add("module:ellmos-system-gui")
+    if expected is not None and observed != expected:
+        raise ResolveError("fresh resolved component scope differs from the approved full selection: "
+                           f"unexpected={sorted(observed - expected)}, missing={sorted(expected - observed)}")
+    return observed
 
 
 def _skills_source_root(skills_registry: Path) -> Path:
@@ -304,7 +331,7 @@ def _safe_leaf_id(value: Any) -> bool:
     return isinstance(value, str) and bool(value) and value not in {".", ".."} and "/" not in value and "\\" not in value
 
 
-def do_rollback(log_path: Path, adapter: Any, workspace: Path) -> int:
+def do_rollback(log_path: Path, adapter: Any, workspace: Path, *, expected_components: set[str] | None = None) -> int:
     if not log_path.is_file():
         print(f"ERROR: activation log not found: {log_path}", file=sys.stderr)
         return 3
@@ -319,6 +346,10 @@ def do_rollback(log_path: Path, adapter: Any, workspace: Path) -> int:
     entries = log.get("entries")
     if not isinstance(entries, list):
         print(f"ERROR: activation-log entries must be a list in {log_path}", file=sys.stderr)
+        return 4
+    if expected_components is not None and any(not isinstance(entry, dict) or not isinstance(entry.get("ref"), str)
+                                               or entry["ref"] not in expected_components for entry in entries):
+        print("ERROR: rollback log contains components outside the approved scope", file=sys.stderr)
         return 4
 
     # Validate every entry and every target before the first deletion. A
@@ -462,6 +493,10 @@ def main(argv: list[str] | None = None) -> int:
         help="content-hashed recipe/registry provenance contract checked before Resolve and Fetch",
     )
     parser.add_argument("--workspace", type=Path, default=DEFAULT_WORKSPACE)
+    parser.add_argument("--expected-components-json", help="exact full component selection from the approved installer plan")
+    parser.add_argument("--gui-archive", type=Path, help="shared GUI release ZIP; requires both immutable pins")
+    parser.add_argument("--gui-source-commit")
+    parser.add_argument("--gui-archive-sha256")
     parser.add_argument("--skills-dir", type=Path, default=None, help="write target for Activate; default <workspace>/skills, NEVER a live host directory unless given explicitly")
     parser.add_argument("--skill-host", "--host", dest="skill_host", default="claude-code", help="skill-host adapter for Activate (default claude-code); --host is a legacy alias and NOT the loopback bind of `ocean.py up`")
     parser.add_argument("--apply", action="store_true", help="perform real writes (default: dry-run/plan only)")
@@ -470,6 +505,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--report", type=Path)
     args = parser.parse_args(argv)
+    try:
+        expected_components = expected_component_scope(args.expected_components_json)
+    except ResolveError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 3
 
     adapters = known_adapters()
     adapter_cls = adapters.get(args.skill_host)
@@ -480,11 +520,24 @@ def main(argv: list[str] | None = None) -> int:
     adapter = adapter_cls(skills_dir=skills_dir)
 
     if args.rollback:
-        return do_rollback(args.rollback, adapter, args.workspace)
+        return do_rollback(args.rollback, adapter, args.workspace, expected_components=expected_components)
 
     if args.bundles_root is None:
         print("ERROR: --bundles-root is required (unless --rollback)", file=sys.stderr)
         return 3
+
+    gui_release = None
+    gui_args = (args.gui_archive, args.gui_source_commit, args.gui_archive_sha256)
+    if any(gui_args):
+        if not all(gui_args):
+            print("ERROR: GUI archive, source commit and archive SHA-256 must be supplied together", file=sys.stderr)
+            return 3
+        try:
+            gui_release = verify_gui_archive(*gui_args)
+            place_gui_release(gui_release, args.workspace, apply=False)
+        except (GuiReleaseError, OSError, FetchError) as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 3
 
     source_pin_receipt = None
     verified_skills_registry = None
@@ -519,13 +572,31 @@ def main(argv: list[str] | None = None) -> int:
               "a failed hash check stops the run).", file=sys.stderr)
         return 2
 
+    try:
+        observed_components = assert_component_scope(components, expected_components, gui_release=gui_release is not None)
+    except ResolveError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 3
     activation_summary = apply_activation_check(components, adapter)
+    gui_component = None
+    if gui_release:
+        declared = [comp for comp in components if comp.ref == "module:ellmos-system-gui"]
+        if declared:
+            gui_component = declared[0]
+            binding = gui_component.detail.get("binding") or {}
+            if binding and binding.get("commit") != gui_release.source_commit:
+                print("ERROR: GUI release conflicts with the declared source binding", file=sys.stderr)
+                return 3
+            # One distribution placement, never also a source checkout at this ID.
+            components = [comp for comp in components if comp.ref != gui_component.ref]
     skills_source_root = _skills_source_root(args.skills_registry)
     log_path = args.activation_log or (args.workspace / "ocean-dev.activation-log.json")
     if args.apply:
         prospective_fetch = plan_and_fetch(
             components, args.modules_catalog, args.workspace, apply=False
         )
+        if gui_release:
+            prospective_fetch.append(place_gui_release(gui_release, args.workspace, apply=False))
         prospective_activate = activate_skills(
             components, adapter, skills_source_root, apply=False
         )
@@ -536,6 +607,23 @@ def main(argv: list[str] | None = None) -> int:
             return 4
 
     fetch_outcomes = plan_and_fetch(components, args.modules_catalog, args.workspace, apply=args.apply)
+    if gui_release:
+        try:
+            outcome = place_gui_release(gui_release, args.workspace, apply=args.apply)
+            fetch_outcomes.append(outcome)
+            gui_component = gui_component or ResolvedComponent(
+                ref="module:ellmos-system-gui", kind="module", requirement="optional")
+            gui_component.status = "resolved"
+            gui_component.detail = {"catalog_id": "ellmos-system-gui", "local_path": outcome.detail["dest"],
+                                    "provides": ["shared-gui.host"], "source_commit": gui_release.source_commit,
+                                    "archive_sha256": gui_release.archive_sha256}
+            components.append(gui_component)
+        except (GuiReleaseError, OSError, FetchError) as exc:
+            # Journal already completed core placements even if GUI Place fails.
+            if args.apply:
+                write_activation_log(log_path, fetch_outcomes, [])
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 4
     activate_outcomes = activate_skills(components, adapter, skills_source_root, apply=args.apply)
 
     if args.apply:
@@ -563,6 +651,9 @@ def main(argv: list[str] | None = None) -> int:
     }
     if composition_metadata is not None:
         report["composition"] = composition_metadata
+    if expected_components is not None:
+        report["component_scope"] = {"expected": sorted(expected_components), "observed": sorted(observed_components),
+                                     "match": True, "verification_scope": "fresh-resolve"}
     if source_pin_receipt is not None:
         report["source_pins"] = source_pin_receipt
     bindings_summary = component_bindings_summary(component_bindings, components)

@@ -9,3 +9,17 @@ Ein Archiv belegt keine Installation. `--dist-root` zusammen mit `--receipt` erm
 Die Fähigkeitenantwort hat `schema_version=1`, `kit`, `brand`, `modules` und `observed_at`. Für das statische Kit ist nur `ellmos-system-gui` als geprüfte Oberfläche eingetragen. Eine Ocean-Fachfunktion erscheint erst nach einer registrierten Route und einer tatsächlichen Providerprobe. Fehlende Adapter bleiben `unavailable`; eine aufgelöste Bundle-Referenz oder ein Dateiname gelten nicht als laufende Funktion.
 
 Offene Integration: Geräteauthentisierung und Berechtigung der Fach-APIs, genaue Ocean-Modulrouten, Laufzeitproben pro Modul, Installationsschritt mit CapabilityGrant und ApprovalReceipt. Bis dahin dient der Serve-Befehl der lokalen Ansicht und einem nachprüfbaren Integrationspunkt, nicht einer vollständigen Ocean-Oberfläche.
+
+## Gemeinsame Installer- und Laufzeitintegration
+
+Der Pin ist auf das tatsächliche GUI-Artefakt 0.2.1 aktualisiert. Ein Archivnachweis
+bleibt von einer Installation und einer Geräte-/Browserabnahme getrennt.
+tools/gui_consumer.py ist der gemeinsame Prüfpfad für Inspektion, Platzierung und
+Readback. tools/gui_server.py bedient ein geprüftes Speicherabbild; Änderungen
+an der Archivdatei nach der Prüfung ersetzen dieses nicht.
+
+Der additive Vertrag ellmos.gui.capabilities.v1 erhält kit, brand und das
+modules-Objekt. Öffentliche GUI-Metadaten bedeuten keinen konfigurierten nativen
+Backendanbieter. Details zur Session-Brücke, externen Installer-Approval-Kette,
+exakten Komponentenmenge und dem begrenzten Registry-Leseadapter stehen in
+[architecture/GUI-CONSUMER.md](../architecture/GUI-CONSUMER.md).

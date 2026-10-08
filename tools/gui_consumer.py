@@ -8,10 +8,14 @@ from __future__ import annotations
 
 import argparse
 from hashlib import sha256
+from dataclasses import dataclass, replace
+import io
 import json
 from pathlib import Path, PurePosixPath
 import re
 import stat
+from types import MappingProxyType
+from typing import Mapping
 import zipfile
 
 PIN_SCHEMA = "ellmos.open-ocean.gui-consumer.v1"
@@ -26,7 +30,7 @@ HEX_64 = re.compile(r"[0-9a-f]{64}")
 VERSION = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+")
 
 
-class InspectionError(Exception):
+class InspectionError(ValueError):
     def __init__(self, reason: str, exit_code: int = 3):
         super().__init__(reason)
         self.reason = reason
@@ -34,11 +38,13 @@ class InspectionError(Exception):
 
 
 def _safe_name(name: str) -> bool:
-    if (not isinstance(name, str) or "\\" in name or not name or name.startswith("/")
-            or ":" in name or any(ord(char) < 32 for char in name)):
-        return False
-    parts = PurePosixPath(name).parts
-    return bool(parts) and all(part not in {"", ".", ".."} for part in parts) and PurePosixPath(name).as_posix() == name
+    path = PurePosixPath(name)
+    return bool(name) and "\\" not in name and ":" not in name and not path.is_absolute() and all(
+        part not in {"", ".", ".."} and not part.endswith((".", " "))
+        and not any(ord(char) < 32 for char in part)
+        and part.split(".", 1)[0].upper() not in {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}
+        for part in name.split("/")
+    )
 
 
 def _read_pin(path: Path) -> dict:
@@ -66,36 +72,33 @@ def _read_pin(path: Path) -> dict:
         raise InspectionError("pin_unavailable_or_invalid") from exc
 
 
-def _archive_digest(path: Path) -> str:
-    try:
-        if not path.is_file() or path.stat().st_size > MAX_ARCHIVE_BYTES:
-            raise InspectionError("archive_unavailable_or_too_large")
-        digest = sha256()
-        with path.open("rb") as stream:
-            while chunk := stream.read(1024 * 1024):
-                digest.update(chunk)
-        return digest.hexdigest()
-    except OSError as exc:
-        raise InspectionError("archive_unavailable_or_too_large") from exc
+MANIFEST = "dist/dist-manifest.json"
+RECEIPT = ".ocean-gui-release.json"
+INSTALLED_ARCHIVE = ".ocean-gui-release.zip"
+MAX_BYTES = MAX_ARCHIVE_BYTES
+MAX_FILES = MAX_MEMBERS
+GuiReleaseError = InspectionError
 
 
-def _member_digest(archive: zipfile.ZipFile, member: zipfile.ZipInfo) -> str:
-    if member.file_size < 0 or member.file_size > MAX_MEMBER_BYTES:
-        raise InspectionError("archive_member_too_large", 2)
-    digest = sha256()
-    count = 0
-    try:
-        with archive.open(member, "r") as stream:
-            while chunk := stream.read(1024 * 1024):
-                count += len(chunk)
-                if count > MAX_MEMBER_BYTES:
-                    raise InspectionError("archive_member_too_large", 2)
-                digest.update(chunk)
-    except (RuntimeError, OSError, EOFError, zipfile.BadZipFile) as exc:
-        raise InspectionError("archive_member_unreadable", 2) from exc
-    if count != member.file_size:
-        raise InspectionError("archive_member_size_mismatch", 2)
-    return digest.hexdigest()
+def _sha(data: bytes) -> str:
+    return sha256(data).hexdigest()
+
+
+@dataclass(frozen=True)
+class VerifiedGuiRelease:
+    source_commit: str
+    archive_sha256: str
+    payload: Mapping[str, bytes]
+    archive_bytes: bytes
+    installed_verified: bool = False
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "payload", MappingProxyType(dict(self.payload)))
+
+    def receipt(self) -> dict:
+        return {"schema": "ellmos.open-ocean.gui-release.v1",
+                "source_commit": self.source_commit, "archive_sha256": self.archive_sha256,
+                "files": {name: _sha(data) for name, data in sorted(self.payload.items())}}
 
 
 def _read_small_member(archive: zipfile.ZipFile, member: zipfile.ZipInfo, maximum: int) -> bytes:
@@ -109,6 +112,84 @@ def _read_small_member(archive: zipfile.ZipFile, member: zipfile.ZipInfo, maximu
     if len(data) != member.file_size or len(data) > maximum:
         raise InspectionError("archive_member_size_mismatch", 2)
     return data
+
+
+def verify_gui_archive(archive: Path, source_commit: str, archive_sha256: str) -> VerifiedGuiRelease:
+    """Verify one bounded byte snapshot for inspection, placement and serving."""
+    if not isinstance(source_commit, str) or not HEX_40.fullmatch(source_commit) or not isinstance(archive_sha256, str) or not HEX_64.fullmatch(archive_sha256):
+        raise InspectionError("pin_invalid")
+    try:
+        with Path(archive).open("rb") as stream:
+            raw = stream.read(MAX_ARCHIVE_BYTES + 1)
+    except OSError as exc:
+        raise InspectionError("archive_unavailable_or_too_large") from exc
+    if len(raw) > MAX_ARCHIVE_BYTES:
+        raise InspectionError("archive_unavailable_or_too_large")
+    if _sha(raw) != archive_sha256:
+        raise InspectionError("archive_hash_mismatch", 2)
+    try:
+        with zipfile.ZipFile(io.BytesIO(raw), "r") as source:
+            members = source.infolist()
+            if len(members) > MAX_MEMBERS or sum(member.file_size for member in members) > MAX_ARCHIVE_BYTES:
+                raise InspectionError("archive_member_count_invalid", 2)
+            names = [member.filename for member in members]
+            if len({name.casefold() for name in names}) != len(names) or any(
+                not _safe_name(name) or member.is_dir() or stat.S_ISLNK(member.external_attr >> 16) or member.flag_bits & 1
+                for name, member in zip(names, members)
+            ):
+                raise InspectionError("archive_member_path_invalid", 2)
+            by_name = dict(zip(names, members))
+            manifest_member = by_name.get(MANIFEST)
+            if manifest_member is None or manifest_member.file_size > 1024 * 1024:
+                raise InspectionError("dist_manifest_missing_or_large", 2)
+            try:
+                manifest_bytes = _read_small_member(source, manifest_member, 1024 * 1024)
+                manifest = json.loads(manifest_bytes.decode("utf-8"))
+            except (UnicodeError, ValueError) as exc:
+                raise InspectionError("dist_manifest_invalid", 2) from exc
+            files = manifest.get("files") if isinstance(manifest, dict) else None
+            if not (
+                isinstance(manifest, dict) and manifest.get("schema") == DIST_SCHEMA
+                and manifest.get("source_commit") == source_commit and isinstance(files, dict)
+                and files and "index.html" in files
+                and all(isinstance(name, str) and _safe_name(name) and name != "dist-manifest.json"
+                        and name.split("/", 1)[0].casefold() not in {"api", "login", "logout", "register"}
+                        and isinstance(digest, str) and HEX_64.fullmatch(digest) for name, digest in files.items())
+                and len({name.casefold() for name in files}) == len(files)
+            ):
+                raise InspectionError("dist_manifest_mismatch", 2)
+            expected = {"LICENSE", MANIFEST} | {"dist/" + name for name in files}
+            if set(names) != expected:
+                raise InspectionError("archive_file_set_mismatch", 2)
+            if by_name["LICENSE"].file_size <= 0 or by_name["LICENSE"].file_size > 1024 * 1024:
+                raise InspectionError("license_missing_or_large", 2)
+            payload = {name: _read_small_member(source, member, MAX_MEMBER_BYTES) for name, member in by_name.items()}
+            if any(_sha(payload["dist/" + name]) != digest for name, digest in files.items()):
+                raise InspectionError("dist_file_hash_mismatch", 2)
+    except (OSError, RuntimeError, EOFError, zipfile.BadZipFile, zipfile.LargeZipFile) as exc:
+        raise InspectionError("archive_unreadable", 2) from exc
+    return VerifiedGuiRelease(source_commit, archive_sha256, payload, raw)
+
+
+def _verify_installed_payload(root: Path, payload: dict[str, bytes], *, extra: set[str] | None = None) -> int:
+    """Read back every declared byte and reject links and undeclared local files."""
+    if root.is_symlink() or not root.is_dir():
+        raise InspectionError("install_path_escape", 2)
+    root = root.resolve(strict=True)
+    paths = list(root.rglob("*"))
+    if any(path.is_symlink() for path in paths):
+        raise InspectionError("install_path_escape", 2)
+    if {path.relative_to(root).as_posix() for path in paths if path.is_file()} != set(payload) | (extra or set()):
+        raise InspectionError("install_file_set_mismatch", 2)
+    for name, expected in payload.items():
+        path = root / name
+        if not path.resolve(strict=True).is_relative_to(root):
+            raise InspectionError("install_path_escape", 2)
+        with path.open("rb") as stream:
+            data = stream.read(MAX_MEMBER_BYTES + 1)
+        if data != expected:
+            raise InspectionError("install_file_hash_mismatch", 2)
+    return len(payload)
 
 
 def inspect_archive(archive_path: Path, pin_path: Path = DEFAULT_PIN) -> dict:
@@ -129,51 +210,11 @@ def inspect_archive(archive_path: Path, pin_path: Path = DEFAULT_PIN) -> dict:
     try:
         pin = _read_pin(pin_path)
         report["release_version"] = pin["version"]
-        if _archive_digest(archive_path) != pin["source"]["archive_sha256"]:
-            raise InspectionError("archive_hash_mismatch", 2)
+        release = verify_gui_archive(archive_path, pin["source"]["commit"], pin["source"]["archive_sha256"])
         report["archive_verified"] = True
-        with zipfile.ZipFile(archive_path, "r") as archive:
-            members = archive.infolist()
-            if len(members) > MAX_MEMBERS or sum(member.file_size for member in members) > MAX_ARCHIVE_BYTES:
-                raise InspectionError("archive_member_count_invalid", 2)
-            names = [member.filename for member in members]
-            if len(names) != len(set(names)) or any(
-                not _safe_name(name) or member.is_dir() or stat.S_ISLNK(member.external_attr >> 16)
-                for name, member in zip(names, members)
-            ):
-                raise InspectionError("archive_member_path_invalid", 2)
-            by_name = dict(zip(names, members))
-            manifest_member = by_name.get("dist/dist-manifest.json")
-            if manifest_member is None or manifest_member.file_size > 1024 * 1024:
-                raise InspectionError("dist_manifest_missing_or_large", 2)
-            try:
-                manifest = json.loads(_read_small_member(archive, manifest_member, 1024 * 1024).decode("utf-8"))
-            except (UnicodeError, ValueError, RuntimeError, zipfile.BadZipFile) as exc:
-                raise InspectionError("dist_manifest_invalid", 2) from exc
-            files = manifest.get("files") if isinstance(manifest, dict) else None
-            if not (
-                isinstance(manifest, dict)
-                and manifest.get("schema") == DIST_SCHEMA
-                and manifest.get("source_commit") == pin["source"]["commit"]
-                and isinstance(files, dict) and files
-                and all(
-                    isinstance(name, str) and _safe_name(name) and name != "dist-manifest.json"
-                    and isinstance(digest, str) and HEX_64.fullmatch(digest)
-                    for name, digest in files.items()
-                )
-            ):
-                raise InspectionError("dist_manifest_mismatch", 2)
-            report["source_commit_verified"] = True
-            expected = {"LICENSE", "dist/dist-manifest.json"} | {"dist/" + name for name in files}
-            if set(names) != expected:
-                raise InspectionError("archive_file_set_mismatch", 2)
-            if by_name["LICENSE"].file_size <= 0 or by_name["LICENSE"].file_size > 1024 * 1024:
-                raise InspectionError("license_missing_or_large", 2)
-            for name, digest in files.items():
-                if _member_digest(archive, by_name["dist/" + name]) != digest:
-                    raise InspectionError("dist_file_hash_mismatch", 2)
-            report["dist_files_verified"] = len(files)
-            report["dist_verified"] = True
+        report["source_commit_verified"] = True
+        report["dist_verified"] = True
+        report["dist_files_verified"] = len(json.loads(release.payload[MANIFEST])["files"])
         report["reason_code"] = "archive_verified_adapter_not_attested"
     except InspectionError as exc:
         report["reason_code"] = exc.reason
@@ -197,8 +238,7 @@ def inspect_installation(dist_root: Path | None, receipt_path: Path | None, arch
         return result
     try:
         pin = _read_pin(pin_path)
-        if not inspect_archive(archive_path, pin_path)["dist_verified"]:
-            raise InspectionError("archive_unverified", 2)
+        release = verify_gui_archive(archive_path, pin["source"]["commit"], pin["source"]["archive_sha256"])
         receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
         if not isinstance(receipt, dict) or (
             receipt.get("schema") != INSTALL_RECEIPT_SCHEMA
@@ -208,47 +248,13 @@ def inspect_installation(dist_root: Path | None, receipt_path: Path | None, arch
             or receipt.get("archive_sha256") != pin["source"]["archive_sha256"]
         ):
             raise InspectionError("install_receipt_mismatch", 2)
-        if dist_root.is_symlink():
-            raise InspectionError("install_path_escape", 2)
-        root = dist_root.resolve(strict=True)
-        if not root.is_dir():
-            raise InspectionError("install_dist_unavailable", 2)
-        manifest_path = root / "dist-manifest.json"
-        if manifest_path.is_symlink() or not manifest_path.is_file() or manifest_path.stat().st_size > 1024 * 1024:
-            raise InspectionError("install_manifest_unavailable", 2)
-        manifest_bytes = manifest_path.read_bytes()
-        with zipfile.ZipFile(archive_path) as archive:
-            expected_manifest_hash = sha256(archive.read("dist/dist-manifest.json")).hexdigest()
-        if sha256(manifest_bytes).hexdigest() != expected_manifest_hash:
-            raise InspectionError("install_manifest_mismatch", 2)
-        manifest = json.loads(manifest_bytes.decode("utf-8"))
-        files = manifest.get("files") if isinstance(manifest, dict) else None
-        if not (
-            isinstance(manifest, dict)
-            and manifest.get("schema") == DIST_SCHEMA
-            and manifest.get("source_commit") == pin["source"]["commit"]
-            and isinstance(files, dict) and files
-            and all(isinstance(name, str) and _safe_name(name)
-                    and isinstance(digest, str) and HEX_64.fullmatch(digest)
-                    for name, digest in files.items())
-        ):
-            raise InspectionError("install_manifest_mismatch", 2)
-        if receipt.get("manifest_sha256") != sha256(manifest_path.read_bytes()).hexdigest():
+        manifest_bytes = release.payload[MANIFEST]
+        files = json.loads(manifest_bytes)["files"]
+        if receipt.get("manifest_sha256") != _sha(manifest_bytes) or receipt.get("file_count") != len(files):
             raise InspectionError("install_receipt_mismatch", 2)
-        if receipt.get("file_count") != len(files):
-            raise InspectionError("install_receipt_mismatch", 2)
-        for name, digest in files.items():
-            file_path = root.joinpath(*PurePosixPath(name).parts)
-            if not file_path.resolve(strict=True).is_relative_to(root):
-                raise InspectionError("install_path_escape", 2)
-            cursor = file_path
-            while cursor != root:
-                if cursor.is_symlink():
-                    raise InspectionError("install_path_escape", 2)
-                cursor = cursor.parent
-            if not file_path.is_file() or _archive_digest(file_path) != digest:
-                raise InspectionError("install_file_hash_mismatch", 2)
-            result["files_verified"] += 1
+        dist_payload = {name.removeprefix("dist/"): data for name, data in release.payload.items() if name.startswith("dist/")}
+        _verify_installed_payload(dist_root, dist_payload)
+        result["files_verified"] = len(files)
         result["installed"] = True
         result["reason_code"] = "receipt_and_dist_hashes_verified"
     except (OSError, ValueError, TypeError, UnicodeError, KeyError, zipfile.BadZipFile, InspectionError) as exc:
@@ -256,6 +262,30 @@ def inspect_installation(dist_root: Path | None, receipt_path: Path | None, arch
         result["files_verified"] = 0
         result["reason_code"] = exc.reason if isinstance(exc, InspectionError) else "install_unavailable_or_invalid"
     return result
+
+
+def verify_installed_gui(root: Path, source_commit: str | None = None, archive_sha256: str | None = None) -> VerifiedGuiRelease:
+    """Validate every installed byte; a receipt alone is not installed evidence."""
+    if root.is_symlink() or not root.is_dir():
+        raise GuiReleaseError("GUI-Installation ist kein reguläres Verzeichnis.")
+    try:
+        record = json.loads((root / RECEIPT).read_text(encoding="utf-8"))
+        commit = record["source_commit"]
+        digest = record["archive_sha256"]
+        hashes = record["files"]
+        if record.get("schema") != "ellmos.open-ocean.gui-release.v1" or not re.fullmatch(r"[0-9a-f]{40}", commit) or not re.fullmatch(r"[0-9a-f]{64}", digest) or not isinstance(hashes, dict):
+            raise GuiReleaseError("GUI-Installationsbeleg ist ungültig.")
+        if source_commit is not None and commit != source_commit or archive_sha256 is not None and digest != archive_sha256:
+            raise GuiReleaseError("GUI-Installation passt nicht zu den erwarteten Pins.")
+        original = verify_gui_archive(root / INSTALLED_ARCHIVE, commit, digest)
+        if hashes != original.receipt()["files"]:
+            raise GuiReleaseError("GUI-Installationsbeleg passt nicht zum gepinnten Originalarchiv.")
+        _verify_installed_payload(root, original.payload, extra={RECEIPT, INSTALLED_ARCHIVE})
+        return replace(original, installed_verified=True)
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        if isinstance(exc, GuiReleaseError):
+            raise
+        raise GuiReleaseError("GUI-Installation ist nicht verifizierbar.") from exc
 
 
 def main(argv: list[str] | None = None) -> int:

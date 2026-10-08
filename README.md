@@ -9,6 +9,9 @@ the free community system of the ellmos ecosystem.
 
 *[Deutsch](README_de.md)*
 
+Candidate integration: [shared GUI consumer contract](architecture/GUI-CONSUMER.md)
+documents pinned Astro releases, native read-only adapters and open runtime gates.
+
 [![Version](https://img.shields.io/badge/version-0.1.2-blue.svg)](pyproject.toml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/)
 [![CI](https://github.com/ellmos-ai/open-ocean/actions/workflows/ci.yml/badge.svg)](https://github.com/ellmos-ai/open-ocean/actions/workflows/ci.yml)

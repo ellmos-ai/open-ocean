@@ -81,13 +81,19 @@ async def _respond(
 class OceanOriginApp:
     """Own root/PWA identity and delegate the remaining provider API."""
 
-    def __init__(self, provider: AsgiApp, *, prefix: str = "/control", title: str = "OCEAN Full Dev") -> None:
+    def __init__(self, provider: AsgiApp, *, prefix: str = "/control", title: str = "OCEAN Full Dev", gui=None) -> None:
         normalized = "/" + prefix.strip("/")
         if normalized == "/":
             raise ValueError("OCEAN operator prefix must not be the origin root")
         self.provider = provider
         self.prefix = normalized
         self.title = title
+        self.gui = gui
+        if gui is not None:
+            from tools.gui_server import OceanGuiApp
+            self.gui_consumer = OceanGuiApp.from_verified_release(gui)
+        else:
+            self.gui_consumer = None
 
     async def __call__(self, scope, receive, send) -> None:
         if scope.get("type") != "http":
@@ -100,10 +106,24 @@ class OceanOriginApp:
             handled = await self._product_surface(path, method == "HEAD", send)
             if handled:
                 return
+            if await self._shared_gui_surface(path, method == "HEAD", send):
+                return
         if method == "GET" and (path == self.prefix or path.startswith(self.prefix + "/")):
             await self._delegate_ocean_html(scope, receive, send)
             return
         await self.provider(scope, receive, send)
+
+    async def _shared_gui_surface(self, path: str, head_only: bool, send) -> bool:
+        if self.gui_consumer is None:
+            return False
+        static_path = "/" if path in {self.prefix, self.prefix + "/"} else path
+        def cleanup_html(body):
+            marker = body.lower().rfind(b"</body>")
+            script = _CLEANUP_SCRIPT.encode("utf-8")
+            return body[:marker] + script + body[marker:] if marker >= 0 else body + script
+        return await self.gui_consumer.serve_static(
+            {"path": static_path, "method": "HEAD" if head_only else "GET"},
+            send, html_transform=cleanup_html)
 
     async def _product_surface(self, path: str, head_only: bool, send) -> bool:
         no_store = ("cache-control", "no-store")

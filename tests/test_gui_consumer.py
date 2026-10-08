@@ -87,6 +87,37 @@ class GuiConsumerTests(unittest.TestCase):
         evil, evil_pin, _, _ = fixture(self.root, malicious_name="../escape.txt")
         self.assertEqual(inspect_archive(evil, evil_pin)["reason_code"], "archive_member_path_invalid")
 
+    def test_adapter_uses_native_verifier_and_immutable_snapshot(self):
+        from tools import gui_consumer, gui_release
+        self.assertIs(gui_release.verify_gui_archive, gui_consumer.verify_gui_archive)
+        release = gui_consumer.verify_gui_archive(self.archive, COMMIT, digest(self.archive.read_bytes()))
+        with self.assertRaises(TypeError):
+            release.payload["dist/index.html"] = b"foreign"
+        app = OceanGuiApp(self.archive, pin_path=self.pin)
+        self.archive.write_bytes(b"replaced after verification")
+        self.assertEqual(asyncio.run(request(app, "/")), (200, self.files["index.html"]))
+        delegated = OceanGuiApp.from_verified_release(release)
+        self.assertEqual(asyncio.run(request(delegated, "/assets/app.js")), (200, self.files["assets/app.js"]))
+
+    def test_archive_capabilities_do_not_attest_installed_or_native_runtime(self):
+        from tools.gui_bridge import GuiBridge
+        from tools.gui_consumer import verify_gui_archive
+        app = OceanGuiApp(self.archive, pin_path=self.pin)
+        status, body = asyncio.run(request(app, "/api/gui/capabilities"))
+        cap = json.loads(body)
+        self.assertEqual(status, 200)
+        self.assertEqual(cap["schema"], "ellmos.gui.capabilities.v1")
+        self.assertEqual(cap["gui"]["status"], "unavailable")
+        self.assertIsNone(cap["modules"]["ellmos-system-gui"]["runtime_verified"])
+        routes = {item["path"]: item for item in cap["endpoints"]}
+        self.assertTrue(routes["/api/gui/capabilities"]["public_metadata"])
+        self.assertEqual(routes["/api/gui/capabilities"]["auth"], "none")
+        for path in ("/api/tasks", "/api/task-assignees", "/api/installer/detect", "/api/governance/policy-registry"):
+            self.assertFalse(routes[path]["available"])
+            self.assertFalse(routes[path]["runtime_verified"])
+        release = verify_gui_archive(self.archive, COMMIT, digest(self.archive.read_bytes()))
+        self.assertFalse(GuiBridge(gui=release).capabilities()["kit"]["installed"])
+
     def test_zip_symlink_member_rejected(self):
         import stat
         with zipfile.ZipFile(self.archive, "a") as handle:
@@ -117,6 +148,10 @@ class GuiConsumerTests(unittest.TestCase):
         result = inspect_installation(dist, receipt, self.archive, self.pin)
         self.assertTrue(result["installed"])
         self.assertEqual(result["files_verified"], 2)
+        (dist / "undeclared.txt").write_bytes(b"foreign")
+        self.assertEqual(inspect_installation(dist, receipt, self.archive, self.pin)["reason_code"],
+                         "install_file_set_mismatch")
+        (dist / "undeclared.txt").unlink()
         (dist / "assets/app.js").write_bytes(b"tampered")
         self.assertEqual(inspect_installation(dist, receipt, self.archive, self.pin)["reason_code"],
                          "install_file_hash_mismatch")

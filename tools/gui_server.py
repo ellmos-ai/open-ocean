@@ -6,12 +6,14 @@ import json
 import mimetypes
 from pathlib import Path
 from urllib.parse import unquote
-import zipfile
 from datetime import datetime, timezone
 
-from tools.gui_consumer import DEFAULT_PIN, InspectionError, _read_pin, _safe_name, inspect_archive, inspect_installation
+from tools.gui_consumer import (
+    DEFAULT_PIN, MANIFEST, InspectionError, VerifiedGuiRelease, _read_pin, _safe_name,
+    inspect_installation, verify_gui_archive,
+)
 
-CAP_SCHEMA = "ellmos-system-gui.capabilities.v1"
+CAP_SCHEMA = "ellmos.gui.capabilities.v1"
 BRAND_SCHEMA = "ellmos-system-gui.brand.v1"
 ORIGIN_SCHEMA = "ellmos-system-gui.backend-origin.v1"
 DEFAULT_BRAND = {
@@ -65,7 +67,7 @@ def _safe_url_path(raw: str) -> str | None:
     if path == "/":
         return "index.html"
     candidate = path.lstrip("/")
-    return candidate if _safe_name(candidate) else None
+    return candidate if _safe_name(candidate.rstrip("/")) else None
 
 
 def _asset_candidates(path: str) -> tuple[str, ...]:
@@ -108,43 +110,86 @@ class OceanGuiApp:
                  dist_root: Path | None = None, receipt_path: Path | None = None) -> None:
         self.archive_path = Path(archive_path)
         self.pin = _read_pin(pin_path)
-        report = inspect_archive(self.archive_path, pin_path)
-        if not report["dist_verified"]:
-            raise InspectionError(str(report["reason_code"]), int(report.get("exit_code", 2)))
-        self.archive_sha256 = self.pin["source"]["archive_sha256"]
+        self.release = verify_gui_archive(self.archive_path, self.pin["source"]["commit"], self.pin["source"]["archive_sha256"])
+        self.archive_sha256 = self.release.archive_sha256
         self.brand = _brand_from_file(brand_path)
         self.installation = inspect_installation(dist_root, receipt_path, self.archive_path, pin_path)
-        with zipfile.ZipFile(self.archive_path) as archive:
-            manifest = json.loads(archive.read("dist/dist-manifest.json").decode("utf-8"))
+        self._configure_static()
+
+    def _configure_static(self) -> None:
+        manifest = json.loads(self.release.payload[MANIFEST])
         self.files = frozenset(manifest["files"])
         self.file_hashes = dict(manifest["files"])
         self.observed_at = _utc_now()
 
+    @classmethod
+    def from_verified_release(cls, release: VerifiedGuiRelease) -> "OceanGuiApp":
+        """Reuse the native static consumer inside a provider-authorized origin."""
+        instance = cls.__new__(cls)
+        instance.release = release
+        instance.archive_sha256 = release.archive_sha256
+        instance.brand = dict(DEFAULT_BRAND)
+        instance.pin = {"source": {"commit": release.source_commit}, "version": None}
+        instance.installation = {"installed": False, "files_verified": 0, "reason_code": "install_receipt_unavailable"}
+        instance._configure_static()
+        return instance
+
     def _capabilities(self, *, served: bool = False) -> dict:
-        return {
-            "schema": CAP_SCHEMA, "schema_version": 1,
-            "kit": {
-                "revision": self.pin["source"]["commit"],
-                "version": self.pin["version"],
-                "archive_sha256": self.archive_sha256,
-                "verified": True,
+        from tools.gui_bridge import GuiBridge
+        # Standalone shell metadata is public. Provider session/auth and native
+        # adapters are not mounted by this command; no route is inferred live.
+        report = GuiBridge().capabilities()
+        for endpoint in report["endpoints"]:
+            endpoint.update(available=False, provider=None, auth="none",
+                            reason="ocean_api_adapter_unbound")
+        for path in ("/api/gui/brand", "/api/gui/backend-origin", "/api/gui/capabilities"):
+            report["endpoints"] = [item for item in report["endpoints"] if item["path"] != path]
+            report["endpoints"].append({"method": "GET", "path": path, "kind": "read",
+                "available": True, "provider": {"id": "open-ocean", "adapter_version": "1"},
+                "auth": "none", "public_metadata": True, "runtime_verified": False,
+                "verification_scope": "adapter", "reason": None})
+        for item in report["modules"].values():
+            item.update(adapter_registered=False, available=False, runtime_verified=None,
+                        reason_code="ocean_api_adapter_unbound")
+        report["modules"]["ellmos-system-gui"] = {
+            "adapter_registered": True, "runtime_verified": None, "available": True,
+            "verification_scope": "adapter", "reason_code": "verified_static_shell",
+        }
+        report.update(schema=CAP_SCHEMA, schema_version=1, brand=self.brand,
+            kit={"revision": self.release.source_commit, "version": self.pin["version"],
+                "archive_sha256": self.archive_sha256, "verified": True,
                 "installed": self.installation["installed"],
                 "installed_files_verified": self.installation["files_verified"],
-                "served": served,
+                "served": served, "reason_code": self.installation["reason_code"]},
+            gui={"status": "installed" if self.installation["installed"] else "unavailable",
                 "reason_code": self.installation["reason_code"],
-            },
-            "brand": self.brand,
-            "modules": {
-                "ellmos-system-gui": {
-                    "adapter_registered": True, "runtime_verified": True if served else None,
-                    "available": True if served else None,
-                    "reason_code": "verified_static_shell" if served else "archive_verified_not_served",
-                    "observed_at": self.observed_at if served else None,
-                },
-            },
-            "missing_adapters": ["Ocean API route mapping", "device authorization", "module capability probes"],
-            "observed_at": self.observed_at,
-        }
+                "source_commit": self.release.source_commit, "archive_sha256": self.archive_sha256},
+            missing_adapters=["Ocean API route mapping", "device authorization", "module capability probes"],
+            observed_at=self.observed_at)
+        for page in report["pages"]:
+            safe = _safe_url_path(page["path"])
+            declared = safe is not None and any(name in self.files for name in _asset_candidates(safe))
+            page["missing"] = [item for item in page["missing"] if item != "verified-gui-release"]
+            if not declared:
+                page["missing"].append("declared-static-page")
+            page["status"] = "configured" if not page["missing"] else "unavailable"
+        return report
+
+    async def serve_static(self, scope, send, *, html_transform=None) -> bool:
+        """The single static-serving engine; false leaves provider routes alone."""
+        method = str(scope.get("method") or "").upper()
+        path = str(scope.get("path") or "")
+        if method not in {"GET", "HEAD"} or path.startswith(("/api/", "/login", "/logout", "/register")):
+            return False
+        safe = _safe_url_path(path)
+        name = next((item for item in _asset_candidates(safe) if item in self.files), None) if safe else None
+        if name is None:
+            return False
+        data = self.release.payload["dist/" + name]
+        if html_transform is not None and name.endswith(".html"):
+            data = html_transform(data)
+        await _reply(send, 200, data, _type(name), method, no_store=name.endswith(".html"))
+        return True
 
     async def __call__(self, scope, receive, send) -> None:
         if scope.get("type") == "websocket":
@@ -176,22 +221,5 @@ class OceanGuiApp:
             body = (json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
             await _reply(send, 200, body, "application/json; charset=utf-8", method)
             return
-        safe = _safe_url_path(path)
-        if safe is None:
+        if not await self.serve_static(scope, send):
             await _reply(send, 404, b"", "text/plain; charset=utf-8", method)
-            return
-        name = next((item for item in _asset_candidates(safe) if item in self.files), None)
-        if name is None:
-            await _reply(send, 404, b"", "text/plain; charset=utf-8", method)
-            return
-        try:
-            with zipfile.ZipFile(self.archive_path) as archive:
-                data = archive.read("dist/" + name)
-        except (OSError, KeyError, zipfile.BadZipFile):
-            await _reply(send, 503, b"", "text/plain; charset=utf-8", method)
-            return
-        from hashlib import sha256
-        if sha256(data).hexdigest() != self.file_hashes[name]:
-            await _reply(send, 503, b"", "text/plain; charset=utf-8", method)
-            return
-        await _reply(send, 200, data, _type(name), method, no_store=name.endswith(".html"))

@@ -112,6 +112,9 @@ def _add_composition_arguments(parser: argparse.ArgumentParser) -> None:
         help="selbst gehashter Quellenvertrag; wird vor Resolve und Fetch geprüft",
     )
     parser.add_argument("--workspace", type=Path, required=True)
+    parser.add_argument("--gui-archive", type=Path, help="versioniertes gemeinsames GUI-Release")
+    parser.add_argument("--gui-source-commit", help="vollständiger GUI-Quellencommit")
+    parser.add_argument("--gui-archive-sha256", help="erwarteter SHA-256 des Release-Archivs")
     parser.add_argument("--json", action="store_true")
 
 
@@ -139,6 +142,7 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"dedizierter OCEAN-Port (Standard: {DEFAULT_OCEAN_PORT}; getrennt von ellmos-core/TerminPilot)",
     )
     up.add_argument("--apply", action="store_true", help="Transaktion und Laufzeit wirklich starten")
+    up.add_argument("--policy-registry", type=Path, help="explizite lokale Registry für den lesenden Moduladapter")
     up.add_argument(
         "--health-timeout",
         type=float,
@@ -388,6 +392,8 @@ def main(argv: list[str] | None = None) -> int:
                 workspace=args.workspace,
                 component_bindings=args.component_bindings,
                 source_pins=args.source_pins,
+                gui_archive=args.gui_archive, gui_source_commit=args.gui_source_commit,
+                gui_archive_sha256=args.gui_archive_sha256,
             )
         except LifecycleError as exc:
             print(str(exc), file=sys.stderr)
@@ -415,6 +421,8 @@ def main(argv: list[str] | None = None) -> int:
                 host=args.host,
                 port=args.port,
                 health_timeout=args.health_timeout,
+                gui_archive=args.gui_archive, gui_source_commit=args.gui_source_commit,
+                gui_archive_sha256=args.gui_archive_sha256, policy_registry=args.policy_registry,
             )
         except LifecycleError as exc:
             print(str(exc), file=sys.stderr)

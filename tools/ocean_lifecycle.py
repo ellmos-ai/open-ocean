@@ -27,6 +27,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from tools.source_pins import DEFAULT_SOURCE_PINS
+from tools.gui_release import GuiReleaseError, verify_installed_gui
 
 
 TOOLS_DIR = Path(__file__).resolve().parent
@@ -83,6 +84,9 @@ def run_transaction(
     component_bindings: Path | None = None,
     source_pins: Path = DEFAULT_SOURCE_PINS,
     apply: bool = False,
+    gui_archive: Path | None = None,
+    gui_source_commit: str | None = None,
+    gui_archive_sha256: str | None = None,
 ) -> dict[str, Any]:
     """Run the existing transaction CLI and return its JSON report."""
     command = [
@@ -98,6 +102,11 @@ def run_transaction(
     ]
     if component_bindings is not None:
         command.extend(["--component-bindings", str(component_bindings)])
+    if any((gui_archive, gui_source_commit, gui_archive_sha256)):
+        if not all((gui_archive, gui_source_commit, gui_archive_sha256)):
+            raise LifecycleError("GUI-Archiv und beide Pins müssen gemeinsam angegeben werden.", exit_code=3)
+        command.extend(["--gui-archive", str(gui_archive), "--gui-source-commit", str(gui_source_commit),
+                        "--gui-archive-sha256", str(gui_archive_sha256)])
     if apply:
         command.append("--apply")
     proc = subprocess.run(
@@ -200,6 +209,9 @@ def plan_from_paths(
     workspace: Path,
     component_bindings: Path | None = None,
     source_pins: Path = DEFAULT_SOURCE_PINS,
+    gui_archive: Path | None = None,
+    gui_source_commit: str | None = None,
+    gui_archive_sha256: str | None = None,
 ) -> dict[str, Any]:
     return lifecycle_plan(run_transaction(
         bundles_root=bundles_root,
@@ -210,6 +222,7 @@ def plan_from_paths(
         component_bindings=component_bindings,
         source_pins=source_pins,
         apply=False,
+        gui_archive=gui_archive, gui_source_commit=gui_source_commit, gui_archive_sha256=gui_archive_sha256,
     ))
 
 
@@ -395,6 +408,17 @@ def _ellmos_core_runtime_spec(
         python_paths.append(inherited)
     base_url = f"http://{host}:{port}"
     operator_components = []
+    shared_components = [item for item in components if item.get("kind") == "module"
+                         and item.get("status") == "resolved"
+                         and "shared-gui.host" in ((item.get("detail") or {}).get("provides") or [])]
+    if len(shared_components) > 1:
+        raise LifecycleError("Mehrere gemeinsame GUI-Releases sind nicht zulässig.")
+    shared_gui = shared_components[0].get("detail") if shared_components else None
+    if shared_gui:
+        try:
+            verify_installed_gui(Path(shared_gui["local_path"]), shared_gui["source_commit"], shared_gui["archive_sha256"])
+        except (GuiReleaseError, KeyError) as exc:
+            raise LifecycleError("Die gemeinsame GUI-Installation ist nicht verifizierbar.") from exc
     for component in components:
         if component.get("kind") != "module" or component.get("status") != "resolved":
             continue
@@ -407,8 +431,8 @@ def _ellmos_core_runtime_spec(
         raise LifecycleError(
             f"Die Komposition enthält mehrere Operator-Oberflächen ({refs}); Auswahl muss eindeutig sein."
         )
-    operator_enabled = bool(operator_components)
-    if operator_enabled:
+    operator_enabled = bool(operator_components or shared_gui)
+    if operator_components and not shared_gui:
         operator_detail = operator_components[0].get("detail") or {}
         raw_operator_path = operator_detail.get("local_path")
         if not isinstance(raw_operator_path, str) or not raw_operator_path:
@@ -437,10 +461,14 @@ def _ellmos_core_runtime_spec(
             {"title": OCEAN_OPERATOR_TITLE},
         )
         runtime_env.update({
-            "ELLMOS_CORE_CONSOLE_ENABLED": "1",
+            "ELLMOS_CORE_CONSOLE_ENABLED": "0" if shared_gui else "1",
             "ELLMOS_CORE_CONSOLE_PREFIX": OCEAN_OPERATOR_PREFIX,
             "OCEAN_OPERATOR_TITLE": OCEAN_OPERATOR_TITLE,
         })
+    if shared_gui:
+        runtime_env.update({"OCEAN_WORKSPACE": str(workspace.resolve(strict=False)),
+                            "OCEAN_GUI_SOURCE_COMMIT": shared_gui["source_commit"],
+                            "OCEAN_GUI_ARCHIVE_SHA256": shared_gui["archive_sha256"]})
     runtime_command = (
         [sys.executable, str(OCEAN_RUNTIME_CLI)]
         if operator_enabled
@@ -847,6 +875,10 @@ def up_from_paths(
     host: str,
     port: int,
     health_timeout: float = DEFAULT_HEALTH_TIMEOUT,
+    gui_archive: Path | None = None,
+    gui_source_commit: str | None = None,
+    gui_archive_sha256: str | None = None,
+    policy_registry: Path | None = None,
 ) -> dict[str, Any]:
     _assert_runtime_start_available(workspace, host=host, port=port)
     transaction = run_transaction(
@@ -858,6 +890,7 @@ def up_from_paths(
         component_bindings=component_bindings,
         source_pins=source_pins,
         apply=True,
+        gui_archive=gui_archive, gui_source_commit=gui_source_commit, gui_archive_sha256=gui_archive_sha256,
     )
     plan = lifecycle_plan(transaction)
     provider = select_runtime_provider(transaction["components"])
@@ -870,6 +903,19 @@ def up_from_paths(
         "projection": {"manifest": str(manifest_path), "lock": str(lock_path)},
     }
     _write_json_atomic(workspace / INSTALL_STATE, install)
+    if gui_archive:
+        # Local host configuration, never part of the portable GUI distribution.
+        plan_paths = {"bundles_root": str(bundles_root), "system_manifest": str(system_manifest),
+                      "modules_catalog": str(modules_catalog), "skills_registry": str(skills_registry),
+                      "source_pins": str(source_pins)}
+        if component_bindings is not None:
+            plan_paths["component_bindings"] = str(component_bindings)
+        bridge_config = {"schema": "ellmos.open-ocean.gui-bridge.v1", "plan_paths": plan_paths}
+        policy_components = [item for item in transaction["components"] if item.get("kind") == "module"
+                             and (item.get("detail") or {}).get("catalog_id") == "policy-registry"]
+        if policy_registry is not None and len(policy_components) == 1:
+            bridge_config.update({"policy_registry": str(policy_registry), "policy_component": policy_components[0]})
+        _write_json_private(workspace / "ocean.gui-bridge.json", bridge_config)
     _assert_composition_complete(plan, workspace)
     runtime_state = start_runtime(
         provider,

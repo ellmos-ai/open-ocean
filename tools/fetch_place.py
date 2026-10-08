@@ -48,9 +48,15 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, TypeGuard
+
+try:
+    from .gui_release import INSTALLED_ARCHIVE, RECEIPT, VerifiedGuiRelease, verify_installed_gui
+except ImportError:  # direct transaction CLI
+    from gui_release import INSTALLED_ARCHIVE, RECEIPT, VerifiedGuiRelease, verify_installed_gui
 
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 
@@ -112,6 +118,49 @@ class FetchOutcome:
 
     def as_dict(self) -> dict[str, Any]:
         return {"ref": self.ref, "action": self.action, "detail": self.detail}
+
+
+def place_gui_release(release: VerifiedGuiRelease, workspace: Path, *, apply: bool) -> FetchOutcome:
+    """Place a verified distribution using the existing module journal identity."""
+    dest = workspace / "modules" / "ellmos-system-gui"
+    detail = {"dest": str(dest.resolve(strict=False)), "source_commit": release.source_commit,
+              "archive_sha256": release.archive_sha256}
+    if dest.exists() or dest.is_symlink():
+        verify_installed_gui(dest, release.source_commit, release.archive_sha256)
+        return FetchOutcome("module:ellmos-system-gui", "present-pinned-provider", detail)
+    if not apply:
+        return FetchOutcome("module:ellmos-system-gui", "planned", detail)
+    # Never mutate an existing directory; staging stays inside the module store.
+    if workspace.is_symlink() or (workspace / "modules").is_symlink():
+        raise FetchError("GUI module store must not be a symbolic link")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix=".gui-stage-", dir=dest.parent))
+    try:
+        for name, data in release.payload.items():
+            target = staging / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+        (staging / RECEIPT).write_text(json.dumps(release.receipt(), indent=2) + "\n", encoding="utf-8")
+        (staging / INSTALLED_ARCHIVE).write_bytes(release.archive_bytes)
+        verify_installed_gui(staging, release.source_commit, release.archive_sha256)
+        # Reserve the exact destination exclusively on Windows AND POSIX.
+        # POSIX rename can replace an existing empty directory, so it is not
+        # a sufficient never-overwrite boundary for a concurrent placement.
+        dest.mkdir(exist_ok=False)
+        try:
+            for name in (*release.payload, RECEIPT, INSTALLED_ARCHIVE):
+                target = dest / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                with target.open("xb") as handle:
+                    handle.write((staging / name).read_bytes())
+            verify_installed_gui(dest, release.source_commit, release.archive_sha256)
+        except Exception:
+            force_rmtree(dest)  # this call exclusively created the directory
+            raise
+    finally:
+        if staging.exists():
+            force_rmtree(staging)
+    return FetchOutcome("module:ellmos-system-gui", "placed", detail)
 
 
 _ACTIONS = {

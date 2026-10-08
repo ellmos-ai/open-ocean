@@ -8,6 +8,7 @@ runs standalone, but they must not claim OCEAN's dedicated browser origin.
 from __future__ import annotations
 
 import json
+import mimetypes
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -81,13 +82,14 @@ async def _respond(
 class OceanOriginApp:
     """Own root/PWA identity and delegate the remaining provider API."""
 
-    def __init__(self, provider: AsgiApp, *, prefix: str = "/control", title: str = "OCEAN Full Dev") -> None:
+    def __init__(self, provider: AsgiApp, *, prefix: str = "/control", title: str = "OCEAN Full Dev", gui=None) -> None:
         normalized = "/" + prefix.strip("/")
         if normalized == "/":
             raise ValueError("OCEAN operator prefix must not be the origin root")
         self.provider = provider
         self.prefix = normalized
         self.title = title
+        self.gui = gui
 
     async def __call__(self, scope, receive, send) -> None:
         if scope.get("type") != "http":
@@ -100,10 +102,34 @@ class OceanOriginApp:
             handled = await self._product_surface(path, method == "HEAD", send)
             if handled:
                 return
+            if await self._shared_gui_surface(path, method == "HEAD", send):
+                return
         if method == "GET" and (path == self.prefix or path.startswith(self.prefix + "/")):
             await self._delegate_ocean_html(scope, receive, send)
             return
         await self.provider(scope, receive, send)
+
+    async def _shared_gui_surface(self, path: str, head_only: bool, send) -> bool:
+        if self.gui is None or path.startswith(("/api/", "/login", "/logout", "/register")):
+            return False
+        relative = "index.html" if path in {self.prefix, self.prefix + "/"} else path.lstrip("/")
+        candidates = ["dist/" + relative, "dist/" + relative.rstrip("/") + "/index.html",
+                      "dist/" + relative.rstrip("/") + ".html"]
+        name = next((candidate for candidate in candidates if candidate in self.gui.payload), None)
+        if name is None or name.endswith("dist-manifest.json"):
+            return False
+        body = self.gui.payload[name]  # serve the hash-verified in-memory snapshot
+        content_type = mimetypes.guess_type(name)[0] or "application/octet-stream"
+        if content_type == "text/html":
+            marker = body.lower().rfind(b"</body>")
+            script = _CLEANUP_SCRIPT.encode("utf-8")
+            body = body[:marker] + script + body[marker:] if marker >= 0 else body + script
+        if content_type.startswith("text/") or content_type in {"application/javascript", "application/json"}:
+            content_type += "; charset=utf-8"
+        await _respond(send, status=200, body=body,
+                       headers=_headers(("content-type", content_type), ("cache-control", "no-store"),
+                                        ("x-content-type-options", "nosniff")), head_only=head_only)
+        return True
 
     async def _product_surface(self, path: str, head_only: bool, send) -> bool:
         no_store = ("cache-control", "no-store")

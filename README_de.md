@@ -9,6 +9,9 @@ das kostenlose Community-System des ellmos-Ökosystems.
 
 *[English](README.md)*
 
+Kandidatenintegration: Der [gemeinsame GUI-Verbrauchervertrag](architecture/GUI-CONSUMER.md)
+beschreibt gepinnte Astro-Releases, native Leseadapter und offene Laufzeitabnahmen.
+
 [![Version](https://img.shields.io/badge/version-0.1.2-blue.svg)](pyproject.toml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/)
 [![CI](https://github.com/ellmos-ai/open-ocean/actions/workflows/ci.yml/badge.svg)](https://github.com/ellmos-ai/open-ocean/actions/workflows/ci.yml)

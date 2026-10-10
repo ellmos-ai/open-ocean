@@ -1,5 +1,11 @@
 <img src="assets/banner.png" width="100%" alt="open-ocean Banner">
 
+[![Open-Ocean video preview: fishing boat MARIA at sea; click to open YouTube](assets/ocean-film-player.svg)](https://youtu.be/S-oiYUg4GLA)
+
+[Watch the Open-Ocean video on YouTube](https://youtu.be/S-oiYUg4GLA)
+
+Preview image: `bach-to-ocean/out/kf_5.jpg`, embedded unchanged (SHA-256: `23fcef067a3f2fb12709b5a066d8b996e39a8d8070b8117b6236469afec9c08f`); the red play control is drawn in SVG.
+
 # open-ocean
 
 **Free the ocean.**

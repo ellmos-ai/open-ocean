@@ -263,6 +263,7 @@ architecture/
   open-ocean.skeleton.v1.json   die Rezepte, die dieses System konsumiert, per Hash gepinnt
   INSTALLER-TARGET.md           Installer-Vertrag und Invarianten
   OCEAN-INSPEKTION.md           nur lesender Inspektionsadapter
+  OCEAN-DOKU-REGELKREIS.md      Doku-Regelkreis-Vertrag (Zustände, Belege, Regeln)
   BACH-EXTRAKTIONSROADMAP.md, bach-*.json
                                 Verträge für das Verlegen von BACH-Fähigkeiten in Module
 tests/                          Offline-Testsuite

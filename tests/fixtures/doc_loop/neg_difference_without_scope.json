@@ -8,7 +8,7 @@
       "observed_at": "2026-10-10T08:00:00+00:00",
       "evidence": {
         "routine": "routine-a",
-        "interval_ref": "consumer-config/routine-a",
+        "interval_ref": "config:consumer/routine-a",
         "marker_source": "config",
         "next_due_at": "2026-10-10T08:00:00+00:00"
       }
@@ -85,6 +85,7 @@
           {
             "item": "docs/old-concept.example",
             "action": "archive",
+            "archived_at": "2026-10-10T08:55:00+00:00",
             "reader_checks": [
               {
                 "ref": "docs/index.example",

@@ -117,6 +117,109 @@ class DocLoopContractTests(unittest.TestCase):
         next(e for e in chain["entries"] if e["state"] == "task_created")["evidence"]["readback_verified"] = "true"
         self.assertIn("E_READBACK", validate_chain(chain, CONTRACT))
 
+    def _full(self):
+        return load("pos_full_chain.json")
+
+    @staticmethod
+    def _evidence(chain, state):
+        return next(e for e in chain["entries"] if e["state"] == state)["evidence"]
+
+    def test_o_every_mandatory_collection_and_object_has_a_strict_type(self):
+        wrong_values = ({"a": 1}, "text", 7, None, True)
+        targets = {
+            "task_created": ["worker_binding"],
+            "corrected": ["files", "differences", "archival", "open_requirements"],
+            "reviewed": ["verdicts"],
+            "repaired": ["remeasure"],
+        }
+        for state, fields in targets.items():
+            for field in fields:
+                for wrong in wrong_values:
+                    chain = self._full()
+                    evidence = self._evidence(chain, state)
+                    if isinstance(evidence[field], dict) and isinstance(wrong, dict):
+                        continue  # same type
+                    evidence[field] = wrong
+                    found = validate_chain(chain, CONTRACT)
+                    self.assertTrue(
+                        any(f.startswith(f"E_TYPE:{state}.{field}") or f.startswith(f"E_MISSING_EVIDENCE:{state}.{field}") for f in found),
+                        f"{state}.{field}={wrong!r}: {found}",
+                    )
+        # a non-empty object instead of the list never passes silently
+        chain = self._full()
+        self._evidence(chain, "corrected")["files"] = {"path": "a", "before_sha256": "x" * 64, "after_sha256": "y" * 64}
+        self.assertIn("E_TYPE:corrected.files", validate_chain(chain, CONTRACT))
+        # elements of a list must be objects, nested lists must be lists
+        for state, field in (("corrected", "files"), ("corrected", "differences"), ("corrected", "archival"),
+                             ("corrected", "open_requirements"), ("reviewed", "verdicts")):
+            chain = self._full()
+            self._evidence(chain, state)[field].append("not-an-object")
+            self.assertTrue(any(f.startswith(f"E_TYPE:{state}.{field}[]") for f in validate_chain(chain, CONTRACT)), field)
+        chain = self._full()
+        self._evidence(chain, "corrected")["archival"][0]["reader_checks"] = {"ref": "r"}
+        self.assertIn("E_TYPE:corrected.archival.reader_checks", validate_chain(chain, CONTRACT))
+
+    def test_p_interval_ref_has_a_form_that_is_no_time_value(self):
+        good = ("config:consumer/routine-a", "routine:2035", "policy:docs.freshness", "config:a_b-c.d/e")
+        bad = ("14", "2035", 14, 14.0, True, "every 14 days", "alle 14 Tage", "P14D", "PT36H", "14d", "config:", "config: 14",
+               "cfg:routine", "routine:with space", "config:every-14-days", "config:14-days", "")
+        for ref in good:
+            chain = load("pos_trigger_planned_only.json")
+            self._evidence(chain, "trigger_planned")["interval_ref"] = ref
+            self.assertEqual([], validate_chain(chain, CONTRACT), repr(ref))
+        for ref in bad:
+            chain = load("pos_trigger_planned_only.json")
+            self._evidence(chain, "trigger_planned")["interval_ref"] = ref
+            found = validate_chain(chain, CONTRACT)
+            self.assertTrue(
+                any(f.startswith(("E_INTERVAL_REF", "E_FROZEN_INTERVAL", "E_MISSING_EVIDENCE:trigger_planned.interval_ref")) for f in found),
+                f"{ref!r}: {found}",
+            )
+        weak = copy.deepcopy(CONTRACT)
+        weak["reference_patterns"]["interval_ref"] = "^.*$"
+        self.assertTrue(any("interval_ref reference form" in p for p in validate_contract(weak)))
+
+    def test_q_archival_needs_both_check_kinds_utc_time_and_ordered_checks(self):
+        def archive(chain):
+            return self._evidence(chain, "corrected")["archival"][0]
+
+        chain = self._full()
+        self.assertEqual("archive", archive(chain)["action"])
+        self.assertEqual([], validate_chain(chain, CONTRACT))
+        for kind in ("reader", "link"):
+            chain = self._full()
+            archive(chain)["reader_checks"] = [c for c in archive(chain)["reader_checks"] if c["kind"] == kind]
+            self.assertIn("E_ARCHIVE_CHECK_KINDS", validate_chain(chain, CONTRACT), kind)
+        for value in (None, "2026-10-10T08:55:00", "2026-10-10T10:55:00+02:00", "yesterday", 7):
+            chain = self._full()
+            if value is None:
+                del archive(chain)["archived_at"]
+            else:
+                archive(chain)["archived_at"] = value
+            self.assertIn("E_ARCHIVE_TIME", validate_chain(chain, CONTRACT), repr(value))
+        chain = self._full()
+        archive(chain)["archived_at"] = "2026-10-10T08:55:00Z"  # UTC spelled with Z is fine
+        self.assertEqual([], validate_chain(chain, CONTRACT))
+        for stamp, label in (("2026-10-10T08:19:59+00:00", "before the run was observed"),
+                             ("2026-10-10T08:56:00+00:00", "after archived_at")):
+            chain = self._full()
+            archive(chain)["reader_checks"][0]["checked_at"] = stamp
+            self.assertTrue(any(f.startswith("E_ARCHIVE_ORDER") for f in validate_chain(chain, CONTRACT)), label)
+        # boundary: exactly at the observed_at of the executed entry and exactly at archived_at is allowed
+        chain = self._full()
+        archive(chain)["reader_checks"][0]["checked_at"] = "2026-10-10T08:20:00+00:00"
+        archive(chain)["reader_checks"][1]["checked_at"] = archive(chain)["archived_at"]
+        self.assertEqual([], validate_chain(chain, CONTRACT))
+        chain = self._full()
+        archive(chain)["archived_at"] = "2026-10-10T09:00:01+00:00"
+        self.assertTrue(any(f.startswith("E_ARCHIVE_ORDER:archived_at") for f in validate_chain(chain, CONTRACT)))
+        # a kept item with active readers needs no archived_at, but its checks are still ordered
+        chain = self._full()
+        keep = self._evidence(chain, "corrected")["archival"][1]
+        self.assertEqual("keep", keep["action"])
+        keep["reader_checks"][0]["checked_at"] = "2026-10-10T09:00:01+00:00"
+        self.assertTrue(any(f.startswith("E_ARCHIVE_ORDER") for f in validate_chain(chain, CONTRACT)))
+
     def test_i_fixtures_carry_no_live_environment_markers(self):
         for path in FIXTURES.glob("*.json"):
             text = path.read_text(encoding="utf-8")

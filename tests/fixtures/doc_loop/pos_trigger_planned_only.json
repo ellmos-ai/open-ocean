@@ -8,7 +8,7 @@
       "observed_at": "2026-10-10T08:00:00+00:00",
       "evidence": {
         "routine": "routine-a",
-        "interval_ref": "consumer-config/routine-a",
+        "interval_ref": "routine:2035",
         "marker_source": "config",
         "next_due_at": "2026-10-10T08:00:00+00:00"
       }

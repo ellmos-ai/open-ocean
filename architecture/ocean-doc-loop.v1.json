@@ -70,9 +70,13 @@
     "repair_needs_review": "repaired needs reviewed, a verifiable remeasure record (reference, SHA-256, scope, ordered timestamp), remeasure.equal true and regression false.",
     "readback_is_evidence": "task_created needs readback_verified true plus a readback reference and SHA-256.",
     "event_time_order": "All event timestamps are timezone-aware ISO-8601, no later than their entry observed_at, and ordered along the chain: task creation, run start, run end, correction, review acceptance, measurement, repair.",
-    "archival_needs_reader_check": "An archive action is only valid if every reader and link check of that item was recorded and none is still active. Items with active readers are kept.",
+    "archival_needs_reader_check": "An archive action is only valid with an archived_at timestamp in UTC and at least one reader check and one link check, none still active. Every checked_at lies at or after the observed_at of the executed entry, at or before archived_at, and at or before the observed_at of the corrected entry. Items with active readers are kept.",
     "open_requirements_kept": "Every open wished-for requirement is kept as a target with a task_id; it is never dropped by a correction.",
-    "interval_is_configuration": "trigger_planned names the interval only as a reference to consumer configuration, never as a number of days or a duration."
+    "interval_is_configuration": "trigger_planned names the interval only as a reference to consumer configuration (form: config:, routine: or policy: followed by an identifier), never as a number of days or a duration. A purely numeric value or a time expression is not a reference.",
+    "strict_types": "Every mandatory collection and object has its exact type (list or object). A value of another type is an error of its own and is never treated as an empty list or skipped."
+  },
+  "reference_patterns": {
+    "interval_ref": "^(config|routine|policy):[A-Za-z0-9._/-]+$"
   },
   "configuration_fields": {
     "note": "Values are configuration of the consumer, never part of this contract.",

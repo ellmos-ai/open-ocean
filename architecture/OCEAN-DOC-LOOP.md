@@ -14,10 +14,10 @@ and read it back independently. The four variants are `help`, `root`, `requireme
 
 | State | Meaning | Mandatory evidence |
 |---|---|---|
-| `trigger_planned` | a trigger is due or planned (a plan, not a run) | routine, interval_ref, marker_source, next_due_at |
+| `trigger_planned` | a trigger is due or planned (a plan, not a run) | routine, interval_ref (form `config:`/`routine:`/`policy:` + identifier), marker_source, next_due_at |
 | `task_created` | a bounded analysis task exists and was read back | task_id, title_sha256, worker_binding, readback_verified (true), readback_ref, readback_sha256, created_at |
 | `executed` | a real run ended, possibly failed | run_id, host, instance, product_version, exit_state, exit_code, started_at, finished_at, result_id, author_id, author_instance |
-| `corrected` | descriptive documentation was changed | files (before/after SHA-256), differences, diff_ref, corrected_at, archival (reader and link checks), open_requirements (each with task_id) |
+| `corrected` | descriptive documentation was changed | files (before/after SHA-256), differences, diff_ref, corrected_at, archival (archived_at in UTC plus reader and link checks), open_requirements (each with task_id) |
 | `reviewed` | an independent read-back judged each difference | reviewer_id, reviewer_instance, verdicts (one per difference index), accepted_at |
 | `repaired` | a verifiable re-measurement shows documentation and reality agree | repair_success_at, remeasure (equal, measured_at, measurement_ref, measurement_sha256, scope), regression |
 
@@ -39,13 +39,20 @@ and read it back independently. The four variants are `help`, `root`, `requireme
   verdicts carry unique, valid `difference_index` values that cover all differences exactly.
 - Every corrected file carries two different SHA-256 values. Every difference names statement,
   source, observed value, evidence reference and scope (host, instance, version, surface).
-- An `archive` action is only valid if every reader and link check of that item was recorded and
-  none is still active; items with active readers are kept. Every open wished-for requirement is
-  kept as a target with a `task_id`.
+- An `archive` action is only valid with an `archived_at` timestamp in UTC and at least one reader
+  check and one link check, none still active. Every `checked_at` lies at or after the `observed_at`
+  of the executed entry, at or before `archived_at`, and at or before the `observed_at` of the
+  corrected entry; checks of kept items are ordered the same way. Items with active readers are
+  kept. Every open wished-for requirement is kept as a target with a `task_id`.
 - `repaired` needs `reviewed`, a verifiable `remeasure` record (reference, SHA-256, scope, ordered
   timestamp), `remeasure.equal` true and `regression` false.
 - `trigger_planned` names the interval only as a reference (`interval_ref`) to the consumer
-  configuration, never as a number of days or a duration.
+  configuration, in the form `^(config|routine|policy):[A-Za-z0-9._/-]+$` (for example
+  `routine:2035`). A purely numeric value, a number of days or a duration is not a reference, and a
+  contract that weakens this form is rejected.
+- Every mandatory collection and object has its exact type (list or object, and objects inside
+  lists). A value of another type is an error of its own and is never treated as an empty list or
+  skipped.
 
 Intervals, worker bindings, archive policy and source/reader roots are configuration of the
 consuming system. The contract freezes no model, path, fan-out, time or archive percentage. The

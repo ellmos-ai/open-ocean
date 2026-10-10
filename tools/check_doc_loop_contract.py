@@ -2,8 +2,9 @@
 """Check the documentation-loop contract against synthetic evidence chains.
 
 The checker verifies:
-  * the contract document itself (shape, states, rules, mandatory evidence sets that the
-    contract may extend but never weaken, no frozen model/path/fan-out/time/archive values)
+  * the contract document itself (shape, states, rules, mandatory evidence sets and the
+    interval reference form that the contract may extend but never weaken, no frozen
+    model/path/fan-out/time/archive values)
   * every positive fixture chain is accepted without problems
   * every negative fixture chain is rejected with (at least) the expected problem codes
 
@@ -19,7 +20,7 @@ import argparse
 import json
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -35,18 +36,34 @@ REQUIRED_EVIDENCE = {
     "reviewed": ["reviewer_id", "reviewer_instance", "verdicts", "accepted_at"],
     "repaired": ["repair_success_at", "remeasure", "regression"],
 }
+# Strict value types of the mandatory fields. "int" excludes bool; "int|none" allows a null.
+FIELD_TYPES = {
+    "trigger_planned": {"routine": "str", "interval_ref": "str", "marker_source": "str", "next_due_at": "str"},
+    "task_created": {"task_id": "int", "title_sha256": "str", "worker_binding": "dict", "readback_verified": "bool",
+                     "readback_ref": "str", "readback_sha256": "str", "created_at": "str"},
+    "executed": {"run_id": "str", "host": "str", "instance": "str", "product_version": "str", "exit_state": "str",
+                 "exit_code": "int|none", "started_at": "str", "finished_at": "str", "result_id": "str",
+                 "author_id": "str", "author_instance": "str"},
+    "corrected": {"files": "list", "differences": "list", "diff_ref": "str", "corrected_at": "str",
+                  "archival": "list", "open_requirements": "list"},
+    "reviewed": {"reviewer_id": "str", "reviewer_instance": "str", "verdicts": "list", "accepted_at": "str"},
+    "repaired": {"repair_success_at": "str", "remeasure": "dict", "regression": "bool"},
+}
 EMPTY_LIST_OK = {("corrected", "archival"), ("corrected", "open_requirements")}
 NULL_OK = {("executed", "exit_code")}
+INTERVAL_REF_PATTERN = r"^(config|routine|policy):[A-Za-z0-9._/-]+$"
+INTERVAL_REF_RE = re.compile(INTERVAL_REF_PATTERN)
 REQUIRED_TOP_KEYS = [
     "schema", "status", "recorded_at", "claim_boundary", "variants", "states", "enums",
     "difference_fields", "scope_fields", "archival_fields", "reader_check_fields",
-    "open_requirement_fields", "remeasure_fields", "rules", "configuration_fields", "fixtures", "next_gates",
+    "open_requirement_fields", "remeasure_fields", "reference_patterns", "rules",
+    "configuration_fields", "fixtures", "next_gates",
 ]
 EXPECTED_RULES = {
     "monotonic", "no_skipping", "marker_is_not_evidence", "task_status_is_not_evidence",
     "failed_execution_stops", "independent_review", "hash_bound_correction", "verdict_coverage",
     "repair_needs_review", "readback_is_evidence", "event_time_order", "archival_needs_reader_check",
-    "open_requirements_kept", "interval_is_configuration",
+    "open_requirements_kept", "interval_is_configuration", "strict_types",
 }
 MARKER_KEYS = {"last_run", "dispatch_marker", "task_status"}
 SHA_RE = re.compile(r"[0-9a-f]{64}")
@@ -83,12 +100,34 @@ def parse_time(value: Any) -> datetime | None:
     return parsed if parsed.tzinfo is not None else None
 
 
+def is_utc(value: Any) -> bool:
+    parsed = parse_time(value)
+    return parsed is not None and parsed.utcoffset() == timedelta(0)
+
+
 def present(value: Any) -> bool:
     return value is not None and value != "" and value != [] and value != {}
 
 
 def is_sha(value: Any) -> bool:
     return isinstance(value, str) and SHA_RE.fullmatch(value) is not None
+
+
+def type_ok(value: Any, spec: str) -> bool:
+    kinds = {
+        "str": lambda v: isinstance(v, str),
+        "int": lambda v: isinstance(v, int) and not isinstance(v, bool),
+        "bool": lambda v: isinstance(v, bool),
+        "list": lambda v: isinstance(v, list),
+        "dict": lambda v: isinstance(v, dict),
+        "none": lambda v: v is None,
+    }
+    return any(kinds[part](value) for part in spec.split("|"))
+
+
+def dict_items(value: Any) -> list[dict[str, Any]]:
+    """The dict elements of a list; anything else is skipped here (the type check reports it)."""
+    return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
 
 
 def frozen_hits(text: str) -> list[str]:
@@ -112,6 +151,8 @@ def validate_contract(contract: dict[str, Any]) -> list[str]:
             problems.append(f"contract weakens required evidence of {name}: {sorted(missing)}")
     if set(contract.get("rules", {})) != EXPECTED_RULES:
         problems.append("rules set mismatch")
+    if contract.get("reference_patterns", {}).get("interval_ref") != INTERVAL_REF_PATTERN:
+        problems.append("contract weakens the interval_ref reference form")
     boundary = str(contract.get("claim_boundary", ""))
     if "unknown" not in boundary or "starts no workflow" not in boundary:
         problems.append("claim_boundary must state unknown semantics and the absence of a runtime")
@@ -138,9 +179,17 @@ def _missing(contract: dict[str, Any], state: str, evidence: dict[str, Any]) -> 
             continue
         if (state, field) in NULL_OK and value is None:
             continue
-        if not present(value):
+        if not present(value) and not (isinstance(value, bool) and FIELD_TYPES.get(state, {}).get(field) == "bool"):
             found.append(f"E_MISSING_EVIDENCE:{state}.{field}")
     return found
+
+
+def _types(state: str, evidence: dict[str, Any]) -> list[str]:
+    return [
+        f"E_TYPE:{state}.{field}"
+        for field, spec in FIELD_TYPES[state].items()
+        if field in evidence and not type_ok(evidence[field], spec)
+    ]
 
 
 def _get(evidence: dict[str, Any], dotted: str) -> Any:
@@ -151,10 +200,52 @@ def _get(evidence: dict[str, Any], dotted: str) -> Any:
 
 
 def _check_scope(scope: Any, contract: dict[str, Any], code: str, problems: list[str]) -> None:
-    scope = scope if isinstance(scope, dict) else {}
-    if any(not present(scope.get(field)) for field in contract["scope_fields"]) \
+    if not isinstance(scope, dict):
+        problems.append(code)
+        return
+    if any(not isinstance(scope.get(field), str) or not scope.get(field) for field in contract["scope_fields"]) \
             or scope.get("surface") not in contract["enums"]["surface"]:
         problems.append(code)
+
+
+def _check_archival(item: dict[str, Any], contract: dict[str, Any], executed_seen: datetime | None,
+                    corrected_seen: datetime | None, problems: list[str]) -> None:
+    if any(field not in item for field in contract["archival_fields"]) \
+            or item.get("action") not in contract["enums"]["archival_action"]:
+        problems.append("E_ARCHIVAL_FIELDS")
+        return
+    archive = item["action"] == "archive"
+    checks_raw = item["reader_checks"]
+    if not isinstance(checks_raw, list) or any(not isinstance(c, dict) for c in checks_raw):
+        problems.append("E_TYPE:corrected.archival.reader_checks")
+        return
+    checks = checks_raw
+    valid = [c for c in checks if all(f in c for f in contract["reader_check_fields"])
+             and c.get("kind") in contract["enums"]["reader_kind"] and isinstance(c.get("active"), bool)
+             and isinstance(c.get("ref"), str) and c.get("ref") and parse_time(c.get("checked_at")) is not None]
+    if archive:
+        if not checks or len(valid) != len(checks):
+            problems.append("E_ARCHIVE_UNCHECKED")
+        else:
+            kinds = {c["kind"] for c in valid}
+            if kinds != set(contract["enums"]["reader_kind"]):
+                problems.append("E_ARCHIVE_CHECK_KINDS")
+            if any(c["active"] for c in valid):
+                problems.append("E_ARCHIVE_ACTIVE_READER")
+        archived = item.get("archived_at")
+        if not is_utc(archived):
+            problems.append("E_ARCHIVE_TIME")
+    else:
+        archived = None
+    archived_at = parse_time(archived) if archive and is_utc(archived) else None
+    for check in valid:
+        stamp = parse_time(check["checked_at"])
+        if (executed_seen is not None and stamp < executed_seen) \
+                or (archived_at is not None and stamp > archived_at) \
+                or (corrected_seen is not None and stamp > corrected_seen):
+            problems.append("E_ARCHIVE_ORDER:checked_at")
+    if archived_at is not None and corrected_seen is not None and archived_at > corrected_seen:
+        problems.append("E_ARCHIVE_ORDER:archived_at")
 
 
 def validate_chain(chain: dict[str, Any], contract: dict[str, Any]) -> list[str]:
@@ -191,6 +282,7 @@ def validate_chain(chain: dict[str, Any], contract: dict[str, Any]) -> list[str]
                 problems.append(f"E_TIME_ORDER:{state}")
             last_time = stamp if last_time is None or stamp > last_time else last_time
         problems += _missing(contract, state, evidence)
+        problems += _types(state, evidence)
         if EXPECTED_STATES.index(state) >= EXPECTED_STATES.index("executed"):
             for key in sorted(MARKER_KEYS & set(evidence)):
                 code = "E_TASK_STATUS_AS_EVIDENCE" if key == "task_status" else "E_MARKER_AS_EVIDENCE"
@@ -226,13 +318,16 @@ def validate_chain(chain: dict[str, Any], contract: dict[str, Any]) -> list[str]
             and parse_time(by_state["trigger_planned"]["next_due_at"]) is None:
         problems.append("E_EVENT_TIME:trigger_planned.next_due_at")
 
-    # trigger: interval only as a reference to configuration
+    # trigger: the interval is only a reference to configuration, in a form that is no time value
     trigger = by_state.get("trigger_planned")
     if trigger is not None:
         ref = trigger.get("interval_ref")
-        if isinstance(ref, str) and (frozen_hits(ref) or ref.strip().isdigit()):
-            problems.append("E_FROZEN_INTERVAL")
-        if trigger.get("marker_source") not in contract["enums"]["marker_source"] and "marker_source" in trigger:
+        if "interval_ref" in trigger:
+            if not isinstance(ref, str) or INTERVAL_REF_RE.fullmatch(ref) is None:
+                problems.append("E_INTERVAL_REF")
+            if isinstance(ref, str) and frozen_hits(ref):
+                problems.append("E_FROZEN_INTERVAL")
+        if "marker_source" in trigger and trigger.get("marker_source") not in contract["enums"]["marker_source"]:
             problems.append("E_MARKER_SOURCE")
 
     # task read-back
@@ -256,7 +351,7 @@ def validate_chain(chain: dict[str, Any], contract: dict[str, Any]) -> list[str]
     corrected = by_state.get("corrected")
     differences: list[Any] = []
     if corrected is not None:
-        for file in corrected.get("files", []) if isinstance(corrected.get("files"), list) else []:
+        for file in dict_items(corrected.get("files")):
             before, after = file.get("before_sha256"), file.get("after_sha256")
             if not (is_sha(before) and is_sha(after)):
                 problems.append("E_HASH")
@@ -264,45 +359,51 @@ def validate_chain(chain: dict[str, Any], contract: dict[str, Any]) -> list[str]
                 problems.append("E_HASH_UNCHANGED")
             if not present(file.get("path")):
                 problems.append("E_HASH")
-        differences = corrected.get("differences", []) if isinstance(corrected.get("differences"), list) else []
-        for diff in differences:
+        if isinstance(corrected.get("files"), list) and any(not isinstance(f, dict) for f in corrected["files"]):
+            problems.append("E_TYPE:corrected.files[]")
+        if isinstance(corrected.get("differences"), list):
+            differences = corrected["differences"]
+            if any(not isinstance(d, dict) for d in differences):
+                problems.append("E_TYPE:corrected.differences[]")
+        for diff in dict_items(differences):
             if any(not present(diff.get(field)) for field in contract["difference_fields"]):
                 problems.append("E_DIFFERENCE_FIELDS")
                 continue
             _check_scope(diff["scope"], contract, "E_DIFFERENCE_SCOPE", problems)
-        for item in corrected.get("archival", []) if isinstance(corrected.get("archival"), list) else []:
-            if any(field not in item for field in contract["archival_fields"]) \
-                    or item.get("action") not in contract["enums"]["archival_action"]:
-                problems.append("E_ARCHIVAL_FIELDS")
-                continue
-            if item["action"] != "archive":
-                continue
-            checks = item["reader_checks"] if isinstance(item["reader_checks"], list) else []
-            valid = [c for c in checks if isinstance(c, dict) and all(f in c for f in contract["reader_check_fields"])
-                     and c.get("kind") in contract["enums"]["reader_kind"] and isinstance(c.get("active"), bool)
-                     and parse_time(c.get("checked_at")) is not None]
-            if not checks or len(valid) != len(checks):
-                problems.append("E_ARCHIVE_UNCHECKED")
-            elif any(c["active"] for c in valid):
-                problems.append("E_ARCHIVE_ACTIVE_READER")
-        for req in corrected.get("open_requirements", []) if isinstance(corrected.get("open_requirements"), list) else []:
-            task_id = req.get("task_id") if isinstance(req, dict) else None
-            if not isinstance(req, dict) or any(not present(req.get(f)) for f in ("statement", "source")) \
-                    or not isinstance(task_id, int) or isinstance(task_id, bool) or task_id < 1:
-                problems.append("E_REQUIREMENT_NO_TASK")
+        archival = corrected.get("archival")
+        if isinstance(archival, list):
+            for item in archival:
+                if not isinstance(item, dict):
+                    problems.append("E_TYPE:corrected.archival[]")
+                    continue
+                _check_archival(item, contract, observed.get("executed"), observed.get("corrected"), problems)
+        open_requirements = corrected.get("open_requirements")
+        if isinstance(open_requirements, list):
+            for req in open_requirements:
+                if not isinstance(req, dict):
+                    problems.append("E_TYPE:corrected.open_requirements[]")
+                    continue
+                task_id = req.get("task_id")
+                if any(not isinstance(req.get(f), str) or not req.get(f) for f in ("statement", "source")) \
+                        or not isinstance(task_id, int) or isinstance(task_id, bool) or task_id < 1:
+                    problems.append("E_REQUIREMENT_NO_TASK")
 
     reviewed = by_state.get("reviewed")
     if reviewed is not None and executed is not None:
         if reviewed.get("reviewer_id") == executed.get("author_id") \
                 or reviewed.get("reviewer_instance") == executed.get("author_instance"):
             problems.append("E_SAME_REVIEWER")
-        verdicts = reviewed.get("verdicts", [])
-        indices = [v.get("difference_index") for v in verdicts] if isinstance(verdicts, list) else []
-        if not isinstance(verdicts, list) \
-                or any(v.get("verdict") not in contract["enums"]["verdict"] for v in verdicts) \
-                or any(not isinstance(i, int) or isinstance(i, bool) for i in indices) \
-                or sorted(indices) != list(range(len(differences))):
-            problems.append("E_VERDICTS")
+        verdicts = reviewed.get("verdicts")
+        if isinstance(verdicts, list):
+            if any(not isinstance(v, dict) for v in verdicts):
+                problems.append("E_TYPE:reviewed.verdicts[]")
+            items = dict_items(verdicts)
+            indices = [v.get("difference_index") for v in items]
+            if len(items) != len(verdicts) \
+                    or any(v.get("verdict") not in contract["enums"]["verdict"] for v in items) \
+                    or any(not isinstance(i, int) or isinstance(i, bool) for i in indices) \
+                    or sorted(indices) != list(range(len(differences))):
+                problems.append("E_VERDICTS")
 
     repaired = by_state.get("repaired")
     if repaired is not None:

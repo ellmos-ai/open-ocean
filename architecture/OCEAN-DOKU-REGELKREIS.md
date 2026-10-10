@@ -16,10 +16,10 @@ anpassen und unabhängig rücklesen. Die vier Varianten sind `help`, `root`, `re
 
 | Zustand | Bedeutung | Pflichtbelege |
 |---|---|---|
-| `trigger_planned` | ein Trigger ist fällig oder geplant (Plan, kein Lauf) | routine, interval_ref, marker_source, next_due_at |
+| `trigger_planned` | ein Trigger ist fällig oder geplant (Plan, kein Lauf) | routine, interval_ref (Form `config:`/`routine:`/`policy:` + Kennung), marker_source, next_due_at |
 | `task_created` | eine begrenzte Analyseaufgabe existiert und wurde rückgelesen | task_id, title_sha256, worker_binding, readback_verified (wahr), readback_ref, readback_sha256, created_at |
 | `executed` | ein realer Lauf ist beendet, evtl. fehlgeschlagen | run_id, host, instance, product_version, exit_state, exit_code, started_at, finished_at, result_id, author_id, author_instance |
-| `corrected` | beschreibende Doku wurde geändert | files (SHA-256 vorher/nachher), differences, diff_ref, corrected_at, archival (Leser- und Linkprüfungen), open_requirements (je mit task_id) |
+| `corrected` | beschreibende Doku wurde geändert | files (SHA-256 vorher/nachher), differences, diff_ref, corrected_at, archival (archived_at in UTC plus Leser- und Linkprüfungen), open_requirements (je mit task_id) |
 | `reviewed` | ein unabhängiger Rücklesereview hat jede Differenz beurteilt | reviewer_id, reviewer_instance, verdicts (eines je Differenzindex), accepted_at |
 | `repaired` | eine prüfbare Nachmessung zeigt Übereinstimmung von Doku und Realität | repair_success_at, remeasure (equal, measured_at, measurement_ref, measurement_sha256, scope), regression |
 
@@ -42,13 +42,21 @@ anpassen und unabhängig rücklesen. Die vier Varianten sind `help`, `root`, `re
   Differenzen genau abdecken.
 - Jede korrigierte Datei trägt zwei verschiedene SHA-256-Werte. Jede Differenz nennt Aussage,
   Quelle, beobachteten Wert, Belegverweis und Geltungsbereich (Host, Instanz, Version, Fläche).
-- Eine Aktion `archive` ist nur gültig, wenn jede Leser- und Linkprüfung dieses Eintrags erfasst
-  wurde und keine mehr aktiv ist; Einträge mit aktiven Lesern bleiben erhalten. Jede offene
-  gewünschte Anforderung bleibt als Soll mit `task_id` erhalten.
+- Eine Aktion `archive` ist nur gültig mit einem `archived_at`-Zeitstempel in UTC sowie mindestens
+  einer Leser- und einer Linkprüfung, von denen keine mehr aktiv ist. Jedes `checked_at` liegt nicht
+  vor dem `observed_at` des Eintrags `executed`, nicht nach `archived_at` und nicht nach dem
+  `observed_at` des Eintrags `corrected`; Prüfungen beibehaltener Einträge sind gleich geordnet.
+  Einträge mit aktiven Lesern bleiben erhalten. Jede offene gewünschte Anforderung bleibt als Soll
+  mit `task_id` erhalten.
 - `repaired` braucht `reviewed`, einen prüfbaren `remeasure`-Beleg (Verweis, SHA-256, Geltungsbereich,
   geordneter Zeitstempel), `remeasure.equal` wahr und `regression` falsch.
 - `trigger_planned` nennt das Intervall nur als Verweis (`interval_ref`) auf die Konfiguration des
-  nutzenden Systems, nie als Anzahl Tage oder Dauer.
+  nutzenden Systems, in der Form `^(config|routine|policy):[A-Za-z0-9._/-]+$` (zum Beispiel
+  `routine:2035`). Ein rein numerischer Wert, eine Anzahl Tage oder eine Dauer ist kein Verweis;
+  ein Vertrag, der diese Form abschwächt, wird abgelehnt.
+- Jede Pflichtsammlung und jedes Pflichtobjekt hat seinen genauen Typ (Liste oder Objekt, auch die
+  Objekte in Listen). Ein Wert anderen Typs ist ein eigener Fehler und wird nie als leere Liste
+  gedeutet oder übersprungen.
 
 Intervalle, Worker-Bindungen, Archivregeln und Quell-/Leserwurzeln sind Konfiguration des
 nutzenden Systems. Der Vertrag friert kein Modell, keinen Pfad, keinen Fanout, keine Zeit und

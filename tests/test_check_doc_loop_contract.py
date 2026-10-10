@@ -230,11 +230,15 @@ class DocLoopContractTests(unittest.TestCase):
         self.assertTrue(is_utc("2026-10-10T08:55:00+00:00"))
         self.assertFalse(is_utc("2026-10-10T10:55:00+02:00"))
         self.assertFalse(is_utc("2026-10-10T08:55:00"))
-        for bad in ("2026-10-10T08:55:00ZZ", "2026-10-10T08:55:00+00:00Z", "2026-10-10Z08:55:00", "Z", "", None, 5):
+        # one exact shape on every supported Python: Python 3.10 alone would accept some of these
+        for bad in ("2026-10-10T08:55:00ZZ", "2026-10-10T08:55:00Z+00:00", "2026-10-10T08:55:00+00:00Z", "2026-10-10Z08:55:00",
+                    "2026-10-10T08:55Z", "2026-10-10T08:55:00z", "2026-10-10 08:55:00+00:00", "2026-10-10T08:55:00.5Z",
+                    "2026-10-10T08:55:00+0000", "2026-10-10T08:55:00 Z", " 2026-10-10T08:55:00Z", "Z", "", None, 5):
             self.assertIsNone(parse_time(bad), repr(bad))
-        # fractional seconds and offsets in the isoformat() shape stay valid on every supported version
-        self.assertIsNotNone(parse_time("2026-10-10T08:55:00.123456+00:00"))
-        self.assertIsNotNone(parse_time("2026-10-10T08:55:00.123456Z"))
+        # fractional seconds (3 or 6 digits) and numeric offsets stay valid on every supported version
+        for good in ("2026-10-10T08:55:00.123456+00:00", "2026-10-10T08:55:00.123456Z", "2026-10-10T08:55:00.123Z",
+                     "2026-10-10T08:55:00-05:30", "2026-10-10T08:55:00+02:00"):
+            self.assertIsNotNone(parse_time(good), good)
         # the whole check accepts Z for archived_at and for event times
         chain = self._full()
         self._evidence(chain, "corrected")["archival"][0]["archived_at"] = "2026-10-10T08:55:00Z"

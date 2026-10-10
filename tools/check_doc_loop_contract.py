@@ -67,6 +67,7 @@ EXPECTED_RULES = {
 }
 MARKER_KEYS = {"last_run", "dispatch_marker", "task_status"}
 SHA_RE = re.compile(r"[0-9a-f]{64}")
+TIME_RE = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3}|\.\d{6})?(?:Z|[+-]\d{2}:\d{2})")
 UNIT = r"(?:day|days|tag|tage|tagen|hour|hours|stunde|stunden|week|weeks|woche|wochen|minute|minutes|minuten|month|months|monat|monate|monaten)"
 # Frozen values from the legacy workflows must not enter the contract or the fixtures.
 FROZEN_PATTERNS = {
@@ -92,6 +93,10 @@ TIME_ORDER = [
 
 def parse_time(value: Any) -> datetime | None:
     if not isinstance(value, str):
+        return None
+    # One exact shape on every supported Python (3.10 is lenient about stray characters and needs
+    # 3 or 6 fractional digits): extended ISO-8601 with seconds and a mandatory Z or numeric offset.
+    if TIME_RE.fullmatch(value) is None:
         return None
     try:
         # Python < 3.11 rejects a trailing "Z"; spell it as an explicit UTC offset.

@@ -32,7 +32,8 @@ anpassen und unabhängig rücklesen. Die vier Varianten sind `help`, `root`, `re
 - Ein Last-Run- oder Dispatchmarker ist nur Trigger-/Dedupmarker. Auch ein Taskstatus wie `done`
   ist kein Beleg. Ausführung braucht `run_id`, `finished_at` und `result_id`.
 - `task_created` braucht `readback_verified` wahr sowie Rückleseverweis und SHA-256.
-- Alle Ereigniszeitstempel sind zeitzonenbehaftetes ISO-8601, nicht später als der `observed_at` des
+- Alle Ereigniszeitstempel haben genau eine Form, `JJJJ-MM-TTTHH:MM:SS[.fff|.ffffff]` gefolgt von `Z`
+  oder `±HH:MM` (auf jeder unterstützten Python-Version gleich), und liegen nicht später als der `observed_at` des
   Eintrags und entlang der Kette geordnet: Taskanlage, Laufstart, Laufende, Korrektur,
   Review-Annahme, Messung, Reparatur.
 - `exit_state` `failed` oder `unknown` beendet die Kette bei `executed`. Nur `succeeded` mit

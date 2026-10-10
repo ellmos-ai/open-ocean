@@ -30,7 +30,8 @@ and read it back independently. The four variants are `help`, `root`, `requireme
 - A last-run or dispatch marker is only a trigger/dedup marker. A task status such as `done` is not
   evidence either. Execution needs `run_id`, `finished_at` and `result_id`.
 - `task_created` needs `readback_verified` true plus a read-back reference and SHA-256.
-- All event timestamps are timezone-aware ISO-8601, no later than their entry `observed_at`, and
+- All event timestamps use one exact shape, `YYYY-MM-DDTHH:MM:SS[.fff|.ffffff]` followed by `Z` or
+  `±HH:MM` (identical on every supported Python version), are no later than their entry `observed_at`, and
   ordered along the chain: task creation, run start, run end, correction, review acceptance,
   measurement, repair.
 - `exit_state` `failed` or `unknown` ends the chain at `executed`. Only `succeeded` with `exit_code`

@@ -3,6 +3,7 @@
     "pos_corrected_not_yet_reviewed.json",
     "pos_failed_execution_stops.json",
     "pos_full_chain.json",
+    "pos_no_archival_no_open_requirements.json",
     "pos_trigger_planned_only.json"
   ],
   "negative": {
@@ -44,6 +45,73 @@
     ],
     "neg_difference_without_scope.json": [
       "E_DIFFERENCE_SCOPE"
+    ],
+    "neg_readback_not_verified.json": [
+      "E_READBACK"
+    ],
+    "neg_readback_without_reference.json": [
+      "E_MISSING_EVIDENCE",
+      "E_READBACK"
+    ],
+    "neg_repaired_without_measurement.json": [
+      "E_MEASUREMENT"
+    ],
+    "neg_repaired_measurement_without_scope.json": [
+      "E_MEASUREMENT"
+    ],
+    "neg_repaired_measured_before_review.json": [
+      "E_EVENT_ORDER"
+    ],
+    "neg_run_finished_before_started.json": [
+      "E_EVENT_ORDER"
+    ],
+    "neg_event_time_not_iso.json": [
+      "E_EVENT_TIME"
+    ],
+    "neg_event_time_without_timezone.json": [
+      "E_EVENT_TIME"
+    ],
+    "neg_event_after_observed.json": [
+      "E_EVENT_AFTER_OBSERVED"
+    ],
+    "neg_correction_before_run_end.json": [
+      "E_EVENT_ORDER"
+    ],
+    "neg_review_duplicate_index.json": [
+      "E_VERDICTS"
+    ],
+    "neg_review_index_out_of_range.json": [
+      "E_VERDICTS"
+    ],
+    "neg_review_missing_difference.json": [
+      "E_VERDICTS"
+    ],
+    "neg_archive_with_active_reader.json": [
+      "E_ARCHIVE_ACTIVE_READER"
+    ],
+    "neg_archive_without_reader_check.json": [
+      "E_ARCHIVE_UNCHECKED"
+    ],
+    "neg_archival_not_recorded.json": [
+      "E_MISSING_EVIDENCE"
+    ],
+    "neg_open_requirement_without_task.json": [
+      "E_REQUIREMENT_NO_TASK"
+    ],
+    "neg_open_requirements_not_recorded.json": [
+      "E_MISSING_EVIDENCE"
+    ],
+    "neg_frozen_interval_every_n_days.json": [
+      "E_FROZEN_INTERVAL"
+    ],
+    "neg_frozen_interval_german.json": [
+      "E_FROZEN_INTERVAL"
+    ],
+    "neg_frozen_interval_iso_duration.json": [
+      "E_FROZEN_INTERVAL"
+    ],
+    "neg_frozen_interval_plain_number.json": [
+      "E_FROZEN_INTERVAL"
     ]
   }
 }

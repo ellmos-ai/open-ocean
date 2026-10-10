@@ -16,12 +16,12 @@
     {
       "name": "trigger_planned",
       "meaning": "A trigger is due or planned. This is a plan, not an execution.",
-      "required_evidence": ["routine", "interval_days", "marker_source", "next_due_at"]
+      "required_evidence": ["routine", "interval_ref", "marker_source", "next_due_at"]
     },
     {
       "name": "task_created",
       "meaning": "A bounded analysis task exists and was read back from the task source.",
-      "required_evidence": ["task_id", "title_sha256", "worker_binding", "readback_verified", "created_at"]
+      "required_evidence": ["task_id", "title_sha256", "worker_binding", "readback_verified", "readback_ref", "readback_sha256", "created_at"]
     },
     {
       "name": "executed",
@@ -30,17 +30,17 @@
     },
     {
       "name": "corrected",
-      "meaning": "Descriptive documentation was changed to match the measured reality.",
-      "required_evidence": ["files", "differences", "diff_ref"]
+      "meaning": "Descriptive documentation was changed to match the measured reality. Active readers and links were checked before any archival, and open wished-for requirements were kept as a target with a task.",
+      "required_evidence": ["files", "differences", "diff_ref", "corrected_at", "archival", "open_requirements"]
     },
     {
       "name": "reviewed",
-      "meaning": "An independent read-back judged every difference.",
+      "meaning": "An independent read-back judged every difference exactly once.",
       "required_evidence": ["reviewer_id", "reviewer_instance", "verdicts", "accepted_at"]
     },
     {
       "name": "repaired",
-      "meaning": "A re-measurement shows documentation and reality agree.",
+      "meaning": "A re-measurement with a verifiable record shows documentation and reality agree.",
       "required_evidence": ["repair_success_at", "remeasure", "regression"]
     }
   ],
@@ -48,10 +48,16 @@
     "marker_source": ["config", "state_file", "scheduler_receipt"],
     "exit_state": ["succeeded", "failed", "unknown"],
     "surface": ["cli", "api", "gui", "doc"],
-    "verdict": ["confirmed", "rejected"]
+    "verdict": ["confirmed", "rejected"],
+    "archival_action": ["keep", "archive"],
+    "reader_kind": ["reader", "link"]
   },
   "difference_fields": ["statement", "source", "observed", "evidence_ref", "scope"],
   "scope_fields": ["host", "instance", "version", "surface"],
+  "archival_fields": ["item", "action", "reader_checks"],
+  "reader_check_fields": ["ref", "kind", "active", "checked_at"],
+  "open_requirement_fields": ["statement", "source", "task_id"],
+  "remeasure_fields": ["equal", "measured_at", "measurement_ref", "measurement_sha256", "scope"],
   "rules": {
     "monotonic": "A chain contains each state at most once, in the order of this list, with non-decreasing observed_at. A later state never replaces the evidence of an earlier state.",
     "no_skipping": "A state may only appear if all earlier states appear. The chain field unknown lists exactly the states without evidence.",
@@ -60,12 +66,17 @@
     "failed_execution_stops": "exit_state failed or unknown ends the chain at executed. Only succeeded with exit_code 0 may be followed by corrected.",
     "independent_review": "reviewer_id and reviewer_instance must both differ from author_id and author_instance.",
     "hash_bound_correction": "Every corrected file carries before_sha256 and after_sha256 (64 hex characters) and the two differ.",
-    "verdict_coverage": "reviewed carries exactly one verdict per difference.",
-    "repair_needs_review": "repaired needs reviewed, remeasure.equal true and regression false."
+    "verdict_coverage": "reviewed carries exactly one verdict per difference, with unique valid difference_index values covering all differences.",
+    "repair_needs_review": "repaired needs reviewed, a verifiable remeasure record (reference, SHA-256, scope, ordered timestamp), remeasure.equal true and regression false.",
+    "readback_is_evidence": "task_created needs readback_verified true plus a readback reference and SHA-256.",
+    "event_time_order": "All event timestamps are timezone-aware ISO-8601, no later than their entry observed_at, and ordered along the chain: task creation, run start, run end, correction, review acceptance, measurement, repair.",
+    "archival_needs_reader_check": "An archive action is only valid if every reader and link check of that item was recorded and none is still active. Items with active readers are kept.",
+    "open_requirements_kept": "Every open wished-for requirement is kept as a target with a task_id; it is never dropped by a correction.",
+    "interval_is_configuration": "trigger_planned names the interval only as a reference to consumer configuration, never as a number of days or a duration."
   },
   "configuration_fields": {
     "note": "Values are configuration of the consumer, never part of this contract.",
-    "fields": ["interval_days", "worker_binding", "archive_policy", "source_roots", "reader_roots"]
+    "fields": ["interval_ref", "worker_binding", "archive_policy", "source_roots", "reader_roots"]
   },
   "fixtures": {
     "directory": "tests/fixtures/doc_loop",

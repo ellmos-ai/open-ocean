@@ -254,6 +254,7 @@ tools/
   ocean_dev.py                  ein Einstiegspunkt: Resolve -> Verify -> Fetch/Place -> Activate,
                                 standardmäßig Probelauf, --apply für echte Schreibzugriffe, --rollback
   resolve_bundles.py            Bundle-Verweise -> flacher, hash-geprüfter Komponentenplan
+  check_doc_loop_contract.py    Doku-Regelkreis-Vertrag und Belegketten-Prüfer
   fetch_place.py                SHA-gepinnte Modulplatzierung, Fail-Closed
   host_adapters.py              anbieterneutrale Skill-Aktivierung und -Rückbau (Claude Code als Referenz)
   source_pins.py                Prüfung der Quellherkunft vor Resolve/Fetch

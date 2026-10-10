@@ -16,12 +16,12 @@ anpassen und unabhängig rücklesen. Die vier Varianten sind `help`, `root`, `re
 
 | Zustand | Bedeutung | Pflichtbelege |
 |---|---|---|
-| `trigger_planned` | ein Trigger ist fällig oder geplant (Plan, kein Lauf) | routine, interval_days, marker_source, next_due_at |
-| `task_created` | eine begrenzte Analyseaufgabe existiert und wurde rückgelesen | task_id, title_sha256, worker_binding, readback_verified, created_at |
+| `trigger_planned` | ein Trigger ist fällig oder geplant (Plan, kein Lauf) | routine, interval_ref, marker_source, next_due_at |
+| `task_created` | eine begrenzte Analyseaufgabe existiert und wurde rückgelesen | task_id, title_sha256, worker_binding, readback_verified (wahr), readback_ref, readback_sha256, created_at |
 | `executed` | ein realer Lauf ist beendet, evtl. fehlgeschlagen | run_id, host, instance, product_version, exit_state, exit_code, started_at, finished_at, result_id, author_id, author_instance |
-| `corrected` | beschreibende Doku wurde geändert | files (SHA-256 vorher/nachher), differences, diff_ref |
-| `reviewed` | ein unabhängiger Rücklesereview hat jede Differenz beurteilt | reviewer_id, reviewer_instance, verdicts, accepted_at |
-| `repaired` | eine Nachmessung zeigt Übereinstimmung von Doku und Realität | repair_success_at, remeasure, regression |
+| `corrected` | beschreibende Doku wurde geändert | files (SHA-256 vorher/nachher), differences, diff_ref, corrected_at, archival (Leser- und Linkprüfungen), open_requirements (je mit task_id) |
+| `reviewed` | ein unabhängiger Rücklesereview hat jede Differenz beurteilt | reviewer_id, reviewer_instance, verdicts (eines je Differenzindex), accepted_at |
+| `repaired` | eine prüfbare Nachmessung zeigt Übereinstimmung von Doku und Realität | repair_success_at, remeasure (equal, measured_at, measurement_ref, measurement_sha256, scope), regression |
 
 ## Regeln
 
@@ -31,17 +31,32 @@ anpassen und unabhängig rücklesen. Die vier Varianten sind `help`, `root`, `re
   genau die Zustände ohne Beleg. Fehlender Beleg ist `unknown`, nie Erfolg.
 - Ein Last-Run- oder Dispatchmarker ist nur Trigger-/Dedupmarker. Auch ein Taskstatus wie `done`
   ist kein Beleg. Ausführung braucht `run_id`, `finished_at` und `result_id`.
+- `task_created` braucht `readback_verified` wahr sowie Rückleseverweis und SHA-256.
+- Alle Ereigniszeitstempel sind zeitzonenbehaftetes ISO-8601, nicht später als der `observed_at` des
+  Eintrags und entlang der Kette geordnet: Taskanlage, Laufstart, Laufende, Korrektur,
+  Review-Annahme, Messung, Reparatur.
 - `exit_state` `failed` oder `unknown` beendet die Kette bei `executed`. Nur `succeeded` mit
   `exit_code` 0 darf von `corrected` gefolgt werden.
 - `reviewer_id` und `reviewer_instance` müssen sich von `author_id` und `author_instance`
-  unterscheiden.
+  unterscheiden. Die Verdicts tragen eindeutige, gültige `difference_index`-Werte, die alle
+  Differenzen genau abdecken.
 - Jede korrigierte Datei trägt zwei verschiedene SHA-256-Werte. Jede Differenz nennt Aussage,
   Quelle, beobachteten Wert, Belegverweis und Geltungsbereich (Host, Instanz, Version, Fläche).
-- `repaired` braucht `reviewed`, `remeasure.equal` wahr und `regression` falsch.
+- Eine Aktion `archive` ist nur gültig, wenn jede Leser- und Linkprüfung dieses Eintrags erfasst
+  wurde und keine mehr aktiv ist; Einträge mit aktiven Lesern bleiben erhalten. Jede offene
+  gewünschte Anforderung bleibt als Soll mit `task_id` erhalten.
+- `repaired` braucht `reviewed`, einen prüfbaren `remeasure`-Beleg (Verweis, SHA-256, Geltungsbereich,
+  geordneter Zeitstempel), `remeasure.equal` wahr und `regression` falsch.
+- `trigger_planned` nennt das Intervall nur als Verweis (`interval_ref`) auf die Konfiguration des
+  nutzenden Systems, nie als Anzahl Tage oder Dauer.
 
 Intervalle, Worker-Bindungen, Archivregeln und Quell-/Leserwurzeln sind Konfiguration des
 nutzenden Systems. Der Vertrag friert kein Modell, keinen Pfad, keinen Fanout, keine Zeit und
-keinen Archivprozentwert ein; der Checker weist solche Werte im Vertragstext zurück.
+keinen Archivprozentwert ein. Der Prüfer weist solche Werte im Vertragstext zurück (Modellnamen,
+Archivprozente, feste Pfade, Fanout-Zahlen, Intervalle wie „every N days“/„alle N Tage“,
+Dauern wie „N Tage“ und ISO-8601-Dauern) sowie in `interval_ref`. Außerdem hält er die
+Pflichtbelegmengen selbst: ein Vertrag darf Felder ergänzen, ein Vertrag mit entferntem Feld wird
+abgelehnt, und ein abgeschwächter Vertrag rettet keine Kette.
 
 ## Prüfer
 
@@ -50,7 +65,9 @@ python tools/check_doc_loop_contract.py            # Vertrag + alle Fixtures
 python tools/check_doc_loop_contract.py --chain <kette.json>
 ```
 
-Positive Fixtures müssen akzeptiert, jede negative Fixture (Marker ohne Lauf, `done` ohne Bericht,
-fehlgeschlagener Lauf mit Korrektur, Review aus derselben Instanz, Korrektur ohne Hashes u. a.) mit
-den aufgeführten Problemcodes abgelehnt werden. Exitcode 0 heißt: Vertrag und Fixtures stimmen; der
-Statusstring lautet `not-live-evidence`.
+Positive Fixtures müssen akzeptiert, jede negative Fixture (je Regel eine: Marker ohne Lauf, `done`
+ohne Bericht, nicht verifizierter Rücklesebeleg, fehlgeschlagener Lauf mit Korrektur, ungültige oder
+falsch geordnete Zeitstempel, doppelte Review-Indizes, Archivierung mit aktiven Lesern, offene
+Anforderung ohne Task, eingefrorenes Intervall, ungemessene Reparatur u. a.) mit den aufgeführten
+Problemcodes abgelehnt werden. Exitcode 0 heißt: Vertrag und Fixtures stimmen; der Statusstring
+lautet `not-live-evidence`.

@@ -8,7 +8,7 @@
       "observed_at": "2026-10-10T08:00:00+00:00",
       "evidence": {
         "routine": "routine-a",
-        "interval_days": 14,
+        "interval_ref": "consumer-config/routine-a",
         "marker_source": "config",
         "next_due_at": "2026-10-10T08:00:00+00:00"
       }
@@ -23,6 +23,8 @@
           "slot": "worker-a"
         },
         "readback_verified": true,
+        "readback_ref": "task-source/101#readback",
+        "readback_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
         "created_at": "2026-10-10T08:05:00+00:00"
       }
     },
@@ -63,9 +65,61 @@
             "scope": {
               "host": "host-a"
             }
+          },
+          {
+            "statement": "Root doc names default port",
+            "source": "README.example",
+            "observed": "service answers on another port",
+            "evidence_ref": "result-1#7",
+            "scope": {
+              "host": "host-a",
+              "instance": "instance-a",
+              "version": "1.2.3",
+              "surface": "api"
+            }
           }
         ],
-        "diff_ref": "change-1"
+        "diff_ref": "change-1",
+        "corrected_at": "2026-10-10T09:00:00+00:00",
+        "archival": [
+          {
+            "item": "docs/old-concept.example",
+            "action": "archive",
+            "reader_checks": [
+              {
+                "ref": "docs/index.example",
+                "kind": "reader",
+                "active": false,
+                "checked_at": "2026-10-10T08:50:00+00:00"
+              },
+              {
+                "ref": "https://example.invalid/link",
+                "kind": "link",
+                "active": false,
+                "checked_at": "2026-10-10T08:51:00+00:00"
+              }
+            ]
+          },
+          {
+            "item": "docs/still-used.example",
+            "action": "keep",
+            "reader_checks": [
+              {
+                "ref": "docs/index.example",
+                "kind": "reader",
+                "active": true,
+                "checked_at": "2026-10-10T08:52:00+00:00"
+              }
+            ]
+          }
+        ],
+        "open_requirements": [
+          {
+            "statement": "Feature Y is wished for but not built",
+            "source": "docs/concept.example",
+            "task_id": 202
+          }
+        ]
       }
     }
   ],

@@ -1,0 +1,49 @@
+{
+  "positive": [
+    "pos_corrected_not_yet_reviewed.json",
+    "pos_failed_execution_stops.json",
+    "pos_full_chain.json",
+    "pos_trigger_planned_only.json"
+  ],
+  "negative": {
+    "neg_last_run_as_execution.json": [
+      "E_MARKER_AS_EVIDENCE",
+      "E_SKIPPED",
+      "E_MISSING_EVIDENCE"
+    ],
+    "neg_done_without_report.json": [
+      "E_TASK_STATUS_AS_EVIDENCE",
+      "E_MISSING_EVIDENCE"
+    ],
+    "neg_failed_run_then_corrected.json": [
+      "E_FAILED_NOT_STOPPED"
+    ],
+    "neg_same_instance_review.json": [
+      "E_SAME_REVIEWER"
+    ],
+    "neg_corrected_same_hash.json": [
+      "E_HASH_UNCHANGED"
+    ],
+    "neg_corrected_without_hashes.json": [
+      "E_HASH"
+    ],
+    "neg_time_goes_backwards.json": [
+      "E_TIME_ORDER"
+    ],
+    "neg_state_skipped.json": [
+      "E_SKIPPED"
+    ],
+    "neg_unknown_list_wrong.json": [
+      "E_UNKNOWN_LIST"
+    ],
+    "neg_repaired_with_regression.json": [
+      "E_REPAIR"
+    ],
+    "neg_review_without_verdict.json": [
+      "E_VERDICTS"
+    ],
+    "neg_difference_without_scope.json": [
+      "E_DIFFERENCE_SCOPE"
+    ]
+  }
+}

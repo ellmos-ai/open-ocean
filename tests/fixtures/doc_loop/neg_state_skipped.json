@@ -1,0 +1,40 @@
+{
+  "schema": "ellmos.open-ocean-doc-loop-chain.v1",
+  "cycle_id": "cycle-1",
+  "variant": "help",
+  "entries": [
+    {
+      "state": "trigger_planned",
+      "observed_at": "2026-10-10T08:00:00+00:00",
+      "evidence": {
+        "routine": "routine-a",
+        "interval_days": 14,
+        "marker_source": "config",
+        "next_due_at": "2026-10-10T08:00:00+00:00"
+      }
+    },
+    {
+      "state": "executed",
+      "observed_at": "2026-10-10T08:20:00+00:00",
+      "evidence": {
+        "run_id": "run-1",
+        "host": "host-a",
+        "instance": "instance-a",
+        "product_version": "1.2.3",
+        "exit_state": "succeeded",
+        "exit_code": 0,
+        "started_at": "2026-10-10T08:10:00+00:00",
+        "finished_at": "2026-10-10T08:20:00+00:00",
+        "result_id": "result-1",
+        "author_id": "author-a",
+        "author_instance": "instance-a"
+      }
+    }
+  ],
+  "unknown": [
+    "task_created",
+    "corrected",
+    "reviewed",
+    "repaired"
+  ]
+}

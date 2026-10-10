@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 *[Deutsch](CHANGELOG_de.md)*
 
+## Unreleased — 2026-10-10
+
+### Added
+
+- Documentation-loop contract `architecture/ocean-doc-loop.v1.json` (states trigger_planned, task_created, executed, corrected, reviewed, repaired with mandatory evidence), checker `tools/check_doc_loop_contract.py`, positive and negative fixtures and tests. Contract and fixtures only; no runtime.
+
 ## Unreleased — 2026-09-29
 
 ### Documentation

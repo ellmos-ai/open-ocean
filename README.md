@@ -261,6 +261,7 @@ tools/
                                 dry-run by default, --apply for real writes, --rollback
   resolve_bundles.py            bundle refs -> flat, hash-checked component plan
   project_workflows.py          S8 skills-/workflow-projection into SKILLS.md/MODULES.md/TOOLCHAINS.md
+  check_doc_loop_contract.py    documentation-loop contract and evidence-chain checker
   fetch_place.py                SHA-pinned, fail-closed module placement
   host_adapters.py              vendor-neutral skill activation and rollback (Claude Code as reference)
   source_pins.py                source-provenance verification before Resolve/Fetch
@@ -270,6 +271,7 @@ architecture/
   open-ocean.skeleton.v1.json   the recipes this system consumes, pinned by hash
   INSTALLER-TARGET.md           installer contract and invariants
   OCEAN-INSPECT.md              read-only inspection adapter
+  OCEAN-DOC-LOOP.md             documentation-loop contract (states, evidence, rules)
   BACH-EXTRACTION-ROADMAP.md, bach-*.json
                                 contracts for moving BACH capabilities into modules
 tests/                          offline test suite

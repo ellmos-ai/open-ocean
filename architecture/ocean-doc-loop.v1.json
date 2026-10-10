@@ -1,0 +1,79 @@
+{
+  "schema": "ellmos.open-ocean-doc-loop.v1",
+  "status": "contract-and-fixtures-only-no-runtime",
+  "recorded_at": "2026-10-10",
+  "claim_boundary": "This contract fixes the states and mandatory evidence of an empirical documentation loop (capture statements and readers/sources, check the real effect, evidence differences, correct descriptive documentation, read back independently). It is a schema-level artifact checked against synthetic fixtures. It starts no workflow, owns no scheduler, task or worker, and does not claim that any host, instance or version currently runs the loop. Missing evidence means unknown, never success.",
+  "provenance": {
+    "ticket": "task-2035",
+    "slice": "P1",
+    "observed_from": [
+      "BACH workflows help-forensic, help-expert-review, root-docs-review and docs-analyse (read-only)",
+      "BACH docs-maintenance dispatch and recurring state (read-only)"
+    ]
+  },
+  "variants": ["help", "root", "requirements", "freshness"],
+  "states": [
+    {
+      "name": "trigger_planned",
+      "meaning": "A trigger is due or planned. This is a plan, not an execution.",
+      "required_evidence": ["routine", "interval_days", "marker_source", "next_due_at"]
+    },
+    {
+      "name": "task_created",
+      "meaning": "A bounded analysis task exists and was read back from the task source.",
+      "required_evidence": ["task_id", "title_sha256", "worker_binding", "readback_verified", "created_at"]
+    },
+    {
+      "name": "executed",
+      "meaning": "A real run happened and ended. The end state may be failed or unknown.",
+      "required_evidence": ["run_id", "host", "instance", "product_version", "exit_state", "exit_code", "started_at", "finished_at", "result_id", "author_id", "author_instance"]
+    },
+    {
+      "name": "corrected",
+      "meaning": "Descriptive documentation was changed to match the measured reality.",
+      "required_evidence": ["files", "differences", "diff_ref"]
+    },
+    {
+      "name": "reviewed",
+      "meaning": "An independent read-back judged every difference.",
+      "required_evidence": ["reviewer_id", "reviewer_instance", "verdicts", "accepted_at"]
+    },
+    {
+      "name": "repaired",
+      "meaning": "A re-measurement shows documentation and reality agree.",
+      "required_evidence": ["repair_success_at", "remeasure", "regression"]
+    }
+  ],
+  "enums": {
+    "marker_source": ["config", "state_file", "scheduler_receipt"],
+    "exit_state": ["succeeded", "failed", "unknown"],
+    "surface": ["cli", "api", "gui", "doc"],
+    "verdict": ["confirmed", "rejected"]
+  },
+  "difference_fields": ["statement", "source", "observed", "evidence_ref", "scope"],
+  "scope_fields": ["host", "instance", "version", "surface"],
+  "rules": {
+    "monotonic": "A chain contains each state at most once, in the order of this list, with non-decreasing observed_at. A later state never replaces the evidence of an earlier state.",
+    "no_skipping": "A state may only appear if all earlier states appear. The chain field unknown lists exactly the states without evidence.",
+    "marker_is_not_evidence": "A last-run or dispatch marker is only a trigger/dedup marker. It is never evidence for executed or any later state.",
+    "task_status_is_not_evidence": "A task status such as done is never evidence of execution or correction. Execution needs run_id, finished_at and result_id.",
+    "failed_execution_stops": "exit_state failed or unknown ends the chain at executed. Only succeeded with exit_code 0 may be followed by corrected.",
+    "independent_review": "reviewer_id and reviewer_instance must both differ from author_id and author_instance.",
+    "hash_bound_correction": "Every corrected file carries before_sha256 and after_sha256 (64 hex characters) and the two differ.",
+    "verdict_coverage": "reviewed carries exactly one verdict per difference.",
+    "repair_needs_review": "repaired needs reviewed, remeasure.equal true and regression false."
+  },
+  "configuration_fields": {
+    "note": "Values are configuration of the consumer, never part of this contract.",
+    "fields": ["interval_days", "worker_binding", "archive_policy", "source_roots", "reader_roots"]
+  },
+  "fixtures": {
+    "directory": "tests/fixtures/doc_loop",
+    "expected": "tests/fixtures/doc_loop/expected.json"
+  },
+  "next_gates": [
+    "Ocean workflow text doc-reality-loop (P2)",
+    "Adapter in the consuming system that fills the states from receipts (P3, owned by that system)",
+    "Consumer display of the chain (P4)"
+  ]
+}

@@ -1,0 +1,218 @@
+{
+  "positive": [
+    "pos_corrected_not_yet_reviewed.json",
+    "pos_failed_execution_stops.json",
+    "pos_full_chain.json",
+    "pos_no_archival_no_open_requirements.json",
+    "pos_trigger_planned_only.json"
+  ],
+  "negative": {
+    "neg_last_run_as_execution.json": [
+      "E_MARKER_AS_EVIDENCE",
+      "E_SKIPPED",
+      "E_MISSING_EVIDENCE"
+    ],
+    "neg_done_without_report.json": [
+      "E_TASK_STATUS_AS_EVIDENCE",
+      "E_MISSING_EVIDENCE"
+    ],
+    "neg_failed_run_then_corrected.json": [
+      "E_FAILED_NOT_STOPPED"
+    ],
+    "neg_same_instance_review.json": [
+      "E_SAME_REVIEWER"
+    ],
+    "neg_corrected_same_hash.json": [
+      "E_HASH_UNCHANGED"
+    ],
+    "neg_corrected_without_hashes.json": [
+      "E_HASH"
+    ],
+    "neg_time_goes_backwards.json": [
+      "E_TIME_ORDER"
+    ],
+    "neg_state_skipped.json": [
+      "E_SKIPPED"
+    ],
+    "neg_unknown_list_wrong.json": [
+      "E_UNKNOWN_LIST"
+    ],
+    "neg_repaired_with_regression.json": [
+      "E_REPAIR"
+    ],
+    "neg_review_without_verdict.json": [
+      "E_VERDICTS"
+    ],
+    "neg_difference_without_scope.json": [
+      "E_DIFFERENCE_SCOPE"
+    ],
+    "neg_readback_not_verified.json": [
+      "E_READBACK"
+    ],
+    "neg_readback_without_reference.json": [
+      "E_MISSING_EVIDENCE",
+      "E_READBACK"
+    ],
+    "neg_repaired_without_measurement.json": [
+      "E_MEASUREMENT"
+    ],
+    "neg_repaired_measurement_without_scope.json": [
+      "E_MEASUREMENT"
+    ],
+    "neg_repaired_measured_before_review.json": [
+      "E_EVENT_ORDER"
+    ],
+    "neg_run_finished_before_started.json": [
+      "E_EVENT_ORDER"
+    ],
+    "neg_event_time_not_iso.json": [
+      "E_EVENT_TIME"
+    ],
+    "neg_event_time_without_timezone.json": [
+      "E_EVENT_TIME"
+    ],
+    "neg_event_after_observed.json": [
+      "E_EVENT_AFTER_OBSERVED"
+    ],
+    "neg_correction_before_run_end.json": [
+      "E_EVENT_ORDER"
+    ],
+    "neg_review_duplicate_index.json": [
+      "E_VERDICTS"
+    ],
+    "neg_review_index_out_of_range.json": [
+      "E_VERDICTS"
+    ],
+    "neg_review_missing_difference.json": [
+      "E_VERDICTS"
+    ],
+    "neg_archive_with_active_reader.json": [
+      "E_ARCHIVE_ACTIVE_READER"
+    ],
+    "neg_archive_without_reader_check.json": [
+      "E_ARCHIVE_UNCHECKED"
+    ],
+    "neg_archival_not_recorded.json": [
+      "E_MISSING_EVIDENCE"
+    ],
+    "neg_open_requirement_without_task.json": [
+      "E_REQUIREMENT_NO_TASK"
+    ],
+    "neg_open_requirements_not_recorded.json": [
+      "E_MISSING_EVIDENCE"
+    ],
+    "neg_frozen_interval_every_n_days.json": [
+      "E_FROZEN_INTERVAL",
+      "E_INTERVAL_REF"
+    ],
+    "neg_frozen_interval_german.json": [
+      "E_FROZEN_INTERVAL",
+      "E_INTERVAL_REF"
+    ],
+    "neg_frozen_interval_iso_duration.json": [
+      "E_FROZEN_INTERVAL",
+      "E_INTERVAL_REF"
+    ],
+    "neg_frozen_interval_plain_number.json": [
+      "E_INTERVAL_REF"
+    ],
+    "neg_interval_ref_unprefixed_id.json": [
+      "E_INTERVAL_REF"
+    ],
+    "neg_interval_ref_integer.json": [
+      "E_TYPE",
+      "E_INTERVAL_REF"
+    ],
+    "neg_interval_ref_duration_in_reference.json": [
+      "E_FROZEN_INTERVAL"
+    ],
+    "neg_interval_ref_with_blank.json": [
+      "E_INTERVAL_REF"
+    ],
+    "neg_archive_reader_check_only.json": [
+      "E_ARCHIVE_CHECK_KINDS"
+    ],
+    "neg_archive_link_check_only.json": [
+      "E_ARCHIVE_CHECK_KINDS"
+    ],
+    "neg_archive_without_archived_at.json": [
+      "E_ARCHIVE_TIME"
+    ],
+    "neg_archived_at_not_utc.json": [
+      "E_ARCHIVE_TIME"
+    ],
+    "neg_archived_at_without_timezone.json": [
+      "E_ARCHIVE_TIME"
+    ],
+    "neg_check_after_archived_at.json": [
+      "E_ARCHIVE_ORDER"
+    ],
+    "neg_check_before_run_observed.json": [
+      "E_ARCHIVE_ORDER"
+    ],
+    "neg_archived_after_correction_observed.json": [
+      "E_ARCHIVE_ORDER"
+    ],
+    "neg_keep_check_after_correction_observed.json": [
+      "E_ARCHIVE_ORDER"
+    ],
+    "neg_reader_check_without_timestamp.json": [
+      "E_ARCHIVE_UNCHECKED"
+    ],
+    "neg_type_files_object.json": [
+      "E_TYPE"
+    ],
+    "neg_type_files_string.json": [
+      "E_TYPE"
+    ],
+    "neg_type_files_element.json": [
+      "E_TYPE"
+    ],
+    "neg_type_differences_object.json": [
+      "E_TYPE"
+    ],
+    "neg_type_differences_element.json": [
+      "E_TYPE"
+    ],
+    "neg_type_archival_object.json": [
+      "E_TYPE"
+    ],
+    "neg_type_archival_element.json": [
+      "E_TYPE"
+    ],
+    "neg_type_reader_checks_object.json": [
+      "E_TYPE"
+    ],
+    "neg_type_open_requirements_object.json": [
+      "E_TYPE"
+    ],
+    "neg_type_open_requirements_element.json": [
+      "E_TYPE"
+    ],
+    "neg_type_verdicts_object.json": [
+      "E_TYPE"
+    ],
+    "neg_type_verdicts_element.json": [
+      "E_TYPE",
+      "E_VERDICTS"
+    ],
+    "neg_type_worker_binding_string.json": [
+      "E_TYPE"
+    ],
+    "neg_type_remeasure_list.json": [
+      "E_TYPE"
+    ],
+    "neg_type_task_id_string.json": [
+      "E_TYPE"
+    ],
+    "neg_type_exit_code_string.json": [
+      "E_TYPE"
+    ],
+    "neg_type_regression_string.json": [
+      "E_TYPE"
+    ],
+    "neg_type_difference_scope_string.json": [
+      "E_DIFFERENCE_SCOPE"
+    ]
+  }
+}

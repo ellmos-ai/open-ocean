@@ -2,6 +2,12 @@
 
 *[English](CHANGELOG.md)*
 
+## Unveröffentlicht — 2026-10-10
+
+### Hinzugefügt
+
+- Doku-Regelkreis-Vertrag `architecture/ocean-doc-loop.v1.json` (Zustände trigger_planned, task_created, executed, corrected, reviewed, repaired mit Pflichtbelegen), Prüfer `tools/check_doc_loop_contract.py`, positive und negative Fixtures und Tests. Nur Vertrag und Fixtures, keine Laufzeit.
+
 ## Unveröffentlicht — 2026-09-29
 
 ### Dokumentation

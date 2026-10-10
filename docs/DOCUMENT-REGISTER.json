@@ -4,8 +4,8 @@
   "owner_repo": "ellmos-ai/open-ocean",
   "authority": "repo-local-register-no-cutover",
   "cutover_performed": false,
-  "observed_at": "2026-10-10T23:23:53Z",
-  "source_revision": "71d3237",
+  "observed_at": "2026-10-10T23:55:42Z",
+  "source_revision": "ca54e89",
   "documents": [
     {
       "document_id": "ocean:changelog",
@@ -22,9 +22,9 @@
       "source": {
         "repo": "ellmos-ai/open-ocean",
         "path": "CHANGELOG.md",
-        "revision": "513e06a",
-        "sha256": "af63e114aa86295931ac8d87e6880cd74d43acd2233a5a2bb57dc2e2f7c44ae5",
-        "observed_at": "2026-10-10T23:23:53Z"
+        "revision": "ac7c9d6",
+        "sha256": "4dd99d48b0a2aa5bfcaca8ed19700e92ea27d3c9f77f6df4d3db83263a2c8a04",
+        "observed_at": "2026-10-10T23:55:42Z"
       },
       "language": "en",
       "generator": {
@@ -40,62 +40,75 @@
           "kind": "link",
           "ref": "CHANGELOG_de.md",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r2",
           "kind": "link",
           "ref": "README.md",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r3",
           "kind": "link",
           "ref": "README_de.md",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r4",
           "kind": "link",
           "ref": "llms.txt",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r5",
           "kind": "link",
           "ref": "pyproject.toml",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r6",
           "kind": "test",
           "ref": "tests/test_metadata.py",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         }
       ],
       "authority_claim": "none",
       "review_date": "2026-10-10",
       "evidence": [
-        "git show 71d3237:CHANGELOG.md measured, sha256 over the blob; readers by git grep of the file name on 71d3237"
+        {
+          "type": "commit",
+          "ref": "ac7c9d6"
+        },
+        {
+          "type": "command-output",
+          "ref": "git-show-sha256-and-git-grep-readers@ca54e89"
+        }
       ],
-      "language_group": "ocean:changelog",
       "members": [
         {
           "path": "CHANGELOG.md",
           "language": "en",
-          "sha256": "af63e114aa86295931ac8d87e6880cd74d43acd2233a5a2bb57dc2e2f7c44ae5"
+          "sha256": "4dd99d48b0a2aa5bfcaca8ed19700e92ea27d3c9f77f6df4d3db83263a2c8a04"
         },
         {
           "path": "CHANGELOG_de.md",
           "language": "de",
-          "sha256": "569eec23fa61f44c4a8594f9fffbd828e083b0d795e56647a9aedbe56fb2d0b0"
+          "sha256": "b3d485b6c2f456ceb991ebb7c484d1eb9a060c480cafd34c491e78c415494bc5"
         }
-      ]
+      ],
+      "family": {
+        "kind": "language-variants",
+        "expected_languages": [
+          "en",
+          "de"
+        ]
+      }
     },
     {
       "document_id": "ocean:security",
@@ -114,7 +127,7 @@
         "path": "SECURITY.md",
         "revision": "19b4b4d",
         "sha256": "a27c702917244aaf3e94fb2018664df6470fbd365a75ab262d348186b5e11a4a",
-        "observed_at": "2026-10-10T23:23:53Z"
+        "observed_at": "2026-10-10T23:55:42Z"
       },
       "language": "mixed",
       "generator": {
@@ -130,55 +143,62 @@
           "kind": "link",
           "ref": "CHANGELOG.md",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r2",
           "kind": "link",
           "ref": "CHANGELOG_de.md",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r3",
           "kind": "link",
           "ref": "README.md",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r4",
           "kind": "link",
           "ref": "README_de.md",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r5",
           "kind": "link",
           "ref": "llms.txt",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r6",
           "kind": "link",
           "ref": "pyproject.toml",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r7",
           "kind": "test",
           "ref": "tests/test_metadata.py",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         }
       ],
       "authority_claim": "repo-local",
       "review_date": "2026-10-10",
       "evidence": [
-        "git show 71d3237:SECURITY.md measured, sha256 over the blob; readers by git grep of the file name on 71d3237"
+        {
+          "type": "commit",
+          "ref": "19b4b4d"
+        },
+        {
+          "type": "command-output",
+          "ref": "git-show-sha256-and-git-grep-readers@ca54e89"
+        }
       ]
     },
     {
@@ -198,7 +218,7 @@
         "path": "THIRD_PARTY_LICENSES.md",
         "revision": "91e15a3",
         "sha256": "da5af55e13cfc6a7bdfce8d38aec8767656a3e2f88932030f125ddc5d6faada4",
-        "observed_at": "2026-10-10T23:23:53Z"
+        "observed_at": "2026-10-10T23:55:42Z"
       },
       "language": "en",
       "generator": {
@@ -214,41 +234,48 @@
           "kind": "link",
           "ref": "CHANGELOG.md",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r2",
           "kind": "link",
           "ref": "CHANGELOG_de.md",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r3",
           "kind": "link",
           "ref": "README.md",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r4",
           "kind": "link",
           "ref": "README_de.md",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r5",
           "kind": "test",
           "ref": "tests/test_metadata.py",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         }
       ],
       "authority_claim": "repo-local",
       "review_date": "2026-10-10",
       "evidence": [
-        "git show 71d3237:THIRD_PARTY_LICENSES.md measured, sha256 over the blob; readers by git grep of the file name on 71d3237"
+        {
+          "type": "commit",
+          "ref": "91e15a3"
+        },
+        {
+          "type": "command-output",
+          "ref": "git-show-sha256-and-git-grep-readers@ca54e89"
+        }
       ]
     },
     {
@@ -268,7 +295,7 @@
         "path": "llms.txt",
         "revision": "c613506",
         "sha256": "4ab8e1d912c4d38216385574889b462f70aed9df3428cc575964ab0fe8a4fea2",
-        "observed_at": "2026-10-10T23:23:53Z"
+        "observed_at": "2026-10-10T23:55:42Z"
       },
       "language": "en",
       "generator": {
@@ -284,41 +311,48 @@
           "kind": "link",
           "ref": "CHANGELOG.md",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r2",
           "kind": "link",
           "ref": "CHANGELOG_de.md",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r3",
           "kind": "link",
           "ref": "README.md",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r4",
           "kind": "link",
           "ref": "README_de.md",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r5",
           "kind": "test",
           "ref": "tests/test_metadata.py",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         }
       ],
       "authority_claim": "none",
       "review_date": "2026-10-10",
       "evidence": [
-        "git show 71d3237:llms.txt measured, sha256 over the blob; readers by git grep of the file name on 71d3237"
+        {
+          "type": "commit",
+          "ref": "c613506"
+        },
+        {
+          "type": "command-output",
+          "ref": "git-show-sha256-and-git-grep-readers@ca54e89"
+        }
       ]
     },
     {
@@ -339,7 +373,7 @@
         "path": "architecture/BACH-EXTRACTION-ROADMAP.md",
         "revision": "7127a0f",
         "sha256": "a91a7f81dda2177650d592ac1118d657b0fbf7ed0b7e0782e7e2abe7a5d3dd41",
-        "observed_at": "2026-10-10T23:23:53Z"
+        "observed_at": "2026-10-10T23:55:42Z"
       },
       "language": "en",
       "generator": {
@@ -355,29 +389,35 @@
           "kind": "link",
           "ref": "README.md",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r2",
           "kind": "link",
           "ref": "architecture/BACH-EXTRAKTIONSROADMAP.md",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r3",
           "kind": "link",
           "ref": "llms.txt",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         }
       ],
       "authority_claim": "repo-local",
       "review_date": "2026-10-10",
       "evidence": [
-        "git show 71d3237:architecture/BACH-EXTRACTION-ROADMAP.md measured, sha256 over the blob; readers by git grep of the file name on 71d3237"
+        {
+          "type": "commit",
+          "ref": "7127a0f"
+        },
+        {
+          "type": "command-output",
+          "ref": "git-show-sha256-and-git-grep-readers@ca54e89"
+        }
       ],
-      "language_group": "ocean:bach-extraction-roadmap",
       "members": [
         {
           "path": "architecture/BACH-EXTRACTION-ROADMAP.md",
@@ -389,7 +429,14 @@
           "language": "de",
           "sha256": "0dc68fb000b80b87af82d021f5ef450e106d8888709acd81a36abe8b9b54aada"
         }
-      ]
+      ],
+      "family": {
+        "kind": "language-variants",
+        "expected_languages": [
+          "en",
+          "de"
+        ]
+      }
     },
     {
       "document_id": "ocean:gui-consumer-contract",
@@ -409,7 +456,7 @@
         "path": "architecture/GUI-CONSUMER.md",
         "revision": "15c06b6",
         "sha256": "962f55fcc6a46c22903528bb950f2baf7b00e51629738fcb11cd670f8c8f0092",
-        "observed_at": "2026-10-10T23:23:53Z"
+        "observed_at": "2026-10-10T23:55:42Z"
       },
       "language": "de",
       "generator": {
@@ -425,27 +472,34 @@
           "kind": "link",
           "ref": "README.md",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r2",
           "kind": "link",
           "ref": "README_de.md",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r3",
           "kind": "link",
           "ref": "docs/GUI-CONSUMER.md",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         }
       ],
       "authority_claim": "repo-local",
       "review_date": "2026-10-10",
       "evidence": [
-        "git show 71d3237:architecture/GUI-CONSUMER.md measured, sha256 over the blob; readers by git grep of the file name on 71d3237"
+        {
+          "type": "commit",
+          "ref": "15c06b6"
+        },
+        {
+          "type": "command-output",
+          "ref": "git-show-sha256-and-git-grep-readers@ca54e89"
+        }
       ]
     },
     {
@@ -465,7 +519,7 @@
         "path": "architecture/INSTALLER-TARGET.md",
         "revision": "9ec6402",
         "sha256": "7b9e8ff1da5160e10ddd0138bf9cd0187867baa1c8814f3435833c1c72135eec",
-        "observed_at": "2026-10-10T23:23:53Z"
+        "observed_at": "2026-10-10T23:55:42Z"
       },
       "language": "en",
       "generator": {
@@ -481,97 +535,104 @@
           "kind": "link",
           "ref": "CHANGELOG.md",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r2",
           "kind": "link",
           "ref": "CHANGELOG_de.md",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r3",
           "kind": "link",
           "ref": "README.md",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r4",
           "kind": "link",
           "ref": "README_de.md",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r5",
           "kind": "link",
           "ref": "llms.txt",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r6",
           "kind": "test",
           "ref": "tests/test_fetch_place.py",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r7",
           "kind": "test",
           "ref": "tests/test_host_adapters.py",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r8",
           "kind": "test",
           "ref": "tests/test_metadata.py",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r9",
           "kind": "test",
           "ref": "tests/test_resolve_bundles.py",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r10",
           "kind": "tool",
           "ref": "tools/fetch_place.py",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r11",
           "kind": "tool",
           "ref": "tools/host_adapters.py",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r12",
           "kind": "tool",
           "ref": "tools/ocean_dev.py",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r13",
           "kind": "tool",
           "ref": "tools/resolve_bundles.py",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         }
       ],
       "authority_claim": "repo-local",
       "review_date": "2026-10-10",
       "evidence": [
-        "git show 71d3237:architecture/INSTALLER-TARGET.md measured, sha256 over the blob; readers by git grep of the file name on 71d3237"
+        {
+          "type": "commit",
+          "ref": "9ec6402"
+        },
+        {
+          "type": "command-output",
+          "ref": "git-show-sha256-and-git-grep-readers@ca54e89"
+        }
       ]
     },
     {
@@ -591,7 +652,7 @@
         "path": "architecture/OCEAN-INSPECT.md",
         "revision": "40dfb68",
         "sha256": "213c8bce998a52fe128665699a81a98d3880d85fda3acf9173c7813b1e0907a3",
-        "observed_at": "2026-10-10T23:23:53Z"
+        "observed_at": "2026-10-10T23:55:42Z"
       },
       "language": "en",
       "generator": {
@@ -607,22 +668,28 @@
           "kind": "link",
           "ref": "README.md",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r2",
           "kind": "link",
           "ref": "llms.txt",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         }
       ],
       "authority_claim": "repo-local",
       "review_date": "2026-10-10",
       "evidence": [
-        "git show 71d3237:architecture/OCEAN-INSPECT.md measured, sha256 over the blob; readers by git grep of the file name on 71d3237"
+        {
+          "type": "commit",
+          "ref": "40dfb68"
+        },
+        {
+          "type": "command-output",
+          "ref": "git-show-sha256-and-git-grep-readers@ca54e89"
+        }
       ],
-      "language_group": "ocean:inspect",
       "members": [
         {
           "path": "architecture/OCEAN-INSPECT.md",
@@ -634,7 +701,14 @@
           "language": "de",
           "sha256": "c3ad520d0768afd40e1583d3e3ca63992b616816918309c43a54d0dcdfb09b06"
         }
-      ]
+      ],
+      "family": {
+        "kind": "language-variants",
+        "expected_languages": [
+          "en",
+          "de"
+        ]
+      }
     },
     {
       "document_id": "ocean:operator-ui-selection",
@@ -653,7 +727,7 @@
         "path": "architecture/OPERATOR-UI-SELECTION.md",
         "revision": "fce8b20",
         "sha256": "bb63539b61dd4116ef123c887a493678fc697b7bfb34ab25dbb0e900dd1f9496",
-        "observed_at": "2026-10-10T23:23:53Z"
+        "observed_at": "2026-10-10T23:55:42Z"
       },
       "language": "en",
       "generator": {
@@ -667,7 +741,14 @@
       "authority_claim": "none",
       "review_date": "2026-10-10",
       "evidence": [
-        "git show 71d3237:architecture/OPERATOR-UI-SELECTION.md measured, sha256 over the blob; readers by git grep of the file name on 71d3237"
+        {
+          "type": "commit",
+          "ref": "fce8b20"
+        },
+        {
+          "type": "command-output",
+          "ref": "git-show-sha256-and-git-grep-readers@ca54e89"
+        }
       ]
     },
     {
@@ -688,7 +769,7 @@
         "path": "docs/GUI-CONSUMER.md",
         "revision": "5c3239a",
         "sha256": "a55fdbc6bdbfa011b2f6ec216bc932817c66a321d4261fca1d970e489de55f58",
-        "observed_at": "2026-10-10T23:23:53Z"
+        "observed_at": "2026-10-10T23:55:42Z"
       },
       "language": "de",
       "generator": {
@@ -704,20 +785,27 @@
           "kind": "link",
           "ref": "README.md",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         },
         {
           "reader_id": "r2",
           "kind": "link",
           "ref": "README_de.md",
           "active": true,
-          "last_checked_at": "2026-10-10T23:23:53Z"
+          "last_checked_at": "2026-10-10T23:55:42Z"
         }
       ],
       "authority_claim": "repo-local",
       "review_date": "2026-10-10",
       "evidence": [
-        "git show 71d3237:docs/GUI-CONSUMER.md measured, sha256 over the blob; readers by git grep of the file name on 71d3237"
+        {
+          "type": "commit",
+          "ref": "5c3239a"
+        },
+        {
+          "type": "command-output",
+          "ref": "git-show-sha256-and-git-grep-readers@ca54e89"
+        }
       ]
     },
     {
@@ -737,7 +825,7 @@
         "path": "docs/K9-REMAINING-CI.md",
         "revision": "b65c253",
         "sha256": "7edabb440e407dd87b07eb6a5bfc3345a9f5433361c757bd8a7fe876dee8630c",
-        "observed_at": "2026-10-10T23:23:53Z"
+        "observed_at": "2026-10-10T23:55:42Z"
       },
       "language": "de",
       "generator": {
@@ -751,7 +839,14 @@
       "authority_claim": "repo-local",
       "review_date": "2026-10-10",
       "evidence": [
-        "git show 71d3237:docs/K9-REMAINING-CI.md measured, sha256 over the blob; readers by git grep of the file name on 71d3237"
+        {
+          "type": "commit",
+          "ref": "b65c253"
+        },
+        {
+          "type": "command-output",
+          "ref": "git-show-sha256-and-git-grep-readers@ca54e89"
+        }
       ]
     },
     {
@@ -771,7 +866,7 @@
         "path": "docs/K9-REMAINING-OPERATIONS-CONTRACT.md",
         "revision": "6ce5cd9",
         "sha256": "9bb5aabe0b04dc38f578e6c02026a0364d8a88b762c592ccba6ba5dfe1434663",
-        "observed_at": "2026-10-10T23:23:53Z"
+        "observed_at": "2026-10-10T23:55:42Z"
       },
       "language": "de",
       "generator": {
@@ -785,7 +880,14 @@
       "authority_claim": "repo-local",
       "review_date": "2026-10-10",
       "evidence": [
-        "git show 71d3237:docs/K9-REMAINING-OPERATIONS-CONTRACT.md measured, sha256 over the blob; readers by git grep of the file name on 71d3237"
+        {
+          "type": "commit",
+          "ref": "6ce5cd9"
+        },
+        {
+          "type": "command-output",
+          "ref": "git-show-sha256-and-git-grep-readers@ca54e89"
+        }
       ]
     }
   ]

@@ -3,7 +3,7 @@ import json
 import unittest
 from pathlib import Path
 
-from tools.check_doc_loop_contract import run_fixtures, validate_chain, validate_contract
+from tools.check_doc_loop_contract import is_utc, parse_time, run_fixtures, validate_chain, validate_contract
 
 ROOT = Path(__file__).parent.parent
 CONTRACT = json.loads((ROOT / "architecture" / "ocean-doc-loop.v1.json").read_text(encoding="utf-8"))
@@ -219,6 +219,27 @@ class DocLoopContractTests(unittest.TestCase):
         self.assertEqual("keep", keep["action"])
         keep["reader_checks"][0]["checked_at"] = "2026-10-10T09:00:01+00:00"
         self.assertTrue(any(f.startswith("E_ARCHIVE_ORDER") for f in validate_chain(chain, CONTRACT)))
+
+    def test_r_utc_designator_z_is_parsed_without_python_311_features(self):
+        # Python 3.10's fromisoformat rejects "Z"; the checker must normalize it itself.
+        zulu, offset = parse_time("2026-10-10T08:55:00Z"), parse_time("2026-10-10T08:55:00+00:00")
+        self.assertIsNotNone(zulu)
+        self.assertEqual(zulu, offset)
+        self.assertEqual(zulu.utcoffset().total_seconds(), 0)
+        self.assertTrue(is_utc("2026-10-10T08:55:00Z"))
+        self.assertTrue(is_utc("2026-10-10T08:55:00+00:00"))
+        self.assertFalse(is_utc("2026-10-10T10:55:00+02:00"))
+        self.assertFalse(is_utc("2026-10-10T08:55:00"))
+        for bad in ("2026-10-10T08:55:00ZZ", "2026-10-10T08:55:00+00:00Z", "2026-10-10Z08:55:00", "Z", "", None, 5):
+            self.assertIsNone(parse_time(bad), repr(bad))
+        # fractional seconds and offsets in the isoformat() shape stay valid on every supported version
+        self.assertIsNotNone(parse_time("2026-10-10T08:55:00.123456+00:00"))
+        self.assertIsNotNone(parse_time("2026-10-10T08:55:00.123456Z"))
+        # the whole check accepts Z for archived_at and for event times
+        chain = self._full()
+        self._evidence(chain, "corrected")["archival"][0]["archived_at"] = "2026-10-10T08:55:00Z"
+        self._evidence(chain, "executed")["finished_at"] = "2026-10-10T08:20:00Z"
+        self.assertEqual([], validate_chain(chain, CONTRACT))
 
     def test_i_fixtures_carry_no_live_environment_markers(self):
         for path in FIXTURES.glob("*.json"):

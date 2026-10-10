@@ -94,7 +94,8 @@ def parse_time(value: Any) -> datetime | None:
     if not isinstance(value, str):
         return None
     try:
-        parsed = datetime.fromisoformat(value)
+        # Python < 3.11 rejects a trailing "Z"; spell it as an explicit UTC offset.
+        parsed = datetime.fromisoformat(value[:-1] + "+00:00" if value.endswith("Z") else value)
     except ValueError:
         return None
     return parsed if parsed.tzinfo is not None else None

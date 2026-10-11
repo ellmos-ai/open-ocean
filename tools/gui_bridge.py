@@ -13,9 +13,11 @@ from types import ModuleType
 from typing import Any, Callable
 
 try:
+    from .catalog_projection import KINDS as CATALOG_KINDS, observe as observe_catalog
     from .fetch_place import verify_bound_provider
     from .gui_release import GuiReleaseError, VerifiedGuiRelease, verify_installed_gui
 except ImportError:  # ocean_runtime.py direct entry point
+    from catalog_projection import KINDS as CATALOG_KINDS, observe as observe_catalog
     from fetch_place import verify_bound_provider
     from gui_release import GuiReleaseError, VerifiedGuiRelease, verify_installed_gui
 
@@ -158,9 +160,10 @@ def policy_metadata_reader(component: dict[str, Any], registry_path: Path) -> Ca
 class GuiBridge:
     def __init__(self, *, gui: VerifiedGuiRelease | None = None,
                  plan: Callable[[], dict] | None = None, status: Callable[[], dict] | None = None,
-                 policies: Callable[[], dict] | None = None, modules: list[dict] | None = None):
+                 policies: Callable[[], dict] | None = None, modules: list[dict] | None = None,
+                 catalog: Callable[..., dict] | None = None):
         self.gui = gui
-        self.providers = {"detect": self.detect, "plan": plan, "status": status, "policies": policies}
+        self.providers = {"detect": self.detect, "plan": plan, "status": status, "policies": policies, "catalog": catalog}
         self.modules = modules or []
 
     def detect(self) -> dict:
@@ -187,7 +190,8 @@ class GuiBridge:
         endpoints = []
         for path, provider in [("/api/gui/capabilities", True),
                                *(("/api/installer/" + name, self.providers[name] is not None) for name in ("detect", "plan", "status")),
-                               ("/api/policies", self.providers["policies"] is not None)]:
+                               ("/api/policies", self.providers["policies"] is not None),
+                               ("/api/capabilities/catalog", self.providers["catalog"] is not None)]:
             endpoints.append({"method": "GET", "path": path, "kind": "read", "available": bool(provider),
                               "provider": {"id": "open-ocean", "version": "0.1.2"},
                               "auth": "provider-session", "runtime_verified": False, "verification_scope": "adapter",
@@ -283,7 +287,11 @@ def bridge_from_workspace(workspace: Path, *, gui_pins: tuple[str, str] | None =
                             "verification_scope": "source-pin"})
         except Exception:
             modules.append({"id": "policy-registry", "verified": False})
-    return GuiBridge(gui=gui, plan=plan, status=status, policies=policies, modules=modules)
+    catalog = None
+    if (workspace / "ocean.install.json").is_file():
+        def catalog(**kwargs):
+            return observe_catalog(workspace=workspace, **kwargs)
+    return GuiBridge(gui=gui, plan=plan, status=status, policies=policies, modules=modules, catalog=catalog)
 
 
 def mount_gui_bridge(app: Any, bridge: GuiBridge, require_auth: Callable, require_admin: Callable) -> None:
@@ -296,6 +304,19 @@ def mount_gui_bridge(app: Any, bridge: GuiBridge, require_auth: Callable, requir
         return JSONResponse(bridge.capabilities(), headers={"Cache-Control": "no-store"})
     capability_route.__annotations__["request"] = Request
     app.add_api_route("/api/gui/capabilities", capability_route, methods=["GET"])
+
+    def catalog_route(request):
+        require_auth(request)
+        kind = request.query_params.get("kind")
+        host = request.query_params.get("host")
+        if (kind is not None and kind not in CATALOG_KINDS) or (host is not None and not 0 < len(host) <= 80):
+            return JSONResponse({"detail": "unsupported_query"}, status_code=400, headers={"Cache-Control": "no-store"})
+        if bridge.providers["catalog"] is None:
+            return JSONResponse({"available": False, "reason": "Kein nativer Anbieter konfiguriert.",
+                                 "runtime_verified": False}, status_code=503, headers={"Cache-Control": "no-store"})
+        return JSONResponse(bridge.providers["catalog"](kind=kind, host=host), headers={"Cache-Control": "no-store"})
+    catalog_route.__annotations__["request"] = Request
+    app.add_api_route("/api/capabilities/catalog", catalog_route, methods=["GET"])
 
     def make_route(name, *, kind=None):
         def route(request):

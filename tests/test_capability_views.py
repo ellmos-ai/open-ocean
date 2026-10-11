@@ -28,10 +28,12 @@ def test_ocean_inventory_contract(tmp_path):
     assert set(result) == OCEAN_TOP and result["schema"] == "bach.capability-inventory.v1"
     # GUI rule (ellmos-system-gui software-catalog.mjs catalogMatches)
     assert result["kind"] == "ocean" and result["catalog"] == "ocean-host-sources"
-    assert all(set(i) == OCEAN_ITEM for i in result["items"]) and result["count"] == len(result["items"]) == 2
+    assert all(set(i) == OCEAN_ITEM for i in result["items"]) and result["count"] == len(result["items"]) == 3
     by = {i["id"]: i for i in result["items"]}
     assert by["alpha"]["installed"] is True and by["alpha"]["code_present"] is True
     assert by["beta"]["installed"] is False and by["beta"]["code_present"] is False
+    # a directory without an identity proof (placed copy): present, but not claimed as installed
+    assert by["gamma"]["installed"] is None and by["gamma"]["code_present"] is True
     assert all(i["runtime_active"] is None and i["path"].startswith("<workspace>/") for i in result["items"])
     assert result["sources"][0]["available"] is True and result["errors"] == []
     assert "someone" not in json.dumps(result) and str(tmp_path) not in json.dumps(result)
@@ -73,7 +75,7 @@ def _client(bridge):
             raise HTTPException(401, "login")
         return {"id": 1}
     mount_gui_bridge(app, bridge, auth, auth)
-    return TestClient(app)
+    return TestClient(app, follow_redirects=False)
 
 
 def test_routes_auth_and_contract(tmp_path):
@@ -139,3 +141,21 @@ def test_bridge_from_workspace_wires_both_providers(tmp_path):
     bare = tmp_path / "bare"
     bare.mkdir()
     assert bridge_from_workspace(bare).providers["ocean"] is None
+
+
+@pytest.mark.parametrize("method", ["GET", "HEAD", "OPTIONS", "POST", "PUT", "PATCH", "DELETE"])
+@pytest.mark.parametrize("path", ["/api/capabilities/ocean", "/api/capabilities/ocean/",
+                                  "/api/capabilities/skills/library", "/api/capabilities/skills/library/",
+                                  "/api/capabilities/software", "/api/capabilities/software/"])
+def test_unauthenticated_callers_see_only_the_auth_answer(tmp_path, method, path):
+    ws = _workspace(tmp_path)
+    bridge = GuiBridge(ocean=lambda: ocean_inventory(workspace=ws), skills=lambda: skill_library(workspace=ws))
+    response = _client(bridge).request(method, path)
+    assert response.status_code == 401  # no 405, no slash redirect, no 503 detail
+
+
+@pytest.mark.parametrize("path", ["/api/capabilities/ocean", "/api/capabilities/skills/library",
+                                  "/api/capabilities/software"])
+def test_authenticated_non_get_is_405(path):
+    response = _client(GuiBridge()).request("POST", path, headers=HEADERS)
+    assert response.status_code == 405 and response.headers["allow"] == "GET"

@@ -42,14 +42,14 @@ def ocean_inventory(*, workspace: Path) -> dict:
     transaction, _plan = _load_install(workspace, sources)
     items = []
     for module in _modules(transaction, workspace, next((s["generated_at"] for s in sources), None)):
-        present = module["measured"]["installed"] is True
+        proven = module["measured"]["installed"]  # True: identity proof read; False: directory absent; None: no proof
         items.append({
             "id": module["id"], "name": module["name"], "description": module["description"],
             "version": module["version"], "source_version": module["pin"]["commit"] or module["pin"]["content_hash"],
-            "code_present": present,
-            # true only when the install state resolved the module AND its directory is there; never inferred from a run
-            "installed": True if present and module["status"] == "resolved" else (False if not present else None),
-            "runtime_active": None, "evidence": "install_state+directory",
+            "code_present": proven is not False,
+            # true only when the install state resolved the module AND an identity proof was read; never from a run
+            "installed": True if proven is True and module["status"] == "resolved" else (False if proven is False else None),
+            "runtime_active": None, "evidence": module["measured"]["evidence"],
             "path": "<workspace>/modules/" + module["id"]})
     for source in sources:
         if source["availability"] == "error":

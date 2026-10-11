@@ -380,7 +380,6 @@ def mount_gui_bridge(app: Any, bridge: GuiBridge, require_auth: Callable, requir
 
     def inventory_route(name, unreadable):
         def route(request):
-            require_auth(request)
             provider = bridge.providers[name]
             if provider is None:
                 return JSONResponse({"available": False, "reason": "source-not-configured", "runtime_verified": False},
@@ -389,19 +388,15 @@ def mount_gui_bridge(app: Any, bridge: GuiBridge, require_auth: Callable, requir
                 return JSONResponse(provider(), headers={"Cache-Control": "no-store"})
             except (OSError, ValueError, RuntimeError):
                 return JSONResponse({"detail": unreadable}, status_code=503, headers={"Cache-Control": "no-store"})
-        route.__annotations__["request"] = Request
         return route
-    app.add_api_route("/api/capabilities/ocean", inventory_route("ocean", "Ocean-Quellen nicht lesbar"), methods=["GET"])
-    app.add_api_route("/api/capabilities/skills/library",
-                      inventory_route("skills", "Aktuelle Skill-Bibliothek nicht lesbar"), methods=["GET"])
+    add_guarded("/api/capabilities/ocean", inventory_route("ocean", "Ocean-Quellen nicht lesbar"))
+    add_guarded("/api/capabilities/skills/library", inventory_route("skills", "Aktuelle Skill-Bibliothek nicht lesbar"))
 
     def software_route(request):
-        require_auth(request)
         # The software register (.SOFTWARE/releases.json) is not part of the OCEAN composition: no substitute data.
         return JSONResponse({"available": False, "reason": "source-not-in-composition", "runtime_verified": False},
                             status_code=503, headers={"Cache-Control": "no-store"})
-    software_route.__annotations__["request"] = Request
-    app.add_api_route("/api/capabilities/software", software_route, methods=["GET"])
+    add_guarded("/api/capabilities/software", software_route)
 
     def make_route(name, *, kind=None):
         def route(request):

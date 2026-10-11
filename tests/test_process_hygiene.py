@@ -184,15 +184,20 @@ def test_job_object_kills_a_grandchild_when_it_closes():
     job = conftest.create_kill_on_close_job()
     assert job, "could not create a kill-on-close job object"
 
+    # The parent must not create the grandchild before it is in the job: a descendant
+    # born in that window is not covered and survives the close (flaky before, R19). So
+    # the parent blocks on stdin until the test has assigned it, then spawns -- the order
+    # is guaranteed by the pipe, not by a sleep.
     spawn = (
         "import subprocess,sys,time;"
+        "sys.stdin.readline();"
         "p=subprocess.Popen([sys.executable,'-c','import time;time.sleep(120)']);"
         "print(p.pid,flush=True);"
         "time.sleep(120)"
     )
     parent = subprocess.Popen(
         [sys.executable, "-c", spawn],
-        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
     )
     handle = None
     try:
@@ -200,6 +205,8 @@ def test_job_object_kills_a_grandchild_when_it_closes():
         handle = api.OpenProcess(0x0100 | 0x0001, False, parent.pid)
         assert handle, "could not open the spawned parent"
         assert api.AssignProcessToJobObject(job, handle), "could not assign to the job"
+        parent.stdin.write("go\n")
+        parent.stdin.flush()
 
         grandchild_pid = int(parent.stdout.readline().strip())
         assert process_is_alive(grandchild_pid), "grandchild did not start"

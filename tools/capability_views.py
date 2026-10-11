@@ -17,13 +17,12 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Any
 
 try:
-    from .catalog_projection import (MAX_ITEMS, SAFE_SEGMENT, _child, _load_install, _modules, _read_bytes,
+    from .catalog_projection import (MAX_ITEMS, _child, _load_install, _modules, _read_bytes,
                                      _redact)
 except ImportError:  # ocean_runtime.py direct entry point
-    from catalog_projection import (MAX_ITEMS, SAFE_SEGMENT, _child, _load_install, _modules, _read_bytes,
+    from catalog_projection import (MAX_ITEMS, _child, _load_install, _modules, _read_bytes,
                                     _redact)
 
 OCEAN_SCHEMA = "bach.capability-inventory.v1"

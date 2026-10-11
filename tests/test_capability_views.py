@@ -383,7 +383,7 @@ def test_skill_library_keeps_description_text_literal_but_inventory_still_redact
     assert skill["description"] == skill["role"] == "Writes to /dev/null and " + win
     assert skill["category"] == "tools /dev/null"
     # negative control: the redaction itself is intact and still applied to the Ocean source inventory
-    from tools.catalog_projection import REDACTED, _redact
+    from tools.catalog_projection import REDACTED
     assert _redact(win, [0]) == REDACTED
     import inspect
     from tools import capability_views

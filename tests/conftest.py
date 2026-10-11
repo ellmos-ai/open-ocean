@@ -32,6 +32,7 @@ import os
 import signal
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -105,7 +106,23 @@ class ProcessListError(RuntimeError):
     """The process table could not be read. Never to be treated as "no process"."""
 
 
-def _read_process_table() -> list[tuple[int, int, str]]:
+def _windows_entry(entry: object) -> tuple[int, int, str]:
+    """One Get-CimInstance record, or ProcessListError: a record without ids is not "a process"."""
+    if not isinstance(entry, dict):
+        raise ProcessListError(f"process listing entry is not an object: {entry!r}")
+    pid, ppid, command = (entry.get(key) for key in ("ProcessId", "ParentProcessId", "CommandLine"))
+    if not all(isinstance(v, int) and not isinstance(v, bool) for v in (pid, ppid)) or not (
+        command is None or isinstance(command, str)
+    ):
+        raise ProcessListError(f"process listing entry has missing or mistyped fields: {entry!r}")
+    return pid, ppid, command or ""
+
+
+class ProcessListParseError(ProcessListError):
+    """The listing ran but its output was not valid JSON: the one error worth re-reading."""
+
+
+def _read_process_table(timeout: float = 120) -> list[tuple[int, int, str]]:
     """Return (pid, ppid, command line) for every visible process.
 
     Standard library only: this repository ships no runtime dependencies, so psutil is
@@ -122,12 +139,12 @@ def _read_process_table() -> list[tuple[int, int, str]]:
                     "Get-CimInstance Win32_Process | "
                     "Select-Object ProcessId,ParentProcessId,CommandLine | ConvertTo-Json -Compress",
                 ],
-                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout,
             )
         else:
             completed = subprocess.run(
                 ["ps", "-eo", "pid=,ppid=,args="],
-                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout,
             )
     except (OSError, subprocess.SubprocessError) as exc:
         raise ProcessListError(f"process listing failed: {exc}") from exc
@@ -140,19 +157,12 @@ def _read_process_table() -> list[tuple[int, int, str]]:
         try:
             payload = json.loads(completed.stdout)
         except json.JSONDecodeError as exc:
-            raise ProcessListError(f"process listing is not valid JSON: {exc}") from exc
+            raise ProcessListParseError(f"process listing is not valid JSON: {exc}") from exc
         if isinstance(payload, dict):
             payload = [payload]
         if not isinstance(payload, list) or not payload:
             raise ProcessListError("process listing has no entries")
-        try:
-            return [
-                (int(entry.get("ProcessId") or 0), int(entry.get("ParentProcessId") or 0),
-                 entry.get("CommandLine") or "")
-                for entry in payload
-            ]
-        except (AttributeError, TypeError, ValueError) as exc:
-            raise ProcessListError(f"process listing has malformed entries: {exc}") from exc
+        return [_windows_entry(entry) for entry in payload]
 
     rows = []
     for line in completed.stdout.splitlines():
@@ -164,28 +174,70 @@ def _read_process_table() -> list[tuple[int, int, str]]:
     return rows
 
 
+LISTING_TIMEOUT = 120
+LISTING_DEADLINE = 180  # seconds for all attempts together
+
+
 def _iter_processes() -> list[tuple[int, int, str]]:
-    """The process table, or ProcessListError. Retries a transient bad snapshot.
+    """The process table, or ProcessListError. Re-reads a transient unparsable snapshot.
 
     The Windows listing is occasionally not valid JSON (seen once in ~60 runs of the
     hygiene tests: a process appearing or exiting while PowerShell serialises ~200 KB).
-    Reading it again is the honest remedy; an empty or invalid result after the last
-    attempt is still an error, never "no processes".
+    Only that is retried, and only within LISTING_DEADLINE; a timeout, a failed command or
+    a structurally wrong record is raised at once, and an empty or invalid result after the
+    last attempt is still an error, never "no processes".
     """
-    last: ProcessListError | None = None
-    for _attempt in range(3):
+    deadline = time.monotonic() + LISTING_DEADLINE
+    for attempt in range(3):
         try:
-            return _read_process_table()
-        except ProcessListError as exc:
-            last = exc
-    assert last is not None
-    raise last
+            return _read_process_table(max(1.0, min(LISTING_TIMEOUT, deadline - time.monotonic())))
+        except ProcessListParseError:
+            if attempt == 2 or time.monotonic() >= deadline:
+                raise
+    raise AssertionError("unreachable")
 
 
-PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
-STILL_ACTIVE = 259
+SYNCHRONIZE = 0x00100000
+WAIT_OBJECT_0 = 0
+WAIT_TIMEOUT = 0x102
 ERROR_ACCESS_DENIED = 5
 ERROR_INVALID_PARAMETER = 87  # OpenProcess answer for a pid that does not exist
+
+
+def handle_is_alive(api, handle) -> bool:
+    """Is the process behind this SYNCHRONIZE handle still running?
+
+    Waits on the process object instead of reading its exit code: STILL_ACTIVE (259) is a
+    legal exit code, so a finished process can report it and look alive forever.
+    """
+    result = api.WaitForSingleObject(handle, 0)
+    if result == WAIT_TIMEOUT:
+        return True
+    if result == WAIT_OBJECT_0:
+        return False
+    raise ProcessListError(f"WaitForSingleObject returned {result:#x}")
+
+
+def open_process_for_wait(pid: int):  # pragma: no cover - exercised only on Windows
+    """A handle that pins this process (a pid can be reused, a handle cannot), or None.
+
+    None means the pid does not exist. Access denied is not "dead" and raises PermissionError.
+    """
+    api = kernel32()
+    api.OpenProcess.restype = wintypes.HANDLE
+    api.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    api.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+    api.WaitForSingleObject.restype = wintypes.DWORD
+    api.CloseHandle.argtypes = [wintypes.HANDLE]
+    handle = api.OpenProcess(SYNCHRONIZE, False, pid)
+    if handle:
+        return handle
+    error = ctypes.get_last_error()
+    if error == ERROR_INVALID_PARAMETER:
+        return None
+    if error == ERROR_ACCESS_DENIED:
+        raise PermissionError(pid)
+    raise ProcessListError(f"OpenProcess({pid}) failed with Windows error {error}")
 
 
 def _windows_pid_is_alive(pid: int) -> bool:  # pragma: no cover - exercised only on Windows
@@ -193,27 +245,15 @@ def _windows_pid_is_alive(pid: int) -> bool:  # pragma: no cover - exercised onl
 
     An error other than "no such process" raises: it must not read as "dead".
     """
-    api = kernel32()
-    api.OpenProcess.restype = wintypes.HANDLE
-    api.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
-    api.GetExitCodeProcess.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
-    api.GetExitCodeProcess.restype = wintypes.BOOL
-    api.CloseHandle.argtypes = [wintypes.HANDLE]
-    handle = api.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
-    if not handle:
-        error = ctypes.get_last_error()
-        if error == ERROR_INVALID_PARAMETER:
-            return False
-        if error == ERROR_ACCESS_DENIED:
-            return True
-        raise ProcessListError(f"OpenProcess({pid}) failed with Windows error {error}")
     try:
-        code = wintypes.DWORD()
-        if not api.GetExitCodeProcess(handle, ctypes.byref(code)):
-            raise ProcessListError(
-                f"GetExitCodeProcess({pid}) failed with Windows error {ctypes.get_last_error()}"
-            )
-        return code.value == STILL_ACTIVE
+        handle = open_process_for_wait(pid)
+    except PermissionError:
+        return True  # exists, merely not ours to open
+    if handle is None:
+        return False
+    api = kernel32()
+    try:
+        return handle_is_alive(api, handle)
     finally:
         api.CloseHandle(handle)
 

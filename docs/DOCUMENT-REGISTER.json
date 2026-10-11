@@ -4,7 +4,7 @@
   "owner_repo": "ellmos-ai/open-ocean",
   "authority": "repo-local-register-no-cutover",
   "cutover_performed": false,
-  "observed_at": "2026-10-11T00:43:14Z",
+  "observed_at": "2026-10-11T03:59:59Z",
   "source_revision": "ca54e89",
   "documents": [
     {
@@ -24,7 +24,7 @@
         "path": "CHANGELOG.md",
         "revision": "ac7c9d6",
         "sha256": "4dd99d48b0a2aa5bfcaca8ed19700e92ea27d3c9f77f6df4d3db83263a2c8a04",
-        "observed_at": "2026-10-11T00:43:14Z"
+        "observed_at": "2026-10-11T03:59:59Z"
       },
       "language": "en",
       "generator": {
@@ -40,35 +40,35 @@
           "kind": "link",
           "ref": "CHANGELOG_de.md",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         },
         {
           "reader_id": "r2",
           "kind": "link",
           "ref": "README.md",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         },
         {
           "reader_id": "r3",
           "kind": "link",
           "ref": "README_de.md",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         },
         {
           "reader_id": "r4",
           "kind": "link",
           "ref": "llms.txt",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         },
         {
           "reader_id": "r5",
           "kind": "test",
           "ref": "tests/test_metadata.py",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         }
       ],
       "authority_claim": "none",
@@ -120,7 +120,7 @@
         "path": "SECURITY.md",
         "revision": "19b4b4d",
         "sha256": "a27c702917244aaf3e94fb2018664df6470fbd365a75ab262d348186b5e11a4a",
-        "observed_at": "2026-10-11T00:43:14Z"
+        "observed_at": "2026-10-11T03:59:59Z"
       },
       "language": "mixed",
       "generator": {
@@ -136,42 +136,42 @@
           "kind": "link",
           "ref": "CHANGELOG.md",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         },
         {
           "reader_id": "r2",
           "kind": "link",
           "ref": "CHANGELOG_de.md",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         },
         {
           "reader_id": "r3",
           "kind": "link",
           "ref": "README.md",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         },
         {
           "reader_id": "r4",
           "kind": "link",
           "ref": "README_de.md",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         },
         {
           "reader_id": "r5",
           "kind": "link",
           "ref": "llms.txt",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         },
         {
           "reader_id": "r6",
           "kind": "test",
           "ref": "tests/test_metadata.py",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         }
       ],
       "authority_claim": "repo-local",
@@ -204,7 +204,7 @@
         "path": "THIRD_PARTY_LICENSES.md",
         "revision": "91e15a3",
         "sha256": "da5af55e13cfc6a7bdfce8d38aec8767656a3e2f88932030f125ddc5d6faada4",
-        "observed_at": "2026-10-11T00:43:14Z"
+        "observed_at": "2026-10-11T03:59:59Z"
       },
       "language": "en",
       "generator": {
@@ -220,35 +220,35 @@
           "kind": "link",
           "ref": "CHANGELOG.md",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         },
         {
           "reader_id": "r2",
           "kind": "link",
           "ref": "CHANGELOG_de.md",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         },
         {
           "reader_id": "r3",
           "kind": "link",
           "ref": "README.md",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         },
         {
           "reader_id": "r4",
           "kind": "link",
           "ref": "README_de.md",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         },
         {
           "reader_id": "r5",
           "kind": "test",
           "ref": "tests/test_metadata.py",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         }
       ],
       "authority_claim": "repo-local",
@@ -281,7 +281,7 @@
         "path": "llms.txt",
         "revision": "c613506",
         "sha256": "4ab8e1d912c4d38216385574889b462f70aed9df3428cc575964ab0fe8a4fea2",
-        "observed_at": "2026-10-11T00:43:14Z"
+        "observed_at": "2026-10-11T03:59:59Z"
       },
       "language": "en",
       "generator": {
@@ -297,35 +297,35 @@
           "kind": "link",
           "ref": "CHANGELOG.md",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         },
         {
           "reader_id": "r2",
           "kind": "link",
           "ref": "CHANGELOG_de.md",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         },
         {
           "reader_id": "r3",
           "kind": "link",
           "ref": "README.md",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         },
         {
           "reader_id": "r4",
           "kind": "link",
           "ref": "README_de.md",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         },
         {
           "reader_id": "r5",
           "kind": "test",
           "ref": "tests/test_metadata.py",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         }
       ],
       "authority_claim": "none",
@@ -359,7 +359,7 @@
         "path": "architecture/BACH-EXTRACTION-ROADMAP.md",
         "revision": "7127a0f",
         "sha256": "a91a7f81dda2177650d592ac1118d657b0fbf7ed0b7e0782e7e2abe7a5d3dd41",
-        "observed_at": "2026-10-11T00:43:14Z"
+        "observed_at": "2026-10-11T03:59:59Z"
       },
       "language": "en",
       "generator": {
@@ -369,7 +369,15 @@
       },
       "projection_of": null,
       "replacement_ref": null,
-      "readers": [],
+      "readers": [
+        {
+          "reader_id": "r1",
+          "kind": "link",
+          "ref": "architecture/BACH-EXTRAKTIONSROADMAP.md",
+          "active": true,
+          "last_checked_at": "2026-10-11T03:59:59Z"
+        }
+      ],
       "authority_claim": "repo-local",
       "review_date": "2026-10-11",
       "evidence": [
@@ -420,7 +428,7 @@
         "path": "architecture/GUI-CONSUMER.md",
         "revision": "15c06b6",
         "sha256": "962f55fcc6a46c22903528bb950f2baf7b00e51629738fcb11cd670f8c8f0092",
-        "observed_at": "2026-10-11T00:43:14Z"
+        "observed_at": "2026-10-11T03:59:59Z"
       },
       "language": "de",
       "generator": {
@@ -436,21 +444,21 @@
           "kind": "link",
           "ref": "README.md",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         },
         {
           "reader_id": "r2",
           "kind": "link",
           "ref": "README_de.md",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         },
         {
           "reader_id": "r3",
           "kind": "link",
           "ref": "docs/GUI-CONSUMER.md",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         }
       ],
       "authority_claim": "repo-local",
@@ -483,7 +491,7 @@
         "path": "architecture/INSTALLER-TARGET.md",
         "revision": "9ec6402",
         "sha256": "7b9e8ff1da5160e10ddd0138bf9cd0187867baa1c8814f3435833c1c72135eec",
-        "observed_at": "2026-10-11T00:43:14Z"
+        "observed_at": "2026-10-11T03:59:59Z"
       },
       "language": "en",
       "generator": {
@@ -499,63 +507,63 @@
           "kind": "link",
           "ref": "CHANGELOG.md",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         },
         {
           "reader_id": "r2",
           "kind": "link",
           "ref": "CHANGELOG_de.md",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         },
         {
           "reader_id": "r3",
           "kind": "link",
           "ref": "llms.txt",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         },
         {
           "reader_id": "r4",
           "kind": "test",
           "ref": "tests/test_fetch_place.py",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         },
         {
           "reader_id": "r5",
           "kind": "test",
           "ref": "tests/test_resolve_bundles.py",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         },
         {
           "reader_id": "r6",
           "kind": "tool",
           "ref": "tools/fetch_place.py",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         },
         {
           "reader_id": "r7",
           "kind": "tool",
           "ref": "tools/host_adapters.py",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         },
         {
           "reader_id": "r8",
           "kind": "tool",
           "ref": "tools/ocean_dev.py",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         },
         {
           "reader_id": "r9",
           "kind": "tool",
           "ref": "tools/resolve_bundles.py",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         }
       ],
       "authority_claim": "repo-local",
@@ -588,7 +596,7 @@
         "path": "architecture/OCEAN-INSPECT.md",
         "revision": "40dfb68",
         "sha256": "213c8bce998a52fe128665699a81a98d3880d85fda3acf9173c7813b1e0907a3",
-        "observed_at": "2026-10-11T00:43:14Z"
+        "observed_at": "2026-10-11T03:59:59Z"
       },
       "language": "en",
       "generator": {
@@ -604,14 +612,14 @@
           "kind": "link",
           "ref": "README.md",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         },
         {
           "reader_id": "r2",
           "kind": "link",
           "ref": "llms.txt",
           "active": true,
-          "last_checked_at": "2026-10-11T00:43:14Z"
+          "last_checked_at": "2026-10-11T03:59:59Z"
         }
       ],
       "authority_claim": "repo-local",
@@ -663,7 +671,7 @@
         "path": "architecture/OPERATOR-UI-SELECTION.md",
         "revision": "fce8b20",
         "sha256": "bb63539b61dd4116ef123c887a493678fc697b7bfb34ab25dbb0e900dd1f9496",
-        "observed_at": "2026-10-11T00:43:14Z"
+        "observed_at": "2026-10-11T03:59:59Z"
       },
       "language": "en",
       "generator": {
@@ -705,7 +713,7 @@
         "path": "docs/GUI-CONSUMER.md",
         "revision": "5c3239a",
         "sha256": "a55fdbc6bdbfa011b2f6ec216bc932817c66a321d4261fca1d970e489de55f58",
-        "observed_at": "2026-10-11T00:43:14Z"
+        "observed_at": "2026-10-11T03:59:59Z"
       },
       "language": "de",
       "generator": {
@@ -746,7 +754,7 @@
         "path": "docs/K9-REMAINING-CI.md",
         "revision": "b65c253",
         "sha256": "7edabb440e407dd87b07eb6a5bfc3345a9f5433361c757bd8a7fe876dee8630c",
-        "observed_at": "2026-10-11T00:43:14Z"
+        "observed_at": "2026-10-11T03:59:59Z"
       },
       "language": "de",
       "generator": {
@@ -787,7 +795,7 @@
         "path": "docs/K9-REMAINING-OPERATIONS-CONTRACT.md",
         "revision": "6ce5cd9",
         "sha256": "9bb5aabe0b04dc38f578e6c02026a0364d8a88b762c592ccba6ba5dfe1434663",
-        "observed_at": "2026-10-11T00:43:14Z"
+        "observed_at": "2026-10-11T03:59:59Z"
       },
       "language": "de",
       "generator": {

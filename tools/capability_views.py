@@ -13,6 +13,7 @@ directory check, ``runtime_active`` is always ``null``). Paths are symbolic labe
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import re
 from pathlib import Path
@@ -32,6 +33,7 @@ MAX_SKILL_DIRECTORIES = 4096
 SKILL_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$")
 MAX_SOURCE_BYTES = 200_000
 MAX_TOTAL_SOURCE_BYTES = 20_000_000
+MAX_RESPONSE_BYTES = 5_000_000
 # Same allow-list as BACH hub/_services/display_assets.py TICKET_SYMBOL_IDS.
 SYMBOL_IDS = frozenset({"githubbot", "office", "scripts", "server", "sync", "topics", "topics_ai", "topics_gesim",
                         "topics_hardware", "topics_research", "topics_roblox", "topics_software", "topics_umbruch",
@@ -68,61 +70,48 @@ def ocean_inventory(*, workspace: Path) -> dict:
     result = {"schema": OCEAN_SCHEMA, "kind": "ocean", "items": items,
               "sources": [_source_entry(s) for s in sources], "errors": errors, "truncated": truncated,
               "catalog": "ocean-host-sources", "count": len(items)}
-    return _redact(result, [0])
+    return _bounded(_redact(result, [0]))
 
 
-_FRONT_KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*$")
-_FRONT_USED = frozenset({"name", "category", "version", "description", "symbol"})
-_BLOCK_HEADER = re.compile(r"^[|>][+-]?$")
+try:  # PyYAML is the optional "gui" dependency; BACH reads the same frontmatter with yaml.safe_load
+    import yaml as _yaml
+    _YAML_LOADER = getattr(_yaml, "CSafeLoader", _yaml.SafeLoader)
+except ImportError:  # no home-made parser as a substitute: metadata is then reported as degraded
+    _yaml = None
+    _YAML_LOADER = None
+
+_CONTROL = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 
 
-def _frontmatter(text: str) -> dict[str, str]:
-    """Bounded reader for the five keys the library uses, without a YAML dependency.
-
-    The closing ``---`` is required (else ``{}``). Keys the library does not read are skipped together with their
-    continuation lines (lists, flow collections, nesting). A used key is read when it is a single-line scalar or a
-    simple block scalar (``|``, ``>``, optional chomping); every other form (flow collections, anchors, tags, an
-    open quote, a plain scalar continued on the next line) leaves that key absent, so the caller's fallback applies
-    instead of a half-parsed value."""
+def _metadata(text: str) -> dict[str, str]:
+    """``yaml.safe_load`` of the frontmatter block (BACH ``skill_source_service._metadata``), then reduced to the five
+    keys the library uses. The block starts with ``---`` at the first line and ends at the first line that is exactly
+    ``---`` in column 0 (an indented ``---`` belongs to a block scalar). Only ``str`` values without control
+    characters are kept; any other type (null, number, list ...) leaves that field to its fallback."""
+    if _yaml is None:
+        return {}
+    text = text.removeprefix("\ufeff")
     if not text.startswith(("---\n", "---\r\n")):
         return {}
     lines = text.splitlines()
-    end = next((i for i, line in enumerate(lines[1:], 1) if line.strip() == "---"), None)
-    if end is None or end > 400:
+    end = next((i for i, line in enumerate(lines[1:], 1) if line == "---"), None)
+    if end is None:
         return {}
-    meta: dict[str, str] = {}
-    index = 1
-    while index < end:
-        line = lines[index]
-        index += 1
-        if not line.strip() or line.lstrip().startswith("#") or line[0] in " \t-":
-            continue  # blank, comment, or continuation / list item of a value that was already decided
-        key, sep, value = line.partition(":")
-        key, value = key.strip(), value.strip()
-        if not sep or not _FRONT_KEY.fullmatch(key):
-            return {}
-        block = []
-        while index < end and (not lines[index].strip() or lines[index][0] in " \t"):
-            block.append(lines[index].strip())
-            index += 1
-        if key not in _FRONT_USED or key in meta:
-            continue
-        if _BLOCK_HEADER.fullmatch(value):
-            parts = [part for part in block if part]
-            meta[key] = ("\n" if value[0] == "|" else " ").join(parts)
-            continue
-        if any(part for part in block):
-            continue  # plain scalar continued on following lines: not supported
-        if value[:1] in tuple("[{&*!%@`|>"):
-            continue
-        if value[:1] in ("'", '"'):
-            if len(value) < 2 or value[-1] != value[0]:
-                continue
-            value = value[1:-1]
-        elif " #" in value:
-            value = value.split(" #", 1)[0].strip()
-        meta[key] = value
-    return meta
+    try:
+        data = _yaml.load("\n".join(lines[1:end]) + "\n", Loader=_YAML_LOADER)
+    except Exception:  # YAMLError, RecursionError, ... : unreadable metadata is no metadata
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {key: data[key] for key in ("name", "category", "version", "description", "symbol")
+            if isinstance(data.get(key), str) and not _CONTROL.search(data[key])}
+
+
+def _bounded(result: dict) -> dict:
+    """Refuse an answer whose serialized size exceeds the limit (the caller maps this to 503), instead of sending it."""
+    if len(json.dumps(result, ensure_ascii=False).encode("utf-8")) > MAX_RESPONSE_BYTES:
+        raise RuntimeError("Antwort überschreitet das Größenlimit")
+    return result
 
 
 def skill_library(*, workspace: Path) -> dict:
@@ -131,40 +120,51 @@ def skill_library(*, workspace: Path) -> dict:
     root = _child(workspace, "skills")
     if root is None or not root.is_dir():
         raise FileNotFoundError("skills")
+    names = []
+    with os.scandir(root) as listing:
+        for entry in listing:  # the entry limit is enforced while scanning, before anything is sorted or read
+            if len(names) >= MAX_SKILL_DIRECTORIES:
+                raise RuntimeError("Skill-Katalog überschreitet die begrenzte Scanweite")
+            names.append(entry.name)
     skills = []
-    visited = 0
-    total = 0
-    for entry in sorted(os.scandir(root), key=lambda e: e.name):
-        visited += 1
-        if visited > MAX_SKILL_DIRECTORIES:
-            raise RuntimeError("Skill-Katalog überschreitet die begrenzte Scanweite")
-        if not SKILL_ID.fullmatch(entry.name) or not entry.is_dir(follow_symlinks=False):
+    budget = 0
+    for name in sorted(names):
+        if not SKILL_ID.fullmatch(name):
             continue
-        path = _child(workspace, "skills", entry.name, "SKILL.md")
-        if path is None or not path.is_file():
+        folder = _child(workspace, "skills", name)
+        path = _child(workspace, "skills", name, "SKILL.md")
+        if folder is None or path is None or not folder.is_dir() or not path.is_file():
             continue
+        raw = None
         try:
             raw, _ = _read_bytes(path, workspace, MAX_SOURCE_BYTES)
-            if b"\x00" in raw:
-                continue
-            text = raw.decode("utf-8")  # strict: invalid UTF-8 is not a skill source
-        except (OSError, ValueError):
-            continue
-        total += len(raw)
-        if total > MAX_TOTAL_SOURCE_BYTES:
+            budget += len(raw)
+        except ValueError:
+            budget += MAX_SOURCE_BYTES + 1  # an oversized file was still read up to the limit: it counts
+        except OSError:
+            pass
+        if budget > MAX_TOTAL_SOURCE_BYTES:  # EVERY read attempt counts, valid or not
             raise RuntimeError("Skill-Katalog überschreitet die begrenzte Lesemenge")
-        meta = _frontmatter(text)
+        if raw is None or b"\x00" in raw:
+            continue
+        try:
+            text = raw.decode("utf-8")  # strict: invalid UTF-8 is not a skill source
+        except UnicodeDecodeError:
+            continue
+        meta = _metadata(text)
         symbol = meta.get("symbol", "")
+        description = meta.get("description", "")[:300]
         skills.append({
-            "id": entry.name, "name": (meta.get("name") or entry.name)[:200],
+            "id": name, "name": (meta.get("name") or name)[:200],
             "category": (meta.get("category") or "general")[:100],
             "version": (meta.get("version") or "ohne Versionsnummer")[:100],
             "symbol": symbol if symbol in SYMBOL_IDS else "",
             "source_version": hashlib.sha256(raw).hexdigest(), "evidence_type": "filesystem_present",
-            "source_kind": "ocean_workspace", "role": (meta.get("description") or "")[:300],
-            "description": (meta.get("description") or "")[:300]})
+            "source_kind": "ocean_workspace", "role": description, "description": description})
     skills.sort(key=lambda item: item["name"].casefold())
     result = {"schema": SKILL_LIBRARY_SCHEMA, "skills": skills, "count": len(skills),
               "categories": sorted({s["category"] for s in skills}), "source": "current_SKILL.md",
               "declared_only_included": False}
-    return _redact(result, [0])
+    if _yaml is None:
+        result["degraded"] = ["frontmatter:yaml-unavailable"]  # additive: names/versions/descriptions could not be read
+    return _bounded(_redact(result, [0]))

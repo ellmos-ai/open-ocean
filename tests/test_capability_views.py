@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 from tools.capability_views import ocean_inventory, skill_library
+from tools.catalog_projection import _redact
 from tools.gui_bridge import GuiBridge, PAGE_REQUIRES, mount_gui_bridge, bridge_from_workspace
 from tests.test_catalog_projection import _workspace
 
@@ -161,7 +163,10 @@ def test_authenticated_non_get_is_405(path):
     assert response.status_code == 405 and response.headers["allow"] == "GET"
 
 
-# --- skill sources: BACH limits, strict UTF-8, strict frontmatter, id rule, symbol allow-list -----------------------
+# --- skill sources: BACH limits, strict UTF-8, yaml.safe_load frontmatter, id rule, symbol allow-list ----------------
+
+yaml = pytest.importorskip("yaml")
+
 
 def _skill(ws, name, content: bytes | str):
     folder = ws / "skills" / name
@@ -190,14 +195,6 @@ def test_oversized_nul_and_invalid_utf8_sources_are_not_skills(tmp_path):
     assert set(_by_id(ws)) == {"demo-skill", "fine"}
 
 
-def test_total_read_limit_is_enforced(tmp_path, monkeypatch):
-    from tools import capability_views
-    ws = _workspace(tmp_path)
-    monkeypatch.setattr(capability_views, "MAX_TOTAL_SOURCE_BYTES", 10)
-    with pytest.raises(RuntimeError):
-        skill_library(workspace=ws)
-
-
 def test_metadata_lengths_are_bounded(tmp_path):
     ws = _workspace(tmp_path)
     _skill(ws, "long", "---\nname: " + "n" * 500 + "\ncategory: " + "c" * 500 + "\nversion: " + "v" * 500 +
@@ -206,40 +203,158 @@ def test_metadata_lengths_are_bounded(tmp_path):
     assert (len(item["name"]), len(item["category"]), len(item["version"]), len(item["description"])) == (200, 100, 100, 300)
 
 
-@pytest.mark.parametrize("front,expected", [
-    ("---\nname: x\ndescription: |\n  multi\n  line\n---\n", "multi\nline"),          # block scalar
-    ("---\nname: x\ndescription: >-\n  folded\n  text\n---\n", "folded text"),        # folded scalar
-    ("---\nname: x\ntags: [a, b]\ntype: skill\ndescription: ok\n---\n", "ok"),        # unused flow list skipped
-    ("---\nname: x\ntags:\n  - a\n  - b\ndescription: ok\n---\n", "ok"),            # unused nested list skipped
-    ("---\nname: x\nmeta: {a: 1}\ndescription: ok\n---\n", "ok"),                     # unused flow mapping skipped
-    ("---\nname: x\ndescription: [a, b]\n---\n", ""),                                # used key as flow list: absent
-    ("---\nname: x\ndescription: 'unterminated\n---\n", ""),                         # open quote: absent
-    ("---\nname: x\ndescription: &a anchored\n---\n", ""),                            # anchor: absent
-    ("---\nname: x\ndescription: first\n  second line\n---\n", ""),                  # continued plain scalar
+# yaml.safe_load semantics (what BACH produces), pinned with explicit values
+@pytest.mark.parametrize("text,key,expected", [
+    ("---\nname: x\ndescription: |\n  alpha\n  beta\n---\n", "description", "alpha\nbeta\n"),
+    ("---\nname: x\ndescription: |-\n  alpha\n  beta\n---\n", "description", "alpha\nbeta"),
+    ("---\nname: x\ndescription: |+\n  alpha\n  beta\n\n---\n", "description", "alpha\nbeta\n\n"),
+    ("---\nname: x\ndescription: >\n  alpha\n  beta\n---\n", "description", "alpha beta\n"),
+    ("---\nname: x\ndescription: >-\n  alpha\n  beta\n---\n", "description", "alpha beta"),
+    ("---\nname: x\ndescription: |\n  before\n  ---\n  after\n---\n", "description", "before\n---\nafter\n"),
+    ("---\nname: a\nname: b\n---\n", "name", "b"),                                    # duplicate: last wins
+    ('---\nname: "one\\ntwo"\n---\n', "name", "one\ntwo"),                           # double-quoted escape
+    ("---\nname: 'don''t'\n---\n", "name", "don't"),                                   # single-quote escape
+    ("---\nname: x\ndescription: first\n  second\n---\n", "description", "first second"),
+    ("\ufeff---\nname: bom\n---\n", "name", "bom"),
+    ("---\r\nname: crlf\r\n---\r\n", "name", "crlf"),
+    ("---\nname: \u00fcnic\u00f6de \U0001f600\n---\n", "name", "\u00fcnic\u00f6de \U0001f600"),
 ])
-def test_frontmatter_forms_never_produce_half_parsed_values(tmp_path, front, expected):
+def test_metadata_equals_yaml_safe_load(text, key, expected):
+    from tools.capability_views import _metadata
+    assert _metadata(text)[key] == expected
+
+
+@pytest.mark.parametrize("text,key", [
+    ("---\nname: x\nversion: null\n---\n", "version"),
+    ("---\nname: x\nversion: 1.2\n---\n", "version"),                 # number, not str: field dropped
+    ("---\nname: x\ndescription: [a, b]\n---\n", "description"),      # list
+    ('---\nname: "a\\x01b"\n---\n', "name"),                           # control character
+    ("---\nname: x\ndescription: 'open\n---\n", "description"),         # YAML error: whole block unreadable
+])
+def test_metadata_drops_non_string_and_control_values(text, key):
+    from tools.capability_views import _metadata
+    assert key not in _metadata(text)
+
+
+@pytest.mark.parametrize("text", [
+    "---\nname: x\nbody without closing marker\n",                      # no closing marker
+    "---\nname: x\n  ---\nsymbol: usr\n",                              # indented --- is no marker
+    "name: x\n---\n",                                                   # no start marker
+    "---\n- a\n- b\n---\n",                                            # not a mapping
+])
+def test_metadata_needs_a_real_frontmatter_block(text):
+    from tools.capability_views import _metadata
+    assert _metadata(text) == {}
+
+
+def test_without_pyyaml_metadata_is_degraded_never_homemade(tmp_path, monkeypatch):
+    from tools import capability_views
     ws = _workspace(tmp_path)
-    _skill(ws, "odd", front)
-    item = _by_id(ws)["odd"]
-    assert item["name"] == "x" and item["description"] == expected  # neighbouring keys survive an unsupported one
+    monkeypatch.setattr(capability_views, "_yaml", None)
+    result = skill_library(workspace=ws)
+    assert result["degraded"] == ["frontmatter:yaml-unavailable"]
+    item = result["skills"][0]
+    assert item["description"] == "" and item["name"] == item["id"] and item["version"] == "ohne Versionsnummer"
 
 
-def test_missing_closing_marker_does_not_leak_body_keys(tmp_path):
+def test_supported_frontmatter_and_symbol_allow_list(tmp_path):
     ws = _workspace(tmp_path)
-    _skill(ws, "open", "---\nname: real\n\nbody text\nsymbol: usr\ncategory: injected\n")
-    item = _by_id(ws)["open"]
-    assert item["name"] == "open" and item["category"] == "general" and item["symbol"] == ""
-
-
-def test_supported_flat_frontmatter_and_symbol_allow_list(tmp_path):
-    ws = _workspace(tmp_path)
-    _skill(ws, "good", '---\nname: "Good Name"\ncategory: dev # comment\nversion: 1.2\nsymbol: wissen\n'
+    _skill(ws, "good", '---\nname: "Good Name"\ncategory: dev # comment\nversion: "1.2"\nsymbol: wissen\n'
                       'description: plain text\n---\nbody\n')
     _skill(ws, "badsym", "---\nname: x\nsymbol: not-a-symbol\n---\n")
     by = _by_id(ws)
     assert (by["good"]["name"], by["good"]["category"], by["good"]["version"]) == ("Good Name", "dev", "1.2")
     assert by["good"]["symbol"] == "wissen" and by["good"]["description"] == "plain text"
-    assert by["badsym"]["symbol"] == ""
+    assert by["badsym"]["symbol"] == "" and "degraded" not in skill_library(workspace=ws)
+
+
+def test_bom_file_keeps_its_metadata(tmp_path):
+    ws = _workspace(tmp_path)
+    _skill(ws, "bom", b"\xef\xbb\xbf---\nname: With BOM\n---\n")
+    assert _by_id(ws)["bom"]["name"] == "With BOM"
+
+
+# --- budgets -------------------------------------------------------------------------------------------------------
+
+@pytest.mark.parametrize("make", [
+    lambda i: "---\nname: x\n---\n" + "a" * 200_001,          # oversized
+    lambda i: "---\nname: x\n---\nbody\x00" + "a" * 100,         # NUL
+    lambda i: b"---\nname: x\n---\n\xff\xfe" + b"a" * 500,     # invalid UTF-8
+])
+def test_every_read_attempt_counts_against_the_shared_budget(tmp_path, monkeypatch, make):
+    from tools import capability_views
+    ws = _workspace(tmp_path, skills=False)
+    for index in range(30):
+        _skill(ws, f"skill-{index:02d}", make(index))
+    monkeypatch.setattr(capability_views, "MAX_TOTAL_SOURCE_BYTES", 1000)
+    with pytest.raises(RuntimeError):
+        skill_library(workspace=ws)
+
+
+def test_entry_limit_is_enforced_while_scanning(tmp_path, monkeypatch):
+    from tools import capability_views
+    ws = _workspace(tmp_path)
+    monkeypatch.setattr(capability_views, "MAX_SKILL_DIRECTORIES", 5)
+    yielded = []
+
+    class _Entry:
+        def __init__(self, name):
+            self.name = name
+
+    class _Listing:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def __iter__(self):
+            for index in range(10_000):
+                yielded.append(index)
+                yield _Entry(f"s{index}")
+
+    monkeypatch.setattr(capability_views.os, "scandir", lambda path: _Listing())
+    with pytest.raises(RuntimeError):
+        skill_library(workspace=ws)
+    assert len(yielded) <= 6  # the generator was not drained before the limit applied
+
+
+def test_response_size_limit_gives_503_not_a_huge_answer(tmp_path, monkeypatch):
+    from tools import capability_views
+    ws = _workspace(tmp_path)
+    monkeypatch.setattr(capability_views, "MAX_RESPONSE_BYTES", 100)
+    with pytest.raises(RuntimeError):
+        skill_library(workspace=ws)
+    with pytest.raises(RuntimeError):
+        ocean_inventory(workspace=ws)
+    bridge = GuiBridge(ocean=lambda: ocean_inventory(workspace=ws), skills=lambda: skill_library(workspace=ws))
+    client = _client(bridge)
+    assert client.get("/api/capabilities/skills/library", headers=HEADERS).status_code == 503
+    assert client.get("/api/capabilities/ocean", headers=HEADERS).json() == {"detail": "Ocean-Quellen nicht lesbar"}
+
+
+def test_real_workspace_skills_equal_yaml_safe_load():
+    root = Path(os.environ.get("OCEAN_TEST_WORKSPACE", r"C:\_Local_DEV\ocean-full-20261011"))
+    if not (root / "skills").is_dir():
+        pytest.skip("no installed workspace with skills on this host")
+    result = skill_library(workspace=root)
+    described = categories = 0
+    for item in result["skills"]:
+        content = (root / "skills" / item["id"] / "SKILL.md").read_bytes().decode("utf-8").removeprefix("\ufeff")
+        block = content.split("\n---", 1)[0].split("\n", 1)[1]
+        try:
+            reference = yaml.safe_load(block)
+        except yaml.YAMLError:
+            reference = {}  # BACH answers {} for unparsable frontmatter, so do we
+        reference = reference if isinstance(reference, dict) else {}
+        for key, field, fallback in (("description", "description", ""), ("category", "category", "general")):
+            expected = reference.get(key) if isinstance(reference.get(key), str) else fallback
+            assert item[field] == _redact(expected[:300 if key == "description" else 100], [0]), (item["id"], key)
+        described += bool(item["description"])
+        categories += item["category"] != "general"
+    print(f"real skills: {result['count']}, descriptions: {described}, non-default categories: {categories}, "
+          f"categories: {len(result['categories'])}")
+    assert result["count"] > 0
 
 
 def test_skills_page_also_needs_the_assignment_tab_endpoints(tmp_path):

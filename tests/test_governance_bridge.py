@@ -1,7 +1,11 @@
 """Governance reads for the GUI (BACH #2092/#2093): lock-cache feed, bach.policy-registry.v1, honest gaps; no service."""
 from __future__ import annotations
 
+import hashlib
 import json
+import os
+import shutil
+import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -113,7 +117,7 @@ def _registry_reader(tmp_path, entries, **options):
     path = tmp_path / "registry.json"
     path.write_text('{"entries": []}')
     registry = _Registry(entries, path, **options)
-    return lambda **kwargs: gov.observe(registry=registry, registry_path=path, provider=PROVIDER, **kwargs)
+    return lambda **kwargs: gov.observe(registry_factory=lambda: registry, registry_path=path, provider=PROVIDER, **kwargs)
 
 
 ENTRIES = [_entry("P-001"), _entry("D-001", kind="decision"), _entry("R-001", kind="rule"),
@@ -225,6 +229,9 @@ def test_registry_is_bach_schema_public_pointers_only(tmp_path):
     policies = client.get("/api/governance/policies", headers=ADMIN).json()
     assert [p["id"] for p in policies["policies"]] == ["P-001", "R-001"] and policies["count"] == 2
     assert policies["policies"][0]["name"] == "Titel P-001" and policies["policies"][0]["enforcement"] == "unverified"
+    # entries are filtered like policies, so count == len(entries) (BACH leaves entries unfiltered but overwrites count)
+    assert [e["id"] for e in policies["entries"]] == ["P-001", "R-001"] and policies["count"] == len(policies["entries"])
+    assert policies["source_verification_complete"] is True
 
 
 def test_effective_policy_carries_the_resolution_without_private_candidates(tmp_path):
@@ -258,9 +265,66 @@ def test_provider_failures_become_coded_503_without_internals(tmp_path):
         def search(self, *a, **k):
             raise OSError(PRIVATE_PATH)
     with pytest.raises(gov.GovernanceUnavailable, match="policy_registry_read_failed"):
-        gov.observe(registry=Exploding(), registry_path=path, provider=PROVIDER)
+        gov.observe(registry_factory=Exploding, registry_path=path, provider=PROVIDER)
     with pytest.raises(gov.GovernanceUnavailable, match="policy_registry_missing"):
-        gov.observe(registry=Exploding(), registry_path=tmp_path / "absent.json", provider=PROVIDER)
+        gov.observe(registry_factory=Exploding, registry_path=tmp_path / "absent.json", provider=PROVIDER)
+
+
+def test_a_registry_that_cannot_even_be_constructed_is_a_coded_503(tmp_path):
+    path = tmp_path / "registry.json"
+    path.write_text("{}")
+
+    def constructor_fails():
+        raise OSError(PRIVATE_PATH)
+    reader = lambda **kw: gov.observe(registry_factory=constructor_fails, registry_path=path, provider=PROVIDER, **kw)  # noqa: E731
+    response = _client(GuiBridge(registry=reader)).get("/api/governance/policy-registry", headers=ADMIN)
+    assert response.status_code == 503 and response.json() == {"detail": "policy_registry_read_failed"}
+    assert "someone" not in response.text
+
+
+def test_more_entries_than_the_bound_fail_closed_instead_of_being_cut(tmp_path, monkeypatch):
+    monkeypatch.setattr(gov, "MAX_ENTRIES", 2)
+    client = _client(GuiBridge(registry=_registry_reader(tmp_path, ENTRIES)))  # 3 public entries
+    response = client.get("/api/governance/policy-registry", headers=ADMIN)
+    assert response.status_code == 503 and response.json() == {"detail": "policy_registry_too_many_entries"}
+    assert client.get("/api/governance/status", headers=HEADERS).json()["policies_reason"] == "policy_registry_too_many_entries"
+
+
+def test_no_separate_path_access_precedes_or_follows_the_handle_read(tmp_path, monkeypatch):
+    """is_file()/read_bytes() on the path are separate lookups (check-then-use); none may be used."""
+    cache = _cache(tmp_path)
+    reader = _registry_reader(tmp_path, ENTRIES)
+
+    def forbidden(self, *args, **kwargs):
+        raise AssertionError("separate path access")
+    with monkeypatch.context() as scoped:  # pytest itself needs Path.exists/stat outside this block
+        for name in ("is_file", "read_bytes", "read_text", "exists"):
+            scoped.setattr(Path, name, forbidden)
+        snapshot, registry = gov.lock_cache_snapshot(cache), reader()
+    assert snapshot["availability"] == "available" and registry["count"] == 3
+
+
+def test_registry_and_cache_are_read_through_a_bounded_handle(tmp_path, monkeypatch):
+    monkeypatch.setattr(gov, "MAX_REGISTRY_BYTES", 4)
+    path = tmp_path / "registry.json"
+    path.write_text("more than four bytes")
+    with pytest.raises(gov.GovernanceUnavailable, match="policy_registry_too_large"):
+        gov.observe(registry_factory=lambda: None, registry_path=path, provider=PROVIDER)
+    # a link out of the cache folder is refused, not followed (needs symlink rights on Windows)
+    target = _cache(tmp_path)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    link = outside / "LOCK-CACHE.md"
+    try:
+        os.symlink(target, link)
+    except (OSError, NotImplementedError):
+        pytest.skip("no symlink right")
+    assert gov.lock_cache_snapshot(link)["error"] == "lock_cache_invalid"
+    monkeypatch.setattr(gov, "MAX_REGISTRY_BYTES", 1024)
+    registry_link = outside / "registry.json"
+    os.symlink(path, registry_link)
+    with pytest.raises(gov.GovernanceUnavailable, match="policy_registry_unreadable"):
+        gov.observe(registry_factory=lambda: None, registry_path=registry_link, provider=PROVIDER)
 
 
 # ---- capabilities / configuration ------------------------------------------------------------------------------
@@ -273,7 +337,8 @@ def test_capabilities_follow_the_bindings_and_gaps_stay_unavailable(tmp_path):
     bare = _endpoints(GuiBridge())
     for path in ("/api/governance/locks", "/api/governance/policy-registry", "/api/governance/status"):
         assert bare[path]["available"] is False and bare[path]["reason"]
-    bound = _endpoints(GuiBridge(registry=_registry_reader(tmp_path, ENTRIES), locks=lambda: {}))
+    cache = _cache(tmp_path)
+    bound = _endpoints(GuiBridge(registry=_registry_reader(tmp_path, ENTRIES), locks=lambda: gov.lock_cache_snapshot(cache)))
     for path in ("/api/governance/locks", "/api/governance/policy-registry", "/api/governance/decisions",
                  "/api/governance/policies", "/api/governance/effective-policy", "/api/governance/status"):
         assert bound[path]["available"] is True
@@ -281,6 +346,32 @@ def test_capabilities_follow_the_bindings_and_gaps_stay_unavailable(tmp_path):
     assert bound["/api/governance/audit"]["available"] is False and bound["/api/governance/audit"]["reason"] == "task_history_unavailable"
     assert bound["/api/usecases"]["available"] is False and bound["/api/usecases"]["reason"] == "source-not-in-composition"
     assert all(e["runtime_verified"] is False for e in bound.values())
+
+
+@pytest.mark.parametrize("make, reason", [
+    (lambda tmp: tmp / "missing" / "LOCK-CACHE.md", "lock_cache_missing"),
+    (lambda tmp: _cache(tmp, age_minutes=45), "lock_cache_stale"),
+    (lambda tmp: _cache(tmp, count=9), "lock_cache_invalid"),
+])
+def test_a_configured_but_missing_stale_or_invalid_cache_is_not_available(tmp_path, make, reason):
+    cache = make(tmp_path)
+    bridge = GuiBridge(locks=lambda: gov.lock_cache_snapshot(cache))
+    caps = _endpoints(bridge)
+    for path in ("/api/governance/locks", "/api/governance/status"):
+        assert caps[path]["available"] is False and caps[path]["provider"] is None
+    assert caps["/api/governance/locks"]["reason"] == reason
+    # the route itself still answers honestly instead of erroring
+    assert _client(bridge).get("/api/governance/locks", headers=HEADERS).json()["error"] == reason
+
+
+def test_a_configured_missing_path_from_the_bridge_config_is_not_available(tmp_path):
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    (workspace / "ocean.gui-bridge.json").write_text(json.dumps(
+        {"schema": "ellmos.open-ocean.gui-bridge.v1", "lock_cache": str(tmp_path / "nope.md")}), encoding="utf-8")
+    bridge = bridge_from_workspace(workspace)
+    assert bridge.providers["locks"] is not None
+    assert _endpoints(bridge)["/api/governance/locks"]["available"] is False
 
 
 def test_the_lock_cache_is_bound_only_by_explicit_configuration(tmp_path):
@@ -298,52 +389,92 @@ def test_the_lock_cache_is_bound_only_by_explicit_configuration(tmp_path):
     assert bridge.providers["registry"] is None  # no policy component bound: no registry, no fallback
 
 
-# ---- contract against what the GUI parses (negative control included) --------------------------------------------
+# ---- contract: the GUI's own parser module, executed -------------------------------------------------------------
+# tests/fixtures/gui-governance-readers.f530964.mjs is src/lib/governance-readers.mjs of ellmos-system-gui at
+# origin/main f530964, byte for byte. The rules below are therefore not re-implemented here: each parser throws
+# "Governance-Vertrag verletzt" on a deviation. Which page calls which parser (index.astro @ f530964):
+#   /api/governance/status -> parseStatus (loadStatus, line 407), decisions tab -> parseDecisions (250),
+#   policy-registry -> parseRegistry (252-253), effective-policy -> parseEffective (254-255); the locks reader is
+#   parseLocks. logs.astro:100-102 reads the audit inline: availability === 'available' && Array.isArray(events).
+READERS = Path(__file__).parent / "fixtures" / "gui-governance-readers.f530964.mjs"
+READERS_SHA256 = "6899294d6eca3a721cc7ea209cc502252777602987f522592b3da70f7f1cd898"
+NODE = shutil.which("node")
+RUNNER = ("import {pathToFileURL} from 'node:url';"
+          "const m = await import(pathToFileURL(process.argv[1]).href);"
+          "let raw = ''; for await (const c of process.stdin) raw += c;"
+          "const {parser, body} = JSON.parse(raw);"
+          "try { const r = m[parser](body); console.log(JSON.stringify({ok: true, rows: (r.rows || r.locks || []).length})); }"
+          "catch (e) { console.log(JSON.stringify({ok: false, error: String(e.message)})); }")
 
-def _gui_accepts_locks(body) -> bool:
-    """governance/index.astro: availability === 'available' needs an integer lock_count and name/scope strings."""
-    if not isinstance(body.get("availability"), str):
-        return False
-    if body["availability"] != "available":
-        return True
-    return (isinstance(body.get("lock_count", body.get("count")), int)
-            and all(isinstance(lock.get("name"), str) and isinstance(lock.get("scope"), str)
-                    for lock in body.get("active_locks", body.get("locks", []))))
 
-
-def _gui_accepts_registry(body) -> bool:
-    """bach.policy-registry.v1 as BACH emits it: typed fields plus pointer entries."""
-    return (body.get("schema") == "bach.policy-registry.v1" and body.get("availability") == "available"
-            and isinstance(body.get("count"), int) and isinstance(body.get("registry_version"), str)
-            and body.get("read_only") is True and isinstance(body.get("source_verification_complete"), bool)
-            and isinstance(body.get("provider"), dict) and isinstance(body.get("decision_writer"), dict)
-            and isinstance(body.get("entries"), list) and body["count"] == len(body["entries"])
-            and all(isinstance(e.get("id"), str) and isinstance(e.get("kind"), str) and isinstance(e.get("title"), str)
-                    and isinstance(e.get("source_verified"), bool) and isinstance(e.get("source"), dict)
-                    for e in body["entries"]))
+def _gui_parse(parser: str, body) -> dict:
+    done = subprocess.run([NODE, "--input-type=module", "-e", RUNNER, str(READERS)], input=json.dumps({"parser": parser, "body": body}),
+                          capture_output=True, text=True, encoding="utf-8", timeout=60)
+    assert done.returncode == 0, done.stderr
+    return json.loads(done.stdout)
 
 
 def _gui_accepts_audit(body) -> bool:
-    """governance/logs.astro: availability string and an events array."""
-    return isinstance(body.get("availability"), str) and isinstance(body.get("events"), list)
+    return body.get("availability") == "available" and isinstance(body.get("events"), list)  # logs.astro:100
 
 
-def test_responses_satisfy_the_gui_parsers_and_a_schema_deviation_turns_red(tmp_path):
+needs_node = pytest.mark.skipif(NODE is None, reason="node is required to execute the GUI's own parser module")
+
+
+def test_the_vendored_gui_parser_is_the_pinned_file():
+    assert hashlib.sha256(READERS.read_bytes()).hexdigest() == READERS_SHA256
+
+
+@needs_node
+def test_responses_satisfy_the_real_gui_parsers(tmp_path):
+    client = _client(GuiBridge(registry=_registry_reader(tmp_path, ENTRIES),
+                               locks=lambda: gov.lock_cache_snapshot(_cache(tmp_path))))
+    get = lambda path, headers: client.get(path, headers=headers).json()  # noqa: E731
+    accepted = {
+        "parseLocks": get("/api/governance/locks", HEADERS),
+        "parseStatus": get("/api/governance/status", HEADERS),
+        "parseRegistry": get("/api/governance/policy-registry", ADMIN),
+        "parseDecisions": get("/api/governance/decisions", ADMIN),
+        "parsePolicies": get("/api/governance/policies", ADMIN),
+        "parseEffective": get("/api/governance/effective-policy?scope=global", ADMIN),
+    }
+    for parser, body in accepted.items():
+        result = _gui_parse(parser, body)
+        assert result["ok"], (parser, result)
+    assert _gui_parse("parseLocks", accepted["parseLocks"])["rows"] == 2
+    assert _gui_parse("parseDecisions", accepted["parseDecisions"])["rows"] == 1
+    assert _gui_accepts_audit(get("/api/governance/audit?limit=100", HEADERS)) is False  # unavailable is an honest "no"
+    # unbound answers are valid too: the page shows "unbekannt", it does not crash
+    bare = _client(GuiBridge())
+    assert _gui_parse("parseLocks", bare.get("/api/governance/locks", headers=HEADERS).json())["ok"]
+    assert _gui_parse("parseStatus", bare.get("/api/governance/status", headers=HEADERS).json())["ok"]
+
+
+@needs_node
+def test_a_schema_deviation_is_rejected_by_the_real_gui_parsers(tmp_path):
+    """Negative control: the same bodies, each broken in one way a regression could break them."""
     client = _client(GuiBridge(registry=_registry_reader(tmp_path, ENTRIES),
                                locks=lambda: gov.lock_cache_snapshot(_cache(tmp_path))))
     locks = client.get("/api/governance/locks", headers=HEADERS).json()
     status = client.get("/api/governance/status", headers=HEADERS).json()
     registry = client.get("/api/governance/policy-registry", headers=ADMIN).json()
-    audit = client.get("/api/governance/audit?limit=100", headers=HEADERS).json()
-    assert _gui_accepts_locks(locks) and _gui_accepts_locks(status)
-    assert _gui_accepts_registry(registry) and _gui_accepts_audit(audit)
-    assert isinstance(status["recent_decisions"], list) and status["recent_decisions"][0]["id"] == "D-001"
-    # negative control: each deviation must be rejected by the same validators
-    assert not _gui_accepts_locks({**locks, "count": "2"})
-    assert not _gui_accepts_locks({**status, "lock_count": None})
-    assert not _gui_accepts_locks({**locks, "locks": [{"name": 1, "scope": "x"}]})
-    assert not _gui_accepts_registry({**registry, "schema": "ellmos.open-ocean.policy-metadata.v1"})
-    assert not _gui_accepts_registry({**registry, "count": "3"})
-    assert not _gui_accepts_registry({k: v for k, v in registry.items() if k != "entries"})
-    assert not _gui_accepts_registry({**registry, "entries": [{"id": 1}]})
-    assert not _gui_accepts_audit({**audit, "events": None})
+    effective = client.get("/api/governance/effective-policy?scope=global", headers=ADMIN).json()
+    policies = client.get("/api/governance/policies", headers=ADMIN).json()
+    broken = [
+        ("parseLocks", {k: v for k, v in locks.items() if k != "locks"}),
+        ("parseLocks", {**locks, "locks": [{"scope": "x"}]}),
+        ("parseStatus", {k: v for k, v in status.items() if k != "active_locks"}),
+        ("parseStatus", {**status, "availability": None}),
+        ("parseRegistry", {k: v for k, v in registry.items() if k != "entries"}),
+        ("parseRegistry", {**registry, "entries": [{"id": "x"}]}),
+        ("parseRegistry", {**registry, "availability": ""}),
+        ("parseEffective", {k: v for k, v in effective.items() if k != "effective"}),
+        ("parseEffective", {**effective, "effective": {**effective["effective"], "candidate_ids": [1]}}),
+        ("parsePolicies", {k: v for k, v in policies.items() if k != "policies"}),
+    ]
+    for parser, body in broken:
+        result = _gui_parse(parser, body)
+        assert not result["ok"] and "Governance-Vertrag verletzt" in result["error"], (parser, result)
+    # and the old Ocean-only schema would have failed here: no `availability`, no `entries` list of pointers
+    legacy = {"schema": "ellmos.open-ocean.policy-metadata.v1", "read_only": True, "counts": {}, "entries": []}
+    assert not _gui_parse("parseRegistry", legacy)["ok"]

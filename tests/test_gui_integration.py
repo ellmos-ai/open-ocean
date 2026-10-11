@@ -378,12 +378,12 @@ def test_registry_loss_or_unreadability_is_503_per_read(tmp_path, monkeypatch, f
             return {"entries": []}
         monkeypatch.setattr(native.PolicyRegistry, "load", empty_after_removal)
     else:
-        original = Path.read_bytes
-        def deny_registry(path):
-            if path == registry:
+        original = os.open  # the registry is read through one bound handle (os.open), not Path.read_bytes
+        def deny_registry(path, *args, **kwargs):
+            if Path(path) == registry:
                 raise PermissionError("private diagnostic")
-            return original(path)
-        monkeypatch.setattr(Path, "read_bytes", deny_registry)
+            return original(path, *args, **kwargs)
+        monkeypatch.setattr(os, "open", deny_registry)
     app = FastAPI()
     mount_gui_bridge(app, GuiBridge(policies=reader), lambda request: None, lambda request: None)
     with TestClient(app) as client:

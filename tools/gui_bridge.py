@@ -14,7 +14,7 @@ from typing import Any, Callable
 
 try:
     from .capability_views import ocean_inventory, skill_library
-    from .catalog_projection import KINDS as CATALOG_KINDS, observe as observe_catalog
+    from .catalog_projection import KINDS as CATALOG_KINDS, observe as observe_catalog, _read_bytes
     from . import governance_bridge as gov
     from .fetch_place import verify_bound_provider
     from .gui_page_reads import SCHEMA as PAGE_READS_SCHEMA, load as load_page_reads, normalize as page_reads_normalize, pages_status
@@ -22,7 +22,7 @@ try:
 except ImportError:  # ocean_runtime.py direct entry point
     from gui_page_reads import SCHEMA as PAGE_READS_SCHEMA, load as load_page_reads, normalize as page_reads_normalize, pages_status
     from capability_views import ocean_inventory, skill_library
-    from catalog_projection import KINDS as CATALOG_KINDS, observe as observe_catalog
+    from catalog_projection import KINDS as CATALOG_KINDS, observe as observe_catalog, _read_bytes
     import governance_bridge as gov
     from fetch_place import verify_bound_provider
     from gui_release import GuiReleaseError, VerifiedGuiRelease, verify_installed_gui
@@ -106,10 +106,9 @@ def _import_bound_policy(source: Path):
 
 def _registry_snapshot(path: Path) -> bytes:
     try:
-        if not path.is_file():
-            raise BridgeUnavailable("Keine lesbare lokale Registry verfügbar.")
-        return path.read_bytes()
-    except OSError as exc:
+        # Handle-bound, link-free, size-limited (the same rule as the catalog adapter).
+        return _read_bytes(path, path.parent, 16 * 1024 * 1024)[0]
+    except (OSError, ValueError) as exc:
         raise BridgeUnavailable("Keine lesbare lokale Registry verfügbar.") from exc
 
 
@@ -179,7 +178,7 @@ def policy_registry_reader(component: dict[str, Any], registry_path: Path, provi
             verify_bound_provider(source, binding)
         except Exception as exc:
             raise gov.GovernanceUnavailable("policy_provider_provenance_mismatch") from exc
-        return gov.observe(registry=module.PolicyRegistry(registry_path), registry_path=registry_path,
+        return gov.observe(registry_factory=lambda: module.PolicyRegistry(registry_path), registry_path=registry_path,
                            provider=provider, scope=scope, consumer=consumer, query=query, kind=kind,
                            effective=effective)
     return read
@@ -227,16 +226,18 @@ class GuiBridge:
                               "provider": {"id": "open-ocean", "version": "0.1.2"},
                               "auth": "provider-session", "runtime_verified": False, "verification_scope": "adapter",
                               "reason": None if provider else "Kein nativer Anbieter konfiguriert."})
+        lock_state = self.providers["locks"]() if self.providers["locks"] is not None else None
+        lock_ok = lock_state is not None and lock_state.get("availability") == "available"
+        lock_reason = "lock_cache_missing" if lock_state is None else (lock_state.get("error") or "lock_cache_invalid")
         policy_provider = {"id": "policy-registry", "version": next((item.get("version") for item in self.modules if item.get("id") == "policy-registry"), None)}
         for path, available, reason, provider in [
                 ("/api/decisions", self.providers["policies"] is not None, "Kein freigegebener nativer Leseadapter konfiguriert.", policy_provider),
                 *((f"/api/governance/{name}", self.providers["registry"] is not None,
                    "Kein freigegebener nativer Leseadapter konfiguriert.", policy_provider)
                   for name in ("policy-registry", "decisions", "policies", "effective-policy")),
-                ("/api/governance/status", self.providers["locks"] is not None or self.providers["registry"] is not None,
+                ("/api/governance/status", lock_ok or self.providers["registry"] is not None,
                  "Weder Lock-Cache noch Policy-Registry gebunden.", {"id": "open-ocean", "version": "0.1.2"}),
-                ("/api/governance/locks", self.providers["locks"] is not None,
-                 "lock_cache_missing", {"id": "lock-cache", "version": None}),
+                ("/api/governance/locks", lock_ok, lock_reason, {"id": "lock-cache", "version": None}),
                 ("/api/governance/audit", False, "task_history_unavailable", None),
                 ("/api/usecases", False, "source-not-in-composition", None)]:
             endpoints.append({"method": "GET", "path": path, "kind": "read", "available": available,

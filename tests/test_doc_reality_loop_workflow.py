@@ -103,7 +103,7 @@ class DocRealityLoopWorkflowTests(unittest.TestCase):
             for token in ("`document_id`", "`archive_policy.reader_audit_not_before`", "`keep`", "`archive_policy`"):
                 self.assertIn(token, secs["5"], f"{lang}: {token}")
             self.assertIn("`document_id`", secs["2"], lang)
-            for token in ("`link`", "`boot`", "`test`", "`tool`", "`human`", "`replacement_ref`", "`archival`", "`archived`"):
+            for token in ("`link`", "`boot`", "`test`", "`tool`", "`human`", "`replacement_ref`", "`archival`", "`archived`", "`normpath(join(dirname(source), target))`"):
                 self.assertIn(token, secs["5"], f"{lang}: {token}")
 
     def test_german_and_english_name_the_same_fields_per_step(self):

@@ -136,7 +136,9 @@ Change only descriptive text, and only the statements that have a confirmed diff
   `last_checked_at`): a reader of `kind` `link` becomes a `link` check; a reader of `kind` `boot`,
   `test`, `tool` or `human` becomes a `reader` check; `ref` and `active` are copied and
   `last_checked_at` becomes `checked_at`. In addition, search the tracked files for further links to
-  the item and record each as a `link` check. At least one check of each kind is required, no check may
+  the item and record each as a `link` check. Relative Markdown links count: resolve them against the
+  folder of the referring file (`normpath(join(dirname(source), target))`); the same file name in a
+  different folder does not count. At least one check of each kind is required, no check may
   be active, and every check must be recent enough for the register's
   `archive_policy.reader_audit_not_before`. Any active reader or link means `keep`.
 - **`archive` is the register status `archived`.** It additionally needs a `replacement_ref` in the

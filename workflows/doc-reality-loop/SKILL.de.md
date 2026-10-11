@@ -145,7 +145,9 @@ festhalten. Regeln:
   `link`-Prüfung; ein Leser mit `kind` `boot`, `test`, `tool` oder `human` wird zur `reader`-Prüfung;
   `ref` und `active` werden übernommen, `last_checked_at` wird zu `checked_at`. Zusätzlich die
   versionierten Dateien nach weiteren Verweisen auf das Element durchsuchen und jeden als
-  `link`-Prüfung festhalten. Von jeder Art ist mindestens eine Prüfung nötig, keine darf aktiv sein,
+  `link`-Prüfung festhalten. Relative Markdown-Links zählen: gegen den Ordner der verweisenden Datei
+  auflösen (`normpath(join(dirname(source), target))`); derselbe Dateiname in einem anderen Ordner
+  zählt nicht. Von jeder Art ist mindestens eine Prüfung nötig, keine darf aktiv sein,
   und jede muss jung genug für `archive_policy.reader_audit_not_before` des Registers sein. Jeder
   aktive Leser oder Verweis bedeutet `keep`.
 - **`archive` ist der Registerstatus `archived`.** Er braucht zusätzlich einen `replacement_ref` im

@@ -12,6 +12,8 @@
         "observed_at": "2026-10-11T08:00:00Z",
         "config_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "readback_ref": "readback:list-1",
+        "readback_at": "2026-10-11T07:59:50Z",
+        "readback_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "readback_value": "enabled"
       },
       "write": {
@@ -24,7 +26,9 @@
           "native_write",
           "readback"
         ],
-        "backup_ref": "backup:settings-1"
+        "reached_step": "readback",
+        "backup_ref": "backup:settings-1",
+        "native_write_at": "2026-10-11T07:59:30Z"
       }
     }
   ]

@@ -2,9 +2,9 @@
   "schema": "ellmos.open-ocean-plugin-activation-record.v1",
   "records": [
     {
-      "consumer": "bach_core",
+      "consumer": "gemini",
       "host": "host-a",
-      "plugin_id": "example-core",
+      "plugin_id": "example-plugin@example-market",
       "scope": "none",
       "state": "unknown",
       "evidence": {

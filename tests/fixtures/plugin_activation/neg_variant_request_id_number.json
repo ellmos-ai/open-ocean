@@ -1,0 +1,18 @@
+{
+  "schema": "ellmos.open-ocean-plugin-activation-record.v1",
+  "records": [
+    {
+      "consumer": "claude",
+      "host": "host-a",
+      "plugin_id": "example-plugin@example-market",
+      "scope": "user",
+      "state": "error",
+      "evidence": {
+        "request_id": 5,
+        "error_code": "x_y",
+        "last_evidence": "z",
+        "phase": "read"
+      }
+    }
+  ]
+}

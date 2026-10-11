@@ -1,0 +1,34 @@
+{
+  "schema": "ellmos.open-ocean-plugin-activation-record.v1",
+  "records": [
+    {
+      "consumer": "claude",
+      "host": "host-a",
+      "plugin_id": "example-plugin@example-market",
+      "scope": "user",
+      "state": "plugged",
+      "evidence": {
+        "source": "claude_settings_user",
+        "observed_at": "2026-10-11T08:00:00Z",
+        "config_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "readback_ref": "readback:list-1",
+        "readback_at": "2026-10-11T07:59:50Z",
+        "readback_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "readback_value": "enabled"
+      },
+      "write": {
+        "requested_value": "enabled",
+        "writer_host": "host-a",
+        "steps": [
+          "plan",
+          "lock_host_check",
+          "backup",
+          "native_write"
+        ],
+        "reached_step": "native_write",
+        "backup_ref": "backup:settings-1",
+        "native_write_at": "2026-10-11T07:59:30Z"
+      }
+    }
+  ]
+}

@@ -247,7 +247,7 @@ def test_adapter_auth_unavailable_redaction_and_no_apply():
         assert client.get("/api/installer/status", headers=user).status_code == 403
         assert client.get("/api/installer/plan", headers=administrator).status_code == 503
         assert client.get("/api/governance/policy-registry", headers=administrator).status_code == 503
-        assert client.get("/api/governance/effective-policy", headers=administrator).status_code == 503
+        assert client.get("/api/governance/effective-policy?scope=global", headers=administrator).status_code == 503
         assert client.get("/api/agents/native/slots", headers=administrator).status_code == 503
         assert client.post("/api/agents/native/tasks", headers=administrator).status_code == 503
         result = client.get("/api/installer/status", headers=administrator)
@@ -256,15 +256,18 @@ def test_adapter_auth_unavailable_redaction_and_no_apply():
 
 
 def test_policy_alias_forwards_only_bounded_search_filters():
-    observed = []
+    observed, registry = [], []
     def reader(**kwargs):
         observed.append(kwargs)
         return {"entries": []}
+    def native(**kwargs):
+        registry.append(kwargs)
+        return {"schema": "bach.policy-registry.v1", "entries": []}
     app = FastAPI()
-    mount_gui_bridge(app, GuiBridge(policies=reader), lambda request: None, lambda request: None)
+    mount_gui_bridge(app, GuiBridge(policies=reader, registry=native), lambda request: None, lambda request: None)
     with TestClient(app) as client:
         assert client.get("/api/governance/policy-registry?scope=global&query=regel&consumer=ocean&path=private").status_code == 200
-        assert observed[-1] == {"scope": "global", "query": "regel", "consumer": "ocean"}
+        assert registry[-1] == {"scope": "global", "consumer": "ocean", "query": "regel", "kind": None}
         assert client.get("/api/decisions").status_code == 200
         assert observed[-1] == {"kind": "decision"}
         assert client.get("/api/governance/policy-registry?query=" + "x" * 513).status_code == 422
@@ -272,7 +275,7 @@ def test_policy_alias_forwards_only_bounded_search_filters():
         assert isinstance(caps["modules"], dict)
         assert isinstance(caps["module_sources"], list)
         assert next(item for item in caps["endpoints"] if item["path"] == "/api/governance/policy-registry")["available"]
-        assert not next(item for item in caps["endpoints"] if item["path"] == "/api/governance/effective-policy")["available"]
+        assert next(item for item in caps["endpoints"] if item["path"] == "/api/governance/effective-policy")["available"]
 
 
 def test_policy_adapter_reuses_native_load_and_reverifies_without_source_reads(tmp_path, monkeypatch):

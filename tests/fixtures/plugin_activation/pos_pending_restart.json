@@ -15,12 +15,12 @@
         "readback_at": "2026-10-11T07:59:50Z",
         "readback_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "readback_value": "enabled",
-        "requested_at": "2026-10-11T07:59:00Z",
         "runtime_active": null
       },
       "write": {
         "requested_value": "enabled",
         "writer_host": "host-a",
+        "requested_at": "2026-10-11T07:59:00Z",
         "steps": [
           "plan",
           "lock_host_check",

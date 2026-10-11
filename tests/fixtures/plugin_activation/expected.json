@@ -9,6 +9,7 @@
     "pos_pending_restart.json",
     "pos_plugged_claude_user.json",
     "pos_plugged_observed_no_write.json",
+    "pos_plugged_write_null.json",
     "pos_unknown_entry_absent.json",
     "pos_unknown_gemini.json",
     "pos_unplugged.json"
@@ -46,6 +47,9 @@
     ],
     "neg_e_no_readback.json": [
       "E_NO_READBACK"
+    ],
+    "neg_e_order.json": [
+      "E_ORDER"
     ],
     "neg_e_pending_runtime.json": [
       "E_PENDING_RUNTIME"
@@ -107,6 +111,10 @@
     "neg_variant_duplicate_key.json": [
       "E_KEY"
     ],
+    "neg_variant_equal_times.json": [
+      "E_ORDER",
+      "E_STALE_READBACK"
+    ],
     "neg_variant_error_code_object.json": [
       "E_TYPE"
     ],
@@ -122,6 +130,9 @@
     "neg_variant_error_without_steps.json": [
       "E_TOGGLE_ORDER"
     ],
+    "neg_variant_error_write_null.json": [
+      "E_WRITE_REQUIRED"
+    ],
     "neg_variant_extensions_not_object.json": [
       "E_TYPE"
     ],
@@ -135,6 +146,9 @@
       "E_FLAG_ONLY",
       "E_NO_READBACK"
     ],
+    "neg_variant_native_equals_readback.json": [
+      "E_STALE_READBACK"
+    ],
     "neg_variant_native_write_at_missing.json": [
       "E_MISSING_EVIDENCE"
     ],
@@ -144,11 +158,14 @@
     "neg_variant_pending_runtime_false.json": [
       "E_PENDING_RUNTIME"
     ],
+    "neg_variant_pending_write_null.json": [
+      "E_WRITE_REQUIRED"
+    ],
     "neg_variant_plugin_id_lookalike.json": [
       "E_ENUM"
     ],
     "neg_variant_readback_after_observed.json": [
-      "E_TIME"
+      "E_ORDER"
     ],
     "neg_variant_readback_at_missing.json": [
       "E_NO_READBACK"
@@ -175,10 +192,14 @@
       "E_TYPE"
     ],
     "neg_variant_requested_after_readback.json": [
+      "E_ORDER",
       "E_STALE_READBACK"
     ],
     "neg_variant_requested_at_missing.json": [
       "E_MISSING_EVIDENCE"
+    ],
+    "neg_variant_requested_at_no_zone.json": [
+      "E_TIME"
     ],
     "neg_variant_requested_value_missing.json": [
       "E_MISSING_EVIDENCE"

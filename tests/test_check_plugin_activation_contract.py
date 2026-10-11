@@ -49,6 +49,7 @@ def repair_fixture(code, doc):
         "E_TIME": lambda: ev.update(observed_at="2026-10-11T08:00:00Z"),
         "E_NO_READBACK": lambda: ev.update(readback_ref="readback:list-1"),
         "E_REVISION_MISMATCH": lambda: ev.update(readback_sha256="a" * 64),
+        "E_ORDER": lambda: w.update(requested_at="2026-10-11T07:59:00Z"),
         "E_STALE_READBACK": lambda: ev.update(readback_at="2026-10-11T07:59:50Z"),
         "E_FLAG_ONLY": lambda: ev.update(source="claude_settings_user"),
         "E_DEFAULT_TRUE": lambda: ev.update(source="claude_settings_user"),
@@ -60,7 +61,8 @@ def repair_fixture(code, doc):
         "E_TOGGLE_ORDER": lambda: w.update(steps=STEPS),
         "E_REACHED_STEP": lambda: w.update(reached_step="readback"),
         "E_WRITE_REQUIRED": lambda: r.update(write={
-            "requested_value": "enabled", "writer_host": "host-a", "steps": STEPS, "reached_step": "readback",
+            "requested_value": "enabled", "writer_host": "host-a", "requested_at": "2026-10-11T07:59:00Z", "steps": STEPS,
+            "reached_step": "readback",
             "backup_ref": "backup:settings-1", "native_write_at": "2026-10-11T07:59:30Z"}),
         "E_UNKNOWN_NEEDS_REASON": lambda: ev.update(reason_code="no_native_source"),
         "E_ERROR_NO_ROLLBACK": lambda: w.update(rollback_outcome="restored"),
@@ -176,7 +178,7 @@ class PluginActivationContractTests(unittest.TestCase):
         paths = [("pos_plugged_claude_user.json", "evidence", f) for f in
                  ("source", "observed_at", "config_revision", "readback_ref", "readback_at", "readback_sha256", "readback_value")]
         paths += [("pos_plugged_claude_user.json", "write", f) for f in
-                  ("requested_value", "writer_host", "steps", "reached_step", "backup_ref", "native_write_at")]
+                  ("requested_value", "writer_host", "requested_at", "steps", "reached_step", "backup_ref", "native_write_at")]
         paths += [("pos_error_mismatch_rolled_back.json", "evidence", f) for f in
                   ("request_id", "error_code", "last_evidence", "phase")]
         paths += [("pos_plugged_claude_user.json", None, f) for f in ("consumer", "host", "plugin_id", "scope", "state")]
@@ -224,12 +226,17 @@ class PluginActivationContractTests(unittest.TestCase):
             "key field removed": lambda c: c["key_fields"].remove("host"),
             "section list shortened": lambda c: c["normative_sections"].remove("rules"),
             "section deleted": lambda c: c.pop("patterns"),
+            "claim boundary claims a runtime writer": lambda c: c.update(claim_boundary=c["claim_boundary"] + " A runtime writer is active on every host."),
+            "claim boundary replaced": lambda c: c.update(claim_boundary="Everything works."),
+            "claim boundary unlisted": lambda c: c["normative_sections"].remove("claim_boundary"),
         }
         for label, edit in mutations.items():
             self.assertTrue(any("weakens" in p or "lacks a rule text" in p for p in changed(edit)), label)
 
     def test_j_whole_contract_is_searched_for_hosts_paths_and_urls(self):
-        needles = ("C:" + chr(92) + "Users", "/Users/x", "/home/x", "ASUS-GEI", "mac-studio", "https://example.org")
+        bs = chr(92)
+        needles = ("C:" + bs + "Users", "C:/Temp/example", "d:/x", "D:" + bs + "x" + bs + "y", bs + bs + "server" + bs + "share",
+                   "/Users/x", "/home/x", "ASUS-GEI", "mac-studio", "https://example.org")
         for place in (("provenance", "ticket"), ("claim_boundary",), ("normative_note",), ("fixtures", "note")):
             for needle in needles:
                 broken = copy.deepcopy(CONTRACT)
@@ -245,7 +252,41 @@ class PluginActivationContractTests(unittest.TestCase):
 
     def test_k_fixtures_contain_no_real_paths_or_hosts(self):
         for p in FIXTURES.glob("*.json"):
-            self.assertIsNone(chk.FROZEN_RE.search(p.read_text(encoding="utf-8")), p.name)
+            for text in chk.walk_strings(json.loads(p.read_text(encoding="utf-8"))):
+                self.assertIsNone(chk.FROZEN_RE.search(text), p.name)
+        # harmless wording is not a path: identifiers with a colon, ratios, plain words
+        for fine in ("readback:list-1", "lock:host-a", "plan: then act", "a:b", "see section 5/6", "Users and homes"):
+            self.assertIsNone(chk.FROZEN_RE.search(fine), fine)
+
+    def test_m_null_write_block_counts_as_missing(self):
+        for name, state_fixture in (("pending_restart", "pos_pending_restart.json"),
+                                    ("error in phase write", "pos_error_mismatch_rolled_back.json")):
+            doc = load(state_fixture)
+            first(doc)["write"] = None
+            self.assertIn("E_WRITE_REQUIRED", validate_document(doc), name)
+        doc = load("pos_plugged_claude_user.json")  # optional elsewhere: null equals absent
+        first(doc)["write"] = None
+        self.assertEqual([], validate_document(doc))
+
+    def test_n_write_times_are_strictly_ordered_and_requested_at_is_always_required(self):
+        base = "pos_plugged_claude_user.json"
+        for earlier, later in (("2026-10-11T07:59:30Z",) * 2, ("2026-10-11T07:59:40Z", "2026-10-11T07:59:30Z")):
+            doc = load(base)
+            first(doc)["write"].update(requested_at=earlier, native_write_at=later)
+            self.assertIn("E_ORDER", validate_document(doc), (earlier, later))
+        for stamp in ("2026-10-11T07:59:30Z", "2026-10-11T07:59:00Z", "2026-10-11T07:59:29Z"):  # equal to / before the write
+            doc = load(base)
+            first(doc)["evidence"]["readback_at"] = stamp
+            self.assertIn("E_STALE_READBACK", validate_document(doc), stamp)
+        doc = load(base)
+        first(doc)["evidence"]["readback_at"] = first(doc)["evidence"]["observed_at"]  # equal to observed_at stays valid
+        self.assertEqual([], validate_document(doc))
+        for fixture in ("pos_plugged_claude_user.json", "pos_unplugged.json", "pos_pending_restart.json",
+                        "pos_error_mismatch_rolled_back.json", "pos_error_before_write.json"):
+            doc = load(fixture)
+            del first(doc)["write"]["requested_at"]
+            self.assertIn("E_MISSING_EVIDENCE", bare(validate_document(doc)), fixture)
+
 
     def test_l_docs_describe_the_checker_call_in_both_languages(self):
         for name in ("PLUGIN-ACTIVATION.md", "PLUGIN-AKTIVIERUNG.md"):

@@ -12,8 +12,8 @@
       "native Claude Code plugin enable/disable with list read-back (read-only analysis)"
     ]
   },
-  "normative_sections": ["key_fields", "record_fields", "states", "enums", "patterns", "known_values", "forbidden_sources", "toggle_steps", "write_fields", "error_codes", "rules"],
-  "normative_note": "The sections listed in normative_sections are pinned by SHA-256 in the checker. Changing any of them (weaker, stronger, reworded) is a new contract version, not an edit.",
+  "normative_sections": ["claim_boundary", "key_fields", "record_fields", "states", "enums", "patterns", "known_values", "forbidden_sources", "toggle_steps", "write_fields", "error_codes", "rules"],
+  "normative_note": "The sections listed in normative_sections (the claim_boundary text included) are pinned by SHA-256 in the checker. Changing any of them (weaker, stronger, reworded) is a new contract version, not an edit. The version step is documented here; the checker accepts only v1 and does not enforce the step independently: a pull request that changes contract and checker together is caught by review, not by this file.",
   "key_fields": ["consumer", "host", "plugin_id", "scope"],
   "record_fields": {
     "required": ["consumer", "host", "plugin_id", "scope", "state", "evidence"],
@@ -36,7 +36,7 @@
     {
       "name": "pending_restart",
       "meaning": "A change was written (complete write evidence) and read back, but its effect in the running consumer is not evidenced. runtime_active stays null.",
-      "required_evidence": ["source", "observed_at", "config_revision", "readback_ref", "readback_at", "readback_sha256", "readback_value", "requested_at", "runtime_active"],
+      "required_evidence": ["source", "observed_at", "config_revision", "readback_ref", "readback_at", "readback_sha256", "readback_value", "runtime_active"],
       "optional_evidence": ["runtime_ref", "default_applied"]
     },
     {
@@ -77,10 +77,10 @@
   },
   "toggle_steps": ["plan", "lock_host_check", "backup", "native_write", "readback"],
   "write_fields": {
-    "required": ["requested_value", "writer_host", "steps", "reached_step"],
+    "required": ["requested_value", "writer_host", "requested_at", "steps", "reached_step"],
     "required_after_native_write": ["backup_ref", "native_write_at"],
     "required_for_error_after_native_write": ["rollback_outcome"],
-    "note": "reached_step equals the last entry of steps. A state other than error needs the complete step list. rollback_outcome belongs to error only."
+    "note": "reached_step equals the last entry of steps. A state other than error needs the complete step list. rollback_outcome belongs to error only. A null write block counts as missing."
   },
   "error_codes": {
     "E_SCHEMA": "The document schema is not the one of this contract or records is not a list.",
@@ -91,10 +91,11 @@
     "E_UNKNOWN_FIELD": "A field is not defined for this level of the record. Extensions belong in the extensions object.",
     "E_MISSING_EVIDENCE": "A mandatory evidence or write field is missing or empty. The code carries the field name.",
     "E_HASH": "config_revision or readback_sha256 is not 64 hex characters.",
-    "E_TIME": "A timestamp is not extended ISO-8601 with seconds and Z or numeric offset, or the timestamps are out of order.",
+    "E_TIME": "A timestamp is not extended ISO-8601 with seconds and Z or numeric offset.",
+    "E_ORDER": "requested_at is not strictly before native_write_at, or readback_at lies after observed_at.",
     "E_NO_READBACK": "plugged, unplugged or pending_restart without readback_ref, readback_at, readback_sha256 or config_revision. Without a bound read-back nothing is plugged or unplugged.",
     "E_REVISION_MISMATCH": "config_revision differs from readback_sha256, the hash of the content the read-back reference points to.",
-    "E_STALE_READBACK": "The read-back is older than the write (requested_at or native_write_at). A stale read-back is not evidence; the consumer shows unknown.",
+    "E_STALE_READBACK": "readback_at is not strictly after requested_at and native_write_at (earlier or equal). A stale read-back is not evidence; the consumer shows unknown.",
     "E_FLAG_ONLY": "The source is a flag (for example the plugin_sockets table). A flag is no truth about the native configuration.",
     "E_DEFAULT_TRUE": "plugged, unplugged or pending_restart is derived from absence or a default (no source, source default or absence, or default_applied true). A missing source must yield unknown.",
     "E_FOREIGN_HOST_WRITE": "writer_host differs from the host that owns the configuration. A foreign host is display only.",
@@ -104,19 +105,20 @@
     "E_NO_BACKUP": "native_write is part of the steps but backup_ref is missing.",
     "E_TOGGLE_ORDER": "The toggle steps are not the ordered sequence plan, lock_host_check, backup, native_write, readback (complete for a state other than error, an ordered non-empty prefix for error).",
     "E_REACHED_STEP": "write.reached_step is missing, not a toggle step, or not the last entry of steps.",
-    "E_WRITE_REQUIRED": "pending_restart, or an error in phase write, without a write block.",
+    "E_WRITE_REQUIRED": "pending_restart, or an error in phase write, without a write block (a null write block counts as missing).",
     "E_UNKNOWN_NEEDS_REASON": "unknown without reason_code, or unknown carrying a read-back value.",
     "E_ERROR_NO_ROLLBACK": "error after a native write without rollback_outcome (restored, not_needed, failed)."
   },
   "rules": {
     "never_without_readback": "plugged, unplugged and pending_restart need config_revision, readback_ref, readback_at and readback_sha256 from the native source. Wish is not read-back.",
     "revision_bound_to_readback": "config_revision equals readback_sha256, the hash of the content the read-back reference points to. A different hash with an unchanged reference is rejected.",
-    "readback_after_write": "A write block needs readback_at at or after requested_at and native_write_at. A read-back older than the write is stale and shows unknown.",
+    "readback_after_write": "Every write block carries requested_at. The order is strict: requested_at before native_write_at before readback_at, and readback_at not after observed_at. A read-back that is earlier than or equal to the write is stale and shows unknown.",
     "flag_only_is_no_truth": "A flag or table of the display system (plugin_sockets) is never a source for plugged or unplugged.",
     "no_default_true": "There is no default state. Missing source or missing entry is unknown. default_applied must be absent or exactly false and cannot lead to plugged.",
     "writer_only_at_data_host": "A write is only valid when writer_host equals the host of the record. Other hosts are display only.",
     "toggle_sequence": "plan, lock_host_check, backup, native_write, readback, in this order. backup_ref and native_write_at are mandatory once native_write appears.",
-    "write_evidence_complete": "pending_restart needs a complete write block. error in phase write needs a write block with reached_step. requested_value is mandatory in every write block.",
+    "references_are_structural": "readback_ref and the other reference fields are structural text; the checker does not resolve them or compute the hash of the referenced content. The contract is schema-only (see claim_boundary).",
+    "write_evidence_complete": "pending_restart needs a complete write block. error in phase write needs a write block with reached_step. requested_value and requested_at are mandatory in every write block. A null write block counts as missing.",
     "wish_is_not_readback": "If requested_value differs from readback_value, or the read-back contradicts the state, the state must be error.",
     "pending_restart_without_runtime_proof": "pending_restart keeps runtime_active null. Only runtime_ref evidence may make runtime_active true or false.",
     "error_evidences_the_way_back": "error after a native write carries backup_ref, rollback_outcome and last_evidence.",

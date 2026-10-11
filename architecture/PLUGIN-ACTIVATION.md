@@ -31,7 +31,7 @@ fields are rejected. The key (consumer, host, plugin_id, scope) is unique per do
 |---|---|---|
 | `plugged` | native config says enabled, read back after any write, no restart open | source, observed_at, config_revision, readback_ref, readback_at, readback_sha256, readback_value |
 | `unplugged` | native config says disabled, read back | same |
-| `pending_restart` | written (complete `write` block) and read back, effect in the running consumer unproven | same plus requested_at, runtime_active (null) |
+| `pending_restart` | written (complete `write` block) and read back, effect in the running consumer unproven | same plus runtime_active (null) |
 | `unknown` | no native source, unreadable, no entry, or a read-back not bound to the write | reason_code, observed_at |
 | `error` | write or read-back failed, or the read-back contradicts the request | request_id, error_code, last_evidence, phase (`read` or `write`) |
 
@@ -39,15 +39,18 @@ fields are rejected. The key (consumer, host, plugin_id, scope) is unique per do
 
 Every code has exactly one fixture `tests/fixtures/plugin_activation/neg_<code>.json` that raises exactly it.
 
-- `E_NO_READBACK`, `E_REVISION_MISMATCH`, `E_STALE_READBACK`: `config_revision` must equal
-  `readback_sha256`, the hash of the content `readback_ref` points to, and `readback_at` must not lie
-  before `requested_at` or `write.native_write_at`. A stale or unbound read-back is not evidence; the
-  consumer shows `unknown`.
+- `E_NO_READBACK`, `E_REVISION_MISMATCH`, `E_STALE_READBACK`, `E_ORDER`: `config_revision` must equal
+  `readback_sha256`, the hash of the content `readback_ref` points to. The order is strict:
+  `write.requested_at` < `write.native_write_at` < `readback_at` (equal is an error), and `readback_at` is not
+  after `observed_at`. A read-back that is earlier than or equal to the write is stale (`E_STALE_READBACK`), an
+  unordered request/write pair or a read-back after the observation is `E_ORDER`. A stale or unbound
+  read-back is not evidence; the consumer shows `unknown`. `readback_ref` and the other references are
+  structural text: the checker does not resolve them or compute the hash of the referenced content (schema only).
 - `E_FLAG_ONLY`: a flag or table of the display system (`plugin_sockets`) is no source.
 - `E_DEFAULT_TRUE`: no default state. A missing source, a source `default`/`absence`, or
   `default_applied: true` must lead to `unknown`, never to plugged or unplugged.
 - `E_FOREIGN_HOST_WRITE`: `write.writer_host` must equal the record `host`; other hosts are display only.
-- `write` block: `requested_value`, `writer_host`, `steps`, `reached_step`, and after `native_write`
+- `write` block (a `null` block counts as missing): `requested_value`, `writer_host`, `requested_at`, `steps`, `reached_step`, and after `native_write`
   also `backup_ref` and `native_write_at`; `rollback_outcome` only on `error`. `steps` is the ordered
   sequence `plan`, `lock_host_check`, `backup`, `native_write`, `readback` (complete unless the state is
   `error`, then a non-empty prefix): `E_TOGGLE_ORDER`. `reached_step` is the last entry: `E_REACHED_STEP`.
@@ -62,10 +65,12 @@ Every code has exactly one fixture `tests/fixtures/plugin_activation/neg_<code>.
 - `E_UNKNOWN_NEEDS_REASON`, `E_KEY`, `E_ENUM`, `E_TYPE`, `E_STATE`, `E_UNKNOWN_FIELD`, `E_HASH`,
   `E_TIME`, `E_MISSING_EVIDENCE`, `E_SCHEMA`: shape and type errors; see the contract for each text.
 
-The normative contract sections (states, enums, patterns, field lists, rules, error codes) are pinned
-by SHA-256 in the checker: removing, reversing, loosening or rewording any of them is reported as
-"weakens" and is a new contract version. A host, path or URL anywhere in the contract is reported as
-"freezes".
+The normative contract sections (claim boundary, states, enums, patterns, field lists, rules, error codes) are
+pinned by SHA-256 in the checker: removing, reversing, loosening or rewording any of them is reported as
+"weakens" and is a new contract version. The version step is documented, not enforced independently: a pull
+request can change contract and checker together, so that change is caught by review. A frozen value anywhere in
+the contract (every string, including keys) is reported as "freezes"; recognized are drive paths with `/` or
+`\`, UNC paths, `/Users/` and `/home/` prefixes, http(s) URLs and the three named hosts of the checker, nothing more.
 
 ```
 python tools/check_plugin_activation_contract.py            # contract + fixtures

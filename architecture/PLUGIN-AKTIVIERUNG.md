@@ -31,7 +31,7 @@ Felder werden abgelehnt. Der Schlüssel (consumer, host, plugin_id, scope) ist j
 |---|---|---|
 | `plugged` | native Config sagt aktiv, nach jedem Schreiben rückgelesen, kein Neustart offen | source, observed_at, config_revision, readback_ref, readback_at, readback_sha256, readback_value |
 | `unplugged` | native Config sagt inaktiv, rückgelesen | wie oben |
-| `pending_restart` | geschrieben (vollständiger `write`-Block) und rückgelesen, Wirkung im laufenden Verbraucher unbelegt | wie oben plus requested_at, runtime_active (null) |
+| `pending_restart` | geschrieben (vollständiger `write`-Block) und rückgelesen, Wirkung im laufenden Verbraucher unbelegt | wie oben plus runtime_active (null) |
 | `unknown` | keine native Quelle, nicht lesbar, kein Eintrag oder Rücklesen nicht an das Schreiben gebunden | reason_code, observed_at |
 | `error` | Schreiben/Rücklesen fehlgeschlagen oder Rücklesen widerspricht dem Wunsch | request_id, error_code, last_evidence, phase (`read` oder `write`) |
 
@@ -39,15 +39,19 @@ Felder werden abgelehnt. Der Schlüssel (consumer, host, plugin_id, scope) ist j
 
 Jeder Code hat genau ein Fixture `tests/fixtures/plugin_activation/neg_<code>.json`, das genau ihn auslöst.
 
-- `E_NO_READBACK`, `E_REVISION_MISMATCH`, `E_STALE_READBACK`: `config_revision` muss `readback_sha256`
-  entsprechen, dem Hash des Inhalts, auf den `readback_ref` zeigt, und `readback_at` darf nicht vor
-  `requested_at` oder `write.native_write_at` liegen. Ein veraltetes oder ungebundenes Rücklesen ist
-  kein Beleg; der Verbraucher zeigt `unknown`.
+- `E_NO_READBACK`, `E_REVISION_MISMATCH`, `E_STALE_READBACK`, `E_ORDER`: `config_revision` muss
+  `readback_sha256` entsprechen, dem Hash des Inhalts, auf den `readback_ref` zeigt. Die Reihenfolge ist
+  strikt: `write.requested_at` < `write.native_write_at` < `readback_at` (Gleichstand ist ein Fehler), und
+  `readback_at` liegt nicht nach `observed_at`. Ein Rücklesen, das früher oder gleichzeitig mit dem
+  Schreiben liegt, ist veraltet (`E_STALE_READBACK`); ein ungeordnetes Anfrage/Schreib-Paar oder ein
+  Rücklesen nach der Beobachtung ist `E_ORDER`. Ein veraltetes oder ungebundenes Rücklesen ist kein Beleg;
+  der Verbraucher zeigt `unknown`. `readback_ref` und die übrigen Referenzen sind strukturelle Texte: der
+  Prüfer löst sie nicht auf und berechnet keinen Hash des referenzierten Inhalts (nur Schema).
 - `E_FLAG_ONLY`: ein Flag oder eine Tabelle des Anzeigesystems (`plugin_sockets`) ist keine Quelle.
 - `E_DEFAULT_TRUE`: kein Defaultzustand. Fehlende Quelle, Quelle `default`/`absence` oder
   `default_applied: true` müssen zu `unknown` führen, nie zu plugged oder unplugged.
 - `E_FOREIGN_HOST_WRITE`: `write.writer_host` muss dem `host` des Eintrags entsprechen; andere Hosts nur Anzeige.
-- `write`-Block: `requested_value`, `writer_host`, `steps`, `reached_step`, nach `native_write` zusätzlich
+- `write`-Block (ein `null`-Block gilt als fehlend): `requested_value`, `writer_host`, `requested_at`, `steps`, `reached_step`, nach `native_write` zusätzlich
   `backup_ref` und `native_write_at`; `rollback_outcome` nur bei `error`. `steps` ist die geordnete Folge
   `plan`, `lock_host_check`, `backup`, `native_write`, `readback` (vollständig, außer bei `error`: dann
   ein nichtleeres Präfix): `E_TOGGLE_ORDER`. `reached_step` ist der letzte Eintrag: `E_REACHED_STEP`.
@@ -62,10 +66,13 @@ Jeder Code hat genau ein Fixture `tests/fixtures/plugin_activation/neg_<code>.js
 - `E_UNKNOWN_NEEDS_REASON`, `E_KEY`, `E_ENUM`, `E_TYPE`, `E_STATE`, `E_UNKNOWN_FIELD`, `E_HASH`,
   `E_TIME`, `E_MISSING_EVIDENCE`, `E_SCHEMA`: Form- und Typfehler; Texte im Vertrag.
 
-Die normativen Vertragsabschnitte (Zustände, Enums, Muster, Feldlisten, Regeln, Fehlercodes) sind im
-Prüfer per SHA-256 festgeschrieben: Entfernen, Umkehren, Lockern oder Umformulieren wird als
-"weakens" gemeldet und ist eine neue Vertragsversion. Ein Host, Pfad oder eine URL irgendwo im Vertrag
-wird als "freezes" gemeldet.
+Die normativen Vertragsabschnitte (Aussagegrenze, Zustände, Enums, Muster, Feldlisten, Regeln,
+Fehlercodes) sind im Prüfer per SHA-256 festgeschrieben: Entfernen, Umkehren, Lockern oder
+Umformulieren wird als "weakens" gemeldet und ist eine neue Vertragsversion. Der Versionsschritt ist
+dokumentiert, aber nicht unabhängig erzwungen: ein Pull Request kann Vertrag und Prüfer gemeinsam ändern,
+das fängt das Review ab. Ein festgeschriebener Wert irgendwo im Vertrag (jede Zeichenkette, auch
+Schlüssel) wird als "freezes" gemeldet; erkannt werden Laufwerkspfade mit `/` oder `\`, UNC-Pfade,
+Präfixe `/Users/` und `/home/`, http(s)-URLs und die drei im Prüfer benannten Hosts, nicht mehr.
 
 ```
 python tools/check_plugin_activation_contract.py            # Vertrag + Fixtures

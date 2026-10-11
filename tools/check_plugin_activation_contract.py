@@ -43,11 +43,11 @@ _READBACK = ["source", "observed_at", "config_revision", "readback_ref", "readba
 EVIDENCE = {
     "plugged": (_READBACK, ["runtime_active", "runtime_ref", "default_applied"]),
     "unplugged": (_READBACK, ["runtime_active", "runtime_ref", "default_applied"]),
-    "pending_restart": (_READBACK + ["requested_at", "runtime_active"], ["runtime_ref", "default_applied"]),
+    "pending_restart": (_READBACK + ["runtime_active"], ["runtime_ref", "default_applied"]),
     "unknown": (["reason_code", "observed_at"], []),
     "error": (["request_id", "error_code", "last_evidence", "phase"], ["observed_at", "readback_value"]),
 }
-WRITE_REQUIRED = ("requested_value", "writer_host", "steps", "reached_step")
+WRITE_REQUIRED = ("requested_value", "writer_host", "requested_at", "steps", "reached_step")
 WRITE_AFTER_NATIVE = ("backup_ref", "native_write_at")
 PATTERNS = {  # ASCII identifiers; fullmatch only
     "consumer": re.compile(r"[a-z][a-z0-9_-]{1,40}"),
@@ -58,33 +58,52 @@ PATTERNS = {  # ASCII identifiers; fullmatch only
 }
 SHA_RE = re.compile(r"[0-9a-f]{64}")
 TIME_RE = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3}|\.\d{6})?(Z|[+-]\d{2}:\d{2})")
-FROZEN_RE = re.compile(r"[A-Za-z]:\\|/Users/|/home/|ASUS-GEI|WORKSTATION-LG|mac-studio|\bhttps?://", re.I)
+# What the contract and the fixtures must not freeze (this is all the checker recognizes): drive paths with / or \, UNC
+# paths, /Users/ and /home/ prefixes, http(s) URLs and the three named hosts.
+FROZEN_RE = re.compile(
+    r"(?<![A-Za-z0-9])[A-Za-z]:[\\/]"
+    r"|\\\\[^\\\s]+\\[^\\\s]+"
+    r"|/Users/|/home/|\bhttps?://|ASUS-GEI|WORKSTATION-LG|mac-studio", re.I)
 TEXT_FIELDS = ("readback_ref", "request_id", "error_code", "last_evidence", "runtime_ref")
 CODES = {
     "E_SCHEMA", "E_TYPE", "E_ENUM", "E_KEY", "E_STATE", "E_UNKNOWN_FIELD", "E_MISSING_EVIDENCE", "E_HASH", "E_TIME",
-    "E_NO_READBACK", "E_REVISION_MISMATCH", "E_STALE_READBACK", "E_FLAG_ONLY", "E_DEFAULT_TRUE", "E_FOREIGN_HOST_WRITE",
+    "E_NO_READBACK", "E_REVISION_MISMATCH", "E_STALE_READBACK", "E_ORDER", "E_FLAG_ONLY", "E_DEFAULT_TRUE", "E_FOREIGN_HOST_WRITE",
     "E_MISMATCH_NO_ERROR", "E_PENDING_RUNTIME", "E_RUNTIME_NO_REF", "E_NO_BACKUP", "E_TOGGLE_ORDER", "E_REACHED_STEP",
     "E_WRITE_REQUIRED", "E_UNKNOWN_NEEDS_REASON", "E_ERROR_NO_ROLLBACK",
 }
 # SHA-256 of the canonical JSON (sorted keys, compact) of each normative contract section. An edit of any of these
 # sections is a new contract version: change the version and these pins together.
 NORMATIVE_SHA256 = {
+    "claim_boundary": "bba13f8e64d33edf2dcc562d413ad2647ce57879af7af88c2af753acb2d3f9d8",
     "key_fields": "41f9440ca166c5a2452ed72fa13e647bdcc3b73aae4b33876b7ea392b25d7149",
     "record_fields": "f37a69eeda91aee2343dce0e7cadbfd2387353527ade5f03fe9dc23022c1acd3",
-    "states": "3f4e13a3a152f63fd96a87176da9011b676bf7d0552777ddc70bd82a7781a7b5",
+    "states": "d4201d2b8709eadd2ded5168a2c4e1bc873613e1de4516b8f2cce94f2da41dd4",
     "enums": "b978e94337be726d0aa2c78577b9e92787c5312fcc2da90e2625505e358d1a06",
     "patterns": "c0daf74caa890bf3812b1ce768c4abce6122cc48ceedb432756f53bd7aaf11d9",
     "known_values": "5572b88ce42cde2ba03ea2038a9f7a7bc6822aa2c8b9cade580db515ab62496b",
     "forbidden_sources": "9ec01378d56625f8da01da5fb373f10bb78e8dc7f8f421209f1ac2c10d90da45",
     "toggle_steps": "18815bc9d7a4e645c23b4a79c93c713c2c8ec2a579733fdb8f247fae37667632",
-    "write_fields": "224f09996c907faef1a379f3dc37d71e2500abab8d2e813247014d0e7f8d7ff7",
-    "error_codes": "f7c2ef33e801f914b1eade33a9b172eede039e5cb2fee2680a11e90050ec1f18",
-    "rules": "7b600f4597b930adcba26e54442dc3c50f982726e9581512dcf56f219ffc94c0",
+    "write_fields": "ae0b169cb114f892fcca752e757a44cd0fadcf3e1daa51bd7ec2bc946ca716d5",
+    "error_codes": "7c8745941257a6c25cb1e9a09d5707af214f3ebc595495562e7feeedca252f2f",
+    "rules": "ba17ef1d93152ef7733b048578d127df7fc3b46152417094ff018afca93cbc1f",
 }
 
 
 def section_hash(value: Any) -> str:
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
+
+
+def walk_strings(node: Any):
+    """Every string in a JSON value (keys and values), unescaped, so backslashes are real backslashes."""
+    if isinstance(node, str):
+        yield node
+    elif isinstance(node, dict):
+        for key, value in node.items():
+            yield from walk_strings(key)
+            yield from walk_strings(value)
+    elif isinstance(node, list):
+        for value in node:
+            yield from walk_strings(value)
 
 
 def parse_time(value: Any) -> datetime | None:
@@ -121,7 +140,7 @@ def validate_contract(contract: dict[str, Any]) -> list[str]:
     for code in sorted(CODES):
         if not is_text(texts.get(code)):
             problems.append(f"contract lacks a rule text for {code}")
-    if FROZEN_RE.search(json.dumps(contract, ensure_ascii=False)):
+    if any(FROZEN_RE.search(text) for text in walk_strings(contract)):
         problems.append("contract freezes a host, path or URL")
     return problems
 
@@ -129,7 +148,7 @@ def validate_contract(contract: dict[str, Any]) -> list[str]:
 def _check_write(record: dict[str, Any], state: str, evidence: dict[str, Any], out: list[str]) -> dict[str, datetime | None]:
     times: dict[str, datetime | None] = {}
     write = record.get("write")
-    if write is None:
+    if write is None:  # absent and null are the same; states that need a write block report E_WRITE_REQUIRED
         return times
     if not isinstance(write, dict):
         out.append("E_TYPE:write")
@@ -147,6 +166,13 @@ def _check_write(record: dict[str, Any], state: str, evidence: dict[str, Any], o
         out.append("E_ENUM:writer_host")
     elif write["writer_host"] != record.get("host"):
         out.append("E_FOREIGN_HOST_WRITE")
+
+    if "requested_at" not in write:
+        out.append("E_MISSING_EVIDENCE:write.requested_at")
+    else:
+        times["requested_at"] = parse_time(write["requested_at"])
+        if times["requested_at"] is None:
+            out.append("E_TIME:write.requested_at")
 
     steps = write.get("steps")
     if not isinstance(steps, list) or not all(isinstance(s, str) for s in steps):
@@ -254,9 +280,9 @@ def validate_record(record: Any) -> list[str]:
         value = evidence.get("readback_value")
         if state != "pending_restart" and value in READBACK_VALUES and (state == "plugged") != (value == "enabled"):
             out.append("E_MISMATCH_NO_ERROR")
-        if state == "pending_restart" and "write" not in record:
+        if state == "pending_restart" and record.get("write") is None:
             out.append("E_WRITE_REQUIRED")
-    if state == "error" and evidence.get("phase") == "write" and "write" not in record:
+    if state == "error" and evidence.get("phase") == "write" and record.get("write") is None:
         out.append("E_WRITE_REQUIRED")
 
     active = evidence.get("runtime_active")
@@ -268,19 +294,22 @@ def validate_record(record: Any) -> list[str]:
         out.append("E_RUNTIME_NO_REF")
 
     times = _check_write(record, state, evidence, out)
-    for field in ("requested_at", "readback_at", "observed_at"):
+    for field in ("readback_at", "observed_at"):
         if field in evidence:
             times[field] = parse_time(evidence[field])
             if times[field] is None:
                 out.append(f"E_TIME:{field}")
-    # order: requested_at <= native_write_at <= readback_at <= observed_at; a read-back before the write is stale
-    for before in ("requested_at", "native_write_at"):
-        if times.get(before) and times.get("readback_at") and times["readback_at"] < times[before]:
+    # strict order requested_at < native_write_at < readback_at, then readback_at <= observed_at. A read-back that is not
+    # strictly after the write (earlier or equal) is stale; an unordered request/write pair or a read-back after the
+    # observation is E_ORDER.
+    requested, native, readback, observed = (times.get(k) for k in ("requested_at", "native_write_at", "readback_at", "observed_at"))
+    if requested and native and not requested < native:
+        out.append("E_ORDER")
+    for before in (requested, native):
+        if before and readback and not before < readback:
             out.append("E_STALE_READBACK")
-    if times.get("requested_at") and times.get("native_write_at") and times["native_write_at"] < times["requested_at"]:
-        out.append("E_TIME:order")
-    if times.get("readback_at") and times.get("observed_at") and times["observed_at"] < times["readback_at"]:
-        out.append("E_TIME:order")
+    if readback and observed and observed < readback:
+        out.append("E_ORDER")
     return list(dict.fromkeys(out))
 
 

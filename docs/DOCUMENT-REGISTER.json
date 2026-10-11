@@ -4,7 +4,7 @@
   "owner_repo": "ellmos-ai/open-ocean",
   "authority": "repo-local-register-no-cutover",
   "cutover_performed": false,
-  "observed_at": "2026-10-11T03:59:59Z",
+  "observed_at": "2026-10-11T04:26:32Z",
   "source_revision": "ca54e89",
   "documents": [
     {
@@ -69,6 +69,13 @@
           "ref": "tests/test_metadata.py",
           "active": true,
           "last_checked_at": "2026-10-11T03:59:59Z"
+        },
+        {
+          "reader_id": "r6",
+          "kind": "tool",
+          "ref": "pyproject.toml",
+          "active": true,
+          "last_checked_at": "2026-10-11T04:26:32Z"
         }
       ],
       "authority_claim": "none",
@@ -172,6 +179,13 @@
           "ref": "tests/test_metadata.py",
           "active": true,
           "last_checked_at": "2026-10-11T03:59:59Z"
+        },
+        {
+          "reader_id": "r7",
+          "kind": "tool",
+          "ref": "pyproject.toml",
+          "active": true,
+          "last_checked_at": "2026-10-11T04:26:32Z"
         }
       ],
       "authority_claim": "repo-local",

@@ -67,7 +67,8 @@ def test_parity_with_the_former_hand_entries_and_the_documented_differences():
     caps = bridge.capabilities()
     served = {f"{e['method']} {e['path']}": e["available"] for e in caps["endpoints"]}
     derived = {p["id"]: p for p in caps["pages"]}
-    status = lambda ident: "configured" if all(served.get(r) for r in legacy[ident]) else "unavailable"
+    def status(ident):
+        return "configured" if all(served.get(r) for r in legacy[ident]) else "unavailable"
     # identical where the page reads exactly one inventory
     for ident in ("ocean", "software"):
         assert derived[ident]["requires"] == legacy[ident] and derived[ident]["status"] == status(ident)

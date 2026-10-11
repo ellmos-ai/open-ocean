@@ -1,0 +1,1187 @@
+{
+ "schema": "ellmos.gui.page-reads.v1",
+ "note": "Calls each page makes to the connected backend. required = the page cannot do its job without the read; optional = fallback, user action, detail or write. Methods are guarded where the call site states them. Maintained with the code; tests/page-reads.test.mjs binds it to src/.",
+ "layout": [
+  {
+   "method": "GET",
+   "path": "/api/gui/brand",
+   "required": false
+  },
+  {
+   "method": "GET",
+   "path": "/api/gui/backend-origin",
+   "required": false
+  },
+  {
+   "method": "GET",
+   "path": "/api/domains/pins",
+   "required": false
+  },
+  {
+   "method": "POST",
+   "path": "/api/domains/{id}/pin",
+   "required": false,
+   "dynamic": true,
+   "found_in": "src/lib/domain-pins.mjs#setDomainPin"
+  }
+ ],
+ "pages": {
+  "/": [
+   {
+    "method": "GET",
+    "path": "/api/agent-studio/blueprints",
+    "required": true
+   },
+   {
+    "method": "GET",
+    "path": "/api/tasks",
+    "required": true,
+    "query": "status=pending,in_progress&limit=5"
+   }
+  ],
+  "/tasks": [
+   {
+    "method": "GET",
+    "path": "/api/tasks",
+    "required": true
+   },
+   {
+    "method": "GET",
+    "path": "/api/task-assignees",
+    "required": true
+   },
+   {
+    "method": "GET",
+    "path": "/api/assignees",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/tasks/{id}/result",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/tasks.astro#loadTaskResult"
+   },
+   {
+    "method": "POST",
+    "path": "/api/tasks/{id}/result/accept",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/tasks.astro#(module)"
+   },
+   {
+    "method": "POST",
+    "path": "/api/tasks",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/tasks/{id}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/tasks.astro#openTask"
+   },
+   {
+    "method": "PUT",
+    "path": "/api/tasks/{id}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/tasks.astro#(module)"
+   },
+   {
+    "method": "PUT",
+    "path": "/api/tasks/{id}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/tasks.astro#completeTask"
+   },
+   {
+    "method": "GET",
+    "path": "/api/tasks/{id}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/components/TaskCreateForm.astro#(module)"
+   }
+  ],
+  "/life": [
+   {
+    "method": "GET",
+    "path": "/api/calendar/events",
+    "required": true
+   },
+   {
+    "method": "GET",
+    "path": "/api/routines",
+    "required": true
+   },
+   {
+    "method": "GET",
+    "path": "/api/tasks",
+    "required": true,
+    "query": "assigned_to=user",
+    "dynamic": true,
+    "found_in": "src/pages/life.astro#loadUserTasks"
+   },
+   {
+    "method": "GET",
+    "path": "/api/agents",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/life/providers",
+    "required": false
+   },
+   {
+    "method": "POST",
+    "path": "/api/calendar/events",
+    "required": false
+   },
+   {
+    "method": "POST",
+    "path": "/api/routines/{id}/complete",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/life.astro#renderPersonalRoutines"
+   },
+   {
+    "method": "DELETE",
+    "path": "/api/routines/{id}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/life.astro#renderPersonalRoutines"
+   },
+   {
+    "method": "GET",
+    "path": "/api/task-assignees",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/assignees",
+    "required": false
+   },
+   {
+    "method": "POST",
+    "path": "/api/tasks",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/tasks/{id}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/components/TaskCreateForm.astro#(module)"
+   },
+   {
+    "method": "PUT",
+    "path": "/api/routines/{id}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/life.astro#savePersonalRoutine"
+   },
+   {
+    "method": "POST",
+    "path": "/api/routines",
+    "required": false
+   }
+  ],
+  "/memory": [
+   {
+    "method": "GET",
+    "path": "/api/memory/cognitive-state",
+    "required": true
+   },
+   {
+    "method": "GET",
+    "path": "/api/memory/facts",
+    "required": true
+   },
+   {
+    "method": "GET",
+    "path": "/api/memory/lessons",
+    "required": true
+   },
+   {
+    "method": "GET",
+    "path": "/api/memory/working",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/memory/sessions",
+    "required": false,
+    "query": "limit=20"
+   },
+   {
+    "method": "GET",
+    "path": "/api/memory/search",
+    "required": false,
+    "query": "q"
+   },
+   {
+    "method": "GET",
+    "path": "/api/learning/hermes/stats",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/learning/hermes/candidates",
+    "required": false,
+    "query": "status,limit"
+   },
+   {
+    "method": "GET",
+    "path": "/api/learning/hermes/candidates/{id}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/memory.astro#viewCandidateModal"
+   },
+   {
+    "method": "POST",
+    "path": "/api/memory/facts",
+    "required": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/api/memory/facts/{id}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/memory.astro#deleteFact"
+   },
+   {
+    "method": "POST",
+    "path": "/api/memory/lessons",
+    "required": false
+   },
+   {
+    "method": "POST",
+    "path": "/api/memory/lessons/{id}/toggle",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/memory.astro#toggleLesson"
+   },
+   {
+    "method": "DELETE",
+    "path": "/api/memory/lessons/{id}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/memory.astro#deleteLesson"
+   },
+   {
+    "method": "POST",
+    "path": "/api/learning/hermes/distill",
+    "required": false
+   },
+   {
+    "method": "POST",
+    "path": "/api/learning/hermes/candidates/{id}/approve",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/memory.astro#approveCandidate"
+   },
+   {
+    "method": "POST",
+    "path": "/api/learning/hermes/candidates/{id}/reject",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/memory.astro#rejectCandidate"
+   }
+  ],
+  "/domains": [
+   {
+    "method": "GET",
+    "path": "/api/domains/installed",
+    "required": true,
+    "query": "scope=all&probe=true"
+   }
+  ],
+  "/artefakte": [
+   {
+    "method": "GET",
+    "path": "/api/artefakte",
+    "required": true
+   },
+   {
+    "method": "GET",
+    "path": "/api/artifacts/content",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/artifacts/download",
+    "required": false
+   }
+  ],
+  "/governance": [
+   {
+    "method": "GET",
+    "path": "/api/governance/locks",
+    "required": true,
+    "dynamic": true,
+    "found_in": "src/pages/governance/index.astro#load"
+   },
+   {
+    "method": "GET",
+    "path": "/api/governance/policy-registry",
+    "required": true,
+    "dynamic": true,
+    "found_in": "src/pages/governance/index.astro#load"
+   },
+   {
+    "method": "GET",
+    "path": "/api/governance/decisions",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/governance/index.astro#load"
+   },
+   {
+    "method": "GET",
+    "path": "/api/governance/policies",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/governance/index.astro#load"
+   },
+   {
+    "method": "GET",
+    "path": "/api/governance/effective-policy",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/governance/index.astro#load"
+   },
+   {
+    "method": "GET",
+    "path": "/api/governance/status",
+    "required": false
+   }
+  ],
+  "/governance/logs": [
+   {
+    "method": "GET",
+    "path": "/api/governance/audit",
+    "required": true,
+    "query": "limit=100"
+   }
+  ],
+  "/governance/usecases": [
+   {
+    "method": "GET",
+    "path": "/api/usecases",
+    "required": true
+   },
+   {
+    "method": "GET",
+    "path": "/api/usecases/{id}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/governance/usecases.astro#open"
+   },
+   {
+    "method": "PUT",
+    "path": "/api/usecases/{id}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/governance/usecases.astro#(module)"
+   },
+   {
+    "method": "POST",
+    "path": "/api/usecases",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/usecases/{id}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/governance/usecases.astro#(module)"
+   },
+   {
+    "method": "POST",
+    "path": "/api/usecases/{id}/test",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/governance/usecases.astro#(module)"
+   },
+   {
+    "method": "POST",
+    "path": "/api/usecases/test-all",
+    "required": false
+   },
+   {
+    "method": "DELETE",
+    "path": "/api/usecases/{id}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/governance/usecases.astro#(module)"
+   }
+  ],
+  "/governance/funk": [],
+  "/settings": [
+   {
+    "method": "GET",
+    "path": "/api/gui/backend-origin",
+    "required": true
+   },
+   {
+    "method": "GET",
+    "path": "/api/system/cluster-cockpit",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/setup/ocean-map",
+    "required": true
+   },
+   {
+    "method": "GET",
+    "path": "/api/settings/theme",
+    "required": true
+   },
+   {
+    "method": "GET",
+    "path": "/api/learning/nemofold/stats",
+    "required": true
+   },
+   {
+    "method": "GET",
+    "path": "/api/learning/nemofold/candidates",
+    "required": true,
+    "query": "status=all"
+   },
+   {
+    "method": "GET",
+    "path": "/api/system/external-artifacts",
+    "required": true
+   },
+   {
+    "method": "PUT",
+    "path": "/api/settings/theme",
+    "required": false
+   },
+   {
+    "method": "POST",
+    "path": "/api/learning/nemofold/candidates/{id}/approve",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/settings.astro#approveNemoFoldCandidate"
+   },
+   {
+    "method": "POST",
+    "path": "/api/learning/nemofold/candidates/{id}/reject",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/settings.astro#rejectNemoFoldCandidate"
+   },
+   {
+    "method": "POST",
+    "path": "/api/learning/nemofold/synthesize",
+    "required": false
+   },
+   {
+    "method": "POST",
+    "path": "/api/system/external-artifacts/import",
+    "required": false
+   }
+  ],
+  "/agenten/blueprints": [
+   {
+    "method": "GET",
+    "path": "/api/agent-studio/blueprints",
+    "required": true
+   },
+   {
+    "method": "GET",
+    "path": "/api/agenten/teams",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/scripts/blueprint-studio.mjs#loadData"
+   },
+   {
+    "method": "GET",
+    "path": "/api/capabilities/skills",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/scripts/blueprint-studio.mjs#loadData"
+   },
+   {
+    "method": "GET",
+    "path": "/api/agent-studio/tools",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/scripts/blueprint-studio.mjs#loadData"
+   },
+   {
+    "method": "GET",
+    "path": "/api/agent-studio/contractus-presets",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/scripts/blueprint-studio.mjs#loadData"
+   },
+   {
+    "method": "GET",
+    "path": "/api/agent-studio/governance-presets",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/scripts/blueprint-studio.mjs#loadData"
+   },
+   {
+    "method": "GET",
+    "path": "/api/system/core-agents",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/system/core-prompts",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/system/workers/models",
+    "required": false
+   },
+   {
+    "method": "POST",
+    "path": "/api/agent-studio/blueprints",
+    "required": false
+   },
+   {
+    "method": "POST",
+    "path": "/api/agent-studio/blueprints/{id}/start",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/scripts/blueprint-studio.mjs#runBlueprint"
+   },
+   {
+    "method": "POST",
+    "path": "/api/agent-studio/blueprints/{id}/materialize",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/scripts/blueprint-studio.mjs#initializeStudio"
+   },
+   {
+    "method": "DELETE",
+    "path": "/api/agent-studio/blueprints/{id}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/scripts/blueprint-studio.mjs#initializeStudio"
+   },
+   {
+    "method": "POST",
+    "path": "/api/agent-studio/synthesize-prompt",
+    "required": false
+   },
+   {
+    "method": "PUT",
+    "path": "/api/system/core-prompts/{key}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/scripts/blueprint-studio.mjs#mutatePrompt"
+   },
+   {
+    "method": "POST",
+    "path": "/api/system/core-prompts/{key}/reset",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/scripts/blueprint-studio.mjs#mutatePrompt"
+   },
+   {
+    "method": "POST",
+    "path": "/api/agenten/teams/{id}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/scripts/blueprint-studio.mjs#initializeStudio"
+   },
+   {
+    "method": "POST",
+    "path": "/api/agenten/teams",
+    "required": false
+   }
+  ],
+  "/agenten/fabrika": [],
+  "/agenten/marblerun": [
+   {
+    "method": "GET",
+    "path": "/api/marblerun/catalog",
+    "required": true
+   },
+   {
+    "method": "GET",
+    "path": "/api/marblerun/runs/{id}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/scripts/marblerun-studio.mjs#initialize"
+   },
+   {
+    "method": "POST",
+    "path": "/api/marblerun/chains/{id}/run",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/scripts/marblerun-studio.mjs#initialize"
+   },
+   {
+    "method": "DELETE",
+    "path": "/api/marblerun/chains/{id}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/scripts/marblerun-studio.mjs#render"
+   },
+   {
+    "method": "POST",
+    "path": "/api/marblerun/runs/{id}/stop",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/scripts/marblerun-studio.mjs#render"
+   },
+   {
+    "method": "PUT",
+    "path": "/api/marblerun/chains/{id}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/scripts/marblerun-studio.mjs#initialize"
+   },
+   {
+    "method": "POST",
+    "path": "/api/marblerun/chains",
+    "required": false
+   }
+  ],
+  "/agenten/running": [
+   {
+    "method": "GET",
+    "path": "/api/system/core-agents",
+    "required": true
+   },
+   {
+    "method": "GET",
+    "path": "/api/system/core-agents/timeline",
+    "required": true
+   },
+   {
+    "method": "GET",
+    "path": "/api/system/cluster-cockpit",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/system/openrouter/status",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/system/openrouter/models",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/system/workers",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/system/workers/blueprint",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/system/workers/models",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/system/model-sockets",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/agenten/teams",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/marblerun/chains",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/agent-studio/blueprints",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/system/workers/{id}/configuration",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/agenten/running.astro#editWorkerConfiguration"
+   },
+   {
+    "method": "GET",
+    "path": "/api/capabilities/skills/{id}/source",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/agenten/running.astro#refreshWorkerSkills"
+   },
+   {
+    "method": "POST",
+    "path": "/api/system/workers",
+    "required": false
+   },
+   {
+    "method": "POST",
+    "path": "/api/system/workers/{id}/configuration",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/agenten/running.astro#createWorkerFromBlueprint"
+   },
+   {
+    "method": "POST",
+    "path": "/api/system/workers/{id}/{action}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/agenten/running.astro#runWorkerAction"
+   },
+   {
+    "method": "POST",
+    "path": "/api/system/workers/{id}/delete",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/agenten/running.astro#deleteWorker"
+   },
+   {
+    "method": "POST",
+    "path": "/api/system/fackel",
+    "required": false
+   },
+   {
+    "method": "POST",
+    "path": "/api/agenten/teams/{id}/beseelen",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/agenten/running.astro#saveTeamBeseelung"
+   },
+   {
+    "method": "DELETE",
+    "path": "/api/agenten/teams/{id}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/agenten/running.astro#deleteTeamFromRunning"
+   },
+   {
+    "method": "POST",
+    "path": "/api/agent-studio/blueprints/{id}/materialize",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/scripts/agent-template-picker.mjs#(module)"
+   },
+   {
+    "method": "PUT",
+    "path": "/api/system/core-agents/{id}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/agenten/running.astro#saveCoreSlot"
+   },
+   {
+    "method": "POST",
+    "path": "/api/system/core-agents",
+    "required": false
+   },
+   {
+    "method": "POST",
+    "path": "/api/system/core-agents/{id}/reset",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/agenten/running.astro#resetCoreSlot"
+   },
+   {
+    "method": "DELETE",
+    "path": "/api/system/core-agents/{id}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/agenten/running.astro#deleteCoreSlot"
+   },
+   {
+    "method": "POST",
+    "path": "/api/system/core-agents/{id}/toggle",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/pages/agenten/running.astro#toggleCoreSlot"
+   },
+   {
+    "method": "GET",
+    "path": "/api/system/model-sockets/catalog",
+    "required": false
+   },
+   {
+    "method": "PUT",
+    "path": "/api/system/model-sockets",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/lib/model-sockets.mjs#saveSocketChange"
+   },
+   {
+    "method": "PUT",
+    "path": "/api/system/model-sockets/bindings/{id}/{id2}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/lib/model-sockets.mjs#saveSocketChange"
+   },
+   {
+    "method": "DELETE",
+    "path": "/api/system/model-sockets/bindings/{id}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/lib/model-sockets.mjs#saveSocketChange"
+   }
+  ],
+  "/agenten/sessions": [
+   {
+    "method": "GET",
+    "path": "/api/agent-history/sessions",
+    "required": true,
+    "query": "agent_id,limit"
+   },
+   {
+    "method": "GET",
+    "path": "/api/agent-history/sessions/{snapshot_id}",
+    "required": true,
+    "dynamic": true,
+    "found_in": "src/lib/agent-history.mjs#loadSession"
+   },
+   {
+    "method": "GET",
+    "path": "/api/agent-history/tasks",
+    "required": true
+   },
+   {
+    "method": "GET",
+    "path": "/api/memory/sessions",
+    "required": true,
+    "query": "limit=25"
+   },
+   {
+    "method": "GET",
+    "path": "/api/agents",
+    "required": true
+   },
+   {
+    "method": "GET",
+    "path": "/api/user-inbox",
+    "required": false
+   },
+   {
+    "method": "PATCH",
+    "path": "/api/user-inbox/{id}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/scripts/user-inbox-tab.mjs#change"
+   },
+   {
+    "method": "GET",
+    "path": "/api/task-assignees",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/assignees",
+    "required": false
+   },
+   {
+    "method": "POST",
+    "path": "/api/tasks",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/tasks/{id}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/components/TaskCreateForm.astro#(module)"
+   }
+  ],
+  "/user-inbox": [],
+  "/skills": [
+   {
+    "method": "GET",
+    "path": "/api/capabilities/skills/library",
+    "required": true,
+    "dynamic": true,
+    "found_in": "src/lib/capability-board-ui.mjs#refresh"
+   },
+   {
+    "method": "GET",
+    "path": "/api/skills-board/hierarchy",
+    "required": false
+   },
+   {
+    "method": "PUT",
+    "path": "/api/skills-board/hierarchy",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/gui/capabilities",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/capabilities/skills/{id}/source",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/lib/capability-board-client.mjs#loadSkill"
+   },
+   {
+    "method": "PUT",
+    "path": "/api/capabilities/skills/{id}/source",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/lib/capability-board-client.mjs#saveSkill"
+   },
+   {
+    "method": "GET",
+    "path": "/api/capabilities/skills/{id}/history",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/lib/capability-board-ui.mjs#loadHistory"
+   },
+   {
+    "method": "GET",
+    "path": "/api/capabilities/skills/{id}/history/{revision}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/lib/capability-board-ui.mjs#(module)"
+   },
+   {
+    "method": "GET",
+    "path": "/api/capabilities/mcp/cookbooks",
+    "required": false
+   }
+  ],
+  "/skills/plugins": [
+   {
+    "method": "GET",
+    "path": "/api/capabilities/plugins/inventory",
+    "required": true,
+    "dynamic": true,
+    "found_in": "src/lib/capability-board-ui.mjs#refresh"
+   },
+   {
+    "method": "GET",
+    "path": "/api/gui/capabilities",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/skills-board/hierarchy",
+    "required": false
+   },
+   {
+    "method": "PUT",
+    "path": "/api/skills-board/hierarchy",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/capabilities/skills/{id}/history",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/lib/capability-board-ui.mjs#loadHistory"
+   },
+   {
+    "method": "GET",
+    "path": "/api/capabilities/skills/{id}/history/{id2}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/lib/capability-board-ui.mjs#(module)"
+   },
+   {
+    "method": "GET",
+    "path": "/api/capabilities/mcp/cookbooks",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/capabilities/skills/{id}/source",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/lib/capability-board-client.mjs#loadSkill"
+   },
+   {
+    "method": "PUT",
+    "path": "/api/capabilities/skills/{id}/source",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/lib/capability-board-client.mjs#saveSkill"
+   }
+  ],
+  "/skills/mcp": [
+   {
+    "method": "GET",
+    "path": "/api/capabilities/mcp/connections",
+    "required": true,
+    "dynamic": true,
+    "found_in": "src/lib/capability-board-ui.mjs#refresh"
+   },
+   {
+    "method": "GET",
+    "path": "/api/capabilities/mcp/cookbooks",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/gui/capabilities",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/skills-board/hierarchy",
+    "required": false
+   },
+   {
+    "method": "PUT",
+    "path": "/api/skills-board/hierarchy",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/capabilities/skills/{id}/history",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/lib/capability-board-ui.mjs#loadHistory"
+   },
+   {
+    "method": "GET",
+    "path": "/api/capabilities/skills/{id}/history/{id2}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/lib/capability-board-ui.mjs#(module)"
+   },
+   {
+    "method": "GET",
+    "path": "/api/capabilities/skills/{id}/source",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/lib/capability-board-client.mjs#loadSkill"
+   },
+   {
+    "method": "PUT",
+    "path": "/api/capabilities/skills/{id}/source",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/lib/capability-board-client.mjs#saveSkill"
+   }
+  ],
+  "/skills/software": [
+   {
+    "method": "GET",
+    "path": "/api/capabilities/software",
+    "required": true,
+    "dynamic": true,
+    "found_in": "src/lib/capability-board-ui.mjs#refresh"
+   },
+   {
+    "method": "GET",
+    "path": "/api/gui/capabilities",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/skills-board/hierarchy",
+    "required": false
+   },
+   {
+    "method": "PUT",
+    "path": "/api/skills-board/hierarchy",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/capabilities/skills/{id}/history",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/lib/capability-board-ui.mjs#loadHistory"
+   },
+   {
+    "method": "GET",
+    "path": "/api/capabilities/skills/{id}/history/{id2}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/lib/capability-board-ui.mjs#(module)"
+   },
+   {
+    "method": "GET",
+    "path": "/api/capabilities/mcp/cookbooks",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/capabilities/skills/{id}/source",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/lib/capability-board-client.mjs#loadSkill"
+   },
+   {
+    "method": "PUT",
+    "path": "/api/capabilities/skills/{id}/source",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/lib/capability-board-client.mjs#saveSkill"
+   }
+  ],
+  "/skills/ocean": [
+   {
+    "method": "GET",
+    "path": "/api/capabilities/ocean",
+    "required": true,
+    "dynamic": true,
+    "found_in": "src/lib/capability-board-ui.mjs#refresh"
+   },
+   {
+    "method": "GET",
+    "path": "/api/gui/capabilities",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/skills-board/hierarchy",
+    "required": false
+   },
+   {
+    "method": "PUT",
+    "path": "/api/skills-board/hierarchy",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/capabilities/skills/{id}/history",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/lib/capability-board-ui.mjs#loadHistory"
+   },
+   {
+    "method": "GET",
+    "path": "/api/capabilities/skills/{id}/history/{id2}",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/lib/capability-board-ui.mjs#(module)"
+   },
+   {
+    "method": "GET",
+    "path": "/api/capabilities/mcp/cookbooks",
+    "required": false
+   },
+   {
+    "method": "GET",
+    "path": "/api/capabilities/skills/{id}/source",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/lib/capability-board-client.mjs#loadSkill"
+   },
+   {
+    "method": "PUT",
+    "path": "/api/capabilities/skills/{id}/source",
+    "required": false,
+    "dynamic": true,
+    "found_in": "src/lib/capability-board-client.mjs#saveSkill"
+   }
+  ]
+ }
+}

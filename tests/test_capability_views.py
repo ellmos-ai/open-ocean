@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from tools.capability_views import ocean_inventory, skill_library
 from tools.catalog_projection import _redact
-from tools.gui_bridge import GuiBridge, PAGE_REQUIRES, mount_gui_bridge, bridge_from_workspace
+from tools.gui_bridge import GuiBridge, mount_gui_bridge, bridge_from_workspace
 from tests.test_catalog_projection import _workspace
 
 # Frozen from BACH hub/_services/capability_inventory_service.py (_base, ocean_inventory) and
@@ -109,28 +109,34 @@ def _pages(bridge):
     return {p["id"]: p for p in bridge.capabilities()["pages"]}
 
 
+MANIFEST = Path(__file__).parent / "fixtures" / "gui-page-reads.v1.f6696e5.json"  # ellmos-system-gui#35 @f6696e5
+
+
+class _Gui:  # minimal stand-in for a verified release carrying the GUI's page-reads manifest
+    source_commit, archive_sha256, installed_verified = "a" * 40, "b" * 64, True
+    payload = {"dist/page-reads.v1.json": MANIFEST.read_bytes()}
+
+
 def test_page_is_configured_only_when_all_its_endpoints_are_served(tmp_path):
     ws = _workspace(tmp_path)
-    bridge = GuiBridge(ocean=lambda: ocean_inventory(workspace=ws), skills=lambda: skill_library(workspace=ws))
+    bridge = GuiBridge(gui=_Gui(), ocean=lambda: ocean_inventory(workspace=ws), skills=lambda: skill_library(workspace=ws))
     pages = _pages(bridge)
-    # gui is None here, so nothing can be configured; the endpoint-level missing list is what we assert
-    assert pages["ocean"]["requires"] == PAGE_REQUIRES["ocean"] and "GET /api/capabilities/ocean" not in pages["ocean"]["missing"]
-    assert pages["skills"]["missing"] and "PUT /api/capabilities/skills/{id}/source" in pages["skills"]["missing"]
-    assert "GET /api/capabilities/skills/library" not in pages["skills"]["missing"]
-    assert pages["software"]["missing"] == ["GET /api/capabilities/software"] or "GET /api/capabilities/software" in pages["software"]["missing"]
-    bare = _pages(GuiBridge())
-    assert "GET /api/capabilities/ocean" in bare["ocean"]["missing"]
+    assert pages["ocean"]["requires"] == ["GET /api/capabilities/ocean"] and pages["ocean"]["missing"] == []
+    assert pages["skills"]["requires"] == ["GET /api/capabilities/skills/library"] and pages["skills"]["status"] == "configured"
+    assert pages["software"]["missing"] == ["GET /api/capabilities/software"]
+    bare = _pages(GuiBridge(gui=_Gui()))
+    assert bare["ocean"]["missing"] == ["GET /api/capabilities/ocean"] and bare["ocean"]["status"] == "unavailable"
+    # without a verified release there is no manifest: nothing is configured and the reason says why
+    none = _pages(GuiBridge(ocean=lambda: ocean_inventory(workspace=ws)))
+    assert all(p["status"] == "unavailable" and p["missing"] == ["verified-gui-release", "page-reads-manifest-missing"] for p in none.values())
 
 
-def test_ocean_page_configured_with_verified_gui_skills_and_software_never(tmp_path):
+def test_ocean_and_skills_pages_configured_with_verified_gui_software_not(tmp_path):
     ws = _workspace(tmp_path)
-
-    class _Gui:  # minimal stand-in for a verified release
-        source_commit, archive_sha256, installed_verified = "a" * 40, "b" * 64, True
     bridge = GuiBridge(gui=_Gui(), ocean=lambda: ocean_inventory(workspace=ws), skills=lambda: skill_library(workspace=ws))
     pages = _pages(bridge)
     assert pages["ocean"]["status"] == "configured" and pages["ocean"]["missing"] == []
-    assert pages["skills"]["status"] == "unavailable" and pages["software"]["status"] == "unavailable"
+    assert pages["skills"]["status"] == "configured" and pages["software"]["status"] == "unavailable"
     declared = {(e["method"], e["path"]): e for e in bridge.capabilities()["endpoints"]}
     assert declared[("GET", "/api/capabilities/ocean")]["available"] is True
     assert declared[("GET", "/api/capabilities/software")]["reason"] == "source-not-in-composition"
@@ -357,16 +363,16 @@ def test_real_workspace_skills_equal_yaml_safe_load():
     assert result["count"] > 0
 
 
-def test_skills_page_also_needs_the_assignment_tab_endpoints(tmp_path):
+def test_skills_assignment_tab_endpoints_are_optional_reads_not_status(tmp_path):
     # ellmos-system-gui c19f70d: hierarchy-assignment-ui.mjs reads GET /api/gui/capabilities and GET + PUT
-    # /api/skills-board/hierarchy; Ocean serves neither skills-board route.
+    # /api/skills-board/hierarchy; Ocean serves neither skills-board route. The manifest marks them optional, so they
+    # are reported as unserved but never decide the page status; writes never appear.
     ws = _workspace(tmp_path)
-    bridge = GuiBridge(ocean=lambda: ocean_inventory(workspace=ws), skills=lambda: skill_library(workspace=ws))
+    bridge = GuiBridge(gui=_Gui(), ocean=lambda: ocean_inventory(workspace=ws), skills=lambda: skill_library(workspace=ws))
     page = _pages(bridge)["skills"]
-    assert "GET /api/skills-board/hierarchy" in page["missing"] and "PUT /api/skills-board/hierarchy" in page["missing"]
-    assert {"GET /api/skills-board/hierarchy", "PUT /api/skills-board/hierarchy",
-            "GET /api/gui/capabilities"} <= set(PAGE_REQUIRES["skills"])
-    assert page["status"] == "unavailable"
+    assert "GET /api/skills-board/hierarchy" in page["optional_unserved"]
+    assert "GET /api/skills-board/hierarchy" not in page["missing"] and page["status"] == "configured"
+    assert not any(item.startswith(("PUT ", "POST ")) for item in page["requires"] + page["optional_unserved"])
 
 
 def test_skill_library_keeps_description_text_literal_but_inventory_still_redacts_paths(tmp_path):

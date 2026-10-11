@@ -26,7 +26,7 @@ nicht, dass irgendein Host ihn derzeit ausführt. Jeder genannte Zustand und jed
 geprüft. Intervalle, Worker-Bindung, Archivrichtlinie sowie Quell- und Leserwurzeln sind Konfiguration
 des nutzenden Systems (`interval_ref`, `worker_binding`, `archive_policy`, `source_roots`,
 `reader_roots`); dieser Text nennt kein Modell, keinen Pfad, keine Fanout-Zahl, keine Zeitspanne und
-keinen Archivprozentsatz, und ein Nutzer darf keinen einschleusen.
+keinen Archivprozentsatz, und das nutzende System darf keinen einschleusen.
 
 ## Grundsätze
 
@@ -60,48 +60,55 @@ Realität gilt.
 
 ## Schritte
 
-Jeder Schritt nennt den Vertragszustand, den er erzeugt. Ein Schritt darf erst beginnen, wenn die
-Belege aller früheren Zustände vorliegen. Beim ersten fehlgeschlagenen Schritt wird gestoppt; ein
-fehlgeschlagener oder unbekannter Lauf beendet die Kette bei `executed`.
+Jeder Schritt nennt den Vertragszustand, den er erzeugt, und die exakten Belegfelder aus
+`architecture/ocean-doc-loop.v1.json`. Jeder Ketteneintrag trägt zusätzlich sein eigenes
+`observed_at` (UTC); jeder Ereigniszeitstempel liegt nicht später als dieses `observed_at` und ist
+entlang der Kette geordnet. Ein Schritt darf erst beginnen, wenn die Belege aller früheren Zustände
+vorliegen. Beim ersten fehlgeschlagenen Schritt wird gestoppt.
 
 ### 0. Auslöser (`trigger_planned`)
 
-Routine, `interval_ref` (eine Referenz der Form `config:`, `routine:` oder `policy:` plus Kennung,
-nie eine Anzahl Tage), `marker_source` und `next_due_at` festhalten. Das ist ein Plan, kein Lauf.
+`routine`, `interval_ref` (eine Referenz der Form `config:`, `routine:` oder `policy:` plus Kennung,
+nie eine Anzahl Tage), `marker_source` (`config`, `state_file` oder `scheduler_receipt`) und
+`next_due_at` festhalten, dazu das `observed_at` des Eintrags. Das ist ein Plan, kein Lauf.
 
 ### 1. Task (`task_created`)
 
 Genau einen begrenzten Analyse-Task für ein Scope-Element anlegen (eine Hilfethemenfamilie, ein
 Root-Dokument, ein Anforderungsdokument, ein Changelog). Den Task aus seiner Quelle zurücklesen und
-`task_id`, `title_sha256`, `worker_binding`, `readback_ref` und `readback_sha256` festhalten;
-`readback_verified` ist erst nach diesem Zurücklesen wahr. Das Scope-Element stammt aus der
-Konfiguration oder aus einer Nutzeranfrage.
+`task_id`, `title_sha256`, `worker_binding`, `readback_ref`, `readback_sha256` und `created_at`
+festhalten; `readback_verified` ist erst nach diesem Zurücklesen wahr. Das `observed_at` des Eintrags
+ergänzen. Das Scope-Element stammt aus der Konfiguration oder aus einer Nutzeranfrage.
 
 ### 2. Erfassen
 
 Das Dokument vollständig lesen. Jede prüfbare Aussage auflisten: Befehle und Flags, Funktionen, Datei-
 und Verzeichnisverweise, Tabellen- und Endpunktnamen, Versionen, Zahlen, Daten, Querverweise. Je
 Aussage notieren, wo sie steht und wer sie liest. Leser stammen aus dem Dokumentregister
-(`document_id`, `readers[]`), wo eines existiert, sonst aus einer Suche in den Leserwurzeln; festhalten,
-welcher der beiden Wege genutzt wurde. Aussagen, die einen Wunsch oder Plan ausdrücken, als
+(`document_id`, `readers[]`); ein Dokument ohne Registereintrag bekommt keine geratenen Leser, seine
+Leser werden als `unknown` festgehalten. Aussagen, die einen Wunsch oder Plan ausdrücken, als
 Anforderungen markieren und nicht als Behauptung über die Gegenwart.
 
 ### 3. Messen (`executed`)
 
 Für jede Behauptung die tatsächliche Wirkung auf dem betreffenden Host und der Instanz messen und
-Host, Instanz und Produktversion festhalten. Die passende Oberfläche nutzen: CLI (Befehl mit
+`host`, `instance` und `product_version` festhalten. Die passende Oberfläche nutzen: CLI (Befehl mit
 harmlosem Argument ausführen, Exitcode und Ausgabe festhalten), API (Endpunkt aufrufen), GUI (Seite
 öffnen), Dateisystem (existiert der Pfad), Schema (existiert Tabelle oder Spalte), Code (existiert
 Handler oder Option). Befehl und Ausgabe bleiben als Belegreferenz erhalten. Zerstörende Operationen
 werden nicht gemessen; sie werden mit Begründung als `unknown` markiert. Am Laufende `run_id`,
-`started_at`, `finished_at`, `result_id`, `exit_state`, `exit_code`, `author_id` und `author_instance`
-festhalten. `failed` und `unknown` stoppen die Kette hier.
+`started_at`, `finished_at`, `result_id`, `exit_state` (`succeeded`, `failed` oder `unknown`),
+`exit_code`, `author_id` und `author_instance` festhalten, dazu das `observed_at` des Eintrags.
+
+**Schranke:** Nur `exit_state` `succeeded` zusammen mit `exit_code` 0 darf zu `corrected` weiterführen.
+Ein Zustand `failed` oder `unknown` oder jeder andere Exitcode beendet die Kette bei `executed`.
 
 ### 4. Differenzen
 
-Für jede Behauptung mit abweichender Messung eine Zeile schreiben: Aussage, Quelle (Dokument und
-Stelle), beobachteter Wert, Belegreferenz, Geltungsbereich (Host, Instanz, Version, Oberfläche). Die
-Zeile im Bericht klassifizieren (der Vertrag friert die Klassen nicht ein):
+Für jede Behauptung mit abweichender Messung eine Zeile mit den Vertragsfeldern `statement`, `source`
+(Dokument und Stelle), `observed`, `evidence_ref` und `scope` (`host`, `instance`, `version`,
+`surface` als `cli`, `api`, `gui` oder `doc`) schreiben. Die Zeile im Bericht klassifizieren (der
+Vertrag friert die Klassen nicht ein):
 
 - `better`: die Realität bietet mehr, als der Text sagt. Text anpassen.
 - `partial`: teilweise umgesetzt. Text auf den umgesetzten Teil anpassen und den Rest als Anforderung
@@ -118,40 +125,48 @@ Handlungen.
 
 ### 5. Korrigieren (`corrected`)
 
-Nur beschreibenden Text ändern, und nur die Aussagen mit bestätigter Differenz. Jede geänderte Datei
-mit SHA-256 vorher und nachher festhalten (die zwei Werte müssen sich unterscheiden), dazu die
-Differenzen, eine `diff_ref` und `corrected_at`. Regeln:
+Nur beschreibenden Text ändern, und nur die Aussagen mit bestätigter Differenz. `files` (je mit
+`path`, `before_sha256` und `after_sha256`, die sich unterscheiden müssen), die `differences`,
+`diff_ref`, `corrected_at`, `archival`, `open_requirements` und das `observed_at` des Eintrags
+festhalten. Regeln:
 
 - Sichere, kleine Korrekturen (Pfad, Flag, Zahl, Version) können direkt angewendet werden.
 - Größere oder strukturelle Umschreibungen und alles mit unklarer Absicht werden ein Task oder eine
   Frage an den Eigentümer statt einer Vermutung.
 - Gewünschte, noch unerfüllte Anforderungen bleiben als Zielzustand erhalten und stehen in
-  `open_requirements`, je mit `task_id`.
-- Archivierung ist nur für ein Dokument eine Option, dessen Anforderungen nach der `archive_policy`
-  des Nutzers alle erfüllt oder abgelöst sind. Vor dem Archivieren aktive Leser und Verweise prüfen
-  (Leserwurzeln oder Dokumentregister) und jede Prüfung mit `kind`, `active` und `checked_at`
-  festhalten. Jeder aktive Leser oder Verweis bedeutet `keep`. Archivierung ohne beide Prüfarten ist
-  ungültig. `archived_at` in UTC festhalten.
+  `open_requirements`, je mit `statement`, `source` und `task_id`.
+- **Archivierung nur über das Dokumentregister.** Ein Element darf nur archiviert werden, wenn es einen
+  Registereintrag hat (`document_id`, als `item` festgehalten), die `archive_policy` des nutzenden
+  Systems es erlaubt (alle Anforderungen erfüllt oder abgelöst) und die folgenden Prüfungen
+  festgehalten sind. Ohne belegbaren Registereintrag lautet die Aktion `keep`. `action` (`keep` oder
+  `archive`) festhalten und bei `archive` `archived_at` in UTC. Jeder Eintrag in `reader_checks` hat
+  genau `ref`, `kind` (`reader` oder `link`), `active` und `checked_at`: die `readers[]` des Registers
+  werden zu `reader`-Prüfungen (`ref`, `active`, `last_checked_at` als `checked_at`), und jeder Verweis
+  auf das Element wird als `link`-Prüfung geprüft. Von jeder Art ist mindestens eine Prüfung nötig,
+  keine darf aktiv sein, und jede muss jung genug für `archive_policy.reader_audit_not_before` des
+  Registers sein. Jeder aktive Leser oder Verweis bedeutet `keep`.
 - Generierte Dateien: nicht bearbeiten; den Befund für den Eigentümer des Generators festhalten
   (Grundsatz 4).
 
 ### 6. Zurücklesen (`reviewed`)
 
 Eine andere Identität und eine andere Instanz lesen die geänderten Dateien und die Differenztabelle,
-prüfen jede Differenz selbst erneut und halten je Differenz ein Urteil fest (`confirmed` oder
-`rejected`), dazu `reviewer_id`, `reviewer_instance` und `accepted_at`. Eine abgelehnte Differenz geht
-zurück zu Schritt 5; der Regelkreis geht nicht auf das Wort des Autors weiter.
+prüfen jede Differenz selbst erneut und halten `reviewer_id`, `reviewer_instance`, `verdicts` und
+`accepted_at` fest (dazu das `observed_at` des Eintrags). Jedes Urteil hat genau `difference_index`
+(eindeutig, jede Differenz genau einmal abdeckend) und `verdict` (`confirmed` oder `rejected`). Eine
+abgelehnte Differenz geht zurück zu Schritt 5; der Regelkreis geht nicht auf das Wort des Autors weiter.
 
 ### 7. Nachmessen (`repaired`)
 
 Das, was der korrigierte Text jetzt behauptet, im selben Geltungsbereich erneut messen. `remeasure`
-(equal, `measured_at`, `measurement_ref`, `measurement_sha256`, Geltungsbereich), `repair_success_at`
-und `regression` festhalten. `repaired` braucht `reviewed`, `equal` wahr und `regression` falsch. Eine
-Nachmessung, die eine Regression zeigt, wird als solche gemeldet und ist kein Erfolg.
+(`equal`, `measured_at`, `measurement_ref`, `measurement_sha256`, `scope`), `repair_success_at` und
+`regression` festhalten (dazu das `observed_at` des Eintrags). `repaired` braucht `reviewed`, `equal`
+wahr und `regression` falsch. Eine Nachmessung, die eine Regression zeigt, wird als solche gemeldet und
+ist kein Erfolg.
 
 ## Bericht
 
-Ein Bericht je Lauf, neben den übrigen Laufergebnissen des Nutzers abgelegt, mit diesen Teilen:
+Ein Bericht je Lauf, neben den übrigen Laufergebnissen des nutzenden Systems abgelegt, mit diesen Teilen:
 
 1. Scope-Element, Variante, Host, Instanz, Produktversion, Lauf-ID und erreichter Vertragszustand.
 2. Differenztabelle (Aussage, Quelle, beobachtet, Belegreferenz, Geltungsbereich, Klassifikation).

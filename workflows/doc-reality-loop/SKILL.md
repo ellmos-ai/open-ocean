@@ -24,7 +24,7 @@ any host currently runs it. Every state and evidence field it mentions is define
 `architecture/ocean-doc-loop.v1.json` and checked by `tools/check_doc_loop_contract.py`. Intervals,
 worker bindings, archive policy and source and reader roots are configuration of the consuming system
 (`interval_ref`, `worker_binding`, `archive_policy`, `source_roots`, `reader_roots`); this text names
-no model, path, fan-out, time span or archive percentage, and a consumer must not smuggle one in.
+no model, path, fan-out, time span or archive percentage, and the consuming system must not smuggle one in.
 
 ## Principles
 
@@ -55,47 +55,54 @@ One loop, four variants. They differ only in what is captured and what counts as
 
 ## Steps
 
-Each step names the contract state it produces. A step may only start when the evidence of all
-earlier states exists. Stop at the first step that fails; a failed or unknown run ends the chain at
-`executed`.
+Each step names the contract state it produces and the exact evidence fields of
+`architecture/ocean-doc-loop.v1.json`. Every chain entry also carries its own `observed_at` (UTC),
+and every event timestamp is no later than that `observed_at` and ordered along the chain. A step may
+only start when the evidence of all earlier states exists. Stop at the first step that fails.
 
 ### 0. Trigger (`trigger_planned`)
 
-Record routine, `interval_ref` (a reference of the form `config:`, `routine:` or `policy:` plus an
-identifier, never a number of days), `marker_source` and `next_due_at`. This is a plan, not a run.
+Record `routine`, `interval_ref` (a reference of the form `config:`, `routine:` or `policy:` plus an
+identifier, never a number of days), `marker_source` (`config`, `state_file` or `scheduler_receipt`)
+and `next_due_at`, plus the entry's `observed_at`. This is a plan, not a run.
 
 ### 1. Task (`task_created`)
 
 Create one bounded analysis task for one scope item (a help topic family, a root document, a
 requirement document, a change log). Read the task back from its source and record `task_id`,
-`title_sha256`, `worker_binding`, `readback_ref` and `readback_sha256`; `readback_verified` is true
-only after that read-back. The scope item comes from configuration or from a user request.
+`title_sha256`, `worker_binding`, `readback_ref`, `readback_sha256` and `created_at`;
+`readback_verified` is true only after that read-back. Add the entry's `observed_at`. The scope item
+comes from configuration or from a user request.
 
 ### 2. Capture
 
 Read the document completely. List every checkable statement: commands and flags, functions, file and
 directory references, table and endpoint names, versions, counts, dates, cross-references. For each
 statement note where it was found and who reads it. Readers come from the document register
-(`document_id`, `readers[]`) where one exists, otherwise from a search of the reader roots; record
-which of the two was used. Mark statements that express a wish or a plan as requirements, not as
-claims about the present.
+(`document_id`, `readers[]`); a document without a register entry gets none from guesswork, its
+readers are recorded as `unknown`. Mark statements that express a wish or a plan as requirements, not
+as claims about the present.
 
 ### 3. Measure (`executed`)
 
-For each claim, measure the real effect on the host and instance in question and record host,
-instance and product version. Use the surface that fits: CLI (run the command with a harmless
+For each claim, measure the real effect on the host and instance in question and record `host`,
+`instance` and `product_version`. Use the surface that fits: CLI (run the command with a harmless
 argument, record exit code and output), API (call the endpoint), GUI (open the page), file system
 (does the path exist), schema (does the table or column exist), code (does the handler or option
 exist). Keep command and output as the evidence reference. Do not measure destructive operations; mark
 them `unknown` with the reason. When the run ends, record `run_id`, `started_at`, `finished_at`,
-`result_id`, `exit_state`, `exit_code`, `author_id` and `author_instance`. `failed` and `unknown` stop
-the chain here.
+`result_id`, `exit_state` (`succeeded`, `failed` or `unknown`), `exit_code`, `author_id` and
+`author_instance`, plus the entry's `observed_at`.
+
+**Gate:** only `exit_state` `succeeded` together with `exit_code` 0 may lead on to `corrected`. A
+`failed` or `unknown` state, or any other exit code, ends the chain at `executed`.
 
 ### 4. Differences
 
-For every claim whose measurement differs, write one row: statement, source (document and location),
-observed value, evidence reference, scope (host, instance, version, surface). Classify the row in the
-report (the contract does not freeze the classes):
+For every claim whose measurement differs, write one row with the contract fields `statement`,
+`source` (document and location), `observed`, `evidence_ref` and `scope` (`host`, `instance`,
+`version`, `surface` as `cli`, `api`, `gui` or `doc`). Classify the row in the report (the contract
+does not freeze the classes):
 
 - `better`: reality offers more than the text says. Adjust the text.
 - `partial`: partly implemented. Adjust the text to the implemented part and keep the rest as a
@@ -111,39 +118,44 @@ different actions.
 
 ### 5. Correct (`corrected`)
 
-Change only descriptive text, and only the statements that have a confirmed difference. Record each
-changed file with its SHA-256 before and after (the two values must differ), the differences, a
-`diff_ref` and `corrected_at`. Rules:
+Change only descriptive text, and only the statements that have a confirmed difference. Record
+`files` (each with `path`, `before_sha256` and `after_sha256`, which must differ), the `differences`,
+`diff_ref`, `corrected_at`, `archival`, `open_requirements` and the entry's `observed_at`. Rules:
 
 - Safe, small corrections (path, flag, number, version) can be applied directly.
 - Larger or structural rewrites, and anything where the intent is unclear, become a task or a question
   to the owner instead of a guess.
 - Wished-for requirements that are not yet fulfilled are kept as target state and listed in
-  `open_requirements`, each with a `task_id`.
-- Archival is only an option for a document whose requirements are all fulfilled or superseded
-  according to the `archive_policy` of the consumer. Before archiving, check active readers and links
-  (reader roots or the document register) and record each check with `kind`, `active` and
-  `checked_at`. Any active reader or link means `keep`. Archival without both kinds of check is
-  invalid. Record `archived_at` in UTC.
+  `open_requirements`, each with `statement`, `source` and `task_id`.
+- **Archival only through the document register.** An item may be archived only if it has a register
+  entry (`document_id`, recorded as the `item`), the `archive_policy` of the consuming system allows it
+  (all requirements fulfilled or superseded), and the checks below are recorded. Without a verifiable
+  register entry the action is `keep`. Record `action` (`keep` or `archive`) and, for `archive`,
+  `archived_at` in UTC. Every entry in `reader_checks` has exactly `ref`, `kind` (`reader` or `link`),
+  `active` and `checked_at`: the register's `readers[]` become `reader` checks (`ref`, `active`,
+  `last_checked_at` as `checked_at`), and each link to the item is checked as a `link` check. At least
+  one check of each kind is required, no check may be active, and every check must be recent enough
+  for the register's `archive_policy.reader_audit_not_before`. Any active reader or link means `keep`.
 - Generated files: do not edit; record the finding for the generator owner (principle 4).
 
 ### 6. Read back (`reviewed`)
 
 A different identity and a different instance read the changed files and the difference table,
-re-check each difference themselves, and record one verdict per difference (`confirmed` or `rejected`)
-with `reviewer_id`, `reviewer_instance` and `accepted_at`. A rejected difference returns to step 5;
-the loop does not proceed on the author's word.
+re-check each difference themselves, and record `reviewer_id`, `reviewer_instance`, `verdicts` and
+`accepted_at` (plus the entry's `observed_at`). Each verdict has exactly `difference_index` (unique,
+covering every difference once) and `verdict` (`confirmed` or `rejected`). A rejected difference
+returns to step 5; the loop does not proceed on the author's word.
 
 ### 7. Re-measure (`repaired`)
 
-Measure again what the corrected text now claims, on the same scope. Record `remeasure` (equal,
-`measured_at`, `measurement_ref`, `measurement_sha256`, scope), `repair_success_at` and `regression`.
-`repaired` needs `reviewed`, `equal` true and `regression` false. A re-measurement that shows a
-regression is reported as such and is not success.
+Measure again what the corrected text now claims, on the same scope. Record `remeasure` (`equal`,
+`measured_at`, `measurement_ref`, `measurement_sha256`, `scope`), `repair_success_at` and
+`regression` (plus the entry's `observed_at`). `repaired` needs `reviewed`, `equal` true and
+`regression` false. A re-measurement that shows a regression is reported as such and is not success.
 
 ## Report
 
-One report per run, written next to the consumer's other run results, with these parts:
+One report per run, written next to the other run results of the consuming system, with these parts:
 
 1. Scope item, variant, host, instance, product version, run id and the contract state reached.
 2. Difference table (statement, source, observed, evidence reference, scope, classification).

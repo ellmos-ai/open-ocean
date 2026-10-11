@@ -422,9 +422,8 @@ needs_node = pytest.mark.skipif(NODE is None, reason="node is required to execut
 
 
 def test_the_vendored_gui_parser_is_the_pinned_file():
-    assert hashlib.sha256(READERS.read_bytes().replace(b"
-", b"
-")).hexdigest() == READERS_SHA256  # line-ending neutral
+    raw = READERS.read_bytes().replace(b"\r\n", b"\n")  # line-ending neutral
+    assert hashlib.sha256(raw).hexdigest() == READERS_SHA256
 
 
 @needs_node

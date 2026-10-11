@@ -143,7 +143,7 @@ def test_bridge_from_workspace_wires_both_providers(tmp_path):
     assert bridge_from_workspace(bare).providers["ocean"] is None
 
 
-@pytest.mark.parametrize("method", ["GET", "HEAD", "OPTIONS", "POST", "PUT", "PATCH", "DELETE"])
+@pytest.mark.parametrize("method", ["GET", "HEAD", "OPTIONS", "POST", "PUT", "PATCH", "DELETE", "PROPFIND", "FOO"])
 @pytest.mark.parametrize("path", ["/api/capabilities/ocean", "/api/capabilities/ocean/",
                                   "/api/capabilities/skills/library", "/api/capabilities/skills/library/",
                                   "/api/capabilities/software", "/api/capabilities/software/"])

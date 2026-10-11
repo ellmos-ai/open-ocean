@@ -16,8 +16,10 @@ try:
     from .capability_views import ocean_inventory, skill_library
     from .catalog_projection import KINDS as CATALOG_KINDS, observe as observe_catalog
     from .fetch_place import verify_bound_provider
+    from .gui_page_reads import SCHEMA as PAGE_READS_SCHEMA, load as load_page_reads, normalize as page_reads_normalize, pages_status
     from .gui_release import GuiReleaseError, VerifiedGuiRelease, verify_installed_gui
 except ImportError:  # ocean_runtime.py direct entry point
+    from gui_page_reads import SCHEMA as PAGE_READS_SCHEMA, load as load_page_reads, normalize as page_reads_normalize, pages_status
     from capability_views import ocean_inventory, skill_library
     from catalog_projection import KINDS as CATALOG_KINDS, observe as observe_catalog
     from fetch_place import verify_bound_provider
@@ -36,22 +38,6 @@ PAGE_ROUTES = {
     "usecases": "/governance/usecases", "settings": "/settings",
 }
 
-
-# Endpoints each page reads. Fundstellen: ellmos-system-gui src/lib/capability-board-client.mjs:3-9 (INVENTORIES),
-# capability-board-ui.mjs:84 (board list), :151 and :207 (skill history), loadSkill/saveSkill in
-# capability-board-client.mjs (GET/PUT .../source). Pages not listed have no adapter yet.
-PAGE_REQUIRES = {
-    "overview": ["GET /api/gui/capabilities"],
-    "ocean": ["GET /api/capabilities/ocean"],
-    # The assignment tab (hierarchy-assignment-ui.mjs, ellmos-system-gui c19f70d) additionally reads
-    # GET /api/gui/capabilities and GET + PUT /api/skills-board/hierarchy; OCEAN serves neither route.
-    "skills": ["GET /api/gui/capabilities", "GET /api/capabilities/skills/library",
-               "GET /api/skills-board/hierarchy", "PUT /api/skills-board/hierarchy",
-               "GET /api/capabilities/skills/{id}/source",
-               "GET /api/capabilities/skills/{id}/history", "GET /api/capabilities/skills/{id}/history/{revision}",
-               "PUT /api/capabilities/skills/{id}/source"],
-    "software": ["GET /api/capabilities/software"],
-}
 
 
 class BridgeUnavailable(RuntimeError):
@@ -250,17 +236,10 @@ class GuiBridge:
             endpoints.append({"method": method, "path": path, "kind": kind, "available": False,
                               "provider": None, "auth": "provider-session", "runtime_verified": False,
                               "verification_scope": "adapter", "reason": "Kein freigegebener nativer GUI-Adapter vorhanden."})
-        pages = []
-        served = {f"{e['method']} {e['path']}": e["available"] for e in endpoints}
-        for page_id, path in PAGE_ROUTES.items():
-            required = list(PAGE_REQUIRES.get(page_id, []))
-            # A page is configured only when EVERY endpoint it reads is served.
-            missing = [r for r in required if not served.get(r)] if required else ["native-page-adapter"]
-            if not self.gui:
-                missing.append("verified-gui-release")
-            pages.append({"id": page_id, "path": path, "status": "configured" if not missing else "unavailable",
-                          "requires": required, "missing": missing,
-                          "todo": [] if not missing else ["Native Seiten- und Widgetadapter mit Laufzeitbeleg ergänzen."]})
+        # The page-to-endpoint table is the GUI's own manifest from the verified release, never a hand table here.
+        page_reads = load_page_reads(self.gui)
+        served = {f"{e['method']} {page_reads_normalize(e['path'])}": e["available"] for e in endpoints}
+        pages = pages_status(page_reads, PAGE_ROUTES, served)
         module_sources = self.modules
         module_states = {"policy-registry": {"adapter_registered": True,
                          "available": self.providers["policies"] is not None, "runtime_verified": False,
@@ -284,6 +263,8 @@ class GuiBridge:
                 "gui": {"status": "installed" if installed else "unavailable",
                         "source_commit": self.gui.source_commit if self.gui else None,
                         "archive_sha256": self.gui.archive_sha256 if self.gui else None},
+                "page_reads": {"state": page_reads["state"], "schema": PAGE_READS_SCHEMA, "sha256": page_reads["sha256"],
+                               "reasons": page_reads["reasons"]},
                 "modules": module_states, "module_sources": module_sources, "pages": pages, "endpoints": endpoints}
 
 

@@ -453,11 +453,16 @@ def supervise(spec_path: Path) -> int:
                 try:
                     job_handle = windows_job.create_kill_on_close_job()
                     windows_job.assign_and_resume(job_handle, child)
-                except OSError as exc:
-                    # Never run the child outside the job: end it unstarted, no fallback.
+                except BaseException as exc:
+                    # Never leave the unassigned (suspended) child behind, whatever failed
+                    # or interrupted the setup; the finally below refuses a stop without a job.
                     child.kill()
                     child.wait()
-                    raise ProcessFenceError(f"Windows-Job-Zuweisung fehlgeschlagen: {exc}") from exc
+                    if isinstance(exc, OSError):
+                        raise ProcessFenceError(
+                            f"Windows-Job-Zuweisung fehlgeschlagen: {exc}"
+                        ) from exc
+                    raise
             server = _LoopbackControlServer(("127.0.0.1", 0), lambda *args: None)
             server.stop_requested = False
             server.RequestHandlerClass = _handler(server, token, child, process_fence, job_handle)
@@ -510,7 +515,10 @@ def supervise(spec_path: Path) -> int:
                     state.update({"status": "stopped", "returncode": child.poll(), "stopped_at": _now()})
                     _write_json_atomic(state_path, state)
         if job_handle is not None:
-            windows_job.close_job(job_handle)
+            try:
+                windows_job.close_job(job_handle)
+            except OSError:
+                pass  # the job was already terminated above; a failed close leaks only a handle
         if previous_sigterm is not None:
             signal.signal(signal.SIGTERM, previous_sigterm)
         if cleanup_error is not None:

@@ -1,10 +1,4 @@
-<img src="assets/banner.png" width="100%" alt="open-ocean Banner">
-
-[![Vorschaubild des Open-Ocean-Videos: Fischerboot MARIA auf See; anklicken, um YouTube zu öffnen](assets/ocean-film-player.svg)](https://youtu.be/S-oiYUg4GLA)
-
-[Open-Ocean-Video auf YouTube ansehen](https://youtu.be/S-oiYUg4GLA)
-
-Vorschaubild: `bach-to-ocean/out/kf_5.jpg`, unverändert eingebettet (SHA-256: `23fcef067a3f2fb12709b5a066d8b996e39a8d8070b8117b6236469afec9c08f`); die rote Play-Schaltfläche ist als SVG gezeichnet.
+[![Illustriertes Open-Ocean-Banner mit rotem Play-Zeichen; anklicken, um das YouTube-Video anzusehen](assets/ocean-film-player.svg)](https://youtu.be/S-oiYUg4GLA)
 
 # open-ocean
 

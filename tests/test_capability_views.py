@@ -206,20 +206,22 @@ def test_metadata_lengths_are_bounded(tmp_path):
     assert (len(item["name"]), len(item["category"]), len(item["version"]), len(item["description"])) == (200, 100, 100, 300)
 
 
-@pytest.mark.parametrize("front", [
-    "---\nname: x\ndescription: |\n  multi\n  line\n---\n",       # block scalar
-    "---\nname: x\ndescription: >\n  folded\n---\n",              # folded scalar
-    "---\nname: x\ntags:\n  - a\n  - b\n---\n",                  # list / nesting
-    "---\nname: x\nmeta: {a: 1}\n---\n",                           # flow mapping
-    "---\nname: x\ndescription: 'unterminated\n---\n",             # open quote
-    "---\nname: x\ndescription: &a anchored\n---\n",               # anchor
+@pytest.mark.parametrize("front,expected", [
+    ("---\nname: x\ndescription: |\n  multi\n  line\n---\n", "multi\nline"),          # block scalar
+    ("---\nname: x\ndescription: >-\n  folded\n  text\n---\n", "folded text"),        # folded scalar
+    ("---\nname: x\ntags: [a, b]\ntype: skill\ndescription: ok\n---\n", "ok"),        # unused flow list skipped
+    ("---\nname: x\ntags:\n  - a\n  - b\ndescription: ok\n---\n", "ok"),            # unused nested list skipped
+    ("---\nname: x\nmeta: {a: 1}\ndescription: ok\n---\n", "ok"),                     # unused flow mapping skipped
+    ("---\nname: x\ndescription: [a, b]\n---\n", ""),                                # used key as flow list: absent
+    ("---\nname: x\ndescription: 'unterminated\n---\n", ""),                         # open quote: absent
+    ("---\nname: x\ndescription: &a anchored\n---\n", ""),                            # anchor: absent
+    ("---\nname: x\ndescription: first\n  second line\n---\n", ""),                  # continued plain scalar
 ])
-def test_unsupported_frontmatter_forms_yield_fallbacks_not_garbage(tmp_path, front):
+def test_frontmatter_forms_never_produce_half_parsed_values(tmp_path, front, expected):
     ws = _workspace(tmp_path)
     _skill(ws, "odd", front)
     item = _by_id(ws)["odd"]
-    assert item["name"] == "odd" and item["category"] == "general" and item["description"] == ""
-    assert item["version"] == "ohne Versionsnummer"
+    assert item["name"] == "x" and item["description"] == expected  # neighbouring keys survive an unsupported one
 
 
 def test_missing_closing_marker_does_not_leak_body_keys(tmp_path):

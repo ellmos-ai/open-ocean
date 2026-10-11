@@ -72,35 +72,56 @@ def ocean_inventory(*, workspace: Path) -> dict:
 
 
 _FRONT_KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*$")
+_FRONT_USED = frozenset({"name", "category", "version", "description", "symbol"})
+_BLOCK_HEADER = re.compile(r"^[|>][+-]?$")
 
 
 def _frontmatter(text: str) -> dict[str, str]:
-    """Strict, bounded reader for flat ``key: scalar`` frontmatter. No YAML dependency: anything beyond a flat map of
-    single-line scalars (block scalars ``|``/``>``, lists, nesting, flow collections, anchors, tags), a missing closing
-    ``---`` or an unterminated quote yields ``{}``, i.e. the caller's fallbacks, never a half-parsed result."""
+    """Bounded reader for the five keys the library uses, without a YAML dependency.
+
+    The closing ``---`` is required (else ``{}``). Keys the library does not read are skipped together with their
+    continuation lines (lists, flow collections, nesting). A used key is read when it is a single-line scalar or a
+    simple block scalar (``|``, ``>``, optional chomping); every other form (flow collections, anchors, tags, an
+    open quote, a plain scalar continued on the next line) leaves that key absent, so the caller's fallback applies
+    instead of a half-parsed value."""
     if not text.startswith(("---\n", "---\r\n")):
         return {}
     lines = text.splitlines()
     end = next((i for i, line in enumerate(lines[1:], 1) if line.strip() == "---"), None)
-    if end is None or end > 200:
+    if end is None or end > 400:
         return {}
     meta: dict[str, str] = {}
-    for line in lines[1:end]:
-        if not line.strip() or line.lstrip().startswith("#"):
-            continue
-        if line[0] in " \t-":
-            return {}
+    index = 1
+    while index < end:
+        line = lines[index]
+        index += 1
+        if not line.strip() or line.lstrip().startswith("#") or line[0] in " \t-":
+            continue  # blank, comment, or continuation / list item of a value that was already decided
         key, sep, value = line.partition(":")
         key, value = key.strip(), value.strip()
-        if not sep or not _FRONT_KEY.fullmatch(key) or value[:1] in tuple("|>[{&*!%@`"):
+        if not sep or not _FRONT_KEY.fullmatch(key):
             return {}
+        block = []
+        while index < end and (not lines[index].strip() or lines[index][0] in " \t"):
+            block.append(lines[index].strip())
+            index += 1
+        if key not in _FRONT_USED or key in meta:
+            continue
+        if _BLOCK_HEADER.fullmatch(value):
+            parts = [part for part in block if part]
+            meta[key] = ("\n" if value[0] == "|" else " ").join(parts)
+            continue
+        if any(part for part in block):
+            continue  # plain scalar continued on following lines: not supported
+        if value[:1] in tuple("[{&*!%@`|>"):
+            continue
         if value[:1] in ("'", '"'):
             if len(value) < 2 or value[-1] != value[0]:
-                return {}
+                continue
             value = value[1:-1]
         elif " #" in value:
             value = value.split(" #", 1)[0].strip()
-        meta.setdefault(key, value)
+        meta[key] = value
     return meta
 
 

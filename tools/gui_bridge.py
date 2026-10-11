@@ -347,18 +347,25 @@ def mount_gui_bridge(app: Any, bridge: GuiBridge, require_auth: Callable, requir
     app.add_api_route("/api/gui/capabilities", capability_route, methods=["GET"])
 
     def add_guarded(path, endpoint):
-        """Authentication runs first for EVERY method and for the trailing-slash path, so an unauthenticated
-        caller never sees a 405 or a slash redirect; only authenticated non-GET requests get 405."""
-        def route(request):
+        """Authentication runs first for EVERY method (also unlisted ones such as PROPFIND) and for the trailing-slash
+        path, so an unauthenticated caller never sees a 405 or a slash redirect; only authenticated non-GET gets 405.
+        A raw ASGI route has no method list, so the router cannot answer 405 before authentication."""
+        from starlette.concurrency import run_in_threadpool
+        from starlette.routing import Route
+
+        def handle(request):
             require_auth(request)
             if request.method != "GET":
                 return JSONResponse({"detail": "method_not_allowed"}, status_code=405,
                                     headers={"Allow": "GET", "Cache-Control": "no-store"})
             return endpoint(request)
-        route.__annotations__["request"] = Request
+
+        class Guarded:
+            async def __call__(self, scope, receive, send):
+                response = await run_in_threadpool(handle, Request(scope, receive))
+                await response(scope, receive, send)
         for variant in (path, path + "/"):
-            app.add_api_route(variant, route, methods=["GET", "HEAD", "OPTIONS", "POST", "PUT", "PATCH", "DELETE"],
-                              include_in_schema=variant == path)
+            app.router.routes.append(Route(variant, endpoint=Guarded(), methods=None))
 
     def catalog_route(request):
         # Same validation outcome as BACH's FastAPI Query constraints: 422 with a detail list.

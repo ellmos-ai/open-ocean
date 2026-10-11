@@ -52,6 +52,29 @@ def _strs(value):
     return isinstance(value, list) and all(isinstance(x, str) for x in value)
 
 
+ARCHITECTURE_KEYS = {"basis", "source_id", "available", "areas", "edges", "layers", "icons", "ui", "edges_note"}
+OBSERVED_BASIS = {"declared", "no_timezone", "unparsable", "absent"}
+
+
+def check_git(git: dict) -> None:
+    assert set(git) == GIT_KEYS and git["state"] in {"unknown", "clean", "dirty"}
+    assert all(_opt_str(git[k]) for k in ("branch", "last_commit", "last_commit_raw", "observed_at", "observed_at_raw",
+                                          "host", "source"))
+    assert git["observed_at_basis"] in OBSERVED_BASIS
+
+
+def check_architecture(arch: dict) -> None:
+    """Shape of BACH catalog_projection._empty_architecture / _architecture (areas, edges, layers, icons, ui)."""
+    assert set(arch) == ARCHITECTURE_KEYS and arch["basis"] == "declared" and isinstance(arch["source_id"], str)
+    assert isinstance(arch["available"], bool) and _opt_str(arch["edges_note"])
+    for key in ("areas", "edges", "layers"):
+        assert isinstance(arch[key], list) and all(isinstance(entry, dict) for entry in arch[key])
+    assert all(isinstance(entry.get("id"), str) for entry in arch["areas"] + arch["layers"])
+    assert all(isinstance(entry.get("from"), str) and isinstance(entry.get("to"), str) for entry in arch["edges"])
+    assert isinstance(arch["icons"], dict) and all(isinstance(k, str) and isinstance(v, str) for k, v in arch["icons"].items())
+    assert isinstance(arch["ui"], dict)
+
+
 def check_contract(result: dict) -> None:
     """Type check of EVERY contract field; additive fields are explicitly allowed (origin, path_label, languages)."""
     assert ENVELOPE <= set(result) <= ENVELOPE | ADDITIVE_TOP, set(result) ^ ENVELOPE
@@ -61,7 +84,8 @@ def check_contract(result: dict) -> None:
     assert _is_int(result["count"]) and _is_int(result["redactions"]) and isinstance(result["truncated"], bool)
     assert isinstance(result["counts"], dict) and all(k in KINDS and _is_int(v) for k, v in result["counts"].items())
     assert result["count"] == len(result["items"])
-    assert isinstance(result["architecture"], dict) and isinstance(result["errors"], list)
+    check_architecture(result["architecture"])
+    assert isinstance(result["errors"], list)
     for error in result["errors"]:
         assert set(error) == {"source", "reason", "item"} and isinstance(error["source"], str)
         assert isinstance(error["reason"], str) and _opt_str(error["item"])
@@ -87,8 +111,12 @@ def check_contract(result: dict) -> None:
         assert _opt_bool(item["measured"]["runtime_active"])
         assert isinstance(item["measured"]["connection_state"], str) and item["measured"]["connection_state"]
         assert all(_opt_str(item["measured"][k]) for k in ("observed_at", "host", "evidence"))
-        assert set(item["git"]) == GIT_KEYS and item["git"]["state"] in {"unknown", "clean", "dirty"}
-        assert isinstance(item["git_hosts"], list) and isinstance(item["relations"], list)
+        check_git(item["git"])
+        assert isinstance(item["git_hosts"], list) and all(isinstance(entry, dict) for entry in item["git_hosts"])
+        for entry in item["git_hosts"]:
+            check_git(entry)
+        assert isinstance(item["relations"], list)
+        assert "languages" not in item or _strs(item["languages"])
         for relation in item["relations"]:
             assert set(relation) == RELATION_KEYS and relation["basis"] == "declared"
             assert all(isinstance(relation[k], str) and relation[k] for k in ("kind", "target", "target_type"))
@@ -151,12 +179,40 @@ def test_contract_check_has_a_negative_control(tmp_path):
         lambda r: r.__setitem__("surprise", 1),
         lambda r: r["sources"][0].__setitem__("availability", "ok"),
         lambda r: r["items"][0]["relations"].append({"kind": "contains"}),
+        lambda r: r["items"][0]["git"].__setitem__("state", "weird"),
+        lambda r: r["items"][0]["git"].__setitem__("branch", 5),
+        lambda r: r["items"][0]["git"].__setitem__("observed_at_basis", "file_mtime"),
+        lambda r: r["items"][0]["git"].__delitem__("source"),
+        lambda r: r["items"][0].__setitem__("git_hosts", ["x"]),
+        lambda r: r["items"][0].__setitem__("git_hosts", [{"state": "unknown"}]),
+        lambda r: r["items"][0].__setitem__("languages", "de"),
+        lambda r: r["items"][0].__setitem__("languages", [1]),
+        lambda r: r["architecture"].__setitem__("basis", "measured"),
+        lambda r: r["architecture"].__setitem__("available", "no"),
+        lambda r: r["architecture"].__setitem__("areas", {}),
+        lambda r: r["architecture"].__setitem__("areas", ["a"]),
+        lambda r: r["architecture"].__setitem__("edges", [{"from": 1, "to": "b"}]),
+        lambda r: r["architecture"].__setitem__("icons", {"a": 1}),
+        lambda r: r["architecture"].__setitem__("ui", []),
+        lambda r: r["architecture"].__setitem__("edges_note", 3),
+        lambda r: r["architecture"].__delitem__("layers"),
     ]
     for mutate in mutations:
         broken = copy.deepcopy(good)
         mutate(broken)
         with pytest.raises(AssertionError):
             check_contract(broken)
+
+
+def test_contract_check_accepts_populated_substructures(tmp_path):
+    good = observe(workspace=_workspace(tmp_path))
+    git = {"state": "clean", "branch": "main", "last_commit": "2026-10-01T00:00:00+00:00", "last_commit_raw": None,
+           "observed_at": None, "observed_at_basis": "absent", "observed_at_raw": None, "host": "h", "source": "repos.json"}
+    good["items"][0]["git_hosts"] = [git]
+    good["items"][0]["languages"] = ["de", "en"]
+    good["architecture"].update(available=True, areas=[{"id": "a", "dir": "x"}], layers=[{"id": "l"}],
+                                edges=[{"from": "a", "to": "b"}], icons={"a": "*"}, ui={"k": 1}, edges_note="n")
+    check_contract(good)
 
 
 def test_items_come_from_the_composition_not_from_mocks(tmp_path):
@@ -298,7 +354,7 @@ def test_route_requires_auth_and_serves_contract(tmp_path):
     check_contract(ok.json())
 
 
-@pytest.mark.parametrize("method", ["GET", "HEAD", "OPTIONS", "POST", "PUT", "PATCH", "DELETE"])
+@pytest.mark.parametrize("method", ["GET", "HEAD", "OPTIONS", "POST", "PUT", "PATCH", "DELETE", "PROPFIND", "FOO"])
 @pytest.mark.parametrize("path", ["/api/capabilities/catalog", "/api/capabilities/catalog/",
                                   "/api/capabilities/catalog?kind=x", "/api/capabilities/catalog?host="])
 def test_unauthenticated_callers_see_only_the_auth_answer(method, path):

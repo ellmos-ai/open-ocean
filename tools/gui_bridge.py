@@ -13,10 +13,12 @@ from types import ModuleType
 from typing import Any, Callable
 
 try:
+    from .capability_views import ocean_inventory, skill_library
     from .catalog_projection import KINDS as CATALOG_KINDS, observe as observe_catalog
     from .fetch_place import verify_bound_provider
     from .gui_release import GuiReleaseError, VerifiedGuiRelease, verify_installed_gui
 except ImportError:  # ocean_runtime.py direct entry point
+    from capability_views import ocean_inventory, skill_library
     from catalog_projection import KINDS as CATALOG_KINDS, observe as observe_catalog
     from fetch_place import verify_bound_provider
     from gui_release import GuiReleaseError, VerifiedGuiRelease, verify_installed_gui
@@ -26,12 +28,25 @@ BRIDGE_CONFIG = "ocean.gui-bridge.json"
 PAGE_ROUTES = {
     "overview": "/", "tasks": "/tasks", "life": "/life", "memory": "/memory",
     "domains": "/domains", "artefakte": "/artefakte", "skills": "/skills",
-    "software": "/skills/software", "plugins": "/skills/plugins", "mcp": "/skills/mcp",
+    "software": "/skills/software", "ocean": "/skills/ocean", "plugins": "/skills/plugins", "mcp": "/skills/mcp",
     "blueprints": "/agenten/blueprints", "fabrika": "/agenten/fabrika",
     "marblerun": "/agenten/marblerun", "running": "/agenten/running",
     "sessions": "/agenten/sessions", "governance": "/governance",
     "funk": "/governance/funk", "logs": "/governance/logs",
     "usecases": "/governance/usecases", "settings": "/settings",
+}
+
+
+# Endpoints each page reads. Fundstellen: ellmos-system-gui src/lib/capability-board-client.mjs:3-9 (INVENTORIES),
+# capability-board-ui.mjs:84 (board list), :151 and :207 (skill history), loadSkill/saveSkill in
+# capability-board-client.mjs (GET/PUT .../source). Pages not listed have no adapter yet.
+PAGE_REQUIRES = {
+    "overview": ["GET /api/gui/capabilities"],
+    "ocean": ["GET /api/capabilities/ocean"],
+    "skills": ["GET /api/capabilities/skills/library", "GET /api/capabilities/skills/{id}/source",
+               "GET /api/capabilities/skills/{id}/history", "GET /api/capabilities/skills/{id}/history/{revision}",
+               "PUT /api/capabilities/skills/{id}/source"],
+    "software": ["GET /api/capabilities/software"],
 }
 
 
@@ -161,9 +176,11 @@ class GuiBridge:
     def __init__(self, *, gui: VerifiedGuiRelease | None = None,
                  plan: Callable[[], dict] | None = None, status: Callable[[], dict] | None = None,
                  policies: Callable[[], dict] | None = None, modules: list[dict] | None = None,
-                 catalog: Callable[..., dict] | None = None):
+                 catalog: Callable[..., dict] | None = None, ocean: Callable[[], dict] | None = None,
+                 skills: Callable[[], dict] | None = None):
         self.gui = gui
-        self.providers = {"detect": self.detect, "plan": plan, "status": status, "policies": policies, "catalog": catalog}
+        self.providers = {"detect": self.detect, "plan": plan, "status": status, "policies": policies, "catalog": catalog,
+                          "ocean": ocean, "skills": skills}
         self.modules = modules or []
 
     def detect(self) -> dict:
@@ -202,6 +219,21 @@ class GuiBridge:
                               "provider": {"id": "policy-registry", "version": next((item.get("version") for item in self.modules if item.get("id") == "policy-registry"), None)} if available else None,
                               "auth": "provider-session", "runtime_verified": False, "verification_scope": "adapter",
                               "reason": None if available else "Kein freigegebener nativer Leseadapter konfiguriert."})
+        for path, provider in (("/api/capabilities/ocean", self.providers["ocean"] is not None),
+                               ("/api/capabilities/skills/library", self.providers["skills"] is not None)):
+            endpoints.append({"method": "GET", "path": path, "kind": "read", "available": provider,
+                              "provider": {"id": "open-ocean", "version": "0.1.2"} if provider else None,
+                              "auth": "provider-session", "runtime_verified": False, "verification_scope": "adapter",
+                              "reason": None if provider else "Kein nativer Anbieter konfiguriert."})
+        for method, path, kind, reason in [
+                ("GET", "/api/capabilities/software", "read", "source-not-in-composition"),
+                ("GET", "/api/capabilities/skills/{id}/source", "read", "no-adapter"),
+                ("GET", "/api/capabilities/skills/{id}/history", "read", "no-adapter"),
+                ("GET", "/api/capabilities/skills/{id}/history/{revision}", "read", "no-adapter"),
+                ("PUT", "/api/capabilities/skills/{id}/source", "write", "no-write-authority")]:
+            endpoints.append({"method": method, "path": path, "kind": kind, "available": False, "provider": None,
+                              "auth": "provider-session", "runtime_verified": False,
+                              "verification_scope": "adapter", "reason": reason})
         # A rendered page and a native executable service are different evidence.
         for method, path, kind in [("GET", "/api/tasks", "read"), ("POST", "/api/tasks", "write"),
                                    ("GET", "/api/task-assignees", "read"),
@@ -213,9 +245,11 @@ class GuiBridge:
                               "provider": None, "auth": "provider-session", "runtime_verified": False,
                               "verification_scope": "adapter", "reason": "Kein freigegebener nativer GUI-Adapter vorhanden."})
         pages = []
+        served = {f"{e['method']} {e['path']}": e["available"] for e in endpoints}
         for page_id, path in PAGE_ROUTES.items():
-            required = ["GET /api/gui/capabilities"] if page_id == "overview" else []
-            missing = [] if required else ["native-page-adapter"]
+            required = list(PAGE_REQUIRES.get(page_id, []))
+            # A page is configured only when EVERY endpoint it reads is served.
+            missing = [r for r in required if not served.get(r)] if required else ["native-page-adapter"]
             if not self.gui:
                 missing.append("verified-gui-release")
             pages.append({"id": page_id, "path": path, "status": "configured" if not missing else "unavailable",
@@ -249,6 +283,17 @@ class GuiBridge:
 
 def bridge_from_workspace(workspace: Path, *, gui_pins: tuple[str, str] | None = None) -> GuiBridge:
     """Host-supplied context only; requests cannot select paths or commands."""
+    bridge = _bridge_core(workspace, gui_pins=gui_pins)
+    # Workspace-only read providers: independent of the optional plan/policy bridge configuration.
+    if (workspace / "ocean.install.json").is_file():
+        bridge.providers["catalog"] = lambda **kwargs: observe_catalog(workspace=workspace, **kwargs)
+        bridge.providers["ocean"] = lambda: ocean_inventory(workspace=workspace)
+    if (workspace / "skills").is_dir():
+        bridge.providers["skills"] = lambda: skill_library(workspace=workspace)
+    return bridge
+
+
+def _bridge_core(workspace: Path, *, gui_pins: tuple[str, str] | None = None) -> GuiBridge:
     gui = None
     if gui_pins:
         try:
@@ -287,11 +332,7 @@ def bridge_from_workspace(workspace: Path, *, gui_pins: tuple[str, str] | None =
                             "verification_scope": "source-pin"})
         except Exception:
             modules.append({"id": "policy-registry", "verified": False})
-    catalog = None
-    if (workspace / "ocean.install.json").is_file():
-        def catalog(**kwargs):
-            return observe_catalog(workspace=workspace, **kwargs)
-    return GuiBridge(gui=gui, plan=plan, status=status, policies=policies, modules=modules, catalog=catalog)
+    return GuiBridge(gui=gui, plan=plan, status=status, policies=policies, modules=modules)
 
 
 def mount_gui_bridge(app: Any, bridge: GuiBridge, require_auth: Callable, require_admin: Callable) -> None:
@@ -317,6 +358,31 @@ def mount_gui_bridge(app: Any, bridge: GuiBridge, require_auth: Callable, requir
         return JSONResponse(bridge.providers["catalog"](kind=kind, host=host), headers={"Cache-Control": "no-store"})
     catalog_route.__annotations__["request"] = Request
     app.add_api_route("/api/capabilities/catalog", catalog_route, methods=["GET"])
+
+    def inventory_route(name, unreadable):
+        def route(request):
+            require_auth(request)
+            provider = bridge.providers[name]
+            if provider is None:
+                return JSONResponse({"available": False, "reason": "source-not-configured", "runtime_verified": False},
+                                    status_code=503, headers={"Cache-Control": "no-store"})
+            try:
+                return JSONResponse(provider(), headers={"Cache-Control": "no-store"})
+            except (OSError, ValueError, RuntimeError):
+                return JSONResponse({"detail": unreadable}, status_code=503, headers={"Cache-Control": "no-store"})
+        route.__annotations__["request"] = Request
+        return route
+    app.add_api_route("/api/capabilities/ocean", inventory_route("ocean", "Ocean-Quellen nicht lesbar"), methods=["GET"])
+    app.add_api_route("/api/capabilities/skills/library",
+                      inventory_route("skills", "Aktuelle Skill-Bibliothek nicht lesbar"), methods=["GET"])
+
+    def software_route(request):
+        require_auth(request)
+        # The software register (.SOFTWARE/releases.json) is not part of the OCEAN composition: no substitute data.
+        return JSONResponse({"available": False, "reason": "source-not-in-composition", "runtime_verified": False},
+                            status_code=503, headers={"Cache-Control": "no-store"})
+    software_route.__annotations__["request"] = Request
+    app.add_api_route("/api/capabilities/software", software_route, methods=["GET"])
 
     def make_route(name, *, kind=None):
         def route(request):

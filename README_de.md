@@ -311,6 +311,7 @@ bitte beide aktualisieren. Sicherheitsprobleme bitte über den Kanal unten melde
 | [`ellmos-ai/bundles`](https://github.com/ellmos-ai/bundles) | Rezeptschicht: Bundle-Manifeste und Kataloge, die hier konsumiert werden |
 | [`ellmos-ai/bach`](https://github.com/ellmos-ai/bach) | Das ursprüngliche Gesamtsystem, aus dem open-ocean hervorgeht |
 | [`ellmos-ai/rinnsal`](https://github.com/ellmos-ai/rinnsal) | Schlanke lokale Agenten-Infrastruktur |
+| [`ellmos-ai/coma`](https://github.com/ellmos-ai/coma) | Optionaler COMA-Sitzungsfallback für den Rollenstart, wenn die unified-gui-Konsole und task-master nicht verfügbar sind. |
 | [`ellmos-ai/policy-registry`](https://github.com/ellmos-ai/policy-registry) | Maschinenlesbare Policies, Governance-Regeln und System-Gates |
 | [`ellmos-ai/system-explorer`](https://github.com/ellmos-ai/system-explorer) | Systemweite Inspektion; Anbieter hinter `ocean inspect` |
 | [`ellmos-ai/sqlite-transit-sync`](https://github.com/ellmos-ai/sqlite-transit-sync) | Konfliktfreie SQLite-Zustandsreplikation |

@@ -1,0 +1,232 @@
+{
+  "positive": [
+    "pos_error_before_write.json",
+    "pos_error_mismatch_rolled_back.json",
+    "pos_error_read_phase.json",
+    "pos_extensions_object.json",
+    "pos_foreign_host_display_only.json",
+    "pos_open_consumer.json",
+    "pos_pending_restart.json",
+    "pos_plugged_claude_user.json",
+    "pos_plugged_observed_no_write.json",
+    "pos_plugged_write_null.json",
+    "pos_unknown_entry_absent.json",
+    "pos_unknown_gemini.json",
+    "pos_unplugged.json"
+  ],
+  "negative": {
+    "neg_e_default_true.json": [
+      "E_DEFAULT_TRUE"
+    ],
+    "neg_e_enum.json": [
+      "E_ENUM"
+    ],
+    "neg_e_error_no_rollback.json": [
+      "E_ERROR_NO_ROLLBACK"
+    ],
+    "neg_e_flag_only.json": [
+      "E_FLAG_ONLY"
+    ],
+    "neg_e_foreign_host_write.json": [
+      "E_FOREIGN_HOST_WRITE"
+    ],
+    "neg_e_hash.json": [
+      "E_HASH"
+    ],
+    "neg_e_key.json": [
+      "E_KEY"
+    ],
+    "neg_e_mismatch_no_error.json": [
+      "E_MISMATCH_NO_ERROR"
+    ],
+    "neg_e_missing_evidence.json": [
+      "E_MISSING_EVIDENCE"
+    ],
+    "neg_e_no_backup.json": [
+      "E_NO_BACKUP"
+    ],
+    "neg_e_no_readback.json": [
+      "E_NO_READBACK"
+    ],
+    "neg_e_order.json": [
+      "E_ORDER"
+    ],
+    "neg_e_pending_runtime.json": [
+      "E_PENDING_RUNTIME"
+    ],
+    "neg_e_reached_step.json": [
+      "E_REACHED_STEP"
+    ],
+    "neg_e_revision_mismatch.json": [
+      "E_REVISION_MISMATCH"
+    ],
+    "neg_e_runtime_no_ref.json": [
+      "E_RUNTIME_NO_REF"
+    ],
+    "neg_e_schema.json": [
+      "E_SCHEMA"
+    ],
+    "neg_e_stale_readback.json": [
+      "E_STALE_READBACK"
+    ],
+    "neg_e_state.json": [
+      "E_STATE"
+    ],
+    "neg_e_time.json": [
+      "E_TIME"
+    ],
+    "neg_e_toggle_order.json": [
+      "E_TOGGLE_ORDER"
+    ],
+    "neg_e_type.json": [
+      "E_TYPE"
+    ],
+    "neg_e_unknown_field.json": [
+      "E_UNKNOWN_FIELD"
+    ],
+    "neg_e_unknown_needs_reason.json": [
+      "E_UNKNOWN_NEEDS_REASON"
+    ],
+    "neg_e_write_required.json": [
+      "E_WRITE_REQUIRED"
+    ],
+    "neg_variant_config_revision_missing.json": [
+      "E_NO_READBACK"
+    ],
+    "neg_variant_consumer_lookalike.json": [
+      "E_ENUM"
+    ],
+    "neg_variant_consumer_pattern.json": [
+      "E_ENUM"
+    ],
+    "neg_variant_consumer_type.json": [
+      "E_TYPE"
+    ],
+    "neg_variant_default_applied_string.json": [
+      "E_TYPE"
+    ],
+    "neg_variant_default_applied_true.json": [
+      "E_DEFAULT_TRUE"
+    ],
+    "neg_variant_duplicate_key.json": [
+      "E_KEY"
+    ],
+    "neg_variant_equal_times.json": [
+      "E_ORDER",
+      "E_STALE_READBACK"
+    ],
+    "neg_variant_error_code_object.json": [
+      "E_TYPE"
+    ],
+    "neg_variant_error_no_backup_after_native_write.json": [
+      "E_NO_BACKUP"
+    ],
+    "neg_variant_error_phase_write_without_write.json": [
+      "E_WRITE_REQUIRED"
+    ],
+    "neg_variant_error_reached_step_missing.json": [
+      "E_REACHED_STEP"
+    ],
+    "neg_variant_error_without_steps.json": [
+      "E_TOGGLE_ORDER"
+    ],
+    "neg_variant_error_write_null.json": [
+      "E_WRITE_REQUIRED"
+    ],
+    "neg_variant_extensions_not_object.json": [
+      "E_TYPE"
+    ],
+    "neg_variant_host_lookalike.json": [
+      "E_ENUM"
+    ],
+    "neg_variant_host_uppercase.json": [
+      "E_ENUM"
+    ],
+    "neg_variant_legacy_flag_only_record.json": [
+      "E_FLAG_ONLY",
+      "E_NO_READBACK"
+    ],
+    "neg_variant_native_equals_readback.json": [
+      "E_STALE_READBACK"
+    ],
+    "neg_variant_native_write_at_missing.json": [
+      "E_MISSING_EVIDENCE"
+    ],
+    "neg_variant_native_write_at_no_zone.json": [
+      "E_TIME"
+    ],
+    "neg_variant_pending_runtime_false.json": [
+      "E_PENDING_RUNTIME"
+    ],
+    "neg_variant_pending_write_null.json": [
+      "E_WRITE_REQUIRED"
+    ],
+    "neg_variant_plugin_id_lookalike.json": [
+      "E_ENUM"
+    ],
+    "neg_variant_readback_after_observed.json": [
+      "E_ORDER"
+    ],
+    "neg_variant_readback_at_missing.json": [
+      "E_NO_READBACK"
+    ],
+    "neg_variant_readback_sha_missing.json": [
+      "E_NO_READBACK"
+    ],
+    "neg_variant_readback_value_missing.json": [
+      "E_MISSING_EVIDENCE"
+    ],
+    "neg_variant_ref_object.json": [
+      "E_TYPE"
+    ],
+    "neg_variant_ref_padded.json": [
+      "E_TYPE"
+    ],
+    "neg_variant_ref_whitespace_only.json": [
+      "E_TYPE"
+    ],
+    "neg_variant_request_id_missing.json": [
+      "E_MISSING_EVIDENCE"
+    ],
+    "neg_variant_request_id_number.json": [
+      "E_TYPE"
+    ],
+    "neg_variant_requested_after_readback.json": [
+      "E_ORDER",
+      "E_STALE_READBACK"
+    ],
+    "neg_variant_requested_at_missing.json": [
+      "E_MISSING_EVIDENCE"
+    ],
+    "neg_variant_requested_at_no_zone.json": [
+      "E_TIME"
+    ],
+    "neg_variant_requested_value_missing.json": [
+      "E_MISSING_EVIDENCE"
+    ],
+    "neg_variant_rollback_outcome_on_non_error.json": [
+      "E_UNKNOWN_FIELD"
+    ],
+    "neg_variant_source_list.json": [
+      "E_TYPE"
+    ],
+    "neg_variant_state_contradicts_readback.json": [
+      "E_MISMATCH_NO_ERROR"
+    ],
+    "neg_variant_toggle_incomplete.json": [
+      "E_TOGGLE_ORDER"
+    ],
+    "neg_variant_unknown_top_field.json": [
+      "E_UNKNOWN_FIELD"
+    ],
+    "neg_variant_unknown_with_readback_value.json": [
+      "E_UNKNOWN_NEEDS_REASON"
+    ],
+    "neg_variant_unknown_write_field.json": [
+      "E_UNKNOWN_FIELD"
+    ],
+    "neg_variant_writer_host_missing.json": [
+      "E_MISSING_EVIDENCE"
+    ]
+  }
+}

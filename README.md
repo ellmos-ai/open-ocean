@@ -262,6 +262,7 @@ tools/
   resolve_bundles.py            bundle refs -> flat, hash-checked component plan
   project_workflows.py          S8 skills-/workflow-projection into SKILLS.md/MODULES.md/TOOLCHAINS.md
   check_doc_loop_contract.py    documentation-loop contract and evidence-chain checker
+  check_plugin_activation_contract.py  plugin-activation contract and activation-record checker
   fetch_place.py                SHA-pinned, fail-closed module placement
   host_adapters.py              vendor-neutral skill activation and rollback (Claude Code as reference)
   source_pins.py                source-provenance verification before Resolve/Fetch
@@ -272,6 +273,7 @@ architecture/
   INSTALLER-TARGET.md           installer contract and invariants
   OCEAN-INSPECT.md              read-only inspection adapter
   OCEAN-DOC-LOOP.md             documentation-loop contract (states, evidence, rules)
+  PLUGIN-ACTIVATION.md          plugin-activation contract (states, evidence, rules)
   BACH-EXTRACTION-ROADMAP.md, bach-*.json
                                 contracts for moving BACH capabilities into modules
 tests/                          offline test suite

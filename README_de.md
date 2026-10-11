@@ -255,6 +255,7 @@ tools/
                                 standardmäßig Probelauf, --apply für echte Schreibzugriffe, --rollback
   resolve_bundles.py            Bundle-Verweise -> flacher, hash-geprüfter Komponentenplan
   check_doc_loop_contract.py    Doku-Regelkreis-Vertrag und Belegketten-Prüfer
+  check_plugin_activation_contract.py  Plugin-Aktivierungsvertrag und Aktivierungsbeleg-Prüfer
   fetch_place.py                SHA-gepinnte Modulplatzierung, Fail-Closed
   host_adapters.py              anbieterneutrale Skill-Aktivierung und -Rückbau (Claude Code als Referenz)
   source_pins.py                Prüfung der Quellherkunft vor Resolve/Fetch
@@ -265,6 +266,7 @@ architecture/
   INSTALLER-TARGET.md           Installer-Vertrag und Invarianten
   OCEAN-INSPEKTION.md           nur lesender Inspektionsadapter
   OCEAN-DOKU-REGELKREIS.md      Doku-Regelkreis-Vertrag (Zustände, Belege, Regeln)
+  PLUGIN-AKTIVIERUNG.md         Plugin-Aktivierungsvertrag (Zustände, Belege, Regeln)
   BACH-EXTRAKTIONSROADMAP.md, bach-*.json
                                 Verträge für das Verlegen von BACH-Fähigkeiten in Module
 tests/                          Offline-Testsuite

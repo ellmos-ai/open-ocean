@@ -1,0 +1,25 @@
+{
+  "schema": "ellmos.open-ocean-plugin-activation-record.v1",
+  "records": [
+    {
+      "consumer": "claude",
+      "host": "host-a",
+      "plugin_id": "example-plugin@example-market",
+      "scope": "user",
+      "state": "error",
+      "evidence": {
+        "request_id": "req-1",
+        "error_code": "readback_differs",
+        "last_evidence": "readback:list-2",
+        "phase": "write"
+      },
+      "write": {
+        "requested_value": "enabled",
+        "writer_host": "host-a",
+        "requested_at": "2026-10-11T07:59:00Z",
+        "steps": [],
+        "reached_step": "plan"
+      }
+    }
+  ]
+}

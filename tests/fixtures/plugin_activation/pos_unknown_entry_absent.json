@@ -1,0 +1,16 @@
+{
+  "schema": "ellmos.open-ocean-plugin-activation-record.v1",
+  "records": [
+    {
+      "consumer": "gemini",
+      "host": "host-a",
+      "plugin_id": "example-plugin@example-market",
+      "scope": "none",
+      "state": "unknown",
+      "evidence": {
+        "reason_code": "entry_absent",
+        "observed_at": "2026-10-11T08:00:00Z"
+      }
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "schema": "ellmos.open-ocean-plugin-activation-record.v1",
+  "records": [
+    {
+      "consumer": "bach_core",
+      "host": "host-a",
+      "plugin_id": "p",
+      "scope": "none",
+      "state": "plugged",
+      "evidence": {
+        "source": "plugin_sockets",
+        "observed_at": "2026-10-11T08:00:00Z"
+      }
+    }
+  ]
+}

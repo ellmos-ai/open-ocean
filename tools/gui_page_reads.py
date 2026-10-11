@@ -40,7 +40,10 @@ def _unique(pairs):
     return result
 
 
-def _entries(value: Any, where: str) -> list[dict]:
+FOUND_IN = re.compile(r"[^#\s]+#[^#\s]+")
+
+
+def _entries(value: Any, where: str, *, layout: bool = False) -> list[dict]:
     if not isinstance(value, list) or len(value) > MAX_ENTRIES:
         raise PageReadsError(f"{where}: entries are not a bounded list")
     for entry in value:
@@ -48,6 +51,14 @@ def _entries(value: Any, where: str) -> list[dict]:
                 and PATH.fullmatch(entry["path"]) and ".." not in entry["path"] and isinstance(entry.get("required"), bool)
                 and isinstance(entry.get("dynamic", False), bool)):
             raise PageReadsError(f"{where}: invalid entry")
+        # documented field rules (ellmos-system-gui docs/CONSUMER_CONTRACT.md, "Seiten-Lesepfade")
+        if "query" in entry and not isinstance(entry["query"], str):
+            raise PageReadsError(f"{where}: query must be a string")
+        if entry.get("dynamic", False) != ("found_in" in entry) or (
+                "found_in" in entry and not (isinstance(entry["found_in"], str) and FOUND_IN.fullmatch(entry["found_in"]))):
+            raise PageReadsError(f"{where}: dynamic needs a found_in of the form file#function, and only dynamic has one")
+        if entry["required"] and (layout or entry["method"] != "GET"):
+            raise PageReadsError(f"{where}: layout reads and write calls cannot be required")
     return value
 
 
@@ -55,6 +66,9 @@ def load(gui: Any) -> dict:
     """-> {state: available|missing|invalid, reasons: [...], sha256, pages: {path: {required: [...], optional: [...]}}}"""
     if gui is None:
         return {"state": "missing", "reasons": ["verified-gui-release", "page-reads-manifest-missing"], "sha256": None, "pages": {}}
+    if getattr(gui, "installed_verified", False) is not True:
+        # an archive that was only verified is not an installed kit: its manifest says nothing about what is served
+        return {"state": "missing", "reasons": ["gui-release-not-installed-verified", "page-reads-manifest-missing"], "sha256": None, "pages": {}}
     payload = getattr(gui, "payload", None)
     raw = payload.get(MEMBER) if isinstance(payload, Mapping) else None
     if raw is None:
@@ -68,7 +82,7 @@ def load(gui: Any) -> dict:
         if not (isinstance(document, dict) and document.get("schema") == SCHEMA and isinstance(document.get("pages"), dict)
                 and 0 < len(document["pages"]) <= MAX_PAGES):
             raise PageReadsError("schema")
-        _entries(document.get("layout", []), "layout")
+        _entries(document.get("layout", []), "layout", layout=True)
         pages: dict[str, dict] = {}
         for page, entries in document["pages"].items():
             if not (isinstance(page, str) and page.startswith("/") and len(page) <= 200):

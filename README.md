@@ -317,6 +317,7 @@ update both. Security issues go through the channel below, not public issues.
 | [`ellmos-ai/bundles`](https://github.com/ellmos-ai/bundles) | Recipe layer: bundle manifests and catalogues consumed here |
 | [`ellmos-ai/bach`](https://github.com/ellmos-ai/bach) | The original full system open-ocean grows out of |
 | [`ellmos-ai/rinnsal`](https://github.com/ellmos-ai/rinnsal) | Lightweight local-first agent infrastructure |
+| [`ellmos-ai/coma`](https://github.com/ellmos-ai/coma) | Optional COMA session fallback for role startup when the unified-gui console and task-master are unavailable. |
 | [`ellmos-ai/policy-registry`](https://github.com/ellmos-ai/policy-registry) | Machine-readable policies, governance rules, and system gates |
 | [`ellmos-ai/system-explorer`](https://github.com/ellmos-ai/system-explorer) | System-wide inspection; provider behind `ocean inspect` |
 | [`ellmos-ai/sqlite-transit-sync`](https://github.com/ellmos-ai/sqlite-transit-sync) | Conflict-free SQLite state replication |

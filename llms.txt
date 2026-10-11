@@ -36,7 +36,7 @@ Use `python ocean.py --help` and subcommand help for the complete argument surfa
 coverage semantics to its native APIs in a temporary store. It never scans or mutates the target.
 The positional role path delegates to `python -m unified_gui.console start` and
 never enters the installed-runtime lifecycle. Its explicit fallback order is
-task-master, COMA, then the module-declared starter.
+task-master, [COMA](https://github.com/ellmos-ai/coma) via `python -m coma session`, then the module-declared starter.
 
 ## Primary documents
 

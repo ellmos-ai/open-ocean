@@ -91,7 +91,7 @@ def test_routes_auth_and_contract(tmp_path):
 def test_software_is_503_with_machine_readable_reason_never_mock():
     response = _client(GuiBridge()).get("/api/capabilities/software", headers=HEADERS)
     assert response.status_code == 503
-    assert response.json() == {"available": False, "reason": "source-not-in-composition", "runtime_verified": False}
+    assert response.json() == {"available": False, "reason": "source-not-in-composition"}
 
 
 def test_unreadable_source_is_503_not_500(tmp_path):
@@ -159,3 +159,94 @@ def test_unauthenticated_callers_see_only_the_auth_answer(tmp_path, method, path
 def test_authenticated_non_get_is_405(path):
     response = _client(GuiBridge()).request("POST", path, headers=HEADERS)
     assert response.status_code == 405 and response.headers["allow"] == "GET"
+
+
+# --- skill sources: BACH limits, strict UTF-8, strict frontmatter, id rule, symbol allow-list -----------------------
+
+def _skill(ws, name, content: bytes | str):
+    folder = ws / "skills" / name
+    folder.mkdir(parents=True, exist_ok=True)
+    data = content.encode("utf-8") if isinstance(content, str) else content
+    (folder / "SKILL.md").write_bytes(data)
+
+
+def _by_id(ws):
+    return {s["id"]: s for s in skill_library(workspace=ws)["skills"]}
+
+
+@pytest.mark.parametrize("name,expected", [("a" * 80, True), ("a" * 81, False), ("-bad", False), ("ok.name_1", True)])
+def test_skill_id_rule_is_bach_and_gui_rule(tmp_path, name, expected):
+    ws = _workspace(tmp_path)
+    _skill(ws, name, "---\nname: x\n---\n")
+    assert (name in _by_id(ws)) is expected
+
+
+def test_oversized_nul_and_invalid_utf8_sources_are_not_skills(tmp_path):
+    ws = _workspace(tmp_path)
+    _skill(ws, "too-big", "---\nname: x\n---\n" + "a" * 200_001)
+    _skill(ws, "has-nul", "---\nname: x\n---\nbody\x00")
+    _skill(ws, "bad-utf8", b"---\nname: x\n---\n\xff\xfe")
+    _skill(ws, "fine", "---\nname: x\n---\n" + "a" * 100)
+    assert set(_by_id(ws)) == {"demo-skill", "fine"}
+
+
+def test_total_read_limit_is_enforced(tmp_path, monkeypatch):
+    from tools import capability_views
+    ws = _workspace(tmp_path)
+    monkeypatch.setattr(capability_views, "MAX_TOTAL_SOURCE_BYTES", 10)
+    with pytest.raises(RuntimeError):
+        skill_library(workspace=ws)
+
+
+def test_metadata_lengths_are_bounded(tmp_path):
+    ws = _workspace(tmp_path)
+    _skill(ws, "long", "---\nname: " + "n" * 500 + "\ncategory: " + "c" * 500 + "\nversion: " + "v" * 500 +
+                       "\ndescription: " + "d" * 900 + "\n---\n")
+    item = _by_id(ws)["long"]
+    assert (len(item["name"]), len(item["category"]), len(item["version"]), len(item["description"])) == (200, 100, 100, 300)
+
+
+@pytest.mark.parametrize("front", [
+    "---\nname: x\ndescription: |\n  multi\n  line\n---\n",       # block scalar
+    "---\nname: x\ndescription: >\n  folded\n---\n",              # folded scalar
+    "---\nname: x\ntags:\n  - a\n  - b\n---\n",                  # list / nesting
+    "---\nname: x\nmeta: {a: 1}\n---\n",                           # flow mapping
+    "---\nname: x\ndescription: 'unterminated\n---\n",             # open quote
+    "---\nname: x\ndescription: &a anchored\n---\n",               # anchor
+])
+def test_unsupported_frontmatter_forms_yield_fallbacks_not_garbage(tmp_path, front):
+    ws = _workspace(tmp_path)
+    _skill(ws, "odd", front)
+    item = _by_id(ws)["odd"]
+    assert item["name"] == "odd" and item["category"] == "general" and item["description"] == ""
+    assert item["version"] == "ohne Versionsnummer"
+
+
+def test_missing_closing_marker_does_not_leak_body_keys(tmp_path):
+    ws = _workspace(tmp_path)
+    _skill(ws, "open", "---\nname: real\n\nbody text\nsymbol: usr\ncategory: injected\n")
+    item = _by_id(ws)["open"]
+    assert item["name"] == "open" and item["category"] == "general" and item["symbol"] == ""
+
+
+def test_supported_flat_frontmatter_and_symbol_allow_list(tmp_path):
+    ws = _workspace(tmp_path)
+    _skill(ws, "good", '---\nname: "Good Name"\ncategory: dev # comment\nversion: 1.2\nsymbol: wissen\n'
+                      'description: plain text\n---\nbody\n')
+    _skill(ws, "badsym", "---\nname: x\nsymbol: not-a-symbol\n---\n")
+    by = _by_id(ws)
+    assert (by["good"]["name"], by["good"]["category"], by["good"]["version"]) == ("Good Name", "dev", "1.2")
+    assert by["good"]["symbol"] == "wissen" and by["good"]["description"] == "plain text"
+    assert by["badsym"]["symbol"] == ""
+
+
+def test_skills_page_also_needs_the_assignment_tab_endpoints(tmp_path):
+    # ellmos-system-gui c19f70d: hierarchy-assignment-ui.mjs reads GET /api/gui/capabilities and GET + PUT
+    # /api/skills-board/hierarchy; Ocean serves neither skills-board route.
+    ws = _workspace(tmp_path)
+    bridge = GuiBridge(ocean=lambda: ocean_inventory(workspace=ws), skills=lambda: skill_library(workspace=ws))
+    page = _pages(bridge)["skills"]
+    assert "GET /api/skills-board/hierarchy" in page["missing"] and "PUT /api/skills-board/hierarchy" in page["missing"]
+    assert {"GET /api/skills-board/hierarchy", "PUT /api/skills-board/hierarchy",
+            "GET /api/gui/capabilities"} <= set(PAGE_REQUIRES["skills"])
+    assert page["status"] == "unavailable"

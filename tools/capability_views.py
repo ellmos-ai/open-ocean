@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +28,14 @@ except ImportError:  # ocean_runtime.py direct entry point
 OCEAN_SCHEMA = "bach.capability-inventory.v1"
 SKILL_LIBRARY_SCHEMA = "bach.skill-library.v1"
 MAX_SKILL_DIRECTORIES = 4096
+# Same limits and id rule as BACH hub/_services/skill_source_service.py (SKILL_ID, MAX_SOURCE_BYTES) and the GUI client.
+SKILL_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$")
+MAX_SOURCE_BYTES = 200_000
+MAX_TOTAL_SOURCE_BYTES = 20_000_000
+# Same allow-list as BACH hub/_services/display_assets.py TICKET_SYMBOL_IDS.
+SYMBOL_IDS = frozenset({"githubbot", "office", "scripts", "server", "sync", "topics", "topics_ai", "topics_gesim",
+                        "topics_hardware", "topics_research", "topics_roblox", "topics_software", "topics_umbruch",
+                        "topics_uni", "usr", "wissen"})
 
 
 def _source_entry(record: dict, label: str | None = None) -> dict:
@@ -62,17 +71,36 @@ def ocean_inventory(*, workspace: Path) -> dict:
     return _redact(result, [0])
 
 
-def _frontmatter(raw: bytes) -> dict[str, str]:
-    lines = raw.decode("utf-8-sig", errors="replace").splitlines()
-    if not lines or lines[0].strip() != "---":
+_FRONT_KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*$")
+
+
+def _frontmatter(text: str) -> dict[str, str]:
+    """Strict, bounded reader for flat ``key: scalar`` frontmatter. No YAML dependency: anything beyond a flat map of
+    single-line scalars (block scalars ``|``/``>``, lists, nesting, flow collections, anchors, tags), a missing closing
+    ``---`` or an unterminated quote yields ``{}``, i.e. the caller's fallbacks, never a half-parsed result."""
+    if not text.startswith(("---\n", "---\r\n")):
+        return {}
+    lines = text.splitlines()
+    end = next((i for i, line in enumerate(lines[1:], 1) if line.strip() == "---"), None)
+    if end is None or end > 200:
         return {}
     meta: dict[str, str] = {}
-    for line in lines[1:80]:
-        if line.strip() == "---":
-            break
+    for line in lines[1:end]:
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        if line[0] in " \t-":
+            return {}
         key, sep, value = line.partition(":")
-        if sep and key.strip() and not line.startswith((" ", "\t")):
-            meta.setdefault(key.strip(), value.strip().strip("'\""))
+        key, value = key.strip(), value.strip()
+        if not sep or not _FRONT_KEY.fullmatch(key) or value[:1] in tuple("|>[{&*!%@`"):
+            return {}
+        if value[:1] in ("'", '"'):
+            if len(value) < 2 or value[-1] != value[0]:
+                return {}
+            value = value[1:-1]
+        elif " #" in value:
+            value = value.split(" #", 1)[0].strip()
+        meta.setdefault(key, value)
     return meta
 
 
@@ -84,23 +112,33 @@ def skill_library(*, workspace: Path) -> dict:
         raise FileNotFoundError("skills")
     skills = []
     visited = 0
+    total = 0
     for entry in sorted(os.scandir(root), key=lambda e: e.name):
         visited += 1
         if visited > MAX_SKILL_DIRECTORIES:
             raise RuntimeError("Skill-Katalog überschreitet die begrenzte Scanweite")
-        if not SAFE_SEGMENT.fullmatch(entry.name) or entry.name.startswith(".") or not entry.is_dir(follow_symlinks=False):
+        if not SKILL_ID.fullmatch(entry.name) or not entry.is_dir(follow_symlinks=False):
             continue
         path = _child(workspace, "skills", entry.name, "SKILL.md")
         if path is None or not path.is_file():
             continue
         try:
-            raw, _ = _read_bytes(path, workspace, 1024 * 1024)
+            raw, _ = _read_bytes(path, workspace, MAX_SOURCE_BYTES)
+            if b"\x00" in raw:
+                continue
+            text = raw.decode("utf-8")  # strict: invalid UTF-8 is not a skill source
         except (OSError, ValueError):
             continue
-        meta = _frontmatter(raw)
+        total += len(raw)
+        if total > MAX_TOTAL_SOURCE_BYTES:
+            raise RuntimeError("Skill-Katalog überschreitet die begrenzte Lesemenge")
+        meta = _frontmatter(text)
+        symbol = meta.get("symbol", "")
         skills.append({
-            "id": entry.name, "name": meta.get("name") or entry.name, "category": meta.get("category") or "general",
-            "version": meta.get("version") or "ohne Versionsnummer", "symbol": "",
+            "id": entry.name, "name": (meta.get("name") or entry.name)[:200],
+            "category": (meta.get("category") or "general")[:100],
+            "version": (meta.get("version") or "ohne Versionsnummer")[:100],
+            "symbol": symbol if symbol in SYMBOL_IDS else "",
             "source_version": hashlib.sha256(raw).hexdigest(), "evidence_type": "filesystem_present",
             "source_kind": "ocean_workspace", "role": (meta.get("description") or "")[:300],
             "description": (meta.get("description") or "")[:300]})

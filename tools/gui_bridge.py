@@ -43,7 +43,11 @@ PAGE_ROUTES = {
 PAGE_REQUIRES = {
     "overview": ["GET /api/gui/capabilities"],
     "ocean": ["GET /api/capabilities/ocean"],
-    "skills": ["GET /api/capabilities/skills/library", "GET /api/capabilities/skills/{id}/source",
+    # The assignment tab (hierarchy-assignment-ui.mjs, ellmos-system-gui c19f70d) additionally reads
+    # GET /api/gui/capabilities and GET + PUT /api/skills-board/hierarchy; OCEAN serves neither route.
+    "skills": ["GET /api/gui/capabilities", "GET /api/capabilities/skills/library",
+               "GET /api/skills-board/hierarchy", "PUT /api/skills-board/hierarchy",
+               "GET /api/capabilities/skills/{id}/source",
                "GET /api/capabilities/skills/{id}/history", "GET /api/capabilities/skills/{id}/history/{revision}",
                "PUT /api/capabilities/skills/{id}/source"],
     "software": ["GET /api/capabilities/software"],
@@ -230,7 +234,9 @@ class GuiBridge:
                 ("GET", "/api/capabilities/skills/{id}/source", "read", "no-adapter"),
                 ("GET", "/api/capabilities/skills/{id}/history", "read", "no-adapter"),
                 ("GET", "/api/capabilities/skills/{id}/history/{revision}", "read", "no-adapter"),
-                ("PUT", "/api/capabilities/skills/{id}/source", "write", "no-write-authority")]:
+                ("PUT", "/api/capabilities/skills/{id}/source", "write", "no-write-authority"),
+                ("GET", "/api/skills-board/hierarchy", "read", "no-adapter"),
+                ("PUT", "/api/skills-board/hierarchy", "write", "no-write-authority")]:
             endpoints.append({"method": method, "path": path, "kind": kind, "available": False, "provider": None,
                               "auth": "provider-session", "runtime_verified": False,
                               "verification_scope": "adapter", "reason": reason})
@@ -401,7 +407,7 @@ def mount_gui_bridge(app: Any, bridge: GuiBridge, require_auth: Callable, requir
 
     def software_route(request):
         # The software register (.SOFTWARE/releases.json) is not part of the OCEAN composition: no substitute data.
-        return JSONResponse({"available": False, "reason": "source-not-in-composition", "runtime_verified": False},
+        return JSONResponse({"available": False, "reason": "source-not-in-composition"},
                             status_code=503, headers={"Cache-Control": "no-store"})
     add_guarded("/api/capabilities/software", software_route)
 

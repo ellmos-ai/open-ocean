@@ -17,6 +17,7 @@ import platform
 import re
 import stat
 import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -100,13 +101,69 @@ def _child(root: Path, *segments: str) -> Path | None:
     return path
 
 
+def _final_path(fd: int) -> str | None:
+    """Final (link-resolved) path of an open file descriptor, or None when the platform cannot tell."""
+    try:
+        if sys.platform == "win32":
+            import ctypes
+            import msvcrt
+            from ctypes import wintypes
+            kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            kernel32.GetFinalPathNameByHandleW.argtypes = [wintypes.HANDLE, wintypes.LPWSTR, wintypes.DWORD, wintypes.DWORD]
+            kernel32.GetFinalPathNameByHandleW.restype = wintypes.DWORD
+            handle = msvcrt.get_osfhandle(fd)
+            size = 1024
+            buffer = ctypes.create_unicode_buffer(size)
+            length = kernel32.GetFinalPathNameByHandleW(handle, buffer, size, 0)
+            if length >= size:
+                size = length + 1
+                buffer = ctypes.create_unicode_buffer(size)
+                length = kernel32.GetFinalPathNameByHandleW(handle, buffer, size, 0)
+            if length == 0 or length >= size:
+                return None
+            path = buffer.value
+            if path.startswith("\\\\?\\UNC\\"):
+                return "\\\\" + path[8:]
+            return path[4:] if path.startswith("\\\\?\\") else path
+        if sys.platform == "darwin":
+            import fcntl
+            raw = fcntl.fcntl(fd, fcntl.F_GETPATH, b"\0" * 1024)
+            return os.fsdecode(raw.split(b"\0", 1)[0]) or None
+        if sys.platform.startswith("linux"):
+            return os.readlink(f"/proc/self/fd/{fd}")
+    except (OSError, ImportError, AttributeError, ValueError):
+        return None
+    return None
+
+
+def _inside(path: str, root: Path) -> bool:
+    candidate = os.path.normcase(os.path.realpath(path))
+    base = os.path.normcase(os.path.realpath(root))
+    return candidate == base or candidate.startswith(base.rstrip(os.sep) + os.sep)
+
+
+def _open_inside(path: Path, root: Path) -> int:
+    """Open read-only, then verify the final path of THIS handle lies inside the root (no check-then-open gap).
+    A platform that cannot report the final path fails closed."""
+    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0)
+    fd = os.open(path, flags)
+    try:
+        final = _final_path(fd)
+        if final is None:
+            raise PermissionError("final_path_unavailable")
+        if not _inside(final, root):
+            raise PermissionError("outside_root")
+        return fd
+    except BaseException:
+        os.close(fd)
+        raise
+
+
 def _read_bytes(path: Path, root: Path, limit: int = MAX_BYTES) -> tuple[bytes, str]:
-    """Read a regular file whose resolved location lies inside ``root``; returns (bytes, mtime_iso)."""
+    """Read a regular file through a handle whose final path is verified inside ``root``; (bytes, mtime_iso)."""
     if _is_link(path):
         raise PermissionError("link")
-    resolved = path.resolve(strict=True)
-    resolved.relative_to(root.resolve(strict=True))
-    with open(resolved, "rb") as handle:
+    with os.fdopen(_open_inside(path, root), "rb") as handle:
         info = os.fstat(handle.fileno())
         if not stat.S_ISREG(info.st_mode):
             raise FileNotFoundError("missing")
@@ -199,9 +256,23 @@ def _load_install(workspace: Path, sources: list[dict]) -> tuple[dict, dict]:
     return transaction, plan
 
 
-def _present(workspace: Path, *segments: str) -> bool:
-    path = _child(workspace, *segments)
-    return bool(path and path.is_dir())
+def module_state(workspace: Path, module_id: str) -> tuple[bool | None, str]:
+    """(installed, evidence). True only with a readable identity proof (git HEAD or the GUI release receipt);
+    False when the directory is absent; None for a directory without proof (e.g. a placed copy without .git)."""
+    directory = _child(workspace, "modules", module_id)
+    if directory is None or not directory.is_dir():
+        return False, "install_state+directory_absent"
+    for proof in ((".git", "HEAD"), (".ocean-gui-release.json",)):
+        path = _child(workspace, "modules", module_id, *proof)
+        if path is None:
+            continue
+        try:
+            raw, _ = _read_bytes(path, workspace, 64 * 1024)
+        except (OSError, ValueError):
+            continue
+        if raw.strip():
+            return True, "install_state+" + ("git_head" if proof[0] == ".git" else "release_receipt")
+    return None, "install_state+directory_without_proof"
 
 
 def _modules(transaction: dict, workspace: Path, stamp: str | None) -> list[dict]:
@@ -223,13 +294,13 @@ def _modules(transaction: dict, workspace: Path, stamp: str | None) -> list[dict
                      visibility=_text(detail.get("visibility"), 80), repository=_text(detail.get("repository"), 300),
                      provides=_strings(detail.get("provides")), requires=_strings(detail.get("requires")))
         item["version"] = _text(detail.get("version"), 100)
-        item["pin"]["commit"] = _text(_dict(fetched.get("detail")).get("sha") or binding.get("commit")
-                                      or detail.get("source_commit"), 80)
+        item["pin"]["commit"] = _text(_dict(fetched.get("detail")).get("sha") or binding.get("commit"), 80)
         item["pin"]["content_hash"] = _text(detail.get("archive_sha256"), 100)
         item["relations"] = [{"kind": "requires", "target": t, "target_type": "capability",
                               "requirement": "required", "basis": "declared"} for t in item["requires"]]
-        item["measured"].update(installed=_present(workspace, "modules", module_id), observed_at=stamp,
-                                connection_state="unverified", evidence="install_state+directory")
+        installed, evidence = module_state(workspace, module_id)
+        item["measured"].update(installed=installed, observed_at=stamp, connection_state="unverified",
+                                evidence=evidence)
         items.append(item)
     return items
 

@@ -23,12 +23,18 @@ import os
 import subprocess
 import sys
 import textwrap
+import threading
 import time
 
 import pytest
 
 import conftest
-from conftest import find_test_supervisors, process_is_alive, terminate_process_tree
+from conftest import (
+    ProcessListError,
+    find_test_supervisors,
+    process_is_alive,
+    terminate_process_tree,
+)
 
 PRODUCTION_COMMAND = (
     '"C:\\Program Files\\Python312\\pythonw.exe" '
@@ -173,6 +179,22 @@ def test_a_failed_start_does_not_walk_away_from_its_supervisor():
     assert in_finally, "the cleanup is not on a finally path; an early error would leak"
 
 
+PID_REPORT_TIMEOUT = 30
+
+
+def _read_line_within(stream, timeout: float) -> str:
+    """readline() with a deadline: a parent that hangs must fail the test, not stall it.
+
+    The reader thread is a daemon; the caller's `finally` kills the parent, which ends it.
+    """
+    box: list[str] = []
+    reader = threading.Thread(target=lambda: box.append(stream.readline()), daemon=True)
+    reader.start()
+    reader.join(timeout)
+    assert box, f"no line within {timeout}s -- the spawned parent is hanging"
+    return box[0]
+
+
 @pytest.mark.skipif(os.name != "nt", reason="job objects are a Windows mechanism")
 def test_job_object_kills_a_grandchild_when_it_closes():
     """The mechanism the suite relies on, proven on real processes.
@@ -208,7 +230,7 @@ def test_job_object_kills_a_grandchild_when_it_closes():
         parent.stdin.write("go\n")
         parent.stdin.flush()
 
-        grandchild_pid = int(parent.stdout.readline().strip())
+        grandchild_pid = int(_read_line_within(parent.stdout, PID_REPORT_TIMEOUT).strip())
         assert process_is_alive(grandchild_pid), "grandchild did not start"
 
         api.CloseHandle(job)
@@ -221,8 +243,70 @@ def test_job_object_kills_a_grandchild_when_it_closes():
             f"grandchild {grandchild_pid} survived the job closing"
         )
     finally:
+        try:
+            parent.stdin.close()
+        except OSError:
+            pass
         if handle:
             api.CloseHandle(ctypes.c_void_p(handle))
         if job:
             api.CloseHandle(job)
         terminate_process_tree(parent.pid)
+
+
+def _fake_run(returncode=0, stdout=""):
+    class _Done:
+        pass
+
+    done = _Done()
+    done.returncode, done.stdout = returncode, stdout
+    return lambda *args, **kwargs: done
+
+
+@pytest.mark.parametrize("returncode, stdout", [
+    (1, ""),          # the listing command failed
+    (0, ""),          # ... or produced nothing
+    (0, "not json"),  # ... or garbage (Windows reader; on POSIX no row parses)
+    (0, "[]"),        # a live system always has processes
+])
+def test_a_failed_process_listing_raises_instead_of_reporting_no_processes(
+    monkeypatch, returncode, stdout,
+):
+    """A broken read used to come back as [] and read as "everything is dead"."""
+    monkeypatch.setattr(conftest.subprocess, "run", _fake_run(returncode, stdout))
+    with pytest.raises(ProcessListError):
+        conftest._iter_processes()
+
+
+def test_a_transient_bad_listing_is_read_again(monkeypatch):
+    answers = iter([_fake_run(0, "not json")(), _fake_run(
+        0, '[{"ProcessId": 7, "ParentProcessId": 1, "CommandLine": "x"}]',
+    )()])
+    monkeypatch.setattr(conftest.subprocess, "run", lambda *a, **k: next(answers))
+    if os.name != "nt":
+        pytest.skip("the JSON listing is the Windows reader")
+    assert conftest._iter_processes() == [(7, 1, "x")]
+
+
+def test_a_listing_that_cannot_be_run_raises(monkeypatch):
+    def boom(*args, **kwargs):
+        raise subprocess.TimeoutExpired("ps", 1)
+
+    monkeypatch.setattr(conftest.subprocess, "run", boom)
+    with pytest.raises(ProcessListError):
+        conftest._iter_processes()
+
+
+def test_supervisor_sweep_does_not_swallow_a_failed_listing(monkeypatch, tmp_path):
+    monkeypatch.setattr(conftest.subprocess, "run", _fake_run(1, ""))
+    with pytest.raises(ProcessListError):
+        find_test_supervisors(tmp_path)
+
+
+def test_process_is_alive_tells_a_live_process_from_an_exited_one():
+    assert process_is_alive(os.getpid())
+    child = subprocess.Popen([sys.executable, "-c", "pass"])
+    child.wait()
+    child_pid = child.pid
+    del child  # release the handle so Windows no longer keeps the pid object around
+    assert not process_is_alive(child_pid)

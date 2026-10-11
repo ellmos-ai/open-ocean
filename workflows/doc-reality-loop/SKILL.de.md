@@ -140,11 +140,16 @@ festhalten. Regeln:
   Systems es erlaubt (alle Anforderungen erfüllt oder abgelöst) und die folgenden Prüfungen
   festgehalten sind. Ohne belegbaren Registereintrag lautet die Aktion `keep`. `action` (`keep` oder
   `archive`) festhalten und bei `archive` `archived_at` in UTC. Jeder Eintrag in `reader_checks` hat
-  genau `ref`, `kind` (`reader` oder `link`), `active` und `checked_at`: die `readers[]` des Registers
-  werden zu `reader`-Prüfungen (`ref`, `active`, `last_checked_at` als `checked_at`), und jeder Verweis
-  auf das Element wird als `link`-Prüfung geprüft. Von jeder Art ist mindestens eine Prüfung nötig,
-  keine darf aktiv sein, und jede muss jung genug für `archive_policy.reader_audit_not_before` des
-  Registers sein. Jeder aktive Leser oder Verweis bedeutet `keep`.
+  genau `ref`, `kind` (`reader` oder `link`), `active` und `checked_at`. Abbildung der `readers[]` des
+  Registers (je mit `kind`, `ref`, `active`, `last_checked_at`): ein Leser mit `kind` `link` wird zur
+  `link`-Prüfung; ein Leser mit `kind` `boot`, `test`, `tool` oder `human` wird zur `reader`-Prüfung;
+  `ref` und `active` werden übernommen, `last_checked_at` wird zu `checked_at`. Zusätzlich die
+  versionierten Dateien nach weiteren Verweisen auf das Element durchsuchen und jeden als
+  `link`-Prüfung festhalten. Von jeder Art ist mindestens eine Prüfung nötig, keine darf aktiv sein,
+  und jede muss jung genug für `archive_policy.reader_audit_not_before` des Registers sein. Jeder
+  aktive Leser oder Verweis bedeutet `keep`.
+- **`archive` ist der Registerstatus `archived`.** Er braucht zusätzlich einen `replacement_ref` im
+  Registereintrag oder einen Evidenzeintrag vom Typ `archival`; fehlt beides, lautet die Aktion `keep`.
 - Generierte Dateien: nicht bearbeiten; den Befund für den Eigentümer des Generators festhalten
   (Grundsatz 4).
 
@@ -159,7 +164,8 @@ abgelehnte Differenz geht zurück zu Schritt 5; der Regelkreis geht nicht auf da
 ### 7. Nachmessen (`repaired`)
 
 Das, was der korrigierte Text jetzt behauptet, im selben Geltungsbereich erneut messen. `remeasure`
-(`equal`, `measured_at`, `measurement_ref`, `measurement_sha256`, `scope`), `repair_success_at` und
+(`equal`, `measured_at`, `measurement_ref`, `measurement_sha256`, `scope` mit `host`, `instance`,
+`version`, `surface`), `repair_success_at` und
 `regression` festhalten (dazu das `observed_at` des Eintrags). `repaired` braucht `reviewed`, `equal`
 wahr und `regression` falsch. Eine Nachmessung, die eine Regression zeigt, wird als solche gemeldet und
 ist kein Erfolg.

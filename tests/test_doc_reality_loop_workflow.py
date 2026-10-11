@@ -80,7 +80,7 @@ class DocRealityLoopWorkflowTests(unittest.TestCase):
                   + CONTRACT["enums"]["archival_action"] + CONTRACT["enums"]["reader_kind"] + ["archived_at"]
                   + list(ENTRY["corrected"]["evidence"]["files"][0])),
             "6": list(ENTRY["reviewed"]["evidence"]["verdicts"][0]) + CONTRACT["enums"]["verdict"],
-            "7": CONTRACT["remeasure_fields"],
+            "7": CONTRACT["remeasure_fields"] + CONTRACT["scope_fields"],
             "0": CONTRACT["enums"]["marker_source"],
             "3": CONTRACT["enums"]["exit_state"],
         }
@@ -103,6 +103,8 @@ class DocRealityLoopWorkflowTests(unittest.TestCase):
             for token in ("`document_id`", "`archive_policy.reader_audit_not_before`", "`keep`", "`archive_policy`"):
                 self.assertIn(token, secs["5"], f"{lang}: {token}")
             self.assertIn("`document_id`", secs["2"], lang)
+            for token in ("`link`", "`boot`", "`test`", "`tool`", "`human`", "`replacement_ref`", "`archival`", "`archived`"):
+                self.assertIn(token, secs["5"], f"{lang}: {token}")
 
     def test_german_and_english_name_the_same_fields_per_step(self):
         en, de = sections(TEXTS["en"]), sections(TEXTS["de"])

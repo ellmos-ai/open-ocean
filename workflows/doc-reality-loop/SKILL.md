@@ -132,10 +132,15 @@ Change only descriptive text, and only the statements that have a confirmed diff
   (all requirements fulfilled or superseded), and the checks below are recorded. Without a verifiable
   register entry the action is `keep`. Record `action` (`keep` or `archive`) and, for `archive`,
   `archived_at` in UTC. Every entry in `reader_checks` has exactly `ref`, `kind` (`reader` or `link`),
-  `active` and `checked_at`: the register's `readers[]` become `reader` checks (`ref`, `active`,
-  `last_checked_at` as `checked_at`), and each link to the item is checked as a `link` check. At least
-  one check of each kind is required, no check may be active, and every check must be recent enough
-  for the register's `archive_policy.reader_audit_not_before`. Any active reader or link means `keep`.
+  `active` and `checked_at`. Mapping of the register's `readers[]` (each with `kind`, `ref`, `active`,
+  `last_checked_at`): a reader of `kind` `link` becomes a `link` check; a reader of `kind` `boot`,
+  `test`, `tool` or `human` becomes a `reader` check; `ref` and `active` are copied and
+  `last_checked_at` becomes `checked_at`. In addition, search the tracked files for further links to
+  the item and record each as a `link` check. At least one check of each kind is required, no check may
+  be active, and every check must be recent enough for the register's
+  `archive_policy.reader_audit_not_before`. Any active reader or link means `keep`.
+- **`archive` is the register status `archived`.** It additionally needs a `replacement_ref` in the
+  register entry or an evidence entry of type `archival`; without either the action is `keep`.
 - Generated files: do not edit; record the finding for the generator owner (principle 4).
 
 ### 6. Read back (`reviewed`)
@@ -149,7 +154,8 @@ returns to step 5; the loop does not proceed on the author's word.
 ### 7. Re-measure (`repaired`)
 
 Measure again what the corrected text now claims, on the same scope. Record `remeasure` (`equal`,
-`measured_at`, `measurement_ref`, `measurement_sha256`, `scope`), `repair_success_at` and
+`measured_at`, `measurement_ref`, `measurement_sha256`, `scope` with `host`, `instance`, `version`,
+`surface`), `repair_success_at` and
 `regression` (plus the entry's `observed_at`). `repaired` needs `reviewed`, `equal` true and
 `regression` false. A re-measurement that shows a regression is reported as such and is not success.
 

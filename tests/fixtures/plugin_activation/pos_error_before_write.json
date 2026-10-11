@@ -1,0 +1,26 @@
+{
+  "schema": "ellmos.open-ocean-plugin-activation-record.v1",
+  "records": [
+    {
+      "consumer": "claude",
+      "host": "host-a",
+      "plugin_id": "example-plugin@example-market",
+      "scope": "user",
+      "state": "error",
+      "evidence": {
+        "request_id": "req-2",
+        "error_code": "lock_held",
+        "last_evidence": "lock:host-a"
+      },
+      "write": {
+        "requested_value": "enabled",
+        "writer_host": "host-a",
+        "steps": [
+          "plan",
+          "lock_host_check"
+        ],
+        "backup_ref": null
+      }
+    }
+  ]
+}

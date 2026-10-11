@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Documentation-loop contract `architecture/ocean-doc-loop.v1.json` (states trigger_planned, task_created, executed, corrected, reviewed, repaired with mandatory evidence), checker `tools/check_doc_loop_contract.py`, positive and negative fixtures and tests. Contract and fixtures only; no runtime.
+- Plugin-activation contract `architecture/plugin-activation.v1.json` (states plugged, unplugged, pending_restart, unknown, error with mandatory read-back evidence; flag-only, default-true and foreign-host writes rejected), checker `tools/check_plugin_activation_contract.py`, positive and negative fixtures and tests. Contract and fixtures only; no writer, no runtime.
 
 ## Unreleased — 2026-09-29
 

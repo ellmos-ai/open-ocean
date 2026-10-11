@@ -1,0 +1,98 @@
+{
+  "positive": [
+    "pos_error_before_write.json",
+    "pos_error_mismatch_rolled_back.json",
+    "pos_foreign_host_display_only.json",
+    "pos_open_consumer.json",
+    "pos_pending_restart.json",
+    "pos_plugged_claude_user.json",
+    "pos_unknown_entry_absent.json",
+    "pos_unknown_gemini.json",
+    "pos_unplugged.json"
+  ],
+  "negative": {
+    "neg_bad_hash.json": [
+      "E_HASH"
+    ],
+    "neg_consumer_pattern.json": [
+      "E_ENUM"
+    ],
+    "neg_consumer_type.json": [
+      "E_TYPE"
+    ],
+    "neg_default_applied.json": [
+      "E_DEFAULT_TRUE"
+    ],
+    "neg_default_true_source.json": [
+      "E_DEFAULT_TRUE"
+    ],
+    "neg_duplicate_key.json": [
+      "E_KEY"
+    ],
+    "neg_entry_missing_claims_plugged.json": [
+      "E_DEFAULT_TRUE",
+      "E_MISSING_EVIDENCE"
+    ],
+    "neg_error_no_backup_after_write.json": [
+      "E_NO_BACKUP",
+      "E_ERROR_NO_ROLLBACK"
+    ],
+    "neg_error_no_rollback.json": [
+      "E_ERROR_NO_ROLLBACK"
+    ],
+    "neg_flag_only.json": [
+      "E_FLAG_ONLY"
+    ],
+    "neg_foreign_host_write.json": [
+      "E_FOREIGN_HOST_WRITE"
+    ],
+    "neg_mismatch_not_error.json": [
+      "E_MISMATCH_NO_ERROR"
+    ],
+    "neg_missing_key.json": [
+      "E_KEY"
+    ],
+    "neg_no_backup.json": [
+      "E_NO_BACKUP"
+    ],
+    "neg_no_readback.json": [
+      "E_NO_READBACK"
+    ],
+    "neg_pending_runtime_true.json": [
+      "E_PENDING_RUNTIME"
+    ],
+    "neg_requested_after_observed.json": [
+      "E_TIME"
+    ],
+    "neg_runtime_without_ref.json": [
+      "E_RUNTIME_NO_REF"
+    ],
+    "neg_scope_enum.json": [
+      "E_ENUM"
+    ],
+    "neg_state_contradicts_readback.json": [
+      "E_MISMATCH_NO_ERROR"
+    ],
+    "neg_state_unknown_value.json": [
+      "E_STATE"
+    ],
+    "neg_time_no_zone.json": [
+      "E_TIME"
+    ],
+    "neg_toggle_incomplete.json": [
+      "E_TOGGLE_ORDER"
+    ],
+    "neg_toggle_order.json": [
+      "E_TOGGLE_ORDER"
+    ],
+    "neg_unknown_no_reason.json": [
+      "E_UNKNOWN_NEEDS_REASON"
+    ],
+    "neg_unknown_with_readback.json": [
+      "E_UNKNOWN_NEEDS_REASON"
+    ],
+    "neg_wrong_schema.json": [
+      "E_SCHEMA"
+    ]
+  }
+}

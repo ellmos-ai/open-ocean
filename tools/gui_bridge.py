@@ -26,7 +26,7 @@ BRIDGE_CONFIG = "ocean.gui-bridge.json"
 PAGE_ROUTES = {
     "overview": "/", "tasks": "/tasks", "life": "/life", "memory": "/memory",
     "domains": "/domains", "artefakte": "/artefakte", "skills": "/skills",
-    "software": "/skills/software", "plugins": "/skills/plugins", "mcp": "/skills/mcp",
+    "software": "/skills/software", "ocean": "/skills/ocean", "plugins": "/skills/plugins", "mcp": "/skills/mcp",
     "blueprints": "/agenten/blueprints", "fabrika": "/agenten/fabrika",
     "marblerun": "/agenten/marblerun", "running": "/agenten/running",
     "sessions": "/agenten/sessions", "governance": "/governance",
@@ -305,18 +305,37 @@ def mount_gui_bridge(app: Any, bridge: GuiBridge, require_auth: Callable, requir
     capability_route.__annotations__["request"] = Request
     app.add_api_route("/api/gui/capabilities", capability_route, methods=["GET"])
 
+    def add_guarded(path, endpoint):
+        """Authentication runs first for EVERY method and for the trailing-slash path, so an unauthenticated
+        caller never sees a 405 or a slash redirect; only authenticated non-GET requests get 405."""
+        def route(request):
+            require_auth(request)
+            if request.method != "GET":
+                return JSONResponse({"detail": "method_not_allowed"}, status_code=405,
+                                    headers={"Allow": "GET", "Cache-Control": "no-store"})
+            return endpoint(request)
+        route.__annotations__["request"] = Request
+        for variant in (path, path + "/"):
+            app.add_api_route(variant, route, methods=["GET", "HEAD", "OPTIONS", "POST", "PUT", "PATCH", "DELETE"],
+                              include_in_schema=variant == path)
+
     def catalog_route(request):
-        require_auth(request)
+        # Same validation outcome as BACH's FastAPI Query constraints: 422 with a detail list.
         kind = request.query_params.get("kind")
         host = request.query_params.get("host")
-        if (kind is not None and kind not in CATALOG_KINDS) or (host is not None and not 0 < len(host) <= 80):
-            return JSONResponse({"detail": "unsupported_query"}, status_code=400, headers={"Cache-Control": "no-store"})
+        problems = []
+        if kind is not None and kind not in CATALOG_KINDS:
+            problems.append({"loc": ["query", "kind"], "msg": "String should match pattern", "type": "string_pattern_mismatch"})
+        if host is not None and not 1 <= len(host) <= 80:
+            problems.append({"loc": ["query", "host"], "msg": "String should have between 1 and 80 characters",
+                             "type": "string_too_short" if not host else "string_too_long"})
+        if problems:
+            return JSONResponse({"detail": problems}, status_code=422, headers={"Cache-Control": "no-store"})
         if bridge.providers["catalog"] is None:
             return JSONResponse({"available": False, "reason": "Kein nativer Anbieter konfiguriert.",
                                  "runtime_verified": False}, status_code=503, headers={"Cache-Control": "no-store"})
         return JSONResponse(bridge.providers["catalog"](kind=kind, host=host), headers={"Cache-Control": "no-store"})
-    catalog_route.__annotations__["request"] = Request
-    app.add_api_route("/api/capabilities/catalog", catalog_route, methods=["GET"])
+    add_guarded("/api/capabilities/catalog", catalog_route)
 
     def make_route(name, *, kind=None):
         def route(request):

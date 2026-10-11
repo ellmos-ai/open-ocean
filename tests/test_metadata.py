@@ -112,8 +112,11 @@ def test_readme_badges_and_parity():
     readme_en = (ROOT / "README.md").read_text(encoding="utf-8")
     readme_de = (ROOT / "README_de.md").read_text(encoding="utf-8")
 
-    assert 'src="assets/banner.png"' in readme_en
-    assert 'src="assets/banner.png"' in readme_de
+    player_image_link = "](assets/ocean-film-player.svg)](https://youtu.be/S-oiYUg4GLA)"
+    for doc, name in [(readme_en, "README.md"), (readme_de, "README_de.md")]:
+        assert doc.count(player_image_link) == 1, f"{name} must have exactly one linked video banner"
+        assert '<img src="assets/banner.png"' not in doc, f"{name} must not add a separate banner image"
+
     assert "[Deutsch](README_de.md)" in readme_en
     assert "[English](README.md)" in readme_de
 

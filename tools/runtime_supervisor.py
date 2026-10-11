@@ -20,6 +20,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
+try:  # run as a script (tools/ on sys.path) or imported as ``tools.runtime_supervisor``
+    from tools import windows_job
+except ImportError:  # pragma: no cover - script invocation
+    import windows_job  # type: ignore[no-redef]
+
 
 STATE_SCHEMA = "ellmos.open-ocean-runtime-state.v1"
 ATOMIC_REPLACE_ATTEMPTS = 20
@@ -285,6 +290,7 @@ def _terminate_child(
     timeout: float = 5.0,
     *,
     process_fence: dict[str, Any] | None = None,
+    job_handle: int | None = None,
 ) -> None:
     if os.name != "nt":
         if process_fence is None:
@@ -293,15 +299,21 @@ def _terminate_child(
             )
         _terminate_posix_group(child, process_fence, timeout)
         return
-    if child.poll() is not None:
+    if job_handle is None:
+        if child.poll() is None:
+            raise ProcessFenceError(
+                "Windows-Stop ohne Job-Objekt verweigert; kein Direkt-Kind-Only-Fallback."
+            )
         return
-    child.terminate()
+    # Always end the job, even if the direct child is already gone: its helpers may not be.
+    try:
+        windows_job.terminate_job(job_handle)
+    except OSError as exc:
+        raise ProcessFenceError(f"Windows-Job konnte nicht beendet werden: {exc}") from exc
     try:
         child.wait(timeout=timeout)
-        return
-    except subprocess.TimeoutExpired:
-        child.kill()
-        child.wait(timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        raise ProcessFenceError("Runtime-Kind endete nach dem Beenden des Jobs nicht.") from exc
 
 
 class _LoopbackControlServer(ThreadingHTTPServer):
@@ -322,6 +334,7 @@ def _handler(
     token: str,
     child: subprocess.Popen[Any],
     process_fence: dict[str, Any] | None,
+    job_handle: int | None = None,
 ):
     class Handler(BaseHTTPRequestHandler):
         def _authorized(self) -> bool:
@@ -363,7 +376,7 @@ def _handler(
                 self._json(404, {"error": "not-found"})
                 return
             try:
-                _terminate_child(child, process_fence=process_fence)
+                _terminate_child(child, process_fence=process_fence, job_handle=job_handle)
             except ProcessFenceError as exc:
                 self._json(409, {
                     "status": "stop-failed",
@@ -401,7 +414,12 @@ def supervise(spec_path: Path) -> int:
     creationflags = 0
     start_new_session = os.name != "nt"
     if os.name == "nt":
-        creationflags = subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
+        # Suspended until the kill-on-close job holds it, so no descendant can predate it.
+        creationflags = (
+            subprocess.CREATE_NO_WINDOW
+            | subprocess.CREATE_NEW_PROCESS_GROUP
+            | windows_job.CREATE_SUSPENDED
+        )
     shutdown_requested = False
     previous_sigterm = None
 
@@ -414,6 +432,7 @@ def supervise(spec_path: Path) -> int:
 
     child: subprocess.Popen[Any] | None = None
     process_fence: dict[str, Any] | None = None
+    job_handle: int | None = None
     server: ThreadingHTTPServer | None = None
     state: dict[str, Any] | None = None
     try:
@@ -430,9 +449,18 @@ def supervise(spec_path: Path) -> int:
             )
             if os.name != "nt":
                 process_fence = _capture_posix_process_fence(child.pid)
+            else:
+                try:
+                    job_handle = windows_job.create_kill_on_close_job()
+                    windows_job.assign_and_resume(job_handle, child)
+                except OSError as exc:
+                    # Never run the child outside the job: end it unstarted, no fallback.
+                    child.kill()
+                    child.wait()
+                    raise ProcessFenceError(f"Windows-Job-Zuweisung fehlgeschlagen: {exc}") from exc
             server = _LoopbackControlServer(("127.0.0.1", 0), lambda *args: None)
             server.stop_requested = False
-            server.RequestHandlerClass = _handler(server, token, child, process_fence)
+            server.RequestHandlerClass = _handler(server, token, child, process_fence, job_handle)
             server.timeout = 0.2
             state = {
                 "schema": STATE_SCHEMA,
@@ -466,7 +494,7 @@ def supervise(spec_path: Path) -> int:
                 if os.name != "nt" and process_fence is None:
                     _terminate_unfenced_posix_child(child)
                 else:
-                    _terminate_child(child, process_fence=process_fence)
+                    _terminate_child(child, process_fence=process_fence, job_handle=job_handle)
             except ProcessFenceError as exc:
                 cleanup_error = exc
                 if state is not None:
@@ -481,6 +509,8 @@ def supervise(spec_path: Path) -> int:
                 if state is not None:
                     state.update({"status": "stopped", "returncode": child.poll(), "stopped_at": _now()})
                     _write_json_atomic(state_path, state)
+        if job_handle is not None:
+            windows_job.close_job(job_handle)
         if previous_sigterm is not None:
             signal.signal(signal.SIGTERM, previous_sigterm)
         if cleanup_error is not None:

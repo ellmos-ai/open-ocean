@@ -349,7 +349,7 @@ def test_real_workspace_skills_equal_yaml_safe_load():
         reference = reference if isinstance(reference, dict) else {}
         for key, field, fallback in (("description", "description", ""), ("category", "category", "general")):
             expected = reference.get(key) if isinstance(reference.get(key), str) else fallback
-            assert item[field] == _redact(expected[:300 if key == "description" else 100], [0]), (item["id"], key)
+            assert item[field] == expected[:300 if key == "description" else 100], (item["id"], key)  # BACH redacts nothing here
         described += bool(item["description"])
         categories += item["category"] != "general"
     print(f"real skills: {result['count']}, descriptions: {described}, non-default categories: {categories}, "
@@ -367,3 +367,18 @@ def test_skills_page_also_needs_the_assignment_tab_endpoints(tmp_path):
     assert {"GET /api/skills-board/hierarchy", "PUT /api/skills-board/hierarchy",
             "GET /api/gui/capabilities"} <= set(PAGE_REQUIRES["skills"])
     assert page["status"] == "unavailable"
+
+
+def test_skill_library_keeps_description_text_literal_but_inventory_still_redacts_paths(tmp_path):
+    ws = _workspace(tmp_path)
+    win = "C:" + chr(92) + "x" + chr(92) + "y"
+    _skill(ws, "nulcleaner", "---\nname: Null\ndescription: Writes to /dev/null and " + win + "\ncategory: tools /dev/null\n---\nbody")
+    skill = _by_id(ws)["nulcleaner"]
+    assert skill["description"] == skill["role"] == "Writes to /dev/null and " + win
+    assert skill["category"] == "tools /dev/null"
+    # negative control: the redaction itself is intact and still applied to the Ocean source inventory
+    from tools.catalog_projection import REDACTED, _redact
+    assert _redact(win, [0]) == REDACTED
+    import inspect
+    from tools import capability_views
+    assert "_redact(result, [0])" in inspect.getsource(capability_views.ocean_inventory)

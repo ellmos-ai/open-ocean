@@ -167,4 +167,6 @@ def skill_library(*, workspace: Path) -> dict:
               "declared_only_included": False}
     if _yaml is None:
         result["degraded"] = ["frontmatter:yaml-unavailable"]  # additive: names/versions/descriptions could not be read
-    return _bounded(_redact(result, [0]))
+    # No path redaction: the BACH library has no path field, and name/category/version/description are the skill author's own
+    # text (a literal /dev/null must stay as written). Redaction stays on the Ocean source inventory above.
+    return _bounded(result)

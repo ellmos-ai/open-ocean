@@ -280,16 +280,65 @@ def test_the_real_lifecycle_selection_picks_exactly_one_valid_component(tmp_path
     assert select_usecases_component([foreign], workspace) is None                      # outside <workspace>/modules
 
 
-def test_the_real_lifecycle_function_writes_the_selection_into_the_bridge_config():
-    """up_from_paths is exercised end to end by test_ocean_cli; here the written key is read from the real code path."""
-    import ast
-    import inspect
+def test_the_real_config_builder_stores_the_selection_under_usecases_component(tmp_path, monkeypatch):
     from tools import ocean_lifecycle
-    tree = ast.parse(inspect.getsource(ocean_lifecycle.up_from_paths).replace("\r\n", "\n"))
-    calls = [n for n in ast.walk(tree) if isinstance(n, ast.Call) and getattr(n.func, "id", None) == "select_usecases_component"]
-    stores = [n for n in ast.walk(tree) if isinstance(n, ast.Subscript) and isinstance(n.slice, ast.Constant)
-              and n.slice.value == "usecases_component" and isinstance(n.ctx, ast.Store)]
-    assert calls and stores, "up_from_paths no longer writes usecases_component from select_usecases_component"
+    workspace = tmp_path / "ws"
+    chosen = _composed(workspace)
+    monkeypatch.setattr(ocean_lifecycle, "select_usecases_component", lambda components, root: chosen)
+    config = ocean_lifecycle.build_bridge_config({"bundles_root": "b"}, [chosen], workspace, None)
+    assert config == {"schema": "ellmos.open-ocean.gui-bridge.v1", "plan_paths": {"bundles_root": "b"},
+                      "usecases_component": chosen}
+    monkeypatch.setattr(ocean_lifecycle, "select_usecases_component", lambda components, root: None)
+    config = ocean_lifecycle.build_bridge_config({"bundles_root": "b"}, [chosen], workspace, None)
+    assert "usecases_component" not in config and config["plan_paths"] == {"bundles_root": "b"}
+
+
+def test_the_config_builder_with_the_real_selector_binds_only_a_composed_module(tmp_path):
+    from tools.ocean_lifecycle import build_bridge_config
+    workspace = tmp_path / "ws"
+    assert build_bridge_config({}, [_composed(workspace)], workspace, None)["usecases_component"] == _composed(workspace)
+    assert "usecases_component" not in build_bridge_config({}, [_composed(workspace, kind="skill")], workspace, None)
+
+
+def _make_junction(link: Path, target: Path) -> None:
+    """A directory link out of the workspace; a missing capability is a visible skip, and a failure on CI."""
+    try:
+        link.symlink_to(target, target_is_directory=True)
+        return
+    except OSError:
+        pass
+    if os.name == "nt":
+        done = subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)], capture_output=True, text=True)
+        if done.returncode == 0:
+            return
+    message = "neither a symlink nor a junction could be created on this host"
+    if os.environ.get("CI"):
+        pytest.fail(message + " (CI must not skip the link-escape test)")
+    pytest.skip(message)
+
+
+def test_a_modules_folder_that_is_a_link_out_of_the_workspace_is_refused(tmp_path):
+    from tools.gui_bridge import BridgeUnavailable
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    outside = tmp_path / "outside"
+    (outside / "ellmos-tests").mkdir(parents=True)
+    (outside / "ellmos-tests" / "usecases.json").write_text(json.dumps(SOURCE), encoding="utf-8")
+    _make_junction(workspace / "modules", outside)
+    with pytest.raises(BridgeUnavailable):
+        usecases_reader(_composed(workspace), workspace / "modules")
+    from tools.ocean_lifecycle import select_usecases_component
+    assert select_usecases_component([_composed(workspace)], workspace) is None
+
+
+@pytest.mark.skipif(os.name != "nt", reason="letter case only differs on case-insensitive Windows paths")
+def test_a_path_that_only_differs_in_letter_case_is_accepted_on_windows(tmp_path):
+    module = tmp_path / "ws" / "modules" / "ellmos-tests"
+    module.mkdir(parents=True)
+    (module / "usecases.json").write_text(json.dumps(SOURCE), encoding="utf-8")
+    shouting = _component(Path(str(module).upper()))
+    reader = usecases_reader(shouting, Path(str(module.parent).swapcase()))
+    assert reader()["stats"]["total"] == 7
 
 
 # ---- the GUI's own page script, executed -------------------------------------------------------------------------

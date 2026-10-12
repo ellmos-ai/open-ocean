@@ -326,7 +326,9 @@ class GuiBridge:
                               "reason": None if provider else "Kein nativer Anbieter konfiguriert."})
         usecases_reason = "source-not-in-composition"
         if self.providers["usecases"] is not None:
-            try:  # bounded: one file of at most USECASES_LIMIT bytes, like the lock-cache read below
+            # ponytail: re-reads and re-validates usecases.json on every capabilities call (at most USECASES_LIMIT = 4 MiB
+            # and USECASE_MAX_ROWS = 10k rows); add an mtime/size keyed cache in usecases_reader if the GUI polls this often.
+            try:
                 self.providers["usecases"]()
                 usecases_reason = None
             except UsecasesUnavailable as exc:

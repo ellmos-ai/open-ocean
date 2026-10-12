@@ -881,6 +881,20 @@ def select_usecases_component(components: list[dict[str, Any]], workspace: Path)
     return candidates[0]
 
 
+def build_bridge_config(plan_paths: dict[str, str], components: list[dict[str, Any]], workspace: Path,
+                        policy_registry: Path | None) -> dict[str, Any]:
+    """The content of ocean.gui-bridge.json: plan paths plus the bound policy-registry and ellmos-tests components."""
+    bridge_config: dict[str, Any] = {"schema": "ellmos.open-ocean.gui-bridge.v1", "plan_paths": plan_paths}
+    policy_components = [item for item in components if item.get("kind") == "module"
+                         and (item.get("detail") or {}).get("catalog_id") == "policy-registry"]
+    if policy_registry is not None and len(policy_components) == 1:
+        bridge_config.update({"policy_registry": str(policy_registry), "policy_component": policy_components[0]})
+    usecases_component = select_usecases_component(components, workspace)
+    if usecases_component is not None:
+        bridge_config["usecases_component"] = usecases_component
+    return bridge_config
+
+
 def up_from_paths(
     *,
     bundles_root: Path,
@@ -928,14 +942,7 @@ def up_from_paths(
                       "source_pins": str(source_pins)}
         if component_bindings is not None:
             plan_paths["component_bindings"] = str(component_bindings)
-        bridge_config = {"schema": "ellmos.open-ocean.gui-bridge.v1", "plan_paths": plan_paths}
-        policy_components = [item for item in transaction["components"] if item.get("kind") == "module"
-                             and (item.get("detail") or {}).get("catalog_id") == "policy-registry"]
-        if policy_registry is not None and len(policy_components) == 1:
-            bridge_config.update({"policy_registry": str(policy_registry), "policy_component": policy_components[0]})
-        usecases_component = select_usecases_component(transaction["components"], workspace)
-        if usecases_component is not None:
-            bridge_config["usecases_component"] = usecases_component
+        bridge_config = build_bridge_config(plan_paths, transaction["components"], workspace, policy_registry)
         _write_json_private(workspace / "ocean.gui-bridge.json", bridge_config)
     _assert_composition_complete(plan, workspace)
     runtime_state = start_runtime(

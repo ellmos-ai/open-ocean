@@ -184,22 +184,103 @@ def policy_registry_reader(component: dict[str, Any], registry_path: Path, provi
     return read
 
 
+USECASES_FILE = "usecases.json"
+USECASES_LIMIT = 4 * 1024 * 1024
+# bach.db `usecases` columns, in table order: BACH's GET /api/usecases returns whole rows (SELECT *).
+USECASE_COLUMNS = ("id", "title", "description", "workflow_path", "workflow_name", "test_input", "expected_output",
+                   "last_tested", "test_result", "test_score", "tuev_valid_until", "created_by", "created_at", "updated_at")
+
+
+class UsecasesUnavailable(Exception):
+    """Stable machine-readable reason (never a path or an exception text) for the 503 body."""
+
+    def __init__(self, reason: str):
+        super().__init__(reason)
+        self.reason = reason
+
+
+def _optional_text(value: Any) -> bool:
+    return value is None or isinstance(value, str)
+
+
+def usecases_reader(component: dict[str, Any]) -> Callable[[], dict]:
+    """Serve BACH's ``GET /api/usecases`` contract from the ellmos-tests module bound in the composition.
+
+    The file is ``usecases.json`` of that module (generator tools/usecases_sync.py, exported from bach.db). It carries
+    id/title/description/test_score/last_tested natively; ``test_result`` is derived from ``test_score`` with BACH's own
+    rule (>=75 pass, >0 fail, else pending) and named under ``source.derived``; the other bach.db columns stay null
+    (not invented); module/covering_skill/coverage_status ride along as additive fields the GUI ignores.
+    """
+    detail = component.get("detail") if isinstance(component, dict) else None
+    if not isinstance(detail, dict) or detail.get("catalog_id") != "ellmos-tests" or not isinstance(detail.get("local_path"), str):
+        raise BridgeUnavailable("Die ellmos-tests-Bindung der Komposition ist ungültig.")
+    root = Path(detail["local_path"])
+
+    def read() -> dict:
+        try:
+            raw, _ = _read_bytes(root / USECASES_FILE, root, USECASES_LIMIT)
+        except FileNotFoundError:
+            raise UsecasesUnavailable("source-missing") from None
+        except ValueError:
+            raise UsecasesUnavailable("source-too-large") from None
+        except OSError:
+            raise UsecasesUnavailable("source-unreadable") from None
+        try:
+            document = json.loads(raw.decode("utf-8-sig"))
+        except ValueError:  # JSONDecodeError and UnicodeDecodeError
+            raise UsecasesUnavailable("source-invalid") from None
+        meta = document.get("_meta") if isinstance(document, dict) else None
+        items = document.get("usecases") if isinstance(document, dict) else None
+        if not isinstance(items, list) or not (meta is None or isinstance(meta, dict)):
+            raise UsecasesUnavailable("source-invalid")
+        rows, seen = [], set()
+        for item in items:
+            if (not isinstance(item, dict) or isinstance(item.get("id"), bool) or not isinstance(item.get("id"), int)
+                    or item["id"] <= 0 or item["id"] in seen
+                    or not isinstance(item.get("title"), str) or not item["title"].strip()
+                    or not all(_optional_text(item.get(key)) for key in
+                               ("description", "last_tested", "module", "covering_skill", "coverage_status"))):
+                raise UsecasesUnavailable("source-invalid")
+            score = item.get("test_score")
+            if score is not None and (isinstance(score, bool) or not isinstance(score, int) or not 0 <= score <= 100):
+                raise UsecasesUnavailable("source-invalid")
+            seen.add(item["id"])
+            row = dict.fromkeys(USECASE_COLUMNS)
+            row.update({key: item.get(key) for key in ("id", "title", "description", "last_tested", "test_score")})
+            if score is not None:
+                row["test_result"] = "pass" if score >= 75 else ("fail" if score > 0 else "pending")
+            row.update({key: item.get(key) for key in ("module", "covering_skill", "coverage_status")})
+            rows.append(row)
+        rows.sort(key=lambda row: (row["title"].encode("utf-8"), row["id"]))  # SQLite ORDER BY title (BINARY)
+        passed = sum(1 for row in rows if row["test_result"] == "pass")
+        failed = sum(1 for row in rows if row["test_result"] == "fail")
+        meta = meta or {}
+        generated, source_db = meta.get("generated_at"), meta.get("source_db")
+        return {"success": True, "usecases": rows,
+                "stats": {"total": len(rows), "pass": passed, "fail": failed, "pending": len(rows) - passed - failed},
+                "source": {"id": "ellmos-tests", "file": USECASES_FILE, "read_only": True,
+                           "generated_at": generated if isinstance(generated, str) else None,
+                           "source_db": source_db if isinstance(source_db, str) else None,
+                           "derived": ["test_result", "stats"]}}
+    return read
+
+
 class GuiBridge:
     def __init__(self, *, gui: VerifiedGuiRelease | None = None,
                  plan: Callable[[], dict] | None = None, status: Callable[[], dict] | None = None,
                  policies: Callable[[], dict] | None = None, modules: list[dict] | None = None,
                  catalog: Callable[..., dict] | None = None, ocean: Callable[[], dict] | None = None,
                  skills: Callable[[], dict] | None = None, registry: Callable[..., dict] | None = None,
-                 locks: Callable[[], dict] | None = None):
+                 locks: Callable[[], dict] | None = None, usecases: Callable[[], dict] | None = None):
         self.gui = gui
         self.providers = {"detect": self.detect, "plan": plan, "status": status, "policies": policies, "catalog": catalog,
-                          "ocean": ocean, "skills": skills, "registry": registry, "locks": locks}
+                          "ocean": ocean, "skills": skills, "registry": registry, "locks": locks, "usecases": usecases}
         self.modules = modules or []
 
     def detect(self) -> dict:
         return {"schema": "ellmos.open-ocean.installer-detect.v1", "read_only": True,
                 "provider": {"id": "open-ocean", "version": "0.1.2"},
-                "native": {name: provider is not None for name, provider in self.providers.items() if name not in {"detect", "registry", "locks"}},
+                "native": {name: provider is not None for name, provider in self.providers.items() if name not in {"detect", "registry", "locks", "usecases"}},
                 "apply": {"available": False, "reason": "Nur die externe Installer-Approval-/Grant-Kette darf Änderungen ausführen."},
                 "runtime_verified": False, "verification_scope": "adapter"}
 
@@ -239,7 +320,8 @@ class GuiBridge:
                  "Weder Lock-Cache noch Policy-Registry gebunden.", {"id": "open-ocean", "version": "0.1.2"}),
                 ("/api/governance/locks", lock_ok, lock_reason, {"id": "lock-cache", "version": None}),
                 ("/api/governance/audit", False, "task_history_unavailable", None),
-                ("/api/usecases", False, "source-not-in-composition", None)]:
+                ("/api/usecases", self.providers["usecases"] is not None, "source-not-in-composition",
+                 {"id": "ellmos-tests", "version": None})]:
             endpoints.append({"method": "GET", "path": path, "kind": "read", "available": available,
                               "provider": provider if available else None,
                               "auth": "provider-session", "runtime_verified": False, "verification_scope": "adapter",
@@ -361,8 +443,15 @@ def _bridge_core(workspace: Path, *, gui_pins: tuple[str, str] | None = None) ->
                 "repository": gov.REPOSITORY, "verified": True})
         except Exception:
             modules.append({"id": "policy-registry", "verified": False})
+    usecases = None
+    uc_component = config.get("usecases_component")
+    if isinstance(uc_component, dict):
+        try:
+            usecases = usecases_reader(uc_component)
+        except BridgeUnavailable:
+            usecases = None
     return GuiBridge(gui=gui, plan=plan, status=status, policies=policies, modules=modules,
-                     registry=registry_reader, locks=locks)
+                     registry=registry_reader, locks=locks, usecases=usecases)
 
 
 def mount_gui_bridge(app: Any, bridge: GuiBridge, require_auth: Callable, require_admin: Callable) -> None:
@@ -535,5 +624,14 @@ def _mount_governance(app: Any, bridge: GuiBridge, add_guarded: Callable, requir
     add_guarded("/api/governance/audit", audit_route)
 
     def usecases_route(request):
-        return json_response({"available": False, "reason": "source-not-in-composition"}, status_code=503, headers=headers)
+        provider = bridge.providers["usecases"]
+        reason = "source-not-in-composition"
+        if provider is not None:
+            try:
+                return json_response(provider(), headers=headers)
+            except UsecasesUnavailable as exc:
+                reason = exc.reason
+            except Exception:  # noqa: BLE001 - the body carries a stable code, never exception text
+                reason = "source-unreadable"
+        return json_response({"available": False, "reason": reason}, status_code=503, headers=headers)
     add_guarded("/api/usecases", usecases_route)

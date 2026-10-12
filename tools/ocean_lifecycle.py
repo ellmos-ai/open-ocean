@@ -915,6 +915,10 @@ def up_from_paths(
                              and (item.get("detail") or {}).get("catalog_id") == "policy-registry"]
         if policy_registry is not None and len(policy_components) == 1:
             bridge_config.update({"policy_registry": str(policy_registry), "policy_component": policy_components[0]})
+        usecase_components = [item for item in transaction["components"] if item.get("kind") == "module"
+                              and (item.get("detail") or {}).get("catalog_id") == "ellmos-tests"]
+        if len(usecase_components) == 1:
+            bridge_config["usecases_component"] = usecase_components[0]
         _write_json_private(workspace / "ocean.gui-bridge.json", bridge_config)
     _assert_composition_complete(plan, workspace)
     runtime_state = start_runtime(

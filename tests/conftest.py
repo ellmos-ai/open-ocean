@@ -32,6 +32,7 @@ import os
 import signal
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -101,54 +102,167 @@ if os.name == "nt":  # pragma: no cover - exercised only on Windows
         return job
 
 
-def _iter_processes() -> list[tuple[int, int, str]]:
+class ProcessListError(RuntimeError):
+    """The process table could not be read. Never to be treated as "no process"."""
+
+
+def _windows_entry(entry: object) -> tuple[int, int, str]:
+    """One Get-CimInstance record, or ProcessListError: a record without ids is not "a process"."""
+    if not isinstance(entry, dict):
+        raise ProcessListError(f"process listing entry is not an object: {entry!r}")
+    pid, ppid, command = (entry.get(key) for key in ("ProcessId", "ParentProcessId", "CommandLine"))
+    if not all(isinstance(v, int) and not isinstance(v, bool) for v in (pid, ppid)) or not (
+        command is None or isinstance(command, str)
+    ):
+        raise ProcessListError(f"process listing entry has missing or mistyped fields: {entry!r}")
+    return pid, ppid, command or ""
+
+
+class ProcessListParseError(ProcessListError):
+    """The listing ran but its output was not valid JSON: the one error worth re-reading."""
+
+
+def _read_process_table(timeout: float = 120) -> list[tuple[int, int, str]]:
     """Return (pid, ppid, command line) for every visible process.
 
     Standard library only: this repository ships no runtime dependencies, so psutil is
     not available to its tests either.
     """
-    if os.name == "nt":
-        completed = subprocess.run(
-            [
-                "powershell", "-NoProfile", "-NonInteractive", "-Command",
-                "Get-CimInstance Win32_Process | "
-                "Select-Object ProcessId,ParentProcessId,CommandLine | ConvertTo-Json -Compress",
-            ],
-            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
+    # A failed read must not look like an empty process table: callers use "not in the list"
+    # as proof of death, so an error is raised instead of returned as [] (fail-closed).
+    try:
+        if os.name == "nt":
+            completed = subprocess.run(
+                [
+                    "powershell", "-NoProfile", "-NonInteractive", "-Command",
+                    "[Console]::OutputEncoding=[Text.Encoding]::UTF8; "
+                    "Get-CimInstance Win32_Process | "
+                    "Select-Object ProcessId,ParentProcessId,CommandLine | ConvertTo-Json -Compress",
+                ],
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout,
+            )
+        else:
+            completed = subprocess.run(
+                ["ps", "-eo", "pid=,ppid=,args="],
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout,
+            )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise ProcessListError(f"process listing failed: {exc}") from exc
+    if completed.returncode != 0 or not completed.stdout.strip():
+        raise ProcessListError(
+            f"process listing returned exit {completed.returncode} / empty output"
         )
-        if completed.returncode != 0 or not completed.stdout.strip():
-            return []
+
+    if os.name == "nt":
         try:
             payload = json.loads(completed.stdout)
-        except json.JSONDecodeError:
-            return []
+        except json.JSONDecodeError as exc:
+            raise ProcessListParseError(f"process listing is not valid JSON: {exc}") from exc
         if isinstance(payload, dict):
             payload = [payload]
-        return [
-            (int(entry.get("ProcessId") or 0), int(entry.get("ParentProcessId") or 0),
-             entry.get("CommandLine") or "")
-            for entry in payload
-        ]
+        if not isinstance(payload, list) or not payload:
+            raise ProcessListError("process listing has no entries")
+        return [_windows_entry(entry) for entry in payload]
 
-    completed = subprocess.run(
-        ["ps", "-eo", "pid=,ppid=,args="],
-        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
-    )
-    if completed.returncode != 0:
-        return []
     rows = []
     for line in completed.stdout.splitlines():
         parts = line.strip().split(None, 2)
         if len(parts) == 3 and parts[0].isdigit() and parts[1].isdigit():
             rows.append((int(parts[0]), int(parts[1]), parts[2]))
+    if not rows:
+        raise ProcessListError("process listing has no parsable rows")
     return rows
+
+
+LISTING_TIMEOUT = 120
+LISTING_DEADLINE = 180  # seconds for all attempts together
+
+
+def _iter_processes() -> list[tuple[int, int, str]]:
+    """The process table, or ProcessListError. Re-reads a transient unparsable snapshot.
+
+    The Windows listing is occasionally not valid JSON (seen once in ~60 runs of the
+    hygiene tests: a process appearing or exiting while PowerShell serialises ~200 KB).
+    Only that is retried, and only within LISTING_DEADLINE; a timeout, a failed command or
+    a structurally wrong record is raised at once, and an empty or invalid result after the
+    last attempt is still an error, never "no processes".
+    """
+    deadline = time.monotonic() + LISTING_DEADLINE
+    for attempt in range(3):
+        try:
+            return _read_process_table(max(1.0, min(LISTING_TIMEOUT, deadline - time.monotonic())))
+        except ProcessListParseError:
+            if attempt == 2 or time.monotonic() >= deadline:
+                raise
+    raise AssertionError("unreachable")
+
+
+SYNCHRONIZE = 0x00100000
+WAIT_OBJECT_0 = 0
+WAIT_TIMEOUT = 0x102
+ERROR_ACCESS_DENIED = 5
+ERROR_INVALID_PARAMETER = 87  # OpenProcess answer for a pid that does not exist
+
+
+def handle_is_alive(api, handle) -> bool:
+    """Is the process behind this SYNCHRONIZE handle still running?
+
+    Waits on the process object instead of reading its exit code: STILL_ACTIVE (259) is a
+    legal exit code, so a finished process can report it and look alive forever.
+    """
+    result = api.WaitForSingleObject(handle, 0)
+    if result == WAIT_TIMEOUT:
+        return True
+    if result == WAIT_OBJECT_0:
+        return False
+    raise ProcessListError(f"WaitForSingleObject returned {result:#x}")
+
+
+def open_process_for_wait(pid: int):  # pragma: no cover - exercised only on Windows
+    """A handle that pins this process (a pid can be reused, a handle cannot), or None.
+
+    None means the pid does not exist. Access denied is not "dead" and raises PermissionError.
+    """
+    api = kernel32()
+    api.OpenProcess.restype = wintypes.HANDLE
+    api.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    api.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+    api.WaitForSingleObject.restype = wintypes.DWORD
+    api.CloseHandle.argtypes = [wintypes.HANDLE]
+    handle = api.OpenProcess(SYNCHRONIZE, False, pid)
+    if handle:
+        return handle
+    error = ctypes.get_last_error()
+    if error == ERROR_INVALID_PARAMETER:
+        return None
+    if error == ERROR_ACCESS_DENIED:
+        raise PermissionError(pid)
+    raise ProcessListError(f"OpenProcess({pid}) failed with Windows error {error}")
+
+
+def _windows_pid_is_alive(pid: int) -> bool:  # pragma: no cover - exercised only on Windows
+    """Ask the kernel about this one pid instead of diffing a process listing.
+
+    An error other than "no such process" raises: it must not read as "dead".
+    """
+    try:
+        handle = open_process_for_wait(pid)
+    except PermissionError:
+        return True  # exists, merely not ours to open
+    if handle is None:
+        return False
+    api = kernel32()
+    try:
+        return handle_is_alive(api, handle)
+    finally:
+        api.CloseHandle(handle)
 
 
 def process_is_alive(pid: int) -> bool:
     if pid <= 0:
         return False
     if os.name == "nt":
-        return any(row[0] == pid for row in _iter_processes())
+        return _windows_pid_is_alive(pid)
     try:
         os.kill(pid, 0)
     except ProcessLookupError:

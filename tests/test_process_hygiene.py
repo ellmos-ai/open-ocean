@@ -23,12 +23,18 @@ import os
 import subprocess
 import sys
 import textwrap
+import threading
 import time
 
 import pytest
 
 import conftest
-from conftest import find_test_supervisors, process_is_alive, terminate_process_tree
+from conftest import (
+    ProcessListError,
+    find_test_supervisors,
+    process_is_alive,
+    terminate_process_tree,
+)
 
 PRODUCTION_COMMAND = (
     '"C:\\Program Files\\Python312\\pythonw.exe" '
@@ -173,6 +179,22 @@ def test_a_failed_start_does_not_walk_away_from_its_supervisor():
     assert in_finally, "the cleanup is not on a finally path; an early error would leak"
 
 
+PID_REPORT_TIMEOUT = 30
+
+
+def _read_line_within(stream, timeout: float) -> str:
+    """readline() with a deadline: a parent that hangs must fail the test, not stall it.
+
+    The reader thread is a daemon; the caller's `finally` kills the parent, which ends it.
+    """
+    box: list[str] = []
+    reader = threading.Thread(target=lambda: box.append(stream.readline()), daemon=True)
+    reader.start()
+    reader.join(timeout)
+    assert box, f"no line within {timeout}s -- the spawned parent is hanging"
+    return box[0]
+
+
 @pytest.mark.skipif(os.name != "nt", reason="job objects are a Windows mechanism")
 def test_job_object_kills_a_grandchild_when_it_closes():
     """The mechanism the suite relies on, proven on real processes.
@@ -199,7 +221,7 @@ def test_job_object_kills_a_grandchild_when_it_closes():
         [sys.executable, "-c", spawn],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
     )
-    handle = None
+    handle = grandchild = None
     try:
         # PROCESS_SET_QUOTA | PROCESS_TERMINATE -- what AssignProcessToJobObject needs
         handle = api.OpenProcess(0x0100 | 0x0001, False, parent.pid)
@@ -208,21 +230,161 @@ def test_job_object_kills_a_grandchild_when_it_closes():
         parent.stdin.write("go\n")
         parent.stdin.flush()
 
-        grandchild_pid = int(parent.stdout.readline().strip())
-        assert process_is_alive(grandchild_pid), "grandchild did not start"
+        grandchild_pid = int(_read_line_within(parent.stdout, PID_REPORT_TIMEOUT).strip())
+        # Pin the grandchild itself: the pid may be reused once it is gone, a handle may not.
+        grandchild = conftest.open_process_for_wait(grandchild_pid)
+        assert grandchild, "could not open the grandchild"
+        assert conftest.handle_is_alive(api, grandchild), "grandchild did not start"
 
         api.CloseHandle(job)
         job = None
 
         deadline = time.monotonic() + 20
-        while time.monotonic() < deadline and process_is_alive(grandchild_pid):
+        while time.monotonic() < deadline and conftest.handle_is_alive(api, grandchild):
             time.sleep(0.5)
-        assert not process_is_alive(grandchild_pid), (
+        assert not conftest.handle_is_alive(api, grandchild), (
             f"grandchild {grandchild_pid} survived the job closing"
         )
     finally:
+        try:
+            parent.stdin.close()
+        except OSError:
+            pass
         if handle:
             api.CloseHandle(ctypes.c_void_p(handle))
+        if grandchild:
+            api.CloseHandle(ctypes.c_void_p(grandchild))
         if job:
             api.CloseHandle(job)
         terminate_process_tree(parent.pid)
+
+
+def _fake_run(returncode=0, stdout=""):
+    class _Done:
+        pass
+
+    done = _Done()
+    done.returncode, done.stdout = returncode, stdout
+    return lambda *args, **kwargs: done
+
+
+@pytest.mark.parametrize("returncode, stdout", [
+    (1, ""),          # the listing command failed
+    (0, ""),          # ... or produced nothing
+    (0, "not json"),  # ... or garbage (Windows reader; on POSIX no row parses)
+    (0, "[]"),        # a live system always has processes
+])
+def test_a_failed_process_listing_raises_instead_of_reporting_no_processes(
+    monkeypatch, returncode, stdout,
+):
+    """A broken read used to come back as [] and read as "everything is dead"."""
+    monkeypatch.setattr(conftest.subprocess, "run", _fake_run(returncode, stdout))
+    with pytest.raises(ProcessListError):
+        conftest._iter_processes()
+
+
+def test_a_transient_bad_listing_is_read_again(monkeypatch):
+    answers = iter([_fake_run(0, "not json")(), _fake_run(
+        0, '[{"ProcessId": 7, "ParentProcessId": 1, "CommandLine": "x"}]',
+    )()])
+    monkeypatch.setattr(conftest.subprocess, "run", lambda *a, **k: next(answers))
+    if os.name != "nt":
+        pytest.skip("the JSON listing is the Windows reader")
+    assert conftest._iter_processes() == [(7, 1, "x")]
+
+
+def test_a_listing_that_cannot_be_run_raises(monkeypatch):
+    def boom(*args, **kwargs):
+        raise subprocess.TimeoutExpired("ps", 1)
+
+    monkeypatch.setattr(conftest.subprocess, "run", boom)
+    with pytest.raises(ProcessListError):
+        conftest._iter_processes()
+
+
+def test_supervisor_sweep_does_not_swallow_a_failed_listing(monkeypatch, tmp_path):
+    monkeypatch.setattr(conftest.subprocess, "run", _fake_run(1, ""))
+    with pytest.raises(ProcessListError):
+        find_test_supervisors(tmp_path)
+
+
+def test_process_is_alive_tells_a_live_process_from_an_exited_one():
+    assert process_is_alive(os.getpid())
+    child = subprocess.Popen([sys.executable, "-c", "pass"])
+    child.wait()
+    child_pid = child.pid
+    del child  # release the handle so Windows no longer keeps the pid object around
+    assert not process_is_alive(child_pid)
+
+
+class _FakeKernel:
+    """Answers WaitForSingleObject like the kernel; GetExitCodeProcess lies like a 259 exit."""
+
+    def __init__(self, wait_result):
+        self.wait_result = wait_result
+
+    def WaitForSingleObject(self, handle, milliseconds):
+        return self.wait_result
+
+    def GetExitCodeProcess(self, handle, code):
+        raise AssertionError("liveness must not be decided by the exit code")
+
+
+def test_a_process_that_exited_with_code_259_is_not_alive():
+    """STILL_ACTIVE is a legal exit code; the signalled process object says it ended."""
+    assert not conftest.handle_is_alive(_FakeKernel(conftest.WAIT_OBJECT_0), 1)
+
+
+def test_an_unsignalled_process_is_alive():
+    assert conftest.handle_is_alive(_FakeKernel(conftest.WAIT_TIMEOUT), 1)
+
+
+def test_an_unexpected_wait_result_raises():
+    with pytest.raises(ProcessListError):
+        conftest.handle_is_alive(_FakeKernel(0xFFFFFFFF), 1)  # WAIT_FAILED
+
+
+@pytest.mark.skipif(os.name != "nt", reason="the JSON listing is the Windows reader")
+@pytest.mark.parametrize("payload", [
+    "[{}]",
+    '[{"ProcessId": 7}]',
+    '[{"ProcessId": "7", "ParentProcessId": 1, "CommandLine": "x"}]',
+    '[{"ProcessId": 7, "ParentProcessId": 1, "CommandLine": 5}]',
+    "[1]",
+])
+def test_a_structurally_wrong_record_raises(monkeypatch, payload):
+    monkeypatch.setattr(conftest.subprocess, "run", _fake_run(0, payload))
+    with pytest.raises(ProcessListError):
+        conftest._iter_processes()
+
+
+@pytest.mark.skipif(os.name != "nt", reason="the JSON listing is the Windows reader")
+def test_an_idle_process_record_with_no_command_line_is_accepted(monkeypatch):
+    monkeypatch.setattr(conftest.subprocess, "run", _fake_run(
+        0, '[{"ProcessId": 0, "ParentProcessId": 0, "CommandLine": null}]',
+    ))
+    assert conftest._iter_processes() == [(0, 0, "")]
+
+
+def test_a_timeout_is_not_retried(monkeypatch):
+    calls = []
+
+    def boom(*args, **kwargs):
+        calls.append(1)
+        raise subprocess.TimeoutExpired("ps", 1)
+
+    monkeypatch.setattr(conftest.subprocess, "run", boom)
+    with pytest.raises(ProcessListError):
+        conftest._iter_processes()
+    assert len(calls) == 1
+
+
+@pytest.mark.skipif(os.name != "nt", reason="the JSON listing is the Windows reader")
+def test_retries_stop_at_the_total_deadline(monkeypatch):
+    calls = []
+    monkeypatch.setattr(conftest, "LISTING_DEADLINE", -1)
+    monkeypatch.setattr(conftest.subprocess, "run",
+                        lambda *a, **k: calls.append(1) or _fake_run(0, "not json")())
+    with pytest.raises(ProcessListError):
+        conftest._iter_processes()
+    assert len(calls) == 1

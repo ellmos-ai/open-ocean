@@ -160,13 +160,12 @@ def decisions_view(result: dict) -> dict:
 
 
 def policies_view(result: dict) -> dict:
-    """BACH adds name/desc/enforcement per policy or rule. BACH leaves `entries` unfiltered while overwriting `count`
-    (count != len(entries)); here entries are filtered the same way, so bach.policy-registry.v1 stays self-consistent."""
-    entries = [entry for entry in result["entries"] if entry["kind"] in {"policy", "rule"}]
+    """Exactly BACH `/governance/policies`: `policies` is the handler's own selection (policy/rule, with name/desc/
+    enforcement) while `entries` stays the unfiltered registry result, and `count` is len(policies). The GUI contract
+    says so (governance-readers.mjs:132); do not "repair" count != len(entries)."""
     policies = [{**entry, "name": entry["title"], "desc": "Quellenmetadaten aus policy-registry",
-                 "enforcement": "unverified"} for entry in entries]
-    return {**result, "entries": entries, "policies": policies, "count": len(entries),
-            "source_verification_complete": bool(entries) and all(e["source_verified"] for e in entries)}
+                 "enforcement": "unverified"} for entry in result["entries"] if entry["kind"] in {"policy", "rule"}]
+    return {**result, "policies": policies, "count": len(policies)}
 
 
 def status_view(locks: dict, read_registry: Callable[..., dict] | None) -> dict:
@@ -182,6 +181,8 @@ def status_view(locks: dict, read_registry: Callable[..., dict] | None) -> dict:
         "status": "observed" if locks["availability"] == "available" else "unknown",
         "timestamp": locks["checked_at"], "source": locks["source"], "availability": locks["availability"],
         "scanned_at": locks["scanned_at"], "error": locks["error"],
+        # explicit copies of the lock part's state (BACH's availability/error are the lock part's too)
+        "locks_availability": locks["availability"], "locks_reason": locks["error"],
         "recent_decisions": [e for e in entries if e["kind"] == "decision"][:15],
         "active_locks": locks["locks"][:25], "lock_count": locks["count"],
         "policies": [e for e in entries if e["kind"] in {"policy", "rule"}],

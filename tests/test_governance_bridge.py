@@ -229,8 +229,11 @@ def test_registry_is_bach_schema_public_pointers_only(tmp_path):
     policies = client.get("/api/governance/policies", headers=ADMIN).json()
     assert [p["id"] for p in policies["policies"]] == ["P-001", "R-001"] and policies["count"] == 2
     assert policies["policies"][0]["name"] == "Titel P-001" and policies["policies"][0]["enforcement"] == "unverified"
-    # entries are filtered like policies, so count == len(entries) (BACH leaves entries unfiltered but overwrites count)
-    assert [e["id"] for e in policies["entries"]] == ["P-001", "R-001"] and policies["count"] == len(policies["entries"])
+    # governance-readers.mjs:132 (ellmos-system-gui f530964): 'The list keys "decisions"/"policies" carry the handler's
+    # own selection; "entries" holds the unfiltered registry.' So entries stays unfiltered, count == len(policies)
+    # (BACH unified_api.py list_governance_policies). Filtering entries here would break that contract.
+    assert [e["id"] for e in policies["entries"]] == ["P-001", "D-001", "R-001"]
+    assert policies["count"] == len(policies["policies"]) == 2 != len(policies["entries"])
     assert policies["source_verification_complete"] is True
 
 
@@ -418,7 +421,18 @@ def _gui_accepts_audit(body) -> bool:
     return body.get("availability") == "available" and isinstance(body.get("events"), list)  # logs.astro:100
 
 
-needs_node = pytest.mark.skipif(NODE is None, reason="node is required to execute the GUI's own parser module")
+def _require_node(ci: str | None) -> None:
+    if NODE is None:
+        message = "node is required to execute the GUI's own parser module"
+        if ci:
+            pytest.fail(message + " (CI must not skip the contract test)")
+        pytest.skip(message)
+
+
+@pytest.fixture
+def node():
+    """On CI (env CI set) a missing node is a failure, never a silent skip."""
+    _require_node(os.environ.get("CI"))
 
 
 def test_the_vendored_gui_parser_is_the_pinned_file():
@@ -426,8 +440,7 @@ def test_the_vendored_gui_parser_is_the_pinned_file():
     assert hashlib.sha256(raw).hexdigest() == READERS_SHA256
 
 
-@needs_node
-def test_responses_satisfy_the_real_gui_parsers(tmp_path):
+def test_responses_satisfy_the_real_gui_parsers(tmp_path, node):
     client = _client(GuiBridge(registry=_registry_reader(tmp_path, ENTRIES),
                                locks=lambda: gov.lock_cache_snapshot(_cache(tmp_path))))
     get = lambda path, headers: client.get(path, headers=headers).json()  # noqa: E731
@@ -451,8 +464,7 @@ def test_responses_satisfy_the_real_gui_parsers(tmp_path):
     assert _gui_parse("parseStatus", bare.get("/api/governance/status", headers=HEADERS).json())["ok"]
 
 
-@needs_node
-def test_a_schema_deviation_is_rejected_by_the_real_gui_parsers(tmp_path):
+def test_a_schema_deviation_is_rejected_by_the_real_gui_parsers(tmp_path, node):
     """Negative control: the same bodies, each broken in one way a regression could break them."""
     client = _client(GuiBridge(registry=_registry_reader(tmp_path, ENTRIES),
                                locks=lambda: gov.lock_cache_snapshot(_cache(tmp_path))))
@@ -479,3 +491,23 @@ def test_a_schema_deviation_is_rejected_by_the_real_gui_parsers(tmp_path):
     # and the old Ocean-only schema would have failed here: no `availability`, no `entries` list of pointers
     legacy = {"schema": "ellmos.open-ocean.policy-metadata.v1", "read_only": True, "counts": {}, "entries": []}
     assert not _gui_parse("parseRegistry", legacy)["ok"]
+
+
+def test_a_missing_node_fails_on_ci_and_skips_locally(monkeypatch):
+    monkeypatch.setattr(__import__(__name__, fromlist=["x"]), "NODE", None)
+    with pytest.raises(pytest.fail.Exception):
+        _require_node("true")
+    with pytest.raises(pytest.skip.Exception):
+        _require_node("")
+
+
+def test_status_keeps_the_lock_reason_visible_when_only_the_registry_is_bound(tmp_path):
+    client = _client(GuiBridge(registry=_registry_reader(tmp_path, ENTRIES),
+                               locks=lambda: gov.lock_cache_snapshot(tmp_path / "missing" / "LOCK-CACHE.md")))
+    response = client.get("/api/governance/status", headers=HEADERS)
+    body = response.json()
+    assert response.status_code == 200 and body["policies_availability"] == "available"
+    assert body["locks_availability"] == "unavailable" and body["locks_reason"] == "lock_cache_missing"
+    assert body["availability"] == "unavailable" and [e["id"] for e in body["recent_decisions"]] == ["D-001"]
+    caps = _endpoints(GuiBridge(registry=_registry_reader(tmp_path, ENTRIES)))
+    assert caps["/api/governance/status"]["available"] is True and caps["/api/governance/locks"]["available"] is False

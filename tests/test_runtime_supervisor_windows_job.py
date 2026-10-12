@@ -56,23 +56,46 @@ def _calls(function, name: str) -> list[ast.Call]:
     ]
 
 
+def _position(function, name: str) -> tuple[int, int]:
+    """(line, column) of the first call to ``name`` inside ``function``."""
+    calls = _calls(function, name)
+    assert calls, f"{function.__name__} no longer calls {name}"
+    return min((call.lineno, call.col_offset) for call in calls)
+
+
 def test_the_windows_start_puts_the_child_into_a_job_before_it_runs():
-    """Pins the production decision on every platform (read through the AST)."""
-    assert _calls(runtime_supervisor.supervise, "create_kill_on_close_job"), (
-        "supervise no longer creates a kill-on-close job"
+    """Pins the production decision on every platform (read through the AST).
+
+    Compares source positions, not mere presence: spawn < job creation < assignment,
+    and in ``assign_and_resume`` the assignment precedes the resume.
+    """
+    supervise = runtime_supervisor.supervise
+    spawn = _position(supervise, "Popen")
+    create = _position(supervise, "create_kill_on_close_job")
+    assign = _position(supervise, "assign_and_resume")
+    assert spawn < create < assign, "job setup no longer follows the spawn in order"
+
+    tree = ast.parse(textwrap.dedent(inspect.getsource(supervise)))
+    windows_branches = [
+        node for node in ast.walk(tree)
+        if isinstance(node, ast.If) and "'nt'" in ast.unparse(node.test) or
+        isinstance(node, ast.If) and '"nt"' in ast.unparse(node.test)
+    ]
+    assert any(
+        "CREATE_SUSPENDED" in ast.unparse(node) and "creationflags" in ast.unparse(node)
+        for node in windows_branches
+    ), "the Windows branch no longer starts the child suspended"
+
+    inner = windows_job.assign_and_resume
+    assert _position(inner, "AssignProcessToJobObject") < _position(inner, "NtResumeProcess"), (
+        "the child would run before it is in the job"
     )
-    assert _calls(runtime_supervisor.supervise, "assign_and_resume"), (
-        "supervise no longer assigns the child to the job"
-    )
-    source = inspect.getsource(runtime_supervisor.supervise)
-    assert "CREATE_SUSPENDED" in source, "the child is no longer started suspended"
-    assert _calls(windows_job.assign_and_resume, "AssignProcessToJobObject"), (
-        "the job assignment disappeared from assign_and_resume"
-    )
-    order = [
-        node.func.attr for node in _calls(windows_job.assign_and_resume, "AssignProcessToJobObject")
-    ] + [node.func.attr for node in _calls(windows_job.assign_and_resume, "NtResumeProcess")]
-    assert order == ["AssignProcessToJobObject", "NtResumeProcess"], "resume must follow assignment"
+
+
+@windows_only
+def test_the_extended_limit_struct_has_the_documented_size():
+    if ctypes.sizeof(ctypes.c_void_p) == 8:
+        assert ctypes.sizeof(windows_job._ExtendedLimits) == windows_job.EXTENDED_LIMITS_SIZE_64
 
 
 @windows_only
@@ -113,6 +136,108 @@ def test_a_failed_job_assignment_kills_the_unstarted_child_and_fails_closed(tmp_
 
 
 @windows_only
+def test_an_interrupt_during_job_setup_kills_the_unstarted_child_and_propagates(tmp_path):
+    spec = tmp_path / "spec.json"
+    spec.write_text(json.dumps({
+        "schema": "ellmos.open-ocean-runtime-spec.v1",
+        "instance_id": "i", "runtime_id": "r",
+        "command": [sys.executable, "-c", "import time; time.sleep(120)"],
+        "cwd": str(tmp_path), "env": {},
+        "state_path": str(tmp_path / "state.json"), "log_path": str(tmp_path / "log.txt"),
+        "runtime_url": "http://127.0.0.1:1", "health_url": "http://127.0.0.1:1/health",
+    }), encoding="utf-8")
+    spawned: list[int] = []
+    real_popen = subprocess.Popen
+
+    def recording_popen(*args, **kwargs):
+        child = real_popen(*args, **kwargs)
+        spawned.append(child.pid)
+        return child
+
+    def interrupted():
+        raise KeyboardInterrupt
+
+    with patch.dict(os.environ, {"OCEAN_RUNTIME_TOKEN": "t"}),             patch.object(runtime_supervisor.subprocess, "Popen", recording_popen),             patch.object(windows_job, "create_kill_on_close_job", interrupted):
+        with pytest.raises(KeyboardInterrupt):  # not rewritten into a ProcessFenceError
+            runtime_supervisor.supervise(spec)
+    assert spawned, "no child was spawned"
+    assert _wait_for_exit(spawned[0], 10000), "the suspended child was left behind"
+
+
+def _write_spec(tmp_path, command):
+    spec = tmp_path / "spec.json"
+    spec.write_text(json.dumps({
+        "schema": "ellmos.open-ocean-runtime-spec.v1",
+        "instance_id": "i", "runtime_id": "r", "command": command,
+        "cwd": str(tmp_path), "env": {},
+        "state_path": str(tmp_path / "state.json"), "log_path": str(tmp_path / "log.txt"),
+        "runtime_url": "http://127.0.0.1:1", "health_url": "http://127.0.0.1:1/health",
+    }), encoding="utf-8")
+    return spec
+
+
+@windows_only
+def test_a_failing_kill_during_setup_cleanup_does_not_replace_the_primary_error(tmp_path):
+    spec = _write_spec(tmp_path, [sys.executable, "-c", "import time; time.sleep(120)"])
+    spawned: list[subprocess.Popen] = []
+    waits: list[float | None] = []
+    real_popen, real_wait = subprocess.Popen, subprocess.Popen.wait
+
+    def recording_popen(*args, **kwargs):
+        child = real_popen(*args, **kwargs)
+        spawned.append(child)
+        return child
+
+    def spying_wait(self, timeout=None):
+        waits.append(timeout)
+        return real_wait(self, timeout=timeout)
+
+    def interrupted():
+        raise KeyboardInterrupt
+
+    try:
+        with patch.dict(os.environ, {"OCEAN_RUNTIME_TOKEN": "t"}),                 patch.object(runtime_supervisor, "REAP_WAIT_SECONDS", 0.2),                 patch.object(runtime_supervisor.subprocess, "Popen", recording_popen),                 patch.object(real_popen, "kill", side_effect=OSError("kill denied")),                 patch.object(real_popen, "wait", spying_wait),                 patch.object(windows_job, "create_kill_on_close_job", interrupted):
+            with pytest.raises(KeyboardInterrupt) as caught:
+                runtime_supervisor.supervise(spec)
+    finally:
+        for child in spawned:
+            subprocess.run(["taskkill", "/PID", str(child.pid), "/T", "/F"], capture_output=True, timeout=60)
+    assert waits, "wait() was skipped after kill() failed"
+    if hasattr(caught.value, "add_note"):
+        assert "kill denied" in " ".join(getattr(caught.value, "__notes__", [])), (
+            "the cleanup failure was not attached to the primary error"
+        )
+
+
+@windows_only
+def test_a_failed_job_handle_close_is_reported_when_nothing_else_failed(tmp_path):
+    spec = _write_spec(tmp_path, [sys.executable, "-c", "pass"])
+
+    def refuse_close(_job):
+        raise windows_job.WindowsJobError("close denied")
+
+    with patch.dict(os.environ, {"OCEAN_RUNTIME_TOKEN": "t"}),             patch.object(windows_job, "close_job", refuse_close):
+        with pytest.raises(runtime_supervisor.ProcessFenceError, match="close denied"):
+            runtime_supervisor.supervise(spec)
+    assert json.loads((tmp_path / "state.json").read_text(encoding="utf-8"))["close_error"] == "close denied"
+
+
+@windows_only
+def test_a_failed_job_handle_close_does_not_hide_an_active_primary_error(tmp_path):
+    spec = _write_spec(tmp_path, [sys.executable, "-c", "import time; time.sleep(120)"])
+
+    def refuse_close(_job):
+        raise windows_job.WindowsJobError("close denied")
+
+    with patch.dict(os.environ, {"OCEAN_RUNTIME_TOKEN": "t"}),             patch.object(windows_job, "close_job", refuse_close),             patch.object(runtime_supervisor._LoopbackControlServer, "handle_request",
+                         side_effect=KeyboardInterrupt):
+        with pytest.raises(KeyboardInterrupt) as caught:
+            runtime_supervisor.supervise(spec)
+    if hasattr(caught.value, "add_note"):
+        assert "close denied" in " ".join(caught.value.__notes__)
+
+
+@windows_only
 def test_a_grandchild_of_the_runtime_child_dies_with_the_supervisor_stop(tmp_path):
     child_script = tmp_path / "child.py"
     pid_file = tmp_path / "grandchild.pid"
@@ -145,6 +270,8 @@ def test_a_grandchild_of_the_runtime_child_dies_with_the_supervisor_stop(tmp_pat
     )
     grandchild_pid = 0
     try:
+        # Bounded polling on purpose: the readiness signal is the atomically replaced state
+        # file plus the pid file, and neither offers a waitable handle.
         deadline = time.monotonic() + 30
         state = None
         while time.monotonic() < deadline:

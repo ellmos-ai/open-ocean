@@ -14,6 +14,7 @@ import os
 import signal
 import socketserver
 import subprocess
+import sys
 import time
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -32,6 +33,7 @@ ATOMIC_REPLACE_RETRY_SECONDS = 0.05
 POSIX_SIGTERM = getattr(signal, "SIGTERM", 15)
 POSIX_SIGKILL = getattr(signal, "SIGKILL", 9)
 POSIX_GROUP_POLL_SECONDS = 0.05
+REAP_WAIT_SECONDS = 5.0  # bounded: a child whose kill() failed must not hang the supervisor
 
 
 def _now() -> str:
@@ -393,6 +395,26 @@ def _handler(
     return Handler
 
 
+def _attach_secondary(primary: BaseException, text: str) -> None:
+    """Report a cleanup problem without replacing the error that is already in flight."""
+    add_note = getattr(primary, "add_note", None)  # Python 3.11+
+    if add_note is not None:
+        add_note(text)
+    else:  # pragma: no cover - Python 3.10
+        print(text, file=sys.stderr)
+
+
+def _reap_unassigned_child(child: subprocess.Popen[Any]) -> str | None:
+    """kill() then wait() a child that never made it into the job; both are always tried."""
+    problems = []
+    for name, step in (("kill", child.kill), ("wait", lambda: child.wait(timeout=REAP_WAIT_SECONDS))):
+        try:
+            step()
+        except Exception as exc:  # noqa: BLE001 - the primary error must survive
+            problems.append(f"{name}: {exc}")
+    return "; ".join(problems) or None
+
+
 def supervise(spec_path: Path) -> int:
     spec = json.loads(spec_path.read_text(encoding="utf-8"))
     if spec.get("schema") != "ellmos.open-ocean-runtime-spec.v1":
@@ -435,6 +457,7 @@ def supervise(spec_path: Path) -> int:
     job_handle: int | None = None
     server: ThreadingHTTPServer | None = None
     state: dict[str, Any] | None = None
+    primary_error: BaseException | None = None
     try:
         with log_path.open("ab", buffering=0) as log_handle:
             child = subprocess.Popen(
@@ -453,11 +476,19 @@ def supervise(spec_path: Path) -> int:
                 try:
                     job_handle = windows_job.create_kill_on_close_job()
                     windows_job.assign_and_resume(job_handle, child)
-                except OSError as exc:
-                    # Never run the child outside the job: end it unstarted, no fallback.
-                    child.kill()
-                    child.wait()
-                    raise ProcessFenceError(f"Windows-Job-Zuweisung fehlgeschlagen: {exc}") from exc
+                except BaseException as exc:
+                    # Never leave the unassigned (suspended) child behind, whatever failed
+                    # or interrupted the setup; the finally below refuses a stop without a job.
+                    problem = _reap_unassigned_child(child)
+                    if isinstance(exc, OSError):
+                        detail = f"Windows-Job-Zuweisung fehlgeschlagen: {exc}"
+                        if problem:
+                            detail += f" (Aufräumen ebenfalls fehlgeschlagen: {problem})"
+                        raise ProcessFenceError(detail) from exc
+                    if problem:
+                        _attach_secondary(
+                            exc, f"Aufräumen des suspendierten Kindes fehlgeschlagen: {problem}")
+                    raise
             server = _LoopbackControlServer(("127.0.0.1", 0), lambda *args: None)
             server.stop_requested = False
             server.RequestHandlerClass = _handler(server, token, child, process_fence, job_handle)
@@ -485,6 +516,9 @@ def supervise(spec_path: Path) -> int:
                 if child.poll() is not None and group_empty:
                     break
                 server.handle_request()
+    except BaseException as exc:
+        primary_error = exc
+        raise
     finally:
         if server is not None:
             server.server_close()
@@ -509,12 +543,29 @@ def supervise(spec_path: Path) -> int:
                 if state is not None:
                     state.update({"status": "stopped", "returncode": child.poll(), "stopped_at": _now()})
                     _write_json_atomic(state_path, state)
+        close_error: ProcessFenceError | None = None
         if job_handle is not None:
-            windows_job.close_job(job_handle)
+            try:
+                windows_job.close_job(job_handle)
+            except OSError as exc:
+                close_error = ProcessFenceError(f"Windows-Job-Handle konnte nicht geschlossen werden: {exc}")
+                close_error.__cause__ = exc
+                if state is not None:
+                    state["close_error"] = str(exc)
+                    try:
+                        _write_json_atomic(state_path, state)
+                    except OSError:
+                        pass  # visible through the raised error; the state file is secondary
         if previous_sigterm is not None:
             signal.signal(signal.SIGTERM, previous_sigterm)
-        if cleanup_error is not None:
-            raise cleanup_error
+        deferred = cleanup_error or close_error
+        if cleanup_error is not None and close_error is not None:
+            _attach_secondary(cleanup_error, str(close_error))
+        if deferred is not None:
+            if primary_error is not None:
+                _attach_secondary(primary_error, f"Aufräumen: {deferred}")
+            else:
+                raise deferred
     return int(child.returncode if child is not None and child.returncode is not None else 0)
 
 

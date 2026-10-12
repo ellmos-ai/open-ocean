@@ -6,6 +6,12 @@ suspended, assigns it to a job created with JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, 
 then resumes it, so no descendant can exist before the job holds the child.  Standard
 library only (ctypes); every failure raises ``WindowsJobError`` -- callers must not fall
 back to a direct-child-only stop.
+
+Operating requirement: the supervisor must be allowed to put the child into its own job.
+Windows 8+ supports nested jobs, but a launcher (some IDEs, terminals or schedulers)
+that runs the supervisor inside an incompatible outer job makes the assignment fail.
+The start then fails closed: the unstarted child is killed and ``ProcessFenceError`` is
+raised with the Win32 error code.  There is deliberately no direct-child-only fallback.
 """
 
 from __future__ import annotations
@@ -22,6 +28,7 @@ JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000
 JOB_OBJECT_EXTENDED_LIMIT_INFORMATION_CLASS = 9
 PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 STILL_ACTIVE = 259
+EXTENDED_LIMITS_SIZE_64 = 144  # sizeof(JOBOBJECT_EXTENDED_LIMIT_INFORMATION) on 64-bit Windows
 
 
 class WindowsJobError(OSError):
@@ -61,13 +68,18 @@ if os.name == "nt":  # pragma: no cover - exercised only on Windows
         api = ctypes.WinDLL("kernel32", use_last_error=True)
         api.CreateJobObjectW.restype = wintypes.HANDLE
         api.CreateJobObjectW.argtypes = [ctypes.c_void_p, wintypes.LPCWSTR]
+        api.SetInformationJobObject.restype = wintypes.BOOL
         api.SetInformationJobObject.argtypes = [
             wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD]
+        api.AssignProcessToJobObject.restype = wintypes.BOOL
         api.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
+        api.TerminateJobObject.restype = wintypes.BOOL
         api.TerminateJobObject.argtypes = [wintypes.HANDLE, wintypes.UINT]
         api.CloseHandle.argtypes = [wintypes.HANDLE]
+        api.CloseHandle.restype = wintypes.BOOL
         api.OpenProcess.restype = wintypes.HANDLE
         api.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        api.GetExitCodeProcess.restype = wintypes.BOOL
         api.GetExitCodeProcess.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
         return api
 
@@ -82,6 +94,12 @@ def create_kill_on_close_job() -> int:
     job = api.CreateJobObjectW(None, None)
     if not job:
         raise _fail("Job-Objekt konnte nicht angelegt werden")
+    expected = EXTENDED_LIMITS_SIZE_64
+    if ctypes.sizeof(ctypes.c_void_p) == 8 and ctypes.sizeof(_ExtendedLimits) != expected:
+        api.CloseHandle(job)
+        raise WindowsJobError(
+            f"JOBOBJECT_EXTENDED_LIMIT_INFORMATION hat {ctypes.sizeof(_ExtendedLimits)} statt {expected} Bytes"
+        )
     limits = _ExtendedLimits()
     limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
     if not api.SetInformationJobObject(
@@ -115,7 +133,8 @@ def terminate_job(job: int, exit_code: int = 1) -> None:
 
 
 def close_job(job: int) -> None:
-    _kernel32().CloseHandle(job)
+    if not _kernel32().CloseHandle(job):
+        raise _fail("Job-Handle konnte nicht geschlossen werden")
 
 
 def process_is_alive(pid: int) -> bool:

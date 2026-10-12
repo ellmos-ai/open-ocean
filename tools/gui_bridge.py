@@ -5,6 +5,7 @@ import importlib
 import importlib.machinery
 import importlib.util
 import json
+import re
 import sys
 from collections import Counter
 from datetime import datetime, timezone
@@ -17,6 +18,7 @@ try:
     from .catalog_projection import KINDS as CATALOG_KINDS, observe as observe_catalog, _read_bytes
     from . import governance_bridge as gov
     from .fetch_place import verify_bound_provider
+    from .module_binding import bound_module_dir
     from .gui_page_reads import SCHEMA as PAGE_READS_SCHEMA, load as load_page_reads, normalize as page_reads_normalize, pages_status
     from .gui_release import GuiReleaseError, VerifiedGuiRelease, verify_installed_gui
 except ImportError:  # ocean_runtime.py direct entry point
@@ -25,6 +27,7 @@ except ImportError:  # ocean_runtime.py direct entry point
     from catalog_projection import KINDS as CATALOG_KINDS, observe as observe_catalog, _read_bytes
     import governance_bridge as gov
     from fetch_place import verify_bound_provider
+    from module_binding import bound_module_dir
     from gui_release import GuiReleaseError, VerifiedGuiRelease, verify_installed_gui
 
 SCHEMA = "ellmos.gui.capabilities.v1"
@@ -184,22 +187,117 @@ def policy_registry_reader(component: dict[str, Any], registry_path: Path, provi
     return read
 
 
+USECASES_FILE = "usecases.json"
+USECASES_LIMIT = 4 * 1024 * 1024
+USECASE_MAX_ROWS = 10_000
+USECASE_TEXT_LIMITS = {"title": 1_000, "description": 100_000, "last_tested": 64, "module": 200, "covering_skill": 200,
+                       "coverage_status": 64}
+USECASE_META_TEXT_LIMIT = 256
+USECASE_MAX_ID = 2**63 - 1  # SQLite INTEGER PRIMARY KEY
+USECASE_MAX_ID_DIGITS = 19
+# bach.db `usecases` columns, in table order: BACH's GET /api/usecases returns whole rows (SELECT *).
+USECASE_COLUMNS = ("id", "title", "description", "workflow_path", "workflow_name", "test_input", "expected_output",
+                   "last_tested", "test_result", "test_score", "tuev_valid_until", "created_by", "created_at", "updated_at")
+
+
+class UsecasesUnavailable(Exception):
+    """Stable machine-readable reason (never a path or an exception text) for the 503 body."""
+
+    def __init__(self, reason: str):
+        super().__init__(reason)
+        self.reason = reason
+
+
+def _optional_text(value: Any) -> bool:
+    return value is None or isinstance(value, str)
+
+
+def usecases_reader(component: dict[str, Any], modules_root: Path) -> Callable[..., dict]:
+    """Serve BACH's ``GET /api/usecases`` contract from the ellmos-tests module bound in the composition.
+
+    The file is ``usecases.json`` of that module (generator tools/usecases_sync.py, exported from bach.db). It carries
+    id/title/description/test_score/last_tested natively; ``test_result`` is derived from ``test_score`` with BACH's own
+    rule (>=75 pass, >0 fail, else pending) and named under ``source.derived``; the other bach.db columns stay null
+    (not invented); module/covering_skill/coverage_status ride along as additive fields the GUI ignores.
+    """
+    try:
+        root = bound_module_dir(component, "ellmos-tests", modules_root)
+    except ValueError:
+        raise BridgeUnavailable("Die ellmos-tests-Bindung der Komposition ist ungültig.") from None
+
+    def read(usecase_id: int | None = None) -> dict:
+        try:
+            raw, _ = _read_bytes(root / USECASES_FILE, root, USECASES_LIMIT)
+        except FileNotFoundError:
+            raise UsecasesUnavailable("source-missing") from None
+        except ValueError:
+            raise UsecasesUnavailable("source-too-large") from None
+        except OSError:
+            raise UsecasesUnavailable("source-unreadable") from None
+        try:
+            document = json.loads(raw.decode("utf-8-sig"))
+        except (ValueError, RecursionError):  # JSONDecodeError, UnicodeDecodeError, absurd nesting or int size
+            raise UsecasesUnavailable("source-invalid") from None
+        meta = document.get("_meta") if isinstance(document, dict) else None
+        items = document.get("usecases") if isinstance(document, dict) else None
+        if (not isinstance(items, list) or len(items) > USECASE_MAX_ROWS
+                or not (meta is None or isinstance(meta, dict))
+                or any(isinstance(value, str) and len(value) > USECASE_META_TEXT_LIMIT
+                       for value in (meta or {}).values())):
+            raise UsecasesUnavailable("source-invalid")
+        rows, seen = [], set()
+        for item in items:
+            if (not isinstance(item, dict) or isinstance(item.get("id"), bool) or not isinstance(item.get("id"), int)
+                    or not 0 < item["id"] <= USECASE_MAX_ID or item["id"] in seen
+                    or not isinstance(item.get("title"), str) or not item["title"].strip()
+                    or not all(_optional_text(item.get(key)) for key in
+                               ("description", "last_tested", "module", "covering_skill", "coverage_status"))
+                    or any(isinstance(item.get(key), str) and len(item[key]) > limit
+                           for key, limit in USECASE_TEXT_LIMITS.items())):
+                raise UsecasesUnavailable("source-invalid")
+            score = item.get("test_score")
+            if score is not None and (isinstance(score, bool) or not isinstance(score, int) or not 0 <= score <= 100):
+                raise UsecasesUnavailable("source-invalid")
+            seen.add(item["id"])
+            row = dict.fromkeys(USECASE_COLUMNS)
+            row.update({key: item.get(key) for key in ("id", "title", "description", "last_tested", "test_score")})
+            if score is not None:
+                row["test_result"] = "pass" if score >= 75 else ("fail" if score > 0 else "pending")
+            row.update({key: item.get(key) for key in ("module", "covering_skill", "coverage_status")})
+            rows.append(row)
+        if usecase_id is not None:  # BACH GET /api/usecases/{id}: the row, or HTTP 200 success:false "Nicht gefunden"
+            found = next((row for row in rows if row["id"] == usecase_id), None)
+            return {"success": True, "usecase": found} if found else {"success": False, "error": "Nicht gefunden"}
+        rows.sort(key=lambda row: (row["title"].encode("utf-8"), row["id"]))  # SQLite ORDER BY title (BINARY)
+        passed = sum(1 for row in rows if row["test_result"] == "pass")
+        failed = sum(1 for row in rows if row["test_result"] == "fail")
+        meta = meta or {}
+        generated, source_db = meta.get("generated_at"), meta.get("source_db")
+        return {"success": True, "usecases": rows,
+                "stats": {"total": len(rows), "pass": passed, "fail": failed, "pending": len(rows) - passed - failed},
+                "source": {"id": "ellmos-tests", "file": USECASES_FILE, "read_only": True,
+                           "generated_at": generated if isinstance(generated, str) else None,
+                           "source_db": source_db if isinstance(source_db, str) else None,
+                           "derived": ["test_result", "stats"]}}
+    return read
+
+
 class GuiBridge:
     def __init__(self, *, gui: VerifiedGuiRelease | None = None,
                  plan: Callable[[], dict] | None = None, status: Callable[[], dict] | None = None,
                  policies: Callable[[], dict] | None = None, modules: list[dict] | None = None,
                  catalog: Callable[..., dict] | None = None, ocean: Callable[[], dict] | None = None,
                  skills: Callable[[], dict] | None = None, registry: Callable[..., dict] | None = None,
-                 locks: Callable[[], dict] | None = None):
+                 locks: Callable[[], dict] | None = None, usecases: Callable[[], dict] | None = None):
         self.gui = gui
         self.providers = {"detect": self.detect, "plan": plan, "status": status, "policies": policies, "catalog": catalog,
-                          "ocean": ocean, "skills": skills, "registry": registry, "locks": locks}
+                          "ocean": ocean, "skills": skills, "registry": registry, "locks": locks, "usecases": usecases}
         self.modules = modules or []
 
     def detect(self) -> dict:
         return {"schema": "ellmos.open-ocean.installer-detect.v1", "read_only": True,
                 "provider": {"id": "open-ocean", "version": "0.1.2"},
-                "native": {name: provider is not None for name, provider in self.providers.items() if name not in {"detect", "registry", "locks"}},
+                "native": {name: provider is not None for name, provider in self.providers.items() if name not in {"detect", "registry", "locks", "usecases"}},
                 "apply": {"available": False, "reason": "Nur die externe Installer-Approval-/Grant-Kette darf Änderungen ausführen."},
                 "runtime_verified": False, "verification_scope": "adapter"}
 
@@ -226,6 +324,17 @@ class GuiBridge:
                               "provider": {"id": "open-ocean", "version": "0.1.2"},
                               "auth": "provider-session", "runtime_verified": False, "verification_scope": "adapter",
                               "reason": None if provider else "Kein nativer Anbieter konfiguriert."})
+        usecases_reason = "source-not-in-composition"
+        if self.providers["usecases"] is not None:
+            # ponytail: re-reads and re-validates usecases.json on every capabilities call (at most USECASES_LIMIT = 4 MiB
+            # and USECASE_MAX_ROWS = 10k rows); add an mtime/size keyed cache in usecases_reader if the GUI polls this often.
+            try:
+                self.providers["usecases"]()
+                usecases_reason = None
+            except UsecasesUnavailable as exc:
+                usecases_reason = exc.reason
+            except Exception:  # noqa: BLE001 - a stable code, never exception text
+                usecases_reason = "source-unreadable"
         lock_state = self.providers["locks"]() if self.providers["locks"] is not None else None
         lock_ok = lock_state is not None and lock_state.get("availability") == "available"
         lock_reason = "lock_cache_missing" if lock_state is None else (lock_state.get("error") or "lock_cache_invalid")
@@ -239,7 +348,7 @@ class GuiBridge:
                  "Weder Lock-Cache noch Policy-Registry gebunden.", {"id": "open-ocean", "version": "0.1.2"}),
                 ("/api/governance/locks", lock_ok, lock_reason, {"id": "lock-cache", "version": None}),
                 ("/api/governance/audit", False, "task_history_unavailable", None),
-                ("/api/usecases", False, "source-not-in-composition", None)]:
+                ("/api/usecases", usecases_reason is None, usecases_reason, {"id": "ellmos-tests", "version": None})]:
             endpoints.append({"method": "GET", "path": path, "kind": "read", "available": available,
                               "provider": provider if available else None,
                               "auth": "provider-session", "runtime_verified": False, "verification_scope": "adapter",
@@ -361,8 +470,15 @@ def _bridge_core(workspace: Path, *, gui_pins: tuple[str, str] | None = None) ->
                 "repository": gov.REPOSITORY, "verified": True})
         except Exception:
             modules.append({"id": "policy-registry", "verified": False})
+    usecases = None
+    uc_component = config.get("usecases_component")
+    if isinstance(uc_component, dict):
+        try:
+            usecases = usecases_reader(uc_component, workspace / "modules")
+        except BridgeUnavailable:
+            usecases = None
     return GuiBridge(gui=gui, plan=plan, status=status, policies=policies, modules=modules,
-                     registry=registry_reader, locks=locks)
+                     registry=registry_reader, locks=locks, usecases=usecases)
 
 
 def mount_gui_bridge(app: Any, bridge: GuiBridge, require_auth: Callable, require_admin: Callable) -> None:
@@ -535,5 +651,24 @@ def _mount_governance(app: Any, bridge: GuiBridge, add_guarded: Callable, requir
     add_guarded("/api/governance/audit", audit_route)
 
     def usecases_route(request):
-        return json_response({"available": False, "reason": "source-not-in-composition"}, status_code=503, headers=headers)
+        provider = bridge.providers["usecases"]
+        reason = "source-not-in-composition"
+        usecase_id = None
+        if "usecase_id" in request.path_params:
+            # FastAPI's `usecase_id: int` path parameter: anything else is a 422 with a detail list.
+            raw = request.path_params["usecase_id"]
+            if not re.fullmatch(r"[+-]?\d{1,%d}" % USECASE_MAX_ID_DIGITS, raw):
+                return json_response({"detail": [{"type": "int_parsing", "loc": ["path", "usecase_id"],
+                                                   "msg": "Input should be a valid integer, unable to parse string as an integer",
+                                                   "input": raw}]}, status_code=422, headers=headers)
+            usecase_id = int(raw)
+        if provider is not None:
+            try:
+                return json_response(provider() if usecase_id is None else provider(usecase_id), headers=headers)
+            except UsecasesUnavailable as exc:
+                reason = exc.reason
+            except Exception:  # noqa: BLE001 - the body carries a stable code, never exception text
+                reason = "source-unreadable"
+        return json_response({"available": False, "reason": reason}, status_code=503, headers=headers)
     add_guarded("/api/usecases", usecases_route)
+    add_guarded("/api/usecases/{usecase_id}", usecases_route)

@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+from tools.module_binding import bound_module_dir
 from tools.source_pins import DEFAULT_SOURCE_PINS
 from tools.gui_release import GuiReleaseError, verify_installed_gui
 
@@ -863,6 +864,37 @@ def _assert_composition_complete(plan: dict[str, Any], workspace: Path) -> None:
     )
 
 
+def select_usecases_component(components: list[dict[str, Any]], workspace: Path) -> dict[str, Any] | None:
+    """The one composed ellmos-tests module the GUI bridge may read usecases from, or None.
+
+    Exactly one entry may carry that catalog id (of any kind: a second or malformed candidate means no binding), and it
+    must be the composed ``module:ellmos-tests`` whose final path is its own folder below ``<workspace>/modules``.
+    """
+    candidates = [item for item in components if isinstance(item, dict)
+                  and isinstance(item.get("detail"), dict) and item["detail"].get("catalog_id") == "ellmos-tests"]
+    if len(candidates) != 1:
+        return None
+    try:
+        bound_module_dir(candidates[0], "ellmos-tests", workspace / "modules")
+    except ValueError:
+        return None
+    return candidates[0]
+
+
+def build_bridge_config(plan_paths: dict[str, str], components: list[dict[str, Any]], workspace: Path,
+                        policy_registry: Path | None) -> dict[str, Any]:
+    """The content of ocean.gui-bridge.json: plan paths plus the bound policy-registry and ellmos-tests components."""
+    bridge_config: dict[str, Any] = {"schema": "ellmos.open-ocean.gui-bridge.v1", "plan_paths": plan_paths}
+    policy_components = [item for item in components if item.get("kind") == "module"
+                         and (item.get("detail") or {}).get("catalog_id") == "policy-registry"]
+    if policy_registry is not None and len(policy_components) == 1:
+        bridge_config.update({"policy_registry": str(policy_registry), "policy_component": policy_components[0]})
+    usecases_component = select_usecases_component(components, workspace)
+    if usecases_component is not None:
+        bridge_config["usecases_component"] = usecases_component
+    return bridge_config
+
+
 def up_from_paths(
     *,
     bundles_root: Path,
@@ -910,11 +942,7 @@ def up_from_paths(
                       "source_pins": str(source_pins)}
         if component_bindings is not None:
             plan_paths["component_bindings"] = str(component_bindings)
-        bridge_config = {"schema": "ellmos.open-ocean.gui-bridge.v1", "plan_paths": plan_paths}
-        policy_components = [item for item in transaction["components"] if item.get("kind") == "module"
-                             and (item.get("detail") or {}).get("catalog_id") == "policy-registry"]
-        if policy_registry is not None and len(policy_components) == 1:
-            bridge_config.update({"policy_registry": str(policy_registry), "policy_component": policy_components[0]})
+        bridge_config = build_bridge_config(plan_paths, transaction["components"], workspace, policy_registry)
         _write_json_private(workspace / "ocean.gui-bridge.json", bridge_config)
     _assert_composition_complete(plan, workspace)
     runtime_state = start_runtime(

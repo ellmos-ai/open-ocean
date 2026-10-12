@@ -104,9 +104,11 @@ ausdrücklich nicht verfügbar; ihre Adapterrouten antworten mit HTTP 503.
 | `GET /api/installer/plan` | Bestehender `plan_from_paths`, bei fehlenden festen Quellen HTTP 503 |
 | `GET /api/installer/status` | Bestehender `status_for_workspace`, öffentliche Feldliste |
 | `GET /api/policies` | Erster begrenzter Moduladapter: native Registry-Metadaten |
-| `GET /api/governance/policy-registry` | Dieselbe native Suche mit `scope`, `query`, `consumer`, `kind` |
+| `GET /api/governance/policy-registry`, `/decisions`, `/policies` | Dieselbe native Suche im Schema `bach.policy-registry.v1` (nur `privacy: public`, Standardvorgabe); ohne gebundene Registry HTTP 503 `policy_provider_not_configured` |
 | `GET /api/decisions` | Dieselbe Registry, ausschließlich Entscheidungsmetadaten |
-| `GET /api/governance/effective-policy` | Noch kein freigegebener Ocean-Auflösungsadapter: HTTP 503 |
+| `GET /api/governance/effective-policy?scope=` | Auflösung über dieselbe gebundene Registry (`scope` Pflicht), sonst HTTP 503 |
+| `GET /api/governance/locks`, `/status` | Nur aus dem in `ocean.gui-bridge.json` (`lock_cache`) gebundenen Host-Lock-Cache; sonst 200 `unavailable` (`lock_cache_missing`/`_stale`/`_invalid`) |
+| `GET /api/governance/audit`, `GET /api/usecases` | Keine Quelle in der Komposition: `task_history_unavailable` bzw. HTTP 503 `source-not-in-composition` |
 
 ## Begrenzter Modultransfer: policy-registry
 

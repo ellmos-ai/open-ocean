@@ -14,14 +14,16 @@ from typing import Any, Callable
 
 try:
     from .capability_views import ocean_inventory, skill_library
-    from .catalog_projection import KINDS as CATALOG_KINDS, observe as observe_catalog
+    from .catalog_projection import KINDS as CATALOG_KINDS, observe as observe_catalog, _read_bytes
+    from . import governance_bridge as gov
     from .fetch_place import verify_bound_provider
     from .gui_page_reads import SCHEMA as PAGE_READS_SCHEMA, load as load_page_reads, normalize as page_reads_normalize, pages_status
     from .gui_release import GuiReleaseError, VerifiedGuiRelease, verify_installed_gui
 except ImportError:  # ocean_runtime.py direct entry point
     from gui_page_reads import SCHEMA as PAGE_READS_SCHEMA, load as load_page_reads, normalize as page_reads_normalize, pages_status
     from capability_views import ocean_inventory, skill_library
-    from catalog_projection import KINDS as CATALOG_KINDS, observe as observe_catalog
+    from catalog_projection import KINDS as CATALOG_KINDS, observe as observe_catalog, _read_bytes
+    import governance_bridge as gov
     from fetch_place import verify_bound_provider
     from gui_release import GuiReleaseError, VerifiedGuiRelease, verify_installed_gui
 
@@ -104,10 +106,9 @@ def _import_bound_policy(source: Path):
 
 def _registry_snapshot(path: Path) -> bytes:
     try:
-        if not path.is_file():
-            raise BridgeUnavailable("Keine lesbare lokale Registry verfügbar.")
-        return path.read_bytes()
-    except OSError as exc:
+        # Handle-bound, link-free, size-limited (the same rule as the catalog adapter).
+        return _read_bytes(path, path.parent, 16 * 1024 * 1024)[0]
+    except (OSError, ValueError) as exc:
         raise BridgeUnavailable("Keine lesbare lokale Registry verfügbar.") from exc
 
 
@@ -127,12 +128,7 @@ def _summary(report: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def policy_metadata_reader(component: dict[str, Any], registry_path: Path) -> Callable[[], dict]:
-    """Reuse the installed policy-registry API after checking its exact binding.
-
-    Only summary counts and public metadata leave this adapter. Canonical source
-    files, rule texts, decision chains and source URIs are never opened here.
-    """
+def _bound_policy(component: dict[str, Any], registry_path: Path):
     detail = component.get("detail") or {}
     binding = detail.get("binding")
     if not isinstance(binding, dict) or binding.get("catalog_id") != "policy-registry" or not detail.get("local_path"):
@@ -141,6 +137,16 @@ def policy_metadata_reader(component: dict[str, Any], registry_path: Path) -> Ca
     verify_bound_provider(source, binding)
     module = _import_bound_policy(source)
     _registry_snapshot(registry_path)
+    return source, binding, module
+
+
+def policy_metadata_reader(component: dict[str, Any], registry_path: Path) -> Callable[[], dict]:
+    """Reuse the installed policy-registry API after checking its exact binding.
+
+    Only summary counts and public metadata leave this adapter. Canonical source
+    files, rule texts, decision chains and source URIs are never opened here.
+    """
+    source, binding, module = _bound_policy(component, registry_path)
 
     def read(*, query: str = "", scope: str | None = None, consumer: str | None = None, kind: str | None = None) -> dict:
         # Reverify the code identity at readback, not merely at bootstrap.
@@ -162,21 +168,38 @@ def policy_metadata_reader(component: dict[str, Any], registry_path: Path) -> Ca
     return read
 
 
+def policy_registry_reader(component: dict[str, Any], registry_path: Path, provider: dict[str, Any]) -> Callable[..., dict]:
+    """bach.policy-registry.v1 over the same exactly-bound checkout; identity is re-proven on every read."""
+    source, binding, module = _bound_policy(component, registry_path)
+
+    def read(*, scope: str | None = None, consumer: str | None = None, query: str = "",
+             kind: str | None = None, effective: bool = False) -> dict:
+        try:
+            verify_bound_provider(source, binding)
+        except Exception as exc:
+            raise gov.GovernanceUnavailable("policy_provider_provenance_mismatch") from exc
+        return gov.observe(registry_factory=lambda: module.PolicyRegistry(registry_path), registry_path=registry_path,
+                           provider=provider, scope=scope, consumer=consumer, query=query, kind=kind,
+                           effective=effective)
+    return read
+
+
 class GuiBridge:
     def __init__(self, *, gui: VerifiedGuiRelease | None = None,
                  plan: Callable[[], dict] | None = None, status: Callable[[], dict] | None = None,
                  policies: Callable[[], dict] | None = None, modules: list[dict] | None = None,
                  catalog: Callable[..., dict] | None = None, ocean: Callable[[], dict] | None = None,
-                 skills: Callable[[], dict] | None = None):
+                 skills: Callable[[], dict] | None = None, registry: Callable[..., dict] | None = None,
+                 locks: Callable[[], dict] | None = None):
         self.gui = gui
         self.providers = {"detect": self.detect, "plan": plan, "status": status, "policies": policies, "catalog": catalog,
-                          "ocean": ocean, "skills": skills}
+                          "ocean": ocean, "skills": skills, "registry": registry, "locks": locks}
         self.modules = modules or []
 
     def detect(self) -> dict:
         return {"schema": "ellmos.open-ocean.installer-detect.v1", "read_only": True,
                 "provider": {"id": "open-ocean", "version": "0.1.2"},
-                "native": {name: provider is not None for name, provider in self.providers.items() if name != "detect"},
+                "native": {name: provider is not None for name, provider in self.providers.items() if name not in {"detect", "registry", "locks"}},
                 "apply": {"available": False, "reason": "Nur die externe Installer-Approval-/Grant-Kette darf Änderungen ausführen."},
                 "runtime_verified": False, "verification_scope": "adapter"}
 
@@ -203,12 +226,24 @@ class GuiBridge:
                               "provider": {"id": "open-ocean", "version": "0.1.2"},
                               "auth": "provider-session", "runtime_verified": False, "verification_scope": "adapter",
                               "reason": None if provider else "Kein nativer Anbieter konfiguriert."})
-        for path in ("/api/governance/policy-registry", "/api/decisions", "/api/governance/effective-policy"):
-            available = self.providers["policies"] is not None and path != "/api/governance/effective-policy"
+        lock_state = self.providers["locks"]() if self.providers["locks"] is not None else None
+        lock_ok = lock_state is not None and lock_state.get("availability") == "available"
+        lock_reason = "lock_cache_missing" if lock_state is None else (lock_state.get("error") or "lock_cache_invalid")
+        policy_provider = {"id": "policy-registry", "version": next((item.get("version") for item in self.modules if item.get("id") == "policy-registry"), None)}
+        for path, available, reason, provider in [
+                ("/api/decisions", self.providers["policies"] is not None, "Kein freigegebener nativer Leseadapter konfiguriert.", policy_provider),
+                *((f"/api/governance/{name}", self.providers["registry"] is not None,
+                   "Kein freigegebener nativer Leseadapter konfiguriert.", policy_provider)
+                  for name in ("policy-registry", "decisions", "policies", "effective-policy")),
+                ("/api/governance/status", lock_ok or self.providers["registry"] is not None,
+                 "Weder Lock-Cache noch Policy-Registry gebunden.", {"id": "open-ocean", "version": "0.1.2"}),
+                ("/api/governance/locks", lock_ok, lock_reason, {"id": "lock-cache", "version": None}),
+                ("/api/governance/audit", False, "task_history_unavailable", None),
+                ("/api/usecases", False, "source-not-in-composition", None)]:
             endpoints.append({"method": "GET", "path": path, "kind": "read", "available": available,
-                              "provider": {"id": "policy-registry", "version": next((item.get("version") for item in self.modules if item.get("id") == "policy-registry"), None)} if available else None,
+                              "provider": provider if available else None,
                               "auth": "provider-session", "runtime_verified": False, "verification_scope": "adapter",
-                              "reason": None if available else "Kein freigegebener nativer Leseadapter konfiguriert."})
+                              "reason": None if available else reason})
         for path, provider in (("/api/capabilities/ocean", self.providers["ocean"] is not None),
                                ("/api/capabilities/skills/library", self.providers["skills"] is not None)):
             endpoints.append({"method": "GET", "path": path, "kind": "read", "available": provider,
@@ -306,7 +341,11 @@ def _bridge_core(workspace: Path, *, gui_pins: tuple[str, str] | None = None) ->
             def plan():
                 return plan_from_paths(workspace=workspace, **kwargs)
     status = (lambda: status_for_workspace(workspace)) if all((workspace / name).is_file() for name in ("ocean.install.json", "ocean.runtime.json")) else None
-    policies, modules = None, []
+    policies, modules, registry_reader, locks = None, [], None, None
+    lock_cache = config.get("lock_cache")
+    if isinstance(lock_cache, str) and lock_cache.strip():
+        cache_path = Path(lock_cache)
+        locks = lambda: gov.lock_cache_snapshot(cache_path)  # noqa: E731 - bound once, read per request
     component = config.get("policy_component")
     registry = config.get("policy_registry")
     if isinstance(component, dict) and isinstance(registry, str):
@@ -317,9 +356,13 @@ def _bridge_core(workspace: Path, *, gui_pins: tuple[str, str] | None = None) ->
             modules.append({"id": "policy-registry", "version": manifest.get("version"),
                             "source_commit": binding.get("commit"), "verified": True,
                             "verification_scope": "source-pin"})
+            registry_reader = policy_registry_reader(component, Path(registry), {
+                "id": "policy-registry", "version": manifest.get("version"), "source_commit": binding.get("commit"),
+                "repository": gov.REPOSITORY, "verified": True})
         except Exception:
             modules.append({"id": "policy-registry", "verified": False})
-    return GuiBridge(gui=gui, plan=plan, status=status, policies=policies, modules=modules)
+    return GuiBridge(gui=gui, plan=plan, status=status, policies=policies, modules=modules,
+                     registry=registry_reader, locks=locks)
 
 
 def mount_gui_bridge(app: Any, bridge: GuiBridge, require_auth: Callable, require_admin: Callable) -> None:
@@ -333,7 +376,7 @@ def mount_gui_bridge(app: Any, bridge: GuiBridge, require_auth: Callable, requir
     capability_route.__annotations__["request"] = Request
     app.add_api_route("/api/gui/capabilities", capability_route, methods=["GET"])
 
-    def add_guarded(path, endpoint):
+    def add_guarded(path, endpoint, guard=None):
         """Authentication runs first for EVERY method (also unlisted ones such as PROPFIND) and for the trailing-slash
         path, so an unauthenticated caller never sees a 405 or a slash redirect; only authenticated non-GET gets 405.
         A raw ASGI route has no method list, so the router cannot answer 405 before authentication."""
@@ -342,6 +385,8 @@ def mount_gui_bridge(app: Any, bridge: GuiBridge, require_auth: Callable, requir
 
         def handle(request):
             require_auth(request)
+            if guard is not None and request.method == "GET":
+                guard(request)
             if request.method != "GET":
                 return JSONResponse({"detail": "method_not_allowed"}, status_code=405,
                                     headers={"Allow": "GET", "Cache-Control": "no-store"})
@@ -412,11 +457,83 @@ def mount_gui_bridge(app: Any, bridge: GuiBridge, require_auth: Callable, requir
     for name in ("detect", "plan", "status", "policies"):
         path = "/api/policies" if name == "policies" else "/api/installer/" + name
         app.add_api_route(path, make_route(name), methods=["GET"])
-    app.add_api_route("/api/governance/policy-registry", make_route("policies"), methods=["GET"])
     app.add_api_route("/api/decisions", make_route("policies", kind="decision"), methods=["GET"])
-    app.add_api_route("/api/governance/effective-policy", make_route("unconfigured-effective-policy"), methods=["GET"])
+    _mount_governance(app, bridge, add_guarded, require_admin, JSONResponse)
     # Native launch/task adapters have no configured provider in this package.
     # Auth still runs before 503; no action or write can reach an engine.
     for method, path in (("GET", "/api/agents/native/slots"), ("GET", "/api/agents/native/tasks"),
                          ("POST", "/api/agents/native/tasks"), ("GET", "/api/tasks"), ("POST", "/api/tasks")):
         app.add_api_route(path, make_route("unconfigured-native"), methods=[method])
+
+
+def _mount_governance(app: Any, bridge: GuiBridge, add_guarded: Callable, require_admin: Callable, json_response: Any) -> None:
+    """GET-only governance reads in BACH's shapes. Auth runs first (add_guarded); nothing here can write."""
+    headers = {"Cache-Control": "no-store"}
+    kinds = {"policy", "rule", "decision", "evidence", "decision-candidate"}
+
+    def unavailable(code: str, status: int = 503):
+        return json_response({"detail": code}, status_code=status, headers=headers)
+
+    def registry_call(**kwargs):
+        reader = bridge.providers["registry"]
+        if reader is None:
+            raise gov.GovernanceUnavailable("policy_provider_not_configured")
+        return reader(**kwargs)
+
+    def registry_route(view=None, *, effective=False):
+        def route(request):
+            params = request.query_params
+            problems = []
+            for key, limit in (("scope", 256), ("consumer", 256), ("query", 512)):
+                if len(params.get(key, "")) > limit:
+                    problems.append({"loc": ["query", key], "msg": "String should have at most %d characters" % limit,
+                                     "type": "string_too_long"})
+            if effective and not params.get("scope"):
+                problems.append({"loc": ["query", "scope"], "msg": "String should have at least 1 character",
+                                 "type": "string_too_short"})
+            if not effective and view is None and params.get("kind") is not None and params["kind"] not in kinds:
+                problems.append({"loc": ["query", "kind"], "msg": "String should match pattern", "type": "string_pattern_mismatch"})
+            if problems:
+                return json_response({"detail": problems}, status_code=422, headers=headers)
+            kwargs = {"scope": params.get("scope"), "consumer": params.get("consumer"), "query": params.get("query", "")}
+            if view is None:
+                kwargs["kind"] = params.get("kind")
+            elif view is gov.decisions_view:
+                kwargs["kind"] = "decision"
+            try:
+                result = registry_call(**kwargs, **({"effective": True} if effective else {}))
+            except gov.GovernanceUnavailable as exc:
+                return unavailable(str(exc))
+            except gov.GovernanceChanged as exc:
+                return unavailable(str(exc), 409)
+            return json_response(view(result) if view else result, headers=headers)
+        return route
+    add_guarded("/api/governance/policy-registry", registry_route(), require_admin)
+    add_guarded("/api/governance/decisions", registry_route(gov.decisions_view), require_admin)
+    add_guarded("/api/governance/policies", registry_route(gov.policies_view), require_admin)
+    add_guarded("/api/governance/effective-policy", registry_route(effective=True), require_admin)
+
+    def lock_snapshot():
+        provider = bridge.providers["locks"]
+        return provider() if provider else gov.lock_cache_snapshot(None)
+
+    def locks_route(request):
+        return json_response(gov.locks_view(lock_snapshot()), headers=headers)
+    add_guarded("/api/governance/locks", locks_route)
+
+    def status_route(request):
+        return json_response(gov.status_view(lock_snapshot(), bridge.providers["registry"]), headers=headers)
+    add_guarded("/api/governance/status", status_route)
+
+    def audit_route(request):
+        raw = request.query_params.get("limit", "50")
+        if not raw.isdigit() or not 1 <= int(raw) <= 100:
+            return json_response({"detail": [{"loc": ["query", "limit"], "msg": "Input should be between 1 and 100",
+                                              "type": "int_parsing"}]}, status_code=422, headers=headers)
+        # task_history belongs to task-master, not to this composition; dsgvo_audit_log has other semantics.
+        return json_response(gov.AUDIT_UNAVAILABLE, headers=headers)
+    add_guarded("/api/governance/audit", audit_route)
+
+    def usecases_route(request):
+        return json_response({"available": False, "reason": "source-not-in-composition"}, status_code=503, headers=headers)
+    add_guarded("/api/usecases", usecases_route)

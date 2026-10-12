@@ -18,6 +18,7 @@ try:
     from .catalog_projection import KINDS as CATALOG_KINDS, observe as observe_catalog, _read_bytes
     from . import governance_bridge as gov
     from .fetch_place import verify_bound_provider
+    from .module_binding import bound_module_dir
     from .gui_page_reads import SCHEMA as PAGE_READS_SCHEMA, load as load_page_reads, normalize as page_reads_normalize, pages_status
     from .gui_release import GuiReleaseError, VerifiedGuiRelease, verify_installed_gui
 except ImportError:  # ocean_runtime.py direct entry point
@@ -26,6 +27,7 @@ except ImportError:  # ocean_runtime.py direct entry point
     from catalog_projection import KINDS as CATALOG_KINDS, observe as observe_catalog, _read_bytes
     import governance_bridge as gov
     from fetch_place import verify_bound_provider
+    from module_binding import bound_module_dir
     from gui_release import GuiReleaseError, VerifiedGuiRelease, verify_installed_gui
 
 SCHEMA = "ellmos.gui.capabilities.v1"
@@ -187,6 +189,12 @@ def policy_registry_reader(component: dict[str, Any], registry_path: Path, provi
 
 USECASES_FILE = "usecases.json"
 USECASES_LIMIT = 4 * 1024 * 1024
+USECASE_MAX_ROWS = 10_000
+USECASE_TEXT_LIMITS = {"title": 1_000, "description": 100_000, "last_tested": 64, "module": 200, "covering_skill": 200,
+                       "coverage_status": 64}
+USECASE_META_TEXT_LIMIT = 256
+USECASE_MAX_ID = 2**63 - 1  # SQLite INTEGER PRIMARY KEY
+USECASE_MAX_ID_DIGITS = 19
 # bach.db `usecases` columns, in table order: BACH's GET /api/usecases returns whole rows (SELECT *).
 USECASE_COLUMNS = ("id", "title", "description", "workflow_path", "workflow_name", "test_input", "expected_output",
                    "last_tested", "test_result", "test_score", "tuev_valid_until", "created_by", "created_at", "updated_at")
@@ -204,7 +212,7 @@ def _optional_text(value: Any) -> bool:
     return value is None or isinstance(value, str)
 
 
-def usecases_reader(component: dict[str, Any]) -> Callable[..., dict]:
+def usecases_reader(component: dict[str, Any], modules_root: Path) -> Callable[..., dict]:
     """Serve BACH's ``GET /api/usecases`` contract from the ellmos-tests module bound in the composition.
 
     The file is ``usecases.json`` of that module (generator tools/usecases_sync.py, exported from bach.db). It carries
@@ -212,10 +220,10 @@ def usecases_reader(component: dict[str, Any]) -> Callable[..., dict]:
     rule (>=75 pass, >0 fail, else pending) and named under ``source.derived``; the other bach.db columns stay null
     (not invented); module/covering_skill/coverage_status ride along as additive fields the GUI ignores.
     """
-    detail = component.get("detail") if isinstance(component, dict) else None
-    if not isinstance(detail, dict) or detail.get("catalog_id") != "ellmos-tests" or not isinstance(detail.get("local_path"), str):
-        raise BridgeUnavailable("Die ellmos-tests-Bindung der Komposition ist ungültig.")
-    root = Path(detail["local_path"])
+    try:
+        root = bound_module_dir(component, "ellmos-tests", modules_root)
+    except ValueError:
+        raise BridgeUnavailable("Die ellmos-tests-Bindung der Komposition ist ungültig.") from None
 
     def read(usecase_id: int | None = None) -> dict:
         try:
@@ -228,19 +236,24 @@ def usecases_reader(component: dict[str, Any]) -> Callable[..., dict]:
             raise UsecasesUnavailable("source-unreadable") from None
         try:
             document = json.loads(raw.decode("utf-8-sig"))
-        except ValueError:  # JSONDecodeError and UnicodeDecodeError
+        except (ValueError, RecursionError):  # JSONDecodeError, UnicodeDecodeError, absurd nesting or int size
             raise UsecasesUnavailable("source-invalid") from None
         meta = document.get("_meta") if isinstance(document, dict) else None
         items = document.get("usecases") if isinstance(document, dict) else None
-        if not isinstance(items, list) or not (meta is None or isinstance(meta, dict)):
+        if (not isinstance(items, list) or len(items) > USECASE_MAX_ROWS
+                or not (meta is None or isinstance(meta, dict))
+                or any(isinstance(value, str) and len(value) > USECASE_META_TEXT_LIMIT
+                       for value in (meta or {}).values())):
             raise UsecasesUnavailable("source-invalid")
         rows, seen = [], set()
         for item in items:
             if (not isinstance(item, dict) or isinstance(item.get("id"), bool) or not isinstance(item.get("id"), int)
-                    or item["id"] <= 0 or item["id"] in seen
+                    or not 0 < item["id"] <= USECASE_MAX_ID or item["id"] in seen
                     or not isinstance(item.get("title"), str) or not item["title"].strip()
                     or not all(_optional_text(item.get(key)) for key in
-                               ("description", "last_tested", "module", "covering_skill", "coverage_status"))):
+                               ("description", "last_tested", "module", "covering_skill", "coverage_status"))
+                    or any(isinstance(item.get(key), str) and len(item[key]) > limit
+                           for key, limit in USECASE_TEXT_LIMITS.items())):
                 raise UsecasesUnavailable("source-invalid")
             score = item.get("test_score")
             if score is not None and (isinstance(score, bool) or not isinstance(score, int) or not 0 <= score <= 100):
@@ -311,6 +324,15 @@ class GuiBridge:
                               "provider": {"id": "open-ocean", "version": "0.1.2"},
                               "auth": "provider-session", "runtime_verified": False, "verification_scope": "adapter",
                               "reason": None if provider else "Kein nativer Anbieter konfiguriert."})
+        usecases_reason = "source-not-in-composition"
+        if self.providers["usecases"] is not None:
+            try:  # bounded: one file of at most USECASES_LIMIT bytes, like the lock-cache read below
+                self.providers["usecases"]()
+                usecases_reason = None
+            except UsecasesUnavailable as exc:
+                usecases_reason = exc.reason
+            except Exception:  # noqa: BLE001 - a stable code, never exception text
+                usecases_reason = "source-unreadable"
         lock_state = self.providers["locks"]() if self.providers["locks"] is not None else None
         lock_ok = lock_state is not None and lock_state.get("availability") == "available"
         lock_reason = "lock_cache_missing" if lock_state is None else (lock_state.get("error") or "lock_cache_invalid")
@@ -324,8 +346,7 @@ class GuiBridge:
                  "Weder Lock-Cache noch Policy-Registry gebunden.", {"id": "open-ocean", "version": "0.1.2"}),
                 ("/api/governance/locks", lock_ok, lock_reason, {"id": "lock-cache", "version": None}),
                 ("/api/governance/audit", False, "task_history_unavailable", None),
-                ("/api/usecases", self.providers["usecases"] is not None, "source-not-in-composition",
-                 {"id": "ellmos-tests", "version": None})]:
+                ("/api/usecases", usecases_reason is None, usecases_reason, {"id": "ellmos-tests", "version": None})]:
             endpoints.append({"method": "GET", "path": path, "kind": "read", "available": available,
                               "provider": provider if available else None,
                               "auth": "provider-session", "runtime_verified": False, "verification_scope": "adapter",
@@ -451,7 +472,7 @@ def _bridge_core(workspace: Path, *, gui_pins: tuple[str, str] | None = None) ->
     uc_component = config.get("usecases_component")
     if isinstance(uc_component, dict):
         try:
-            usecases = usecases_reader(uc_component)
+            usecases = usecases_reader(uc_component, workspace / "modules")
         except BridgeUnavailable:
             usecases = None
     return GuiBridge(gui=gui, plan=plan, status=status, policies=policies, modules=modules,
@@ -634,7 +655,7 @@ def _mount_governance(app: Any, bridge: GuiBridge, add_guarded: Callable, requir
         if "usecase_id" in request.path_params:
             # FastAPI's `usecase_id: int` path parameter: anything else is a 422 with a detail list.
             raw = request.path_params["usecase_id"]
-            if not re.fullmatch(r"[+-]?\d+", raw):
+            if not re.fullmatch(r"[+-]?\d{1,%d}" % USECASE_MAX_ID_DIGITS, raw):
                 return json_response({"detail": [{"type": "int_parsing", "loc": ["path", "usecase_id"],
                                                    "msg": "Input should be a valid integer, unable to parse string as an integer",
                                                    "input": raw}]}, status_code=422, headers=headers)

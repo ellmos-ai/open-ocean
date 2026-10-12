@@ -72,7 +72,7 @@ def _bound(tmp_path: Path, document=SOURCE, raw: bytes | None = None) -> TestCli
     module = tmp_path / "modules" / "ellmos-tests"
     module.mkdir(parents=True, exist_ok=True)
     (module / "usecases.json").write_bytes(raw if raw is not None else json.dumps(document).encode("utf-8"))
-    return _client(GuiBridge(usecases=usecases_reader(_component(module))))
+    return _client(GuiBridge(usecases=usecases_reader(_component(module), module.parent)))
 
 
 # ---- the response itself ---------------------------------------------------------------------------------------
@@ -136,7 +136,7 @@ def test_a_bad_source_is_a_503_with_a_stable_code_and_no_path(tmp_path, name, ra
     if raw is None:
         module = tmp_path / "modules" / "ellmos-tests"
         module.mkdir(parents=True)
-        client = _client(GuiBridge(usecases=usecases_reader(_component(module))))
+        client = _client(GuiBridge(usecases=usecases_reader(_component(module), module.parent)))
     else:
         client = _bound(tmp_path, raw=raw)
     response = client.get("/api/usecases", headers=HEADERS)
@@ -160,18 +160,50 @@ def test_a_link_in_place_of_the_file_is_refused(tmp_path):
         (module / "usecases.json").symlink_to(outside)
     except OSError:
         pytest.skip("symlinks need privileges on this host")
-    client = _client(GuiBridge(usecases=usecases_reader(_component(module))))
+    client = _client(GuiBridge(usecases=usecases_reader(_component(module), module.parent)))
     response = client.get("/api/usecases", headers=HEADERS)
     assert response.status_code == 503 and response.json()["reason"] == "source-unreadable"
 
 
-@pytest.mark.parametrize("component", [
-    {}, {"detail": {}}, {"detail": {"catalog_id": "policy-registry", "local_path": "x"}},
-    {"detail": {"catalog_id": "ellmos-tests"}}, {"detail": {"catalog_id": "ellmos-tests", "local_path": 5}}])
-def test_a_component_that_is_not_ellmos_tests_cannot_be_bound(component):
+@pytest.mark.parametrize("make", [
+    lambda m: {},
+    lambda m: {"detail": {}},
+    lambda m: {**_component(m), "kind": "skill"},                      # wrong kind
+    lambda m: {**_component(m), "ref": "module:policy-registry"},       # wrong ref
+    lambda m: _component(m, "policy-registry"),                         # wrong catalog id
+    lambda m: {"ref": "module:ellmos-tests", "kind": "module", "detail": {"catalog_id": "ellmos-tests"}},
+    lambda m: {"ref": "module:ellmos-tests", "kind": "module", "detail": {"catalog_id": "ellmos-tests", "local_path": 5}},
+    lambda m: _component(m.parent.parent / "foreign" / "ellmos-tests"),  # a path outside the modules folder
+    lambda m: _component(m.parent / "other" / "ellmos-tests"),           # not directly below it
+    lambda m: _component(m.parent / "ellmos-tests-copy"),                # another folder name
+    lambda m: _component(m / ".." / ".." / "x" / "ellmos-tests"),        # traversal
+])
+def test_a_component_that_is_not_the_composed_ellmos_tests_cannot_be_bound(tmp_path, make):
     from tools.gui_bridge import BridgeUnavailable
+    module = tmp_path / "ws" / "modules" / "ellmos-tests"
+    module.mkdir(parents=True)
     with pytest.raises(BridgeUnavailable):
-        usecases_reader(component)
+        usecases_reader(make(module), module.parent)
+
+
+def test_a_link_inside_the_modules_folder_cannot_redirect_the_binding(tmp_path):
+    from tools.gui_bridge import BridgeUnavailable
+    modules = tmp_path / "ws" / "modules"
+    modules.mkdir(parents=True)
+    foreign = tmp_path / "foreign"
+    foreign.mkdir()
+    (foreign / "usecases.json").write_text(json.dumps(SOURCE), encoding="utf-8")
+    try:
+        (modules / "ellmos-tests").symlink_to(foreign, target_is_directory=True)
+    except OSError:
+        if os.name != "nt":
+            pytest.skip("symlinks unavailable")
+        done = subprocess.run(["cmd", "/c", "mklink", "/J", str(modules / "ellmos-tests"), str(foreign)],
+                              capture_output=True, text=True)
+        if done.returncode != 0:
+            pytest.skip("neither symlink nor junction could be created")
+    with pytest.raises(BridgeUnavailable):
+        usecases_reader(_component(modules / "ellmos-tests"), modules)
 
 
 def test_auth_comes_first_and_writes_are_405(tmp_path):
@@ -186,7 +218,7 @@ def test_auth_comes_first_and_writes_are_405(tmp_path):
 
 def _workspace(tmp_path: Path, component: dict | None) -> Path:
     workspace = tmp_path / "ws"
-    workspace.mkdir()
+    workspace.mkdir(exist_ok=True)
     config = {"schema": "ellmos.open-ocean.gui-bridge.v1", "plan_paths": {}}
     if component is not None:
         config["usecases_component"] = component
@@ -195,13 +227,21 @@ def _workspace(tmp_path: Path, component: dict | None) -> Path:
 
 
 def test_the_bridge_binds_the_component_from_its_config(tmp_path):
-    module = tmp_path / "elsewhere" / "ellmos-tests"
+    module = tmp_path / "ws" / "modules" / "ellmos-tests"
     module.mkdir(parents=True)
     (module / "usecases.json").write_text(json.dumps(SOURCE), encoding="utf-8")
     bridge = bridge_from_workspace(_workspace(tmp_path, _component(module)))
     assert _client(bridge).get("/api/usecases", headers=HEADERS).json()["stats"]["total"] == 7
     endpoint = {item["path"]: item for item in bridge.capabilities()["endpoints"]}["/api/usecases"]
     assert endpoint["available"] is True and endpoint["provider"] == {"id": "ellmos-tests", "version": None}
+
+
+def test_a_config_pointing_outside_the_modules_folder_is_not_bound(tmp_path):
+    foreign = tmp_path / "foreign" / "ellmos-tests"
+    foreign.mkdir(parents=True)
+    (foreign / "usecases.json").write_text(json.dumps(SOURCE), encoding="utf-8")
+    bridge = bridge_from_workspace(_workspace(tmp_path, _component(foreign)))
+    assert _client(bridge).get("/api/usecases", headers=HEADERS).json()["reason"] == "source-not-in-composition"
 
 
 def test_a_modules_directory_in_the_workspace_is_never_scanned(tmp_path):
@@ -220,9 +260,36 @@ def test_a_foreign_component_in_the_config_is_not_bound(tmp_path):
     assert _client(bridge).get("/api/usecases", headers=HEADERS).status_code == 503
 
 
-def test_the_lifecycle_writes_the_ellmos_tests_component_into_the_bridge_config():
-    source = Path(__file__).parent.parent.joinpath("tools", "ocean_lifecycle.py").read_text(encoding="utf-8")
-    assert '"usecases_component"' in source and '"ellmos-tests"' in source
+def _composed(workspace: Path, **overrides) -> dict:
+    module = workspace / "modules" / "ellmos-tests"
+    return {**_component(module), **overrides}
+
+
+def test_the_real_lifecycle_selection_picks_exactly_one_valid_component(tmp_path):
+    from tools.ocean_lifecycle import select_usecases_component
+    workspace = tmp_path / "ws"
+    other = {"ref": "module:policy-registry", "kind": "module", "detail": {"catalog_id": "policy-registry", "local_path": "x"}}
+    good = _composed(workspace)
+    assert select_usecases_component([other, good], workspace) == good
+    assert select_usecases_component([other], workspace) is None                        # nothing composed
+    assert select_usecases_component([good, _composed(workspace)], workspace) is None   # two candidates
+    assert select_usecases_component([good, _composed(workspace, kind="skill")], workspace) is None  # a malformed twin
+    assert select_usecases_component([_composed(workspace, kind="skill")], workspace) is None
+    assert select_usecases_component([_composed(workspace, ref="module:other")], workspace) is None
+    foreign = _component(tmp_path / "foreign" / "ellmos-tests")
+    assert select_usecases_component([foreign], workspace) is None                      # outside <workspace>/modules
+
+
+def test_the_real_lifecycle_function_writes_the_selection_into_the_bridge_config():
+    """up_from_paths is exercised end to end by test_ocean_cli; here the written key is read from the real code path."""
+    import ast
+    import inspect
+    from tools import ocean_lifecycle
+    tree = ast.parse(inspect.getsource(ocean_lifecycle.up_from_paths).replace("\r\n", "\n"))
+    calls = [n for n in ast.walk(tree) if isinstance(n, ast.Call) and getattr(n.func, "id", None) == "select_usecases_component"]
+    stores = [n for n in ast.walk(tree) if isinstance(n, ast.Subscript) and isinstance(n.slice, ast.Constant)
+              and n.slice.value == "usecases_component" and isinstance(n.ctx, ast.Store)]
+    assert calls and stores, "up_from_paths no longer writes usecases_component from select_usecases_component"
 
 
 # ---- the GUI's own page script, executed -------------------------------------------------------------------------
@@ -361,3 +428,74 @@ def test_negative_control_the_page_shows_not_found_for_a_missing_row(tmp_path, n
     gone = client.get("/api/usecases/99", headers=HEADERS).json()  # what BACH answers for an id that is not there
     view = _page_view(200, listing, details={1: gone}, click=0)
     assert view["detail"]["id"] == "" and view["error"] == "Nicht gefunden"  # open() reports it in uc-list-error (usecases.astro:83)
+
+
+# ---- limits, ids, capabilities, methods (review R27) ----------------------------------------------------------------
+
+def _one(**fields) -> bytes:
+    return json.dumps({"usecases": [{"id": 1, "title": "t", **fields}]}).encode("utf-8")
+
+
+@pytest.mark.parametrize("name, raw", [
+    ("title too long", _one(title="x" * 1001)),
+    ("description too long", _one(description="x" * 100_001)),
+    ("module too long", _one(module="x" * 201)),
+    ("id above int64", _one(id=2**63)),
+    ("too many rows", json.dumps({"usecases": [{"id": i, "title": "t"} for i in range(1, 10_002)]}).encode("utf-8")),
+    ("meta text too long", json.dumps({"_meta": {"generated_at": "x" * 257}, "usecases": []}).encode("utf-8")),
+    ("deep nesting", b"[" * 200_000 + b"]" * 200_000),
+    ("deep nesting in a field", b'{"usecases": [{"id": 1, "title": "t", "description": ' + b"[" * 100_000 + b"]" * 100_000 + b"}]}"),
+    ("int with 5000 digits", b'{"usecases": [{"id": 1' + b"0" * 5000 + b', "title": "t"}]}'),
+], ids=lambda value: value if isinstance(value, str) else "raw")
+def test_field_depth_and_size_limits_are_source_invalid_not_unreadable(tmp_path, name, raw):
+    response = _bound(tmp_path, raw=raw).get("/api/usecases", headers=HEADERS)
+    assert response.status_code == 503 and response.json() == {"available": False, "reason": "source-invalid"}, name
+
+
+def test_values_at_the_limits_are_accepted(tmp_path):
+    body = _bound(tmp_path, raw=_one(title="x" * 1000, description="y" * 100_000, id=2**63 - 1)).get(
+        "/api/usecases", headers=HEADERS).json()
+    assert body["success"] is True and body["stats"]["total"] == 1
+
+
+@pytest.mark.parametrize("path", ["/api/usecases/" + "9" * 5000, "/api/usecases/" + "9" * 20, "/api/usecases/+" + "1" * 20])
+def test_an_overlong_numeric_id_is_a_422_never_a_500(tmp_path, path):
+    response = _bound(tmp_path).get(path, headers=HEADERS)
+    assert response.status_code == 422 and response.json()["detail"][0]["loc"] == ["path", "usecase_id"]
+
+
+def test_the_longest_accepted_id_is_a_clean_not_found(tmp_path):
+    response = _bound(tmp_path).get("/api/usecases/" + "9" * 19, headers=HEADERS)
+    assert response.status_code == 200 and response.json() == {"success": False, "error": "Nicht gefunden"}
+
+
+@pytest.mark.parametrize("raw, available, reason", [
+    (None, True, None), (b"{broken", False, "source-invalid"), (b"[" * 100_000, False, "source-invalid"),
+    (_one(title="x" * 2000), False, "source-invalid")],
+    ids=["valid", "broken", "deep", "long-title"])
+def test_the_capability_follows_the_readable_valid_source(tmp_path, raw, available, reason):
+    module = tmp_path / "ws" / "modules" / "ellmos-tests"
+    module.mkdir(parents=True)
+    (module / "usecases.json").write_bytes(json.dumps(SOURCE).encode("utf-8") if raw is None else raw)
+    bridge = GuiBridge(usecases=usecases_reader(_component(module), module.parent))
+    endpoint = {item["path"]: item for item in bridge.capabilities()["endpoints"]}["/api/usecases"]
+    assert (endpoint["available"], endpoint["reason"]) == (available, reason)
+    assert (endpoint["provider"] is not None) == available
+
+
+def test_the_capability_of_a_missing_file_carries_the_same_code_as_the_get(tmp_path):
+    module = tmp_path / "ws" / "modules" / "ellmos-tests"
+    module.mkdir(parents=True)
+    bridge = GuiBridge(usecases=usecases_reader(_component(module), module.parent))
+    endpoint = {item["path"]: item for item in bridge.capabilities()["endpoints"]}["/api/usecases"]
+    get = _client(bridge).get("/api/usecases", headers=HEADERS).json()
+    assert endpoint["available"] is False and endpoint["reason"] == get["reason"] == "source-missing"
+
+
+@pytest.mark.parametrize("path", ["/api/usecases", "/api/usecases/", "/api/usecases/1", "/api/usecases/1/"])
+@pytest.mark.parametrize("method", ["POST", "PUT", "PATCH", "DELETE"])
+def test_writes_are_401_without_a_session_and_405_with_one_on_list_and_detail(tmp_path, path, method):
+    client = _bound(tmp_path)
+    anonymous = client.request(method, path)
+    assert anonymous.status_code == 401 and "usecases" not in anonymous.text.lower()
+    assert client.request(method, path, headers=HEADERS).status_code == 405

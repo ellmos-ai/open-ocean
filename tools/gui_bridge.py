@@ -5,6 +5,7 @@ import importlib
 import importlib.machinery
 import importlib.util
 import json
+import re
 import sys
 from collections import Counter
 from datetime import datetime, timezone
@@ -203,7 +204,7 @@ def _optional_text(value: Any) -> bool:
     return value is None or isinstance(value, str)
 
 
-def usecases_reader(component: dict[str, Any]) -> Callable[[], dict]:
+def usecases_reader(component: dict[str, Any]) -> Callable[..., dict]:
     """Serve BACH's ``GET /api/usecases`` contract from the ellmos-tests module bound in the composition.
 
     The file is ``usecases.json`` of that module (generator tools/usecases_sync.py, exported from bach.db). It carries
@@ -216,7 +217,7 @@ def usecases_reader(component: dict[str, Any]) -> Callable[[], dict]:
         raise BridgeUnavailable("Die ellmos-tests-Bindung der Komposition ist ungültig.")
     root = Path(detail["local_path"])
 
-    def read() -> dict:
+    def read(usecase_id: int | None = None) -> dict:
         try:
             raw, _ = _read_bytes(root / USECASES_FILE, root, USECASES_LIMIT)
         except FileNotFoundError:
@@ -251,6 +252,9 @@ def usecases_reader(component: dict[str, Any]) -> Callable[[], dict]:
                 row["test_result"] = "pass" if score >= 75 else ("fail" if score > 0 else "pending")
             row.update({key: item.get(key) for key in ("module", "covering_skill", "coverage_status")})
             rows.append(row)
+        if usecase_id is not None:  # BACH GET /api/usecases/{id}: the row, or HTTP 200 success:false "Nicht gefunden"
+            found = next((row for row in rows if row["id"] == usecase_id), None)
+            return {"success": True, "usecase": found} if found else {"success": False, "error": "Nicht gefunden"}
         rows.sort(key=lambda row: (row["title"].encode("utf-8"), row["id"]))  # SQLite ORDER BY title (BINARY)
         passed = sum(1 for row in rows if row["test_result"] == "pass")
         failed = sum(1 for row in rows if row["test_result"] == "fail")
@@ -626,12 +630,22 @@ def _mount_governance(app: Any, bridge: GuiBridge, add_guarded: Callable, requir
     def usecases_route(request):
         provider = bridge.providers["usecases"]
         reason = "source-not-in-composition"
+        usecase_id = None
+        if "usecase_id" in request.path_params:
+            # FastAPI's `usecase_id: int` path parameter: anything else is a 422 with a detail list.
+            raw = request.path_params["usecase_id"]
+            if not re.fullmatch(r"[+-]?\d+", raw):
+                return json_response({"detail": [{"type": "int_parsing", "loc": ["path", "usecase_id"],
+                                                   "msg": "Input should be a valid integer, unable to parse string as an integer",
+                                                   "input": raw}]}, status_code=422, headers=headers)
+            usecase_id = int(raw)
         if provider is not None:
             try:
-                return json_response(provider(), headers=headers)
+                return json_response(provider() if usecase_id is None else provider(usecase_id), headers=headers)
             except UsecasesUnavailable as exc:
                 reason = exc.reason
             except Exception:  # noqa: BLE001 - the body carries a stable code, never exception text
                 reason = "source-unreadable"
         return json_response({"available": False, "reason": reason}, status_code=503, headers=headers)
     add_guarded("/api/usecases", usecases_route)
+    add_guarded("/api/usecases/{usecase_id}", usecases_route)

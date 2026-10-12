@@ -230,7 +230,7 @@ def test_the_lifecycle_writes_the_ellmos_tests_component_into_the_bridge_config(
 HARNESS = r"""
 const fs = await import('node:fs');
 let raw = ''; for await (const c of process.stdin) raw += c;
-const {status, body} = JSON.parse(raw);
+const {routes, click} = JSON.parse(raw);
 const nodes = new Map();
 const make = () => new Proxy({children: [], textContent: '', hidden: false, dataset: {}, attrs: {}, value: '', style: {}}, {
   get(t, k) {
@@ -238,26 +238,34 @@ const make = () => new Proxy({children: [], textContent: '', hidden: false, data
     if (k === 'replaceChildren') return (...a) => { t.children = [...a]; };
     if (k === 'append') return (...a) => { t.children.push(...a); };
     if (k === 'setAttribute') return (n, v) => { t.attrs[n] = v; };
+    if (k === 'addEventListener') return (n, f) => { (t.listeners ??= {})[n] = f; };
     return () => {};
   },
   set(t, k, v) { t[k] = v; return true; }});
 globalThis.document = {getElementById: id => { if (!nodes.has(id)) nodes.set(id, make()); return nodes.get(id); },
                        createElement: () => make()};
-globalThis.fetch = async () => ({ok: status < 400, status, json: async () => body});
+globalThis.fetch = async url => { const r = routes[url] || {status: 404, body: {}};
+  return {ok: r.status < 400, status: r.status, json: async () => r.body}; };
 globalThis.confirm = () => false;
 (0, eval)(fs.readFileSync(process.argv[1], 'utf8'));
 for (let i = 0; i < 20; i++) await new Promise(r => setTimeout(r, 0));
 const text = id => document.getElementById(id).textContent;
 const list = document.getElementById('uc-list').children;
+if (click !== null) { await list[click].listeners.click(); for (let i = 0; i < 20; i++) await new Promise(r => setTimeout(r, 0)); }
+const detail = Object.fromEntries(['id','title','workflow','result','score','tested','author','updated','description','input','expected']
+  .map(n => [n, text('uc-' + n)]));
+const action = document.getElementById('uc-action-status');
 console.log(JSON.stringify({total: text('uc-total'), pass: text('uc-pass'), fail: text('uc-fail'), pending: text('uc-pending'),
-  count: text('uc-count'), error: document.getElementById('uc-list-error').hidden ? '' : text('uc-list-error'),
+  count: text('uc-count'), detail, action: action.hidden ? '' : action.textContent, error: document.getElementById('uc-list-error').hidden ? '' : text('uc-list-error'),
   titles: list.map(b => b.children && b.children[0] ? b.children[0].textContent : null),
   secondary: list.map(b => b.children && b.children[1] ? b.children[1].textContent : null)}));
 """
 
 
-def _page_view(status: int, body) -> dict:
-    done = subprocess.run([NODE, "--input-type=module", "-e", HARNESS, str(PAGE)], input=json.dumps({"status": status, "body": body}),
+def _page_view(status: int, body, *, details: dict | None = None, click: int | None = None) -> dict:
+    routes = {"/api/usecases": {"status": status, "body": body}}
+    routes.update({f"/api/usecases/{key}": {"status": 200, "body": value} for key, value in (details or {}).items()})
+    done = subprocess.run([NODE, "--input-type=module", "-e", HARNESS, str(PAGE)], input=json.dumps({"routes": routes, "click": click}),
                           capture_output=True, text=True, encoding="utf-8", timeout=60)
     assert done.returncode == 0, done.stderr
     return json.loads(done.stdout)
@@ -297,3 +305,59 @@ def test_the_503_is_shown_as_an_error_not_as_data(tmp_path, node):
     response = _client(GuiBridge()).get("/api/usecases", headers=HEADERS)
     view = _page_view(response.status_code, response.json())
     assert view["error"] and view["count"] == "Keine Daten geladen" and view["titles"] == []
+
+
+# ---- detail route: GET /api/usecases/{id} ---------------------------------------------------------------------------
+# BACH server.py:13153-13167: {"success": True, "usecase": row}; unknown id -> HTTP 200 {"success": False,
+# "error": "Nicht gefunden"} (the page's delete check at usecases.astro:287 relies on exactly that); a non-integer id is
+# FastAPI's 422. The page parses it in open() (usecases.astro:200-222): body.usecase.id must equal the clicked id.
+
+def test_the_detail_route_returns_the_row_the_list_shows(tmp_path):
+    client = _bound(tmp_path)
+    listed = {row["id"]: row for row in client.get("/api/usecases", headers=HEADERS).json()["usecases"]}
+    for usecase_id, row in listed.items():
+        response = client.get(f"/api/usecases/{usecase_id}", headers=HEADERS)
+        assert response.status_code == 200 and response.json() == {"success": True, "usecase": row}
+
+
+@pytest.mark.parametrize("path", ["/api/usecases/99", "/api/usecases/0", "/api/usecases/-1"])
+def test_an_unknown_id_is_bachs_200_not_found(tmp_path, path):
+    response = _bound(tmp_path).get(path, headers=HEADERS)
+    assert response.status_code == 200 and response.json() == {"success": False, "error": "Nicht gefunden"}
+
+
+@pytest.mark.parametrize("path", ["/api/usecases/abc", "/api/usecases/1.5", "/api/usecases/test-all"])
+def test_a_non_integer_id_is_a_422_detail_list(tmp_path, path):
+    response = _bound(tmp_path).get(path, headers=HEADERS)
+    detail = response.json()["detail"]
+    assert response.status_code == 422 and detail[0]["loc"] == ["path", "usecase_id"] and detail[0]["type"] == "int_parsing"
+
+
+def test_the_detail_route_shares_the_503_codes_and_the_guards(tmp_path):
+    assert _client(GuiBridge()).get("/api/usecases/1", headers=HEADERS).json() == {
+        "available": False, "reason": "source-not-in-composition"}
+    broken = _bound(tmp_path, raw=b"{broken")
+    response = broken.get("/api/usecases/1", headers=HEADERS)
+    assert response.status_code == 503 and response.json() == {"available": False, "reason": "source-invalid"}
+    assert broken.get("/api/usecases/1").status_code == 401 and broken.get("/api/usecases/1/").status_code == 401
+    for method in ("POST", "PUT", "PATCH", "DELETE"):
+        assert broken.request(method, "/api/usecases/1", headers=HEADERS).status_code == 405
+
+
+def test_the_real_page_script_opens_the_detail_of_a_listed_usecase(tmp_path, node):
+    client = _bound(tmp_path)
+    listing = client.get("/api/usecases", headers=HEADERS).json()
+    details = {row["id"]: client.get(f"/api/usecases/{row['id']}", headers=HEADERS).json() for row in listing["usecases"]}
+    view = _page_view(200, listing, details=details, click=4)  # "e fünfte": score 75
+    assert view["action"] == ""
+    assert view["detail"]["id"] == "Usecase #5" and view["detail"]["title"] == "e fünfte"
+    assert view["detail"]["result"] == "Definition geprüft" and view["detail"]["score"] == "75 %"
+    assert view["detail"]["workflow"] == "–" and view["detail"]["author"] == "–"  # null columns are shown as unknown
+
+
+def test_negative_control_the_page_shows_not_found_for_a_missing_row(tmp_path, node):
+    client = _bound(tmp_path)
+    listing = client.get("/api/usecases", headers=HEADERS).json()
+    gone = client.get("/api/usecases/99", headers=HEADERS).json()  # what BACH answers for an id that is not there
+    view = _page_view(200, listing, details={1: gone}, click=0)
+    assert view["detail"]["id"] == "" and view["error"] == "Nicht gefunden"  # open() reports it in uc-list-error (usecases.astro:83)

@@ -358,3 +358,7 @@ Third-party development dependencies and their licenses are inventoried in [`THI
 
 For AI coding agents and automated discovery, a machine-readable summary and command index is
 maintained in [`llms.txt`](llms.txt).
+
+## Portable agent starter files
+
+`starters/windows/` ships START, SYSTEM-AUDITOR, TICKET-MASTER, PINGPONG and MULTI-BOT `.bat` files; `starters/posix/` ships their shell equivalents. The wheel includes them in `share/open-ocean/starters/`. They delegate to the existing TASKPLAN Startcenter and module role contracts. Install the reviewed TASKPLAN version with Startcenter and the optional role modules first. These files set no personal paths, accounts, models or trusted automation. They do not register or start background jobs during installation. Run START to choose a role. PingPong requires an explicit sync root/own slot and supports its verified Codex/Claude adapters; MULTI-BOT uses the public githubbot-core package. For previews pass `--dry-run --provider codex`; missing modules produce an installation hint.

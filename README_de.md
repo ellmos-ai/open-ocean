@@ -279,6 +279,13 @@ Repository nie von der Rezeptquelle abdriften.
 
 ## Status
 
+Die erste Hybrid-Ressourcenstrecke steht als mitgelieferte `ocean_resources`-API und
+JSON-Manifest über `python -m ocean_resources` bereit. Der ausdrückliche Befehl
+`fixture-demo` prüft Compute → Checkpoint/Exit → Chat → fortgesetzten Compute in eigenem
+temporärem Zustand. Reale Adapter bleiben HOLD; produktive Queues, Modelle und BACH-Zustand
+werden nicht verändert. Der [Steckplatzverteiler-Vertrag](architecture/STECKPLATZVERTEILER.md)
+beschreibt Schreiber-, Mess-, Kompatibilitäts- und Rolloutgates.
+
 - **Läuft:** Resolve, Verify, SHA-gepinntes Fetch/Place, isoliertes Activate, Rollback und der
   `ocean.py`-Laufzeit-Lebenszyklus, getestet unter Windows, Linux und macOS.
 - **Offen:** eine Neuinstallation auf einem Rechner außerhalb der Entwicklungsumgebung und die

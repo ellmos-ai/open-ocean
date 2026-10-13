@@ -286,6 +286,13 @@ from the recipe source.
 
 ## Status
 
+The first hybrid resource seam is available as the packaged `ocean_resources` API and
+`python -m ocean_resources` JSON manifest. Its explicit `fixture-demo` command exercises
+compute → checkpoint/exit → chat → resumed compute in own temporary state. Real adapters
+remain HOLD; no production queue, model or BACH state is changed. See the
+[resource arbiter contract](architecture/RESOURCE-ARBITER.md) for writer, measurement,
+compatibility and rollout gates.
+
 - **Works:** Resolve, Verify, SHA-pinned Fetch/Place, sandboxed Activate, rollback and the
   `ocean.py` runtime lifecycle, tested on Windows, Linux and macOS.
 - **Open:** a fresh installation on a machine outside the maintainers' development setup, and

@@ -54,7 +54,10 @@ Security = "https://github.com/ellmos-ai/open-ocean/blob/main/SECURITY.md"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["tools*"]
+include = ["tools*", "ocean_resources*"]
+
+[tool.setuptools.package-data]
+ocean_resources = ["manifest.json"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

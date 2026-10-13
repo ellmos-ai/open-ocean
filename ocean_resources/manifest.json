@@ -1,0 +1,61 @@
+{
+  "schema": "ellmos.ocean-resource-seam.v1",
+  "id": "ocean-resource-arbiter",
+  "version": "0.1.0",
+  "status": "offline-first-seam-not-live-integration",
+  "decision": {
+    "queue": "C-hybrid",
+    "socket": "large RAM/CPU consumer",
+    "slot": "user of a socket",
+    "torch": "active socket and active slot",
+    "pipeline_count": "unresolved-no-new-pipeline"
+  },
+  "interfaces": {
+    "api": "ocean_resources",
+    "cli": "python -m ocean_resources",
+    "commands": [
+      "manifest",
+      "fixture-demo"
+    ],
+    "gui": "no native extension at this seam"
+  },
+  "state": {
+    "owner": "one cooperating writer per host and configured local directory",
+    "writer": "OS file lock plus checksummed unresolved-reservation journal",
+    "polarstern": "separate and unchanged",
+    "queues": "references only; no migration or writes",
+    "checkpoint": "application-owned durable payload; in-session arbiter cache only"
+  },
+  "adapters": {
+    "bach": "injected facade only; no live BACH boot or DB import",
+    "model_sockets": "preserved five-field model_target",
+    "inference_gate": "native async gate.turn(chat_id, priority, check_ready, model_target)",
+    "compute": "injected start/checkpoint/stop/readback"
+  },
+  "admission": {
+    "mode": "explicit named offline fixture profiles only",
+    "unknown": "HOLD",
+    "metrics": "fresh increasing sequence, verified reserve, RAM/CPU and pressure",
+    "release": "matching generation and execution identity, valid checkpoint, verified exit and zero process residency, newer capacity readback",
+    "heartbeat_expiry": "does not release RAM",
+    "restart": "unresolved journal HOLD; no auto-recovery"
+  },
+  "live_gates": [
+    "independent review",
+    "BACH-IN wiring",
+    "profiled and authorized real adapters",
+    "measured system reserve and capacity sensor",
+    "verified lifecycle/exit/unload and durable checkpoint",
+    "restart reconciliation",
+    "authenticated bounded override",
+    "pinned bundle and consumer projection"
+  ],
+  "task_union_status": "union-schema-specified-fixtures-green-no-live-cutover",
+  "external_effects": [
+    "no network",
+    "no model calls",
+    "no production queue access",
+    "no service installation",
+    "no implicit OS process discovery"
+  ]
+}

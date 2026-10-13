@@ -354,6 +354,36 @@ Third-party development dependencies and their licenses are inventoried in [`THI
 
 ---
 
+## Existing Python environment package transactions
+
+`tools/python_packages.py` is part of the existing Ocean transaction engine. It operates on an
+existing physical PEP405 environment and does not bootstrap a venv or adopt a provider. The
+operator selects trusted profiles through `OCEAN_PYTHON_PROFILES_ROOT`; requests bind only
+`profile_id`, the profile's raw SHA-256, pinned wheel inputs and declared entry points.
+The target and artifact root come from that profile. The derived venv installation scheme
+is reported separately from isolated interpreter measurements; site hooks are not imported.
+
+The package planner checks offline wheel closure, installed ownership, reverse dependencies
+and beforestate. Apply consumes frozen, hash-verified wheel bytes. Verification reads physical
+distribution metadata, RECORD, provenance and entry points without importing package code.
+File, archive, JSON and process-output captures have explicit bounds and reject special files
+or identity drift. Existing editable/legacy distributions and incomplete/shared ownership
+fail closed; conversion of a native editable environment needs a separate plan.
+
+The standalone CLI and the consuming Installer use the same venv-wide mutex around the whole
+mutation and journal finalization. The Installer consumes verified original core exports in
+process rather than creating another engine. POSIX pip inherits the same locked file
+description, keeping exclusion after controller death. On Windows 10+, the writer belongs to
+a kill-on-close job at process creation, before primary-thread resume. Unsupported kernel
+facilities fail closed; no unsecured process-launch fallback is used for package writers.
+
+`--inspect-python-package-recovery` captures the current plan/journal/profile/executor/target
+bindings. `--reconcile-python-packages` may finalize a complete measured afterstate without
+pip replay. Partial apply or interrupted rollback needs a fresh recovery CAS and the calling
+Installer's existing externally signed rollback grant. Unknown paths remain a repair gate.
+Planning evidence, source review and synthetic QA are separate from native apply, approval,
+grants and runtime acceptance. Installer bootstrap and service switching are separate scopes.
+
 ## LLM Context & Discovery
 
 For AI coding agents and automated discovery, a machine-readable summary and command index is

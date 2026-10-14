@@ -652,7 +652,6 @@ def _run(command: list[str], *, timeout: float = 120) -> str:
                     except ProcessLookupError:
                         pass
                     process.wait(timeout=20)
-        _check_pip_sources()
         return output[0].decode("utf-8")
     finally:
         if job is not None:
@@ -890,7 +889,6 @@ def _recorded_pip_source(environment: dict, row: dict, owners: dict) -> dict:
                                           "entry_points", "metadata_sha256")}
     if key in sources:
         _require(sources[key]["binding"] == binding, "recorded original pip identity changed")
-        _check_pip_sources()
         return sources[key]
     site = Path(environment["paths"]["purelib"])
     _, owned = _installed(environment, {"pip"}, ([row], owners))
@@ -1071,7 +1069,10 @@ def _installed(environment: dict, names: set[str], inventory=None) -> tuple[list
     total = 0
     for distribution in selected:
         directory = root / distribution["dist_info"]
-        for row in csv.reader(io.StringIO(_read_bytes(directory / "RECORD", _MAX_METADATA_BYTES).decode())):
+        record_raw = _read_bytes(directory / "RECORD", _MAX_METADATA_BYTES)
+        _require(hashlib.sha256(record_raw).hexdigest() == distribution["metadata_sha256"]["RECORD"],
+                 "installed RECORD bytes changed")
+        for row in csv.reader(io.StringIO(record_raw.decode())):
             relative = _relative(directory.parent / row[0], root)
             data = _read_bytes(root / relative)
             total += len(data)
@@ -1127,7 +1128,6 @@ def _pip(environment: dict, profile: dict, wheels: list[dict], *, dry_run: bool,
              "package executor operator identity differs")
     if key not in _HELD.pip_sources:
         _inventory(environment)
-    _check_pip_sources()
     source = _HELD.pip_sources[key]
     # Restore only PEP405's measured prefix and selected site path. Suppressing
     # site initialization prevents arbitrary editable .pth/provider execution.
@@ -1396,30 +1396,30 @@ def _receipt(plan: dict, path: Path, components: set[str]) -> dict:
 
 def _complete_afterstate(plan: dict) -> dict:
     root = Path(plan["environment"]["venv"])
-    installed, owned = _installed(plan["environment"], {_name(row["distribution"]) for row in plan["wheels"]})
-    _require(owned.issubset(set(plan["before"]["files"])),
-             "executor wrote unplanned installed RECORD paths")
-    _require({(row["distribution"], row["version"]) for row in installed}
-             == {(_name(row["distribution"]), row["version"]) for row in plan["wheels"]},
-             "required distributions are not installed")
+    changed = {_name(row["distribution"]) for row in plan["wheels"]}
     _, profile = _profile(plan["request"]["profile_id"], plan["request"]["profile_sha256"])
     _run(_pip(plan["environment"], profile, [], dry_run=False, check=True))
-    inventory = _inventory(plan["environment"])[0]
-    changed = {_name(row["distribution"]) for row in plan["wheels"]}
+    inventory, owners = _inventory(plan["environment"])
+    selected = [row for row in inventory if row["distribution"] in changed]
+    _require({(row["distribution"], row["version"]) for row in selected}
+             == {(_name(row["distribution"]), row["version"]) for row in plan["wheels"]},
+             "required distributions are not installed")
     _require([row for row in inventory if row["distribution"] not in changed]
              == [row for row in plan["before"]["inventory"] if row["distribution"] not in changed],
              "unselected installed distribution/requirements/ownership changed")
     for wheel in plan["wheels"]:
-        row = next(item for item in installed if item["distribution"] == _name(wheel["distribution"]))
-        observed = next(item for item in inventory if item["distribution"] == row["distribution"])
+        row = next(item for item in selected if item["distribution"] == _name(wheel["distribution"]))
         direct_raw = _read_bytes(root / row["dist_info"] / "direct_url.json", _MAX_METADATA_BYTES)
         _require(hashlib.sha256(direct_raw).hexdigest()
-                 == observed["direct_url_sha256"] == row["direct_url_sha256"],
+                 == row["direct_url_sha256"],
                  "installed wheel provenance changed after inventory capture")
         direct = json.loads(direct_raw)
         _require(_archive_sha256(direct.get("archive_info")) == wheel["sha256"],
                  "installed wheel provenance differs")
         _wheel({key: wheel[key] for key in plan["request"]["wheels"][0]}, profile, plan["environment"])
+    installed, owned = _installed(plan["environment"], changed, (inventory, owners))
+    _require(owned.issubset(set(plan["before"]["files"])),
+             "executor wrote unplanned installed RECORD paths")
     available = [{"distribution": row["distribution"], **point}
                  for row in installed for point in row["entry_points"]]
     _require(all(point in available for point in plan["request"]["required_entry_points"]),

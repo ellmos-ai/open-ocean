@@ -30,6 +30,13 @@ def wait_for(predicate):
     raise AssertionError("host service did not reach expected state")
 
 
+def running(client, request_id):
+    # A torch may be visible during TRANSITION before its executor is ready.
+    state = client.status()
+    return state if (state["state"] == "RUNNING"
+                     and (state["torch"] or {}).get("request_id") == request_id) else None
+
+
 @pytest.fixture
 def transport(tmp_path):
     harness = FocusHarness(tmp_path)
@@ -53,18 +60,18 @@ def test_network_clients_share_one_authority_and_native_request_identity(transpo
     compute, chat, operator = (make_client(c) for c in (h.compute, h.chat, h.operator))
     request = SlotRequest("compute", "compute", "native-slot", "focus-host", "native-key")
     assert compute.submit(request) == compute.submit(request) == "compute"
-    wait_for(lambda: compute.status()["state"] == "RUNNING")
+    wait_for(lambda: running(compute, "compute"))
     h.progress["compute"] = 7
     chat.submit(SlotRequest("telegram", "model", "chat-slot", "focus-host", "chat-key", 1, True))
-    wait_for(lambda: (chat.status()["torch"] or {}).get("request_id") == "telegram")
-    grant = Grant(**chat.status()["torch"])
+    ready = wait_for(lambda: running(chat, "telegram"))
+    grant = Grant(**ready["torch"])
     chat.begin_turn(grant, "actual-turn")
     assert operator.status()["in_flight_turns"] == 1
     chat.end_turn(grant, "actual-turn")
     h.now += 2
-    wait_for(lambda: (compute.status()["torch"] or {}).get("request_id") == "compute")
+    ready = wait_for(lambda: running(compute, "compute"))
     assert h.starts[-1] == ("compute", 7)
-    compute.finish(Grant(**compute.status()["torch"]))
+    compute.finish(Grant(**ready["torch"]))
     assert operator.status()["state"] == "IDLE"
     assert not h.controller.status(*h.auth())["waiting"]
     assert service._server.server_address[0] == "127.0.0.1"

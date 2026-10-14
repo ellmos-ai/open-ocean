@@ -57,6 +57,10 @@ JSON OK/result oder einen bereinigten HOLD. Ein Timeout nach einer schreibenden
 Anfrage beweist keinen Fehlschlag: dieselbe native Jobidentität erneut lesen,
 bevor wiederholt wird. Unveränderliche Submit-/Overrideidentitäten behalten ihre
 vorhandene Wiederholungssemantik.
+Eine sichtbare Fackel während TRANSITION ist eine Reservierung und bestätigt
+keine Executorbereitschaft. Vor einem Turn auf einen einzigen Statussnapshot
+mit RUNNING und der gewünschten Jobidentität warten. Writerwechsel oder
+Rückgabe verlangen weiterhin die erneute Prüfung beim eigentlichen Vorgang.
 
 ```python
 from ocean_resources.client import HostClient

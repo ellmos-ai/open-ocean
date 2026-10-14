@@ -55,6 +55,10 @@ Contract payloads contain the exact dataclass fields, including null optional
 fields. The response is JSON OK/result or sanitized HOLD. A timed-out mutating
 request is not proof of failure: reread the same native request identity before
 retrying; immutable submit/override identities retain their existing semantics.
+A visible torch during TRANSITION is a reservation, not executor readiness.
+Consumers wait for one status snapshot with RUNNING and the intended request
+identity before starting a turn; a writer session or return transition still
+requires revalidation at the operation itself.
 
 ```python
 from ocean_resources.client import HostClient

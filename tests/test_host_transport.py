@@ -1,15 +1,17 @@
 """Actual loopback and separate-process clients; injected fixture executors only."""
 from dataclasses import asdict, replace
+from concurrent.futures import ThreadPoolExecutor
 from http.client import HTTPConnection
 import json
 import os
 from pathlib import Path
 import subprocess
 import sys
-from threading import Thread
+from threading import Event, Thread
 import time
 
 import pytest
+import ocean_resources
 
 from ocean_resources import Grant, Hold, SlotRequest
 from ocean_resources.client import HostClient
@@ -78,9 +80,10 @@ config=json.loads(sys.stdin.read())
 c=HostClient(**config)
 print(json.dumps({'host':c.status()['host_id'],'session':c.status()['authority_id']}))
 """
-    env = {**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parents[1]), "PYTHONDONTWRITEBYTECODE": "1"}
+    package_root = Path(ocean_resources.__file__).resolve().parents[1]
+    env = {**os.environ, "PYTHONPATH": str(package_root), "PYTHONDONTWRITEBYTECODE": "1"}
     # -I deliberately ignores PYTHONPATH: select this test source explicitly.
-    bootstrap = "import sys;sys.path.insert(0," + repr(str(Path(__file__).resolve().parents[1])) + ");" + script
+    bootstrap = "import sys;sys.path.insert(0," + repr(str(package_root)) + ");" + script
     process = subprocess.run([sys.executable, "-I", "-c", bootstrap], input=json.dumps(asdict(client)),
                               capture_output=True, text=True, timeout=15, env=env)
     assert process.returncode == 0, process.stderr
@@ -167,3 +170,26 @@ def test_invalid_client_config_json_and_foreign_service_pid_are_rejected(transpo
         context.setattr(os, "getpid", lambda: -1)
         with pytest.raises(Hold, match="foreign"):
             service.close()
+
+
+def test_stop_fences_a_request_arriving_while_accept_loop_is_waiting(transport, monkeypatch):
+    h, service, make_client = transport
+    entered, accept = Event(), Event()
+    original = service._server.handle_request
+    def paused_accept():
+        entered.set()
+        assert accept.wait(3)
+        original()
+    monkeypatch.setattr(service._server, "handle_request", paused_accept)
+    assert entered.wait(3)
+    service.stop()
+    client = make_client(h.compute)
+    try:
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(client.submit, SlotRequest("late-job", "compute", "slot", "focus-host", "late-key"))
+            accept.set()
+            with pytest.raises(Hold):
+                future.result(timeout=5)
+    finally:
+        accept.set()
+    assert h.controller.status(*h.auth())["waiting"] == [] and h.starts == []

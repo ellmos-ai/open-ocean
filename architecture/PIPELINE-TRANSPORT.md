@@ -25,6 +25,9 @@ executor or clears its durable reservation. The caller must retain the writer
 and executors until native completion or explicit reconciliation. An unfinished
 loop/request causes HOLD; it must not be interpreted as released RAM. A crashed
 host still meets the existing unresolved-journal restart gate.
+Stop is an admission fence: no new request or tick is admitted after it. An
+operation already admitted before the fence may finish while close drains it;
+transport shutdown does not roll back a native operation already in progress.
 
 ## Authentication and session fencing
 

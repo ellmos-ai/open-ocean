@@ -115,6 +115,7 @@ class HostService:
             raise ValueError("host polling interval must be .05..1 seconds")
         self.controller, self._operator = controller, operator
         self._pid, self._stop, self._running = os.getpid(), Event(), Lock()
+        self._admission = Lock()
         self._finished = Event()
         self._finished.set()
         self._closed = False
@@ -177,6 +178,7 @@ class HostService:
     def dispatch(self, client_id, token, path, message):
         self._require()
         client = self.controller._authenticate(client_id, token)
+        self._admit()
         exact(message, ("schema", "host_id", "authority_id", "payload"))
         state = self.controller.status(client_id, token)
         if (message["schema"] != SCHEMA or message["host_id"] != state["host_id"]
@@ -204,6 +206,13 @@ class HostService:
         identity(payload["turn_id"])
         return getattr(self.controller, operation)(client_id, token, grant, payload["turn_id"])
 
+    def _admit(self):
+        # Linearize new operations against stop. Previously admitted operations
+        # may drain; transport shutdown never rolls back native lifecycle work.
+        with self._admission:
+            if self._stop.is_set():
+                raise Hold("host transport is stopping; no new operation admitted")
+
     def serve_forever(self):
         self._require()
         if not self._running.acquire(blocking=False):
@@ -214,6 +223,12 @@ class HostService:
                 self._require()
                 self._server.handle_request()
                 if not self._stop.is_set():
+                    try:
+                        self._admit()
+                    except Hold:
+                        if self._stop.is_set():
+                            break
+                        raise
                     self.controller.tick(self._operator.client_id, self._operator.token)
         finally:
             self._finished.set()
@@ -222,7 +237,8 @@ class HostService:
     def stop(self):
         if os.getpid() != self._pid:
             raise Hold("foreign host transport process")
-        self._stop.set()
+        with self._admission:
+            self._stop.set()
 
     def close(self):
         self.stop()

@@ -26,6 +26,9 @@ stoppen keinen Executor und löschen keine dauerhafte Reservierung. Der Aufrufer
 behält Writer und Executor bis zum nativen Abschluss oder zur ausdrücklichen
 Abgleichprüfung. Unbeendete Schleifen oder Anfragen liefern HOLD; dies beweist
 keine RAM-Freigabe. Nach einem Absturz gilt das vorhandene Neustartjournal-Gate.
+Stop setzt eine Zulassungsschranke für neue Anfragen und Ticks. Bereits zuvor
+angenommene Operationen dürfen während des Abwartens abschließen; ein schon
+begonnener nativer Vorgang wird durch Transportende nicht zurückgerollt.
 
 ## Berechtigungen und Sessionbindung
 

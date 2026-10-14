@@ -79,6 +79,27 @@ Stop, Exitmessung und verifizierte Rückgabe bleiben möglich. Das vorhandene
 Neustartjournal bleibt bis zur eigenen Abnahme gesperrt; eine Profilfreigabe
 räumt es nicht auf.
 
+Der erste geprüfte Executorpfad verlangt ausdrücklich
+`ProcessCommand(..., source_mode="frozen-python")`: den aktuell vertrauten
+Python-Interpreter und genau ein gepinntes Anwendungsskript mit höchstens 8192
+Bytes sowie ausdrückliche Anwendungsargumente. Seine geprüften Bytes werden vor
+dem Kindstart in ein isoliertes `-I -S -c`-Programm übernommen. Der Skriptpfad
+wird zum Ausführen nicht erneut geöffnet. POSIX führt die Bytes im bereits
+abgesicherten isolierten Bootstrap aus; Windows übergibt sie dem suspendierten
+Interpreter. Direkt vor Aktivierung werden die tatsächlichen Quellpins erneut
+geprüft und die Kapazität neu gemessen. Auch eine spätere Pfadersetzung tauscht
+die eingefrorenen Codebytes nicht aus. Der Fingerprint bindet source_mode.
+Herkömmliche Pfadstarts bleiben bis zu einem eigens geprüften Artefaktadapter
+auf ausdrückliche Fixture-Zulassung begrenzt. Dies ist kein allgemeiner Snapshot
+mehrerer Dateien. Isolierte Imports, Laufzeitdateizugriffe, sämtliche wesentlichen
+Eingaben und Nebenläufigkeit müssen zum Operatorreview gehören. Installierte
+Python-Laufzeit, Standardbibliothek und Betriebssystem sind vertraute Hostbasis;
+bösartige Hoständerungen mit denselben Rechten sind nicht Teil dieser
+Konsistenzgarantie. `-I/-S` bilden keine Sandbox. Der Referenztest zertifiziert
+keine produktive Pipelinefamilie. Messzahlen liegen zwischen 2 und 10.000.000;
+die Intervallrechnung muss endlich bleiben. Ungültige Zahlen liefern HOLD statt
+eines Tracebacks.
+
 ## Lesender CLI-Zugang
 
 ```sh

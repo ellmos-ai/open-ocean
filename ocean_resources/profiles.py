@@ -117,7 +117,7 @@ class ReviewedProfileGate:
         if any(evidence[k] != profile[k] for k in ("host_id", "platform", "architecture", "workload_sha256")):
             raise ValueError("measurement and profile workload identities differ")
         if (not positive(evidence["peak_rss_bytes"]) or not positive(evidence["sample_count"])
-            or evidence["sample_count"] < 2 or not positive(evidence["cpu_concurrency_units"])
+            or not 2 <= evidence["sample_count"] <= 10_000_000 or not positive(evidence["cpu_concurrency_units"])
             or not instant(evidence["peak_cpu_units"])
             or not instant(evidence["sample_interval_seconds"]) or evidence["sample_interval_seconds"] <= 0):
             raise ValueError("bounded native observations and reviewed CPU concurrency required")
@@ -127,7 +127,8 @@ class ReviewedProfileGate:
             raise ValueError("reviewed allocation does not cover observations and explicit margins")
         duration = evidence["finished_at"] - evidence["started_at"] if all(
             instant(evidence[k]) for k in ("finished_at", "started_at")) else -1
-        if duration < (evidence["sample_count"] - 1) * evidence["sample_interval_seconds"] * 0.9:
+        interval = (evidence["sample_count"] - 1) * evidence["sample_interval_seconds"]
+        if not instant(duration) or not instant(interval) or duration < interval * 0.9:
             raise ValueError("measurement interval and sample count exceed the recorded window")
         now = self._clock()
         times = (evidence["started_at"], evidence["finished_at"], profile["approved_at"], profile["expires_at"], now)
@@ -156,7 +157,8 @@ class ReviewedProfileGate:
     def inspect(self) -> dict:
         """Read-only validation for configured pins; never acquires a grant."""
         try:
-            if os.getpid() != self._pid or platform.node() != self._host:
+            if (os.getpid() != self._pid or platform.node() != self._host
+                or platform.system() != self._platform or platform.machine() != self._architecture):
                 raise ValueError("foreign profile inspection process/host")
             profiles = [self._load(source) for source in self._sources.values()]
             return {"schema": "ocean-reviewed-profile-inspection.v1", "state": "VALIDATED",

@@ -84,7 +84,8 @@ def test_unapproved_or_inconsistent_profile_fields_are_rejected(documents, key, 
     ("exit_verified", False), ("exit_verified", 1), ("checkpoint_verified", False),
     ("unmeasured_external_residency", True), ("peak_rss_bytes", None),
     ("peak_cpu_units", float("inf")), ("cpu_concurrency_units", 2), ("peak_cpu_units", 1.1),
-    ("sample_count", True), ("sample_count", 1), ("sample_interval_seconds", 20),
+    ("sample_count", True), ("sample_count", 1), ("sample_count", 10**400),
+    ("sample_interval_seconds", 1e308), ("sample_interval_seconds", 20),
     ("started_at", 902), ("finished_at", 1001),
 ])
 def test_incomplete_or_unsupported_native_evidence_stays_closed(documents, key, value):
@@ -193,7 +194,7 @@ def test_profile_cli_validates_pins_without_grant_or_file_writes(documents):
 
 def test_actual_owned_command_uses_profile_and_expiry_still_allows_checkpoint_exit(documents, tmp_path):
     from test_pipeline_process import make_command, verify
-    command = make_command(tmp_path)
+    command = replace(make_command(tmp_path), source_mode="frozen-python")
     documents["profile"]["workload_sha256"] = command.fingerprint()
     documents["evidence"]["workload_sha256"] = command.fingerprint()
     gate = gate_for(documents)
@@ -300,3 +301,96 @@ def test_foreign_arbiter_and_executor_reject_before_inherited_mutex_and_never_si
                 with pytest.raises(Hold, match="foreign"):
                     call()
             executor.close()
+
+
+@pytest.mark.parametrize("mutation_stage", ["start-message", "after-final-verification"])
+def test_frozen_application_cannot_execute_replaced_path(documents, tmp_path, monkeypatch, mutation_stage):
+    from test_pipeline_process import make_command, verify
+    command = replace(make_command(tmp_path), source_mode="frozen-python")
+    for key in ("profile", "evidence"):
+        documents[key]["workload_sha256"] = command.fingerprint()
+    gate = gate_for(documents)
+    state = tmp_path / "state"
+    state.mkdir()
+    sequence = [0]
+    marker = tmp_path / "changed-source-executed"
+    def mutate():
+        (tmp_path / "owned_worker.py").write_text(
+            f"from pathlib import Path;Path({str(marker)!r}).write_text('bad')", encoding="utf-8")
+    def sensor():
+        sequence[0] += 1
+        return CapacityReadback(platform.node(), sequence[0], time.monotonic(), 1000, 2, True, True)
+    with HostWriterAuthority(state.resolve(), platform.node()) as writer:
+        arbiter = HostLocalArbiter(writer, (socket_for(documents),), sensor, time.monotonic,
+                                   profile_gate=gate, heartbeat_ttl=30)
+        executor = OwnedProcessExecutor(arbiter, command, state.resolve(), verify)
+        facade = BACHFacade(arbiter, {"compute": executor.adapter()})
+        arbiter.submit(SlotRequest("job", "compute", "slot", platform.node(), "key"))
+        if mutation_stage == "start-message":
+            original = executor._write
+            def write(path, value):
+                original(path, value)
+                if path.name == "start.json":
+                    mutate()
+            monkeypatch.setattr(executor, "_write", write)
+        else:
+            original = arbiter.prepare_execution
+            def prepare(*args, **kwargs):
+                original(*args, **kwargs)
+                mutate()
+            monkeypatch.setattr(arbiter, "prepare_execution", prepare)
+        try:
+            if mutation_stage == "start-message":
+                with pytest.raises(Hold, match="reservation remains held") as rejected:
+                    facade.start_next()
+                assert "source changed" in str(rejected.value.__cause__)
+                assert executor._executions == {}
+                assert arbiter.status()["torch"] is not None
+            else:
+                grant = facade.start_next()
+                checkpoint = facade.yield_active(grant, requeue=False)
+                assert json.loads(checkpoint.payload_json)["step"] == 7
+                assert sequence[0] == 3  # Acquire, activation, verified post-exit.
+            assert not marker.exists()
+        finally:
+            executor.close()
+
+
+def test_reviewed_activation_requires_frozen_code_and_fresh_sufficient_capacity(documents, tmp_path):
+    from test_pipeline_process import make_command, verify
+    command = replace(make_command(tmp_path), source_mode="frozen-python")
+    for key in ("profile", "evidence"):
+        documents[key]["workload_sha256"] = command.fingerprint()
+    gate = gate_for(documents)
+    state = tmp_path / "state"
+    state.mkdir()
+    sequence = [0]
+    def sensor():
+        sequence[0] += 1
+        return CapacityReadback(platform.node(), sequence[0], time.monotonic(),
+                                1000 if sequence[0] == 1 else 99, 2, True, True)
+    with HostWriterAuthority(state.resolve(), platform.node()) as writer:
+        arbiter = HostLocalArbiter(writer, (socket_for(documents),), sensor, time.monotonic, profile_gate=gate)
+        arbiter.submit(SlotRequest("job", "compute", "slot", platform.node(), "key"))
+        grant = arbiter.acquire()
+        with pytest.raises(Hold, match="frozen"):
+            arbiter.prepare_execution(grant, command.fingerprint(), source_mode="path-checked")
+        executor = OwnedProcessExecutor(arbiter, command, state.resolve(), verify)
+        arbiter.bind_execution(grant, "execution")
+        try:
+            with pytest.raises(Hold, match="fresh capacity"):
+                executor.start(grant, arbiter.request_for(grant), None, "execution")
+            assert executor._executions == {} and arbiter.status()["torch"] is not None
+        finally:
+            executor.close()
+
+
+def test_huge_numeric_measurement_cli_fails_as_json_hold(documents):
+    documents["evidence"]["sample_count"] = 10**400
+    source = source_for(documents)
+    process = subprocess.run([sys.executable, "-m", "ocean_resources", "profiles",
+        "--profile", str(source.profile_path), "--profile-sha256", source.profile_sha256,
+        "--evidence", str(source.evidence_path), "--profile-max-age-seconds", "200"],
+        capture_output=True, text=True, timeout=20)
+    assert process.returncode == 2 and json.loads(process.stdout)["state"] == "HOLD"
+    assert "Traceback" not in process.stderr

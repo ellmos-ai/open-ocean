@@ -8,6 +8,7 @@ arbiter and a separately authorized immutable command specification.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+import base64
 import hashlib
 import json
 import os
@@ -45,6 +46,17 @@ os.close(fd)
 os.execve(sys.argv[2], sys.argv[2:], dict(os.environ))
 """
 
+_POSIX_FROZEN_BOOTSTRAP = """
+import os, select, sys
+fd = int(sys.argv[1])
+if not select.select([fd], [], [], 30)[0] or os.read(fd, 1) != b'G':
+    raise SystemExit(125)
+os.close(fd)
+program = sys.argv[2]
+sys.argv = ['-c', *sys.argv[3:]]
+exec(compile(program, '<frozen-workload>', 'exec'))
+"""
+
 
 def _local_directory(path: Path) -> Path:
     path = Path(path)
@@ -62,6 +74,7 @@ class ProcessCommand:
     # Every executable/application input pin is explicit. No ambient source discovery.
     source_pins: tuple[tuple[Path, str], ...]
     environment: tuple[tuple[str, str], ...] = ()
+    source_mode: str = "path-checked"
 
     def __post_init__(self):
         if (
@@ -101,6 +114,37 @@ class ProcessCommand:
             raise ValueError("explicit immutable environment required")
         if sum(len(k) + len(v) for k, v in self.environment) > 16000:
             raise ValueError("process environment exceeds bound")
+        if self.source_mode not in {"path-checked", "frozen-python"}:
+            raise ValueError("unsupported process source mode")
+        if self.source_mode == "frozen-python" and (
+            len(self.argv) < 2 or executable != Path(sys.executable).resolve()
+            or self.argv[1].startswith("-") or len(self.source_pins) != 2
+            or {path for path, _ in self.source_pins} != {executable, Path(self.argv[1])}
+        ):
+            raise ValueError("frozen Python requires the current trusted interpreter and one pinned script")
+
+    def execution_argv(self) -> tuple[str, ...]:
+        """Freeze verified application bytes into argv, without reopening its path.
+
+        The Python runtime/stdlib and operator-provided code are trusted. This is
+        source consistency, not an OS sandbox or a claim about runtime data files.
+        """
+        if self.source_mode == "path-checked":
+            return self.argv
+        script = Path(self.argv[1])
+        expected = dict(self.source_pins)[script]
+        with script.open("rb") as stream:
+            content = stream.read(8193)
+        if len(content) > 8192 or hashlib.sha256(content).hexdigest() != expected:
+            raise Hold("frozen application source changed or exceeds its bounded scope")
+        encoded = base64.b64encode(content).decode("ascii")
+        program = ("import base64,sys;sys.argv=sys.argv[1:];"
+                   "__file__=sys.argv[0];"
+                   f"exec(compile(base64.b64decode({encoded!r}),__file__,'exec'))")
+        argv = (self.argv[0], "-I", "-S", "-c", program, *self.argv[1:])
+        if sum(len(arg) for arg in argv) > 24000:
+            raise Hold("frozen application argv exceeds its bounded scope")
+        return argv
 
     def verify_sources(self):
         for path, digest in self.source_pins:
@@ -117,7 +161,8 @@ class ProcessCommand:
         """Bind the fixed command; the protocol run-directory variable is dynamic."""
         content = json.dumps({"argv": self.argv, "cwd": str(self.cwd),
                               "source_pins": [(str(p), h) for p, h in self.source_pins],
-                              "environment": self.environment}, sort_keys=True, separators=(",", ":"),
+                              "environment": self.environment, "source_mode": self.source_mode},
+                             sort_keys=True, separators=(",", ":"),
                              ensure_ascii=False, allow_nan=False).encode("utf-8")
         return hashlib.sha256(content).hexdigest()
 
@@ -247,6 +292,7 @@ class OwnedProcessExecutor:
             if checkpoint != self.arbiter.checkpoint_for(grant.request_id):
                 raise Hold("resume checkpoint is not the arbiter's verified predecessor")
             self.command.verify_sources()
+            execution_argv = self.command.execution_argv()
             self.arbiter.require_workload(grant, self.command.fingerprint(), kind="cpu-owned-process")
             directory = self.state_directory / uuid.uuid4().hex
             directory.mkdir(mode=0o700)
@@ -266,7 +312,7 @@ class OwnedProcessExecutor:
             gate_read = gate_write = None
             try:
                 flags = 0
-                argv = self.command.argv
+                argv = execution_argv
                 spawn_options = {}
                 if os.name == "nt":
                     job = windows_job.create_kill_on_close_job()
@@ -275,8 +321,11 @@ class OwnedProcessExecutor:
                     gate_read, gate_write = os.pipe()
                     argv = (
                         str(Path(sys.executable).resolve()), "-I", "-S", "-c",
-                        _POSIX_BOOTSTRAP, str(gate_read), *self.command.argv,
+                        _POSIX_BOOTSTRAP, str(gate_read), *execution_argv,
                     )
+                    if self.command.source_mode == "frozen-python":
+                        argv = (str(Path(sys.executable).resolve()), "-I", "-S", "-c",
+                                _POSIX_FROZEN_BOOTSTRAP, str(gate_read), *execution_argv[4:])
                     spawn_options["pass_fds"] = (gate_read,)
                 child = subprocess.Popen(
                     argv,
@@ -294,7 +343,8 @@ class OwnedProcessExecutor:
                     gate_read = None
                 if os.name == "nt":
                     try:
-                        self.arbiter.require_workload(grant, self.command.fingerprint(), kind="cpu-owned-process")
+                        self.command.verify_sources()
+                        self.arbiter.prepare_execution(grant, self.command.fingerprint(), source_mode=self.command.source_mode)
                         windows_job.assign_and_resume(job, child)
                     except BaseException:
                         # Assignment can fail while the child is suspended and
@@ -308,7 +358,8 @@ class OwnedProcessExecutor:
                 run = _Execution(grant, execution_identity, directory, child, fence, job)
                 self._executions[grant] = run
                 if gate_write is not None:
-                    self.arbiter.require_workload(grant, self.command.fingerprint(), kind="cpu-owned-process")
+                    self.command.verify_sources()
+                    self.arbiter.prepare_execution(grant, self.command.fingerprint(), source_mode=self.command.source_mode)
                     os.write(gate_write, b"G")
                     os.close(gate_write)
                     gate_write = None

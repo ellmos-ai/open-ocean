@@ -219,6 +219,23 @@ class HostLocalArbiter:
             raise Hold("execution command differs from the configured socket")
 
     @serialized
+    def prepare_execution(self, grant: Grant, workload_sha256: str, *, source_mode: str):
+        """Revalidate immediately before application activation; never free a torch."""
+        self.require_running(grant)
+        self.require_workload(grant, workload_sha256, kind="cpu-owned-process")
+        socket = self._sockets[grant.socket_id]
+        if socket.profile_id in self._profiles:
+            return
+        if source_mode != "frozen-python":
+            raise Hold("reviewed execution requires a frozen supported application artifact")
+        active = self._current(grant)
+        reading = self._measure(after=active.metric_sequence)
+        if reading.available_ram_bytes < socket.ram_bytes or reading.available_cpu_units < socket.cpu_units:
+            raise Hold("insufficient fresh capacity at application activation")
+        active.metric_sequence = reading.sequence
+        self.authority.record(asdict(active))
+
+    @serialized
     def bind_execution(self, grant: Grant, execution_identity: str):
         active = self._current(grant)
         identity(execution_identity)

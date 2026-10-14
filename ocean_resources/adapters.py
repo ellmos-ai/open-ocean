@@ -17,7 +17,7 @@ class ComputeExecutorAdapter:
     """Application owns checkpoint persistence, process identity and exit/RAM probes.
 
     Callbacks must be profiled and authorized separately before any live use.
-    The first core admits only explicit fixture profiles. No queue import/write
+    Admission requires explicit fixture or independently reviewed native profiles. No queue import/write
     and no signal/OS/model command is implemented by this adapter.
     """
     start: Callable[[Grant, SlotRequest, Checkpoint | None, str], bool]

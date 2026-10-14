@@ -71,6 +71,25 @@ It does not adopt, stop or grant a process. psutil uses the existing optional
 or changes. Checkpoint, stop, exit readback and verified release stay available.
 The existing restart journal remains fail-closed; profile approval never clears it.
 
+The first reviewed executor path explicitly requires
+`ProcessCommand(..., source_mode="frozen-python")`: the current trusted Python
+interpreter plus exactly one pinned application script (at most 8192 bytes),
+with explicit application arguments. Its verified bytes are copied into an
+isolated `-I -S -c` program before creating the child; the application path is
+never reopened for execution. POSIX executes those bytes in the already fenced
+isolated bootstrap; Windows passes them to the suspended interpreter. Actual
+source pins are checked again before activation, followed by a new capacity
+sample. A mutation even after that final check cannot replace the frozen code.
+The fingerprint also binds `source_mode`. Legacy path-based commands are allowed
+only under explicit fixture admission until a separate artifact adapter is proved.
+This is not a general multi-file snapshot: isolated imports, runtime file reads,
+all material inputs and concurrency require operator review. The installed Python
+runtime, standard library and OS are trusted host infrastructure; same-privilege
+malicious host modification is outside this consistency contract. `-I/-S` are
+not a sandbox. No production pipeline family is certified by the reference test.
+Evidence sample counts must be between 2 and 10,000,000, with finite interval
+arithmetic; invalid numeric input returns HOLD instead of a traceback.
+
 ## Read-only CLI
 
 ```sh

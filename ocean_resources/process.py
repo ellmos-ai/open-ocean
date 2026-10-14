@@ -57,6 +57,58 @@ sys.argv = ['-c', *sys.argv[3:]]
 exec(compile(program, '<frozen-workload>', 'exec'))
 """
 
+# Windows children start as this isolated trusted interpreter, not suspended.
+# Only the gate reader is inherited. The application runs after job assignment
+# and an authenticated native prepare check, so parent death before assignment
+# closes the pipe and the bootstrap exits instead of leaving a suspended child.
+_WINDOWS_GATE = """
+import ctypes, time
+from ctypes import wintypes
+def wait_for_gate(handle_value):
+    handle = wintypes.HANDLE(handle_value)
+    api = ctypes.WinDLL('kernel32', use_last_error=True)
+    api.PeekNamedPipe.restype = wintypes.BOOL
+    api.PeekNamedPipe.argtypes = [wintypes.HANDLE, ctypes.c_void_p, wintypes.DWORD,
+                                   ctypes.POINTER(wintypes.DWORD), ctypes.POINTER(wintypes.DWORD),
+                                   ctypes.POINTER(wintypes.DWORD)]
+    api.ReadFile.restype = wintypes.BOOL
+    api.ReadFile.argtypes = [wintypes.HANDLE, ctypes.c_void_p, wintypes.DWORD,
+                             ctypes.POINTER(wintypes.DWORD), ctypes.c_void_p]
+    api.CloseHandle.argtypes = [wintypes.HANDLE]
+    api.CloseHandle.restype = wintypes.BOOL
+    deadline = time.monotonic() + 30
+    while True:
+        available = wintypes.DWORD()
+        if not api.PeekNamedPipe(handle, None, 0, None, ctypes.byref(available), None):
+            raise SystemExit(125)
+        if available.value:
+            break
+        if time.monotonic() >= deadline:
+            raise SystemExit(125)
+        time.sleep(.02)
+    value = ctypes.create_string_buffer(1)
+    read = wintypes.DWORD()
+    if not api.ReadFile(handle, value, 1, ctypes.byref(read), None) or read.value != 1 or value.raw != b'G':
+        raise SystemExit(125)
+    if not api.CloseHandle(handle):
+        raise SystemExit(125)
+"""
+
+_WINDOWS_BOOTSTRAP = _WINDOWS_GATE + """
+import os
+import sys
+wait_for_gate(int(sys.argv[1]))
+os.execvpe(sys.argv[2], sys.argv[2:], dict(os.environ))
+"""
+
+_WINDOWS_FROZEN_BOOTSTRAP = _WINDOWS_GATE + """
+import sys
+wait_for_gate(int(sys.argv[1]))
+program = sys.argv[2]
+sys.argv = ['-c', *sys.argv[3:]]
+exec(compile(program, '<frozen-workload>', 'exec'))
+"""
+
 
 def _local_directory(path: Path) -> Path:
     path = Path(path)
@@ -316,7 +368,19 @@ class OwnedProcessExecutor:
                 spawn_options = {}
                 if os.name == "nt":
                     job = windows_job.create_kill_on_close_job()
-                    flags = windows_job.CREATE_SUSPENDED | subprocess.CREATE_NO_WINDOW
+                    gate_read, gate_write = os.pipe()
+                    os.set_inheritable(gate_read, True)
+                    import msvcrt
+                    gate_handle = msvcrt.get_osfhandle(gate_read)
+                    startupinfo = subprocess.STARTUPINFO()
+                    startupinfo.lpAttributeList = {"handle_list": [gate_handle]}
+                    spawn_options.update(startupinfo=startupinfo, close_fds=True)
+                    argv = (str(Path(sys.executable).resolve()), "-I", "-S", "-c",
+                            _WINDOWS_BOOTSTRAP, str(gate_handle), *execution_argv)
+                    if self.command.source_mode == "frozen-python":
+                        argv = (str(Path(sys.executable).resolve()), "-I", "-S", "-c",
+                                _WINDOWS_FROZEN_BOOTSTRAP, str(gate_handle), *execution_argv[4:])
+                    flags = subprocess.CREATE_NO_WINDOW
                 else:
                     gate_read, gate_write = os.pipe()
                     argv = (
@@ -343,15 +407,12 @@ class OwnedProcessExecutor:
                     gate_read = None
                 if os.name == "nt":
                     try:
-                        self.command.verify_sources()
-                        self.arbiter.prepare_execution(grant, self.command.fingerprint(), source_mode=self.command.source_mode)
-                        windows_job.assign_and_resume(job, child)
+                        windows_job.assign_and_resume(job, child, False)
                     except BaseException:
-                        # Assignment can fail while the child is suspended and
-                        # not in the empty job yet. Reap that explicit Popen;
-                        # terminating the job alone would leave it suspended.
+                        # Before assignment, this child is only a gated isolated
+                        # interpreter. Reap exactly the returned Popen handle.
                         if _reap_unassigned_child(child) is not None:
-                            raise Hold("suspended child bootstrap cleanup failed")
+                            raise Hold("unassigned gated bootstrap cleanup failed")
                         raise
                 else:
                     fence = _capture_posix_process_fence(child.pid)

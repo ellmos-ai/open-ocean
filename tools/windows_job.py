@@ -112,12 +112,16 @@ def create_kill_on_close_job() -> int:
     return int(job)
 
 
-def assign_and_resume(job: int, child: Any) -> None:
-    """Put the suspended ``child`` (a Popen) into ``job``, then let it run."""
+def assign_and_resume(job: int, child: Any, resume: bool = True) -> None:
+    """Put a child into ``job`` and optionally resume its suspended threads."""
+    if type(resume) is not bool:
+        raise ValueError("resume must be an explicit boolean")
     api = _kernel32()
     handle = int(child._handle)  # type: ignore[attr-defined]
     if not api.AssignProcessToJobObject(job, handle):
         raise _fail("Runtime-Kind konnte dem Job-Objekt nicht zugewiesen werden")
+    if not resume:
+        return
     ntdll = ctypes.WinDLL("ntdll")
     ntdll.NtResumeProcess.restype = ctypes.c_long
     ntdll.NtResumeProcess.argtypes = [wintypes.HANDLE]

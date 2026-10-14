@@ -127,6 +127,7 @@ class HostController:
         self._transition: dict | None = None
         self._error: str | None = None
         self._audit_fault = False
+        self._pending_audit: dict | None = None
         self._audit_sink = ControllerAudit(self.arbiter.authority) if audit is None else audit
 
     def _authenticate(self, client_id, token) -> ControllerClient:
@@ -149,13 +150,15 @@ class HostController:
         return value
 
     def _audit(self, event, **fields):
-        value = {"schema": "ocean-host-focus-event.v1", "event": event,
+        value = {"schema": "ocean-host-focus-event.v1", "event": event, "event_id": secrets.token_hex(16),
                  "host_id": self.arbiter.authority.host_id, "authority_id": self._authority_id,
                  "at": self._now(), **fields}
         try:
             self._audit_sink(value)
         except Exception as exc:
             self._audit_fault = True
+            if self._pending_audit is None:
+                self._pending_audit = deepcopy(value)
             raise Hold("controller audit unavailable") from exc
 
     def _owned(self, client, grant):
@@ -168,6 +171,8 @@ class HostController:
     def submit(self, client_id: str, token: str, request: SlotRequest) -> str:
         client = self._authenticate(client_id, token)
         with self._mutex:
+            if self._audit_fault:
+                raise Hold("controller audit unavailable")
             if (not isinstance(request, SlotRequest) or request.socket_id not in client.sockets
                 or request.priority < client.priority_floor or request.interactive and not client.allow_interactive):
                 raise Hold("request exceeds configured client scope")
@@ -213,6 +218,8 @@ class HostController:
     def override(self, client_id, token, command: OverrideCommand):
         client = self._authenticate(client_id, token)
         with self._mutex:
+            if self._audit_fault:
+                raise Hold("controller audit unavailable")
             if not client.operator or not isinstance(command, OverrideCommand):
                 raise Hold("operator credential and bound override command required")
             if command.host_id != self.arbiter.authority.host_id or command.authority_id != self._authority_id:
@@ -274,8 +281,10 @@ class HostController:
                 if state["torch"] != (asdict(self._active) if self._active else None):
                     raise Hold("unowned or failed-start torch; original execution reconciliation required")
                 if self._audit_fault:
-                    self._audit("audit-restored", active_grant=state["torch"])
+                    self._audit("audit-restored", failed_event=deepcopy(self._pending_audit),
+                                active_grant=state["torch"])
                     self._audit_fault = False
+                    self._pending_audit = None
                     self._error = None
                 if self._active is not None:
                     request = self.arbiter.request_for(self._active)

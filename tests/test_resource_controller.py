@@ -327,6 +327,31 @@ def test_completion_audit_failure_stays_hold_until_logged_reconciliation(focus):
     assert events.count("audit-restored") == 1
 
 
+def test_released_audit_failure_preserves_exact_grant_and_requeue_decision(focus):
+    h = focus
+    h.submit("compute")
+    h.tick()
+    original_grant = h.grant()
+    h.submit("chat", interactive=True)
+    original = h.controller._audit_sink
+    def fail_after_release(event):
+        if event["event"] in {"released", "audit-restored"}:
+            raise OSError("audit unavailable")
+        original(event)
+    h.controller._audit_sink = fail_after_release
+    assert h.tick()["state"] == "HOLD" and len(h.starts) == 1
+    assert h.arbiter.status()["torch"] is None
+    assert h.tick()["state"] == "HOLD" and len(h.starts) == 1
+    h.controller._audit_sink = original
+    assert h.tick()["torch"]["request_id"] == "chat"
+    records = [json.loads(line) for line in original.path.read_text().splitlines()]
+    restored = next(row for row in records if row["event"] == "audit-restored")
+    assert restored["failed_event"]["event"] == "released"
+    assert restored["failed_event"]["grant"] == asdict(original_grant)
+    assert restored["failed_event"]["requeued"] is True
+    assert restored["active_grant"] is None
+
+
 def test_default_controller_audit_is_durable(focus):
     h = focus
     audit = ControllerAudit(h.writer)

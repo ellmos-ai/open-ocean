@@ -42,6 +42,8 @@ Status reads and ordinary heartbeats are not user activity.
 Start intent is audited before executor admission. A failed completion audit
 keeps the controller HOLD until a successful audit-restored record reconciles
 the still-owned grant; a later heartbeat cannot silently clear this fault.
+The recovery record retains the exact failed event, including the original grant
+and requeue decision after a successful release. It does not fabricate a new grant.
 
 ## Handoff, idle and fairness
 

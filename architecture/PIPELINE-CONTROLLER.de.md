@@ -44,6 +44,8 @@ als Nutzeraktivität.
 Die Startabsicht wird vor der Zulassung protokolliert. Scheitert das Abschluss-
 audit, bleibt der Controller HOLD, bis ein erfolgreicher audit-restored-Eintrag
 den weiterhin eigenen Grant abgleicht. Ein Heartbeat löscht diesen Fehler nicht.
+Der Wiederherstellungsbeleg enthält das vollständige fehlgeschlagene Ereignis,
+bei bereits erfolgter Rückgabe also den ursprünglichen Grant und die Queueentscheidung.
 
 ## Übergabe, Inaktivität und Fairness
 

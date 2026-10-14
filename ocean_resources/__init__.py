@@ -2,6 +2,7 @@
 from .adapters import BACHFacade, ComputeExecutorAdapter, ModelSocketBinding, ModelSocketInferenceAdapter
 from .arbiter import HostLocalArbiter
 from .authority import HostWriterAuthority
+from .controller import ControllerClient, FocusPolicy, HostController, OverrideCommand
 from .contracts import (
     CapacityReadback, Checkpoint, ExitReadback, Grant, Hold, HybridPlannerPointer,
     Override, ResourceSocket, SlotRequest,
@@ -16,4 +17,5 @@ __all__ = [
     "Override", "ResourceSocket", "SlotRequest",
     "HostObservation", "sample_host", "PipelineDefinition", "ResourceBudget",
     "load_catalog", "route_job", "shadow_plan", "slot_request",
+    "ControllerClient", "FocusPolicy", "HostController", "OverrideCommand",
 ]

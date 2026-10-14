@@ -6,10 +6,13 @@ import base64
 import csv
 import hashlib
 import io
+import importlib.util
 import json
+import marshal
 import os
 import platform
 import subprocess
+import struct
 import sys
 import time
 import venv
@@ -87,6 +90,219 @@ def test_plan_is_native_offline_closure_and_does_not_mutate_target(environment):
     assert first["environment"]["venv"] == str(target)
     assert first["environment"]["scheme_authority"].startswith("derived-venv-scheme")
     assert first["environment"]["measurement"] == "isolated-no-site-interpreter-and-config-bytes"
+
+
+def test_environment_uses_supported_stdlib_scheme_inside_bound_venv(environment):
+    target, _, path, _ = environment
+    profile = json.loads(path.read_bytes())
+    measured = packages._environment(profile)
+    expected = "venv" if sys.version_info[:2] >= (3, 11) else ("nt" if os.name == "nt" else "posix_prefix")
+    assert measured["install_scheme"] == expected
+    if sys.version_info[:2] == (3, 10):
+        assert measured["stdlib_default_scheme"] == expected
+    assert measured["version"][:2] == list(sys.version_info[:2])
+    assert measured["venv"] == str(target)
+    assert all(Path(value).is_relative_to(target) for value in measured["paths"].values())
+    assert Path(measured["paths"]["purelib"]).is_dir()
+    assert measured["measurement"] == "isolated-no-site-interpreter-and-config-bytes"
+
+
+def test_pip_wrappers_use_bound_original_executor_specs(environment, monkeypatch):
+    target, _, path, _ = environment
+    measured = packages._environment(json.loads(path.read_bytes()))
+    before = packages.target_metadata(measured)
+    monkeypatch.setenv("ENSUREPIP_OPTIONS", "altinstall")
+    rows, _ = packages._inventory(measured)
+    pip = next(row for row in rows if row["distribution"] == "pip")
+    projection = pip["pip_console_projection"]
+    assert projection["python_version"] == measured["version"]
+    assert projection["ensurepip_options"] == "default-not-inherited"
+    major, minor = measured["version"][:2]
+    assert {point["name"] for point in projection["points"]} == {"pip", f"pip{major}", f"pip{major}.{minor}"}
+    assert len(projection["producer_sha256"]) == 64
+    assert any(point["name"] == "pip" for point in pip["entry_points"])
+    assert packages.target_metadata(measured) == before
+    assert Path(measured["venv"]) == target
+
+
+@pytest.mark.parametrize("kind", ["missing-file", "missing-record"])
+def test_pip_current_wrapper_requires_physical_complete_record(environment, kind):
+    _, _, path, _ = environment
+    measured = packages._environment(json.loads(path.read_bytes()))
+    major, minor = measured["version"][:2]
+    point = {"name": f"pip{major}.{minor}"}
+    scripts = [script for script in packages._script_paths(measured, point) if script.is_file()]
+    assert scripts
+    if kind == "missing-file":
+        for script in scripts:
+            script.unlink()
+    else:
+        info = next(Path(measured["paths"]["purelib"]).glob("pip-*.dist-info"))
+        record = info / "RECORD"
+        removed = {script.relative_to(Path(measured["venv"])).as_posix() for script in scripts}
+        rows = [row for row in csv.reader(io.StringIO(record.read_text()))
+                if packages._relative(info.parent / row[0], Path(measured["venv"])) not in removed]
+        output = io.StringIO()
+        csv.writer(output, lineterminator="\n").writerows(rows)
+        record.write_text(output.getvalue())
+    before = packages.target_metadata(measured)
+    with pytest.raises(packages.PackageError, match="missing file|script RECORD"):
+        packages._inventory(measured)
+    assert packages.target_metadata(measured) == before
+
+
+def test_pip_producer_drift_cannot_execute_changed_target_source(environment, tmp_path, monkeypatch):
+    _, _, path, _ = environment
+    measured = packages._environment(json.loads(path.read_bytes()))
+    producer = Path(measured["paths"]["purelib"]) / "pip/_internal/operations/install/wheel.py"
+    sentinel = tmp_path / "foreign-producer-executed"
+    original_run = packages._run
+    changed = []
+
+    def replace_after_capture(command, **kwargs):
+        if any("get_console_script_specs" in argument for argument in command) and not changed:
+            producer.write_text(f"from pathlib import Path\nPath({str(sentinel)!r}).touch()\nraise RuntimeError('changed')\n")
+            changed.append(packages.target_metadata(measured))
+        return original_run(command, **kwargs)
+
+    monkeypatch.setattr(packages, "_run", replace_after_capture)
+    with pytest.raises(packages.PackageError, match="original pip/target changed"):
+        packages._inventory(measured)
+    assert len(changed) == 1 and not sentinel.exists()
+    assert packages.target_metadata(measured) == changed[0]
+
+
+@pytest.mark.parametrize("kind", ["missing", "skip"])
+def test_inventory_requires_recorded_pip_even_without_outer_prepare(environment, tmp_path, monkeypatch, kind):
+    _, _, path, _ = environment
+    measured = packages._environment(json.loads(path.read_bytes()))
+    info = next(Path(measured["paths"]["purelib"]).glob("pip-*.dist-info"))
+    skipped = {info.relative_to(Path(measured["venv"])).as_posix()}
+    if kind == "missing":
+        info.rename(tmp_path / "retired-pip.dist-info")
+        skipped = set()
+    before = packages.target_metadata(measured)
+
+    def never_consume_unrecorded_executor(*args, **kwargs):
+        raise AssertionError("unrecorded pip reached subprocess consumption")
+
+    monkeypatch.setattr(packages, "_run", never_consume_unrecorded_executor)
+    with pytest.raises(packages.PackageError, match="existing recorded pip executor required"):
+        packages._inventory(measured, skip=skipped)
+    assert packages.target_metadata(measured) == before
+
+
+@pytest.mark.parametrize("kind", ["modern", "legacy", "both"])
+def test_archive_digest_accepts_only_explicit_consistent_sha256(kind):
+    digest = "a" * 64
+    info = {}
+    if kind in {"modern", "both"}:
+        info["hashes"] = {"sha256": digest}
+    if kind in {"legacy", "both"}:
+        info["hash"] = "sha256=" + digest
+    assert packages._archive_sha256(info) == digest
+
+
+@pytest.mark.parametrize("info", [
+    None, {}, {"hash": "md5=" + "a" * 32}, {"hash": "sha256=short"},
+    {"hashes": {}}, {"hashes": {"sha256": "short"}},
+    {"hashes": None, "hash": "sha256=" + "a" * 64},
+    {"hashes": {"sha256": "a" * 64}, "hash": "sha256=" + "b" * 64},
+    {"hashes": {"sha256": "a" * 64}, "hash": None},
+    {"hash": "sha256=" + "A" * 64},
+])
+def test_archive_digest_rejects_missing_unsafe_and_ambiguous_metadata(info):
+    with pytest.raises(packages.PackageError, match="native archive"):
+        packages._archive_sha256(info)
+
+
+@pytest.mark.parametrize("kind", ["unrecorded", "unchecked-recorded"])
+def test_original_executor_ignores_valid_target_pip_bytecode(environment, tmp_path, kind):
+    _, artifacts, path, request = environment
+    profile = json.loads(path.read_bytes())
+    measured = packages._environment(profile)
+    source = Path(measured["paths"]["purelib"]) / "pip/__init__.py"
+    marker = tmp_path / "target-pip-bytecode-executed"
+    raw = source.read_bytes()
+    code = compile(raw.decode() + f"\nfrom pathlib import Path\nPath({str(marker)!r}).touch()\n", str(source), "exec")
+    metadata = source.stat()
+    cache = Path(importlib.util.cache_from_source(str(source)))
+    cache.parent.mkdir(exist_ok=True)
+    cache.write_bytes(importlib.util.MAGIC_NUMBER + struct.pack("<III", 0, int(metadata.st_mtime), len(raw))
+                      + marshal.dumps(code))
+    info = next(Path(measured["paths"]["purelib"]).glob("pip-*.dist-info"))
+    record = info / "RECORD"
+    relative = cache.relative_to(Path(measured["venv"])).as_posix()
+    rows = [row for row in csv.reader(io.StringIO(record.read_text()))
+            if packages._relative(info.parent / row[0], Path(measured["venv"])) != relative]
+    if kind == "unchecked-recorded":
+        rows.append([os.path.relpath(cache, info.parent).replace(os.sep, "/"), "", ""])
+    output = io.StringIO()
+    csv.writer(output, lineterminator="\n").writerows(rows)
+    record.write_text(output.getvalue())
+    before = packages.target_metadata(measured)
+    value = request(wheel(artifacts, "alpha", "1.0"))
+    plan = packages.prepare_package_plan(value, {"module:alpha"})
+    assert set(plan["checks"].values()) == {"SUCCESS"}
+    assert not marker.exists() and packages.target_metadata(measured) == before
+
+
+def test_added_snapshot_bytecode_is_rejected_before_original_child(environment, tmp_path, monkeypatch):
+    _, _, path, _ = environment
+    measured = packages._environment(json.loads(path.read_bytes()))
+    before = packages.target_metadata(measured)
+    marker = tmp_path / "snapshot-bytecode-executed"
+    original_run = packages._run
+    injected = []
+
+    def inject_before_actual_run(command, **kwargs):
+        if any("get_console_script_specs" in argument for argument in command) and not injected:
+            snapshot = next(iter(packages._HELD.pip_sources.values()))["snapshot"]
+            source = snapshot / "pip/__init__.py"
+            raw = source.read_bytes()
+            code = compile(raw.decode() + f"\nfrom pathlib import Path\nPath({str(marker)!r}).touch()\n", str(source), "exec")
+            state = source.stat()
+            cache = Path(importlib.util.cache_from_source(str(source)))
+            cache.parent.mkdir()
+            cache.write_bytes(importlib.util.MAGIC_NUMBER + struct.pack("<III", 0, int(state.st_mtime), len(raw))
+                              + marshal.dumps(code))
+            injected.append(True)
+        return original_run(command, **kwargs)
+
+    monkeypatch.setattr(packages, "_run", inject_before_actual_run)
+    with pytest.raises(packages.PackageError, match="snapshot tree changed"):
+        packages._inventory(measured)
+    assert injected == [True] and not marker.exists()
+    assert packages.target_metadata(measured) == before
+
+
+@pytest.mark.parametrize("kind", ["legacy", "modern", "conflicting"])
+def test_native_resolution_rejects_changed_archive_digest(environment, monkeypatch, kind):
+    _, artifacts, path, request = environment
+    item = wheel(artifacts, "alpha", "1.0")
+    measured = packages._environment(json.loads(path.read_bytes()))
+    before = packages.target_metadata(measured)
+    original_run = packages._run
+    observed = []
+
+    def alter_actual_report(command, **kwargs):
+        raw = original_run(command, **kwargs)
+        if "--report" in command:
+            report = json.loads(raw)
+            wrong = "f" * 64
+            assert wrong != item["sha256"]
+            info = ({"hash": "sha256=" + wrong} if kind == "legacy" else {"hashes": {"sha256": wrong}})
+            if kind == "conflicting":
+                info["hash"] = "sha256=" + item["sha256"]
+            report["install"][0]["download_info"]["archive_info"] = info
+            observed.append(True)
+            return json.dumps(report)
+        return raw
+
+    monkeypatch.setattr(packages, "_run", alter_actual_report)
+    with pytest.raises(packages.PackageError, match="resolution differs|fields disagree"):
+        packages.prepare_package_plan(request(item), {"module:alpha"})
+    assert observed == [True] and packages.target_metadata(measured) == before
 
 
 def test_real_apply_verify_and_paired_dependency_rollback(environment, tmp_path):
@@ -203,15 +419,16 @@ def test_root_repro_unselected_reverse_dependency_blocks_upgrade(environment, tm
                                                 required=False), {"module:alpha"})
     packages.apply_package_plan(old, tmp_path / "old.json", {"module:alpha"})
     _, profile = packages._profile(old["request"]["profile_id"], old["request"]["profile_sha256"])
-    native_check = packages._pip(old["environment"], profile, [], dry_run=False)
-    native_check = native_check[:native_check.index("install")] + ["check"]
     with packages._venv_mutex(profile):
+        native_check = packages._pip(old["environment"], profile, [], dry_run=False)
+        native_check = native_check[:native_check.index("install")] + ["check"]
         packages._run(native_check)
     before = packages.package_target_state(old)
     with pytest.raises(packages.PackageError):
         packages.prepare_package_plan(request(wheel(artifacts, "alpha", "1.0")), {"module:alpha"})
     assert packages.package_target_state(old) == before
     with packages._venv_mutex(profile):
+        native_check = packages._pip(old["environment"], profile, [], dry_run=False, check=True)
         packages._run(native_check)
 
 
@@ -438,6 +655,24 @@ def test_unsupported_or_shared_old_footprints_fail_before_mutation(environment, 
     assert packages.package_target_state(old) == before
 
 
+def test_native_hash_fragment_rejects_wrong_digest_without_target_mutation(environment):
+    _, artifacts, profile_path, request = environment
+    item = wheel(artifacts, "alpha", "1.0")
+    profile = json.loads(profile_path.read_bytes())
+    measured = packages._environment(profile)
+    validated = packages._wheel(item, profile, measured)
+    before = packages.target_metadata(measured)
+    with packages._venv_mutex(profile), packages._frozen_wheels(profile, [validated], measured) as frozen:
+        command = packages._pip(measured, frozen, [validated], dry_run=False)
+        expected_uri = (Path(frozen["artifact_root"]) / item["filename"]).as_uri()
+        assert command[-1] == expected_uri + "#sha256=" + item["sha256"]
+        assert item["sha256"] != "f" * 64
+        command[-1] = expected_uri + "#sha256=" + "f" * 64
+        with pytest.raises(packages.PackageError, match="pinned package executor failed"):
+            packages._run(command)
+    assert packages.target_metadata(measured) == before
+
+
 def test_executor_consumes_frozen_wheel_bytes_even_if_original_changes(environment):
     _, artifacts, profile_path, request = environment
     item = wheel(artifacts, "alpha", "1.0")
@@ -449,7 +684,7 @@ def test_executor_consumes_frozen_wheel_bytes_even_if_original_changes(environme
     with packages._venv_mutex(profile), packages._frozen_wheels(profile, [validated], measured) as frozen:
         (artifacts / item["filename"]).write_bytes(b"concurrent external change")
         report = json.loads(packages._run(packages._pip(measured, frozen, [validated], dry_run=True)))
-        assert report["install"][0]["download_info"]["archive_info"]["hashes"]["sha256"] == item["sha256"]
+        assert packages._archive_sha256(report["install"][0]["download_info"]["archive_info"]) == item["sha256"]
     assert packages.target_metadata(measured) == before
     with pytest.raises(packages.PackageError, match="immutable artifact"):
         packages.prepare_package_plan(value, {"module:alpha"})

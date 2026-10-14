@@ -107,10 +107,11 @@ def _read_bytes(path: Path, limit: int = _MAX_WHEEL_BYTES) -> bytes:
         before = os.fstat(file.fileno())
         _require((before.st_mode & 0o170000) == 0o100000 and before.st_size <= limit,
                  "unsupported or oversized technical input")
-        data = file.read(limit + 1)
+        data = file.read(min(limit, before.st_size) + 1)
         after = os.fstat(file.fileno())
     current = path.lstat()
-    _require(len(data) <= limit and (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
+    _require(len(data) == before.st_size and len(data) <= limit
+             and (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
              == (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)
              == (current.st_dev, current.st_ino, current.st_size, current.st_mtime_ns),
              "technical input changed during capture")
@@ -143,6 +144,8 @@ def _venv_mutex(profile: dict):
     held = getattr(_HELD, "targets", set())
     prior_fds = getattr(_HELD, "fds", {})
     prior_job_name = getattr(_HELD, "job_name", None)
+    prior_sources = getattr(_HELD, "pip_sources", {})
+    sources = None
     if str(path) in held:
         yield
         return
@@ -172,19 +175,29 @@ def _venv_mutex(profile: dict):
         _HELD.targets = held | {str(path)}
         _HELD.fds = {**prior_fds, str(path): descriptor}
         _HELD.job_name = "Global\\ellmos-ocean-python-" + hashlib.sha256(str(path).encode()).hexdigest()
+        sources = dict(prior_sources)
+        _HELD.pip_sources = sources
         yield
     finally:
-        _HELD.targets = held
-        _HELD.fds = prior_fds
-        _HELD.job_name = prior_job_name
-        if acquired:
-            if os.name == "nt":
-                import msvcrt
-                os.lseek(descriptor, 0, os.SEEK_SET)
-                msvcrt.locking(descriptor, msvcrt.LK_UNLCK, 1)
-            # POSIX closes this owner's reference only. An inherited writer FD
-            # retains the same open-file-description lock after abrupt exit.
-        os.close(descriptor)
+        try:
+            if sources is not None:
+                for key, source in sources.items():
+                    if key not in prior_sources:
+                        source["temporary"].cleanup()
+        finally:
+            _HELD.pip_sources = prior_sources
+            _HELD.targets = held
+            _HELD.fds = prior_fds
+            _HELD.job_name = prior_job_name
+            try:
+                if acquired and os.name == "nt":
+                    import msvcrt
+                    os.lseek(descriptor, 0, os.SEEK_SET)
+                    msvcrt.locking(descriptor, msvcrt.LK_UNLCK, 1)
+                # POSIX closes this owner's reference only. An inherited writer
+                # FD retains the lock after abrupt exit.
+            finally:
+                os.close(descriptor)
 
 
 @contextlib.contextmanager
@@ -545,6 +558,7 @@ def _guard_windows_writer(path: Path) -> None:
 
 
 def _run(command: list[str], *, timeout: float = 120) -> str:
+    _check_pip_sources()
     env = {key: value for key, value in os.environ.items()
            if not key.upper().startswith(("PIP_", "PYTHON"))}
     # The documented null config disables global/user/site pip configuration.
@@ -638,10 +652,12 @@ def _run(command: list[str], *, timeout: float = 120) -> str:
                     except ProcessLookupError:
                         pass
                     process.wait(timeout=20)
+        _check_pip_sources()
         return output[0].decode("utf-8")
     finally:
         if job is not None:
             job.close()
+        _check_pip_sources()
 
 
 def _environment(profile: dict) -> dict:
@@ -655,10 +671,17 @@ def _environment(profile: dict) -> dict:
              "system-site packages are outside this bounded operation")
     code = (
         "import json,sys; observed_prefix=sys.prefix; observed_exec_prefix=sys.exec_prefix; "
-        "sys.prefix=sys.exec_prefix=sys.argv[1]; import sysconfig; "
+        "sys.prefix=sys.exec_prefix=sys.argv[1]; import os,sysconfig; "
+        "schemes=sysconfig.get_scheme_names(); "
+        "scheme='venv' if 'venv' in schemes else ('nt' if os.name=='nt' else 'posix_prefix'); "
+        "assert scheme in schemes and ('venv' in schemes or sys.version_info[:2]==(3,10)); "
+        "default_scheme=sysconfig.get_default_scheme(); "
+        "assert 'venv' in schemes or default_scheme==scheme; "
         "print(json.dumps({'executable':sys.executable,'version':list(sys.version_info[:3]),"
         "'base_prefix':sys.base_prefix,'isolated_prefix':observed_prefix,"
-        "'isolated_exec_prefix':observed_exec_prefix,'paths':sysconfig.get_paths(scheme='venv',"
+        "'isolated_exec_prefix':observed_exec_prefix,'install_scheme':scheme,"
+        "'stdlib_default_scheme':default_scheme,"
+        "'paths':sysconfig.get_paths(scheme=scheme,"
         "vars={'base':sys.argv[1],'platbase':sys.argv[1],'installed_base':sys.argv[1],"
         "'installed_platbase':sys.argv[1]})}))"
     )
@@ -677,6 +700,8 @@ def _environment(profile: dict) -> dict:
             "version": measured["version"], "base_prefix": measured["base_prefix"],
             "isolated_prefix": measured["isolated_prefix"],
             "isolated_exec_prefix": measured["isolated_exec_prefix"],
+            "install_scheme": measured["install_scheme"],
+            "stdlib_default_scheme": measured["stdlib_default_scheme"],
             "measurement": "isolated-no-site-interpreter-and-config-bytes",
             "scheme_authority": "derived-venv-scheme-from-configured-existing-PEP405-root",
             "transaction_mutex": str(_mutex_path(profile))}
@@ -822,6 +847,131 @@ def _script_paths(environment: dict, point: dict) -> list[Path]:
     return [root / (point["name"] + suffix) for suffix in suffixes]
 
 
+def _pip_snapshot_tree(root: Path) -> dict:
+    """Bound the exact private source tree, including absent cache paths."""
+    result = {}
+    total = 0
+
+    def unreadable(error):
+        raise PackageError("original pip snapshot tree is unreadable") from error
+
+    for current, directories, files in os.walk(root, followlinks=False, onerror=unreadable):
+        for path in [Path(current), *(Path(current) / name for name in files)]:
+            state = path.lstat()
+            expected = 0o040000 if path == Path(current) else 0o100000
+            _require(state.st_mode & 0o170000 == expected and not path.is_symlink(),
+                     "original pip snapshot contains unsupported entries")
+            relative = path.relative_to(root).as_posix()
+            result[relative] = [state.st_dev, state.st_ino, state.st_mode, state.st_size, state.st_mtime_ns]
+            total += state.st_size if expected == 0o100000 else 0
+            _require(len(result) <= _MAX_FILES and total <= _MAX_EXPANDED_BYTES,
+                     "original pip snapshot tree exceeds bound")
+        _require(not any((Path(current) / name).is_symlink() for name in directories),
+                 "original pip snapshot contains a directory symlink")
+    _require("." in result, "original pip snapshot root is missing")
+    return result
+
+
+def _check_pip_sources() -> None:
+    for source in getattr(_HELD, "pip_sources", {}).values():
+        _require(_pip_snapshot_tree(source["snapshot"]) == source["snapshot_tree"],
+                 "original pip snapshot tree changed")
+        _require(_file_state(source["root"], source["owned"]) == source["before"]
+                 and _file_state(source["snapshot"], source["snapshot_files"]) == source["snapshot_state"],
+                 "original pip/target changed during wrapper projection or execution")
+
+
+def _recorded_pip_source(environment: dict, row: dict, owners: dict) -> dict:
+    root = Path(environment["venv"])
+    key = str(_mutex_path({"venv": str(root)}))
+    _require(key in getattr(_HELD, "targets", set()), "package executor requires owning transaction context")
+    sources = _HELD.pip_sources
+    binding = {name: row[name] for name in ("distribution", "version", "dist_info", "files",
+                                          "entry_points", "metadata_sha256")}
+    if key in sources:
+        _require(sources[key]["binding"] == binding, "recorded original pip identity changed")
+        _check_pip_sources()
+        return sources[key]
+    site = Path(environment["paths"]["purelib"])
+    _, owned = _installed(environment, {"pip"}, ([row], owners))
+    _require(owned == set(row["files"])
+             and all(owners.get(os.path.normcase(path)) == ["pip"] for path in owned),
+             "package executor has incomplete or shared file ownership")
+    for leaf, digest in row["metadata_sha256"].items():
+        _require(hashlib.sha256(_read_bytes(root / row["dist_info"] / leaf, _MAX_METADATA_BYTES)).hexdigest() == digest,
+                 "original pip metadata changed before source capture")
+    before = _file_state(root, owned)
+    pip_prefix = _relative(site / "pip", root) + "/"
+    module_relative = _relative(site / "pip/_internal/operations/install/wheel.py", root)
+    _require(module_relative in owned, "recorded original pip wrapper producer required")
+    temporary = tempfile.TemporaryDirectory(prefix="ocean-original-pip-")
+    snapshot = Path(temporary.name)
+    snapshot_files = set()
+    total = 0
+    try:
+        for relative in sorted(owned):
+            if not relative.startswith(pip_prefix) or relative.endswith((".pyc", ".pyo")):
+                continue
+            raw = _read_bytes(root / relative)
+            total += len(raw)
+            _require(total <= _MAX_EXPANDED_BYTES, "original pip source capture exceeds bound")
+            _require(hashlib.sha256(raw).hexdigest() == before[relative]["sha256"],
+                     "original pip changed during source capture")
+            destination_relative = relative[len(_relative(site, root)) + 1:]
+            destination = snapshot / destination_relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(raw)
+            snapshot_files.add(destination_relative)
+        _require(_file_state(root, owned) == before, "original pip changed before wrapper projection")
+        source = {"root": root, "owned": owned, "before": before, "binding": binding,
+                  "temporary": temporary, "snapshot": snapshot, "snapshot_files": snapshot_files,
+                  "snapshot_state": _file_state(snapshot, snapshot_files),
+                  "snapshot_tree": _pip_snapshot_tree(snapshot),
+                  "module_sha256": before[module_relative]["sha256"]}
+        sources[key] = source
+        return source
+    except BaseException:
+        temporary.cleanup()
+        raise
+
+
+def _pip_console_points(environment: dict, row: dict, owners: dict) -> dict:
+    """Consume the recorded original pip's versioned wrapper semantics read-only."""
+    root = Path(environment["venv"])
+    with _venv_mutex({"venv": str(root)}):
+        source = _recorded_pip_source(environment, row, owners)
+        snapshot = source["snapshot"]
+        target_before = target_metadata(environment)
+        console = {point["name"]: point["value"] for point in row["entry_points"]
+                   if point["group"] == "console_scripts"}
+        arguments = bounded_json(console, limit=64 * 1024).decode("utf-8")
+        code = (
+            "import importlib.util,json,os,sys; from pathlib import Path; "
+            "snapshot=Path(sys.argv[1]); root=sys.argv[2]; console=json.loads(sys.argv[3]); "
+            "os.environ.pop('ENSUREPIP_OPTIONS',None); sys.prefix=sys.exec_prefix=root; "
+            "sys.path.insert(0,str(snapshot)); spec=importlib.util.find_spec('pip'); "
+            "assert spec and Path(spec.origin)==snapshot/'pip/__init__.py'; "
+            "from pip._internal.operations.install import wheel; "
+            "assert Path(wheel.__file__)==snapshot/'pip/_internal/operations/install/wheel.py'; "
+            "print(json.dumps({'version':list(sys.version_info[:3]),'origin':wheel.__file__,"
+            "'specs':wheel.get_console_script_specs(console)}))"
+        )
+        measured = json.loads(_run([environment["interpreter"], "-I", "-S", "-B", "-c", code,
+                                    str(snapshot), str(root), arguments]))
+        _require(measured["version"] == environment["version"]
+                 and Path(measured["origin"]) == snapshot / "pip/_internal/operations/install/wheel.py",
+                 "original pip wrapper producer identity differs")
+        _require(target_metadata(environment) == target_before,
+                 "original pip/target changed during wrapper projection")
+        specs = measured["specs"]
+        _require(isinstance(specs, list) and len(specs) <= _MAX_FILES
+                 and all(isinstance(spec, str) for spec in specs), "invalid original pip wrapper projection")
+        points = _entry_points("[console_scripts]\n" + "\n".join(specs))
+        return {"producer": "pip._internal.operations.install.wheel.get_console_script_specs",
+                "producer_sha256": source["module_sha256"], "python_version": measured["version"],
+                "ensurepip_options": "default-not-inherited", "points": points}
+
+
 def _inventory(environment: dict, *, skip: set[str] | None = None) -> tuple[list[dict], dict[str, list[str]]]:
     """Technical installed metadata and file owners; never execute site hooks."""
     root = Path(environment["venv"])
@@ -886,6 +1036,8 @@ def _inventory(environment: dict, *, skip: set[str] | None = None) -> tuple[list
         points = _entry_points(captured["entry_points.txt"].decode()) if "entry_points.txt" in captured else []
         for point in points:
             if point["group"] in {"console_scripts", "gui_scripts"}:
+                if name == "pip" and point["group"] == "console_scripts":
+                    continue  # Mandatory original-executor projection below.
                 existing = [path for path in _script_paths(environment, point) if path.is_file()]
                 _require(bool(existing) and all(_relative(path, root) in files for path in existing),
                          "installed entry point has a missing or incomplete script RECORD")
@@ -896,6 +1048,17 @@ def _inventory(environment: dict, *, skip: set[str] | None = None) -> tuple[list
                                            for leaf, data in captured.items()},
                        "direct_url_sha256": hashlib.sha256(captured["direct_url.json"]).hexdigest()
                        if "direct_url.json" in captured else None})
+    # All inventory callers, including Verify and Rollback, reach this gate.
+    _require(sum(row["distribution"] == "pip" for row in result) == 1,
+             "existing recorded pip executor required")
+    for row in result:
+        if row["distribution"] == "pip":
+            projection = _pip_console_points(environment, row, owners)
+            for point in projection["points"]:
+                existing = [path for path in _script_paths(environment, point) if path.is_file()]
+                _require(bool(existing) and all(_relative(path, root) in row["files"] for path in existing),
+                         "installed entry point has a missing or incomplete script RECORD")
+            row["pip_console_projection"] = projection
     return sorted(result, key=lambda row: row["distribution"]), {
         path: sorted(value) for path, value in sorted(owners.items())}
 
@@ -958,10 +1121,18 @@ def _directories(root: Path, footprint: set[str]) -> dict:
 
 def _pip(environment: dict, profile: dict, wheels: list[dict], *, dry_run: bool,
          inventory: list[dict] | None = None, check: bool = False) -> list[str]:
+    key = str(_mutex_path(profile))
+    _require(key in getattr(_HELD, "targets", set()), "package executor requires owning transaction context")
+    _require(all(profile[field] == environment[field] for field in ("host", "interpreter", "venv")),
+             "package executor operator identity differs")
+    if key not in _HELD.pip_sources:
+        _inventory(environment)
+    _check_pip_sources()
+    source = _HELD.pip_sources[key]
     # Restore only PEP405's measured prefix and selected site path. Suppressing
     # site initialization prevents arbitrary editable .pth/provider execution.
     bootstrap = (
-        "import runpy,sys,os,hashlib; root=sys.argv.pop(1); site=sys.argv.pop(1); "
+        "import runpy,sys,os,hashlib; root=sys.argv.pop(1); site=sys.argv.pop(1); snapshot=sys.argv.pop(1); "
         "from pathlib import Path; "
         "\nif os.name!='nt':"
         "\n import fcntl; fd=int(os.environ['OCEAN_PACKAGE_LOCK_FD']); "
@@ -969,13 +1140,13 @@ def _pip(environment: dict, profile: dict, wheels: list[dict], *, dry_run: bool,
         "a=os.fstat(fd); b=path.stat(); assert (a.st_dev,a.st_ino)==(b.st_dev,b.st_ino); "
         "fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)"
         "\n"
-        "sys.prefix=sys.exec_prefix=root; sys.path.append(site); "
+        "sys.prefix=sys.exec_prefix=root; sys.path.insert(0,snapshot); sys.path.append(site); "
         "import importlib.util,pathlib; spec=importlib.util.find_spec('pip'); "
-        "assert spec and pathlib.Path(spec.origin)==pathlib.Path(site)/'pip'/'__init__.py'; "
+        "assert spec and pathlib.Path(spec.origin)==pathlib.Path(snapshot)/'pip'/'__init__.py'; "
         "sys.argv[0]='pip'; runpy.run_module('pip',run_name='__main__')"
     )
     command = [profile["interpreter"], "-I", "-S", "-B", "-c", bootstrap,
-               environment["venv"], environment["paths"]["purelib"], "--disable-pip-version-check",
+               environment["venv"], environment["paths"]["purelib"], str(source["snapshot"]), "--disable-pip-version-check",
                "--no-input", "--no-cache-dir"]
     if check:
         return command + ["check"]
@@ -989,8 +1160,29 @@ def _pip(environment: dict, profile: dict, wheels: list[dict], *, dry_run: bool,
                        for row in inventory or [] if row["distribution"] not in changed)
     else:
         command.extend(["--no-deps", "--force-reinstall"])
-    command.extend(str(Path(profile["artifact_root"]) / wheel["filename"]) for wheel in wheels)
+    # Let the original pip verify and persist the bound hash, including old pip.
+    command.extend((Path(profile["artifact_root"]) / wheel["filename"]).as_uri()
+                   + "#sha256=" + wheel["sha256"] for wheel in wheels)
     return command
+
+
+def _archive_sha256(info: dict) -> str:
+    """Read original pip's modern or legacy archive digest without guessing."""
+    _require(isinstance(info, dict), "native archive SHA-256 metadata required")
+    digest = None
+    if "hashes" in info:
+        hashes = info["hashes"]
+        _require(isinstance(hashes, dict) and isinstance(hashes.get("sha256"), str)
+                 and bool(_SHA.fullmatch(hashes["sha256"])), "native archive has no valid SHA-256")
+        digest = hashes["sha256"]
+    if "hash" in info:
+        legacy = info["hash"]
+        _require(isinstance(legacy, str) and legacy.startswith("sha256=")
+                 and bool(_SHA.fullmatch(legacy[7:])), "native archive legacy hash is not SHA-256")
+        _require(digest is None or digest == legacy[7:], "native archive SHA-256 fields disagree")
+        digest = legacy[7:]
+    _require(digest is not None, "native archive SHA-256 metadata required")
+    return digest
 
 
 @_serialized
@@ -1030,9 +1222,11 @@ def prepare_package_plan(request: dict, components: set[str]) -> dict:
     _run(_pip(environment, profile, [], dry_run=False, check=True))
     with _frozen_wheels(profile, wheels, environment) as frozen:
         report = json.loads(_run(_pip(environment, frozen, wheels, dry_run=True, inventory=inventory[0])))
+    _require(report.get("version") in {"0", "1"} and report.get("pip_version") == executor[0]["version"],
+             "native package report version/executor differs")
     _require(target_metadata(environment) == metadata_before, "read-only package resolution mutated environment")
     observed = {(_name(item["metadata"]["name"]), item["metadata"]["version"],
-                 item["download_info"]["archive_info"]["hashes"]["sha256"])
+                 _archive_sha256(item["download_info"]["archive_info"]))
                 for item in report.get("install", [])}
     expected = {(_name(item["distribution"]), item["version"], item["sha256"]) for item in wheels}
     _require(observed == expected, "native pip resolution differs from complete pinned wheel closure")
@@ -1223,7 +1417,7 @@ def _complete_afterstate(plan: dict) -> dict:
                  == observed["direct_url_sha256"] == row["direct_url_sha256"],
                  "installed wheel provenance changed after inventory capture")
         direct = json.loads(direct_raw)
-        _require(direct.get("archive_info", {}).get("hashes", {}).get("sha256") == wheel["sha256"],
+        _require(_archive_sha256(direct.get("archive_info")) == wheel["sha256"],
                  "installed wheel provenance differs")
         _wheel({key: wheel[key] for key in plan["request"]["wheels"][0]}, profile, plan["environment"])
     available = [{"distribution": row["distribution"], **point}

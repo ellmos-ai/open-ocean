@@ -286,6 +286,12 @@ temporärem Zustand. Reale Adapter bleiben HOLD; produktive Queues, Modelle und 
 werden nicht verändert. Der [Steckplatzverteiler-Vertrag](architecture/STECKPLATZVERTEILER.md)
 beschreibt Schreiber-, Mess-, Kompatibilitäts- und Rolloutgates.
 
+Die [allgemeine Pipeline-Beobachtung](architecture/PIPELINE-HOST.de.md) umfasst Research,
+Services, Medien und Builds mit ursprünglichen Executorverweisen. `python -m ocean_resources host`
+misst RAM, Speicherdruck und Plattenplatz lesend; `catalog` und `shadow` prüfen ausdrückliche
+Pipeline-Projektionen. Zentralpräferenz für schwere oder wiederkehrende Arbeit berücksichtigt
+Hostfähigkeiten und Reserven. Messungen und Routingvorschläge erteilen keine Starterlaubnis.
+
 - **Läuft:** Resolve, Verify, SHA-gepinntes Fetch/Place, isoliertes Activate, Rollback und der
   `ocean.py`-Laufzeit-Lebenszyklus, getestet unter Windows, Linux und macOS.
 - **Offen:** eine Neuinstallation auf einem Rechner außerhalb der Entwicklungsumgebung und die

@@ -15,7 +15,10 @@
     "cli": "python -m ocean_resources",
     "commands": [
       "manifest",
-      "fixture-demo"
+      "fixture-demo",
+      "host",
+      "catalog",
+      "shadow"
     ],
     "gui": "no native extension at this seam"
   },
@@ -30,7 +33,10 @@
     "bach": "injected facade only; no live BACH boot or DB import",
     "model_sockets": "preserved five-field model_target",
     "inference_gate": "native async gate.turn(chat_id, priority, check_ready, model_target)",
-    "compute": "injected start/checkpoint/stop/readback"
+    "compute": "injected start/checkpoint/stop/readback",
+    "pipelines": "generic original planner/executor pointers for research, services, media and builds",
+    "host_observer": "native read-only memory/disk observations; UTC timestamp; never grants admission",
+    "host_routing": "central heavy/recurring preference with platform and headroom checks; proposal only"
   },
   "admission": {
     "mode": "explicit named offline fixture profiles only",
@@ -57,5 +63,12 @@
     "no production queue access",
     "no service installation",
     "no implicit OS process discovery"
-  ]
+  ],
+  "observation": {
+    "status": "read-only-native-host-and-pipeline-shadow",
+    "catalog": "pipeline-catalog.json; reference examples, no live queue registration",
+    "system_reserve": "explicit caller headroom, no invented universal threshold",
+    "cpu": "logical cores/load are observations, not authoritative free CPU",
+    "start_authorized": false
+  }
 }

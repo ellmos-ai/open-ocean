@@ -77,6 +77,12 @@ class BACHFacade:
         self._mutex = RLock()
 
     @staticmethod
+    def request_from_pipeline(job: dict, catalog: dict, *, socket_id: str, slot_id: str) -> SlotRequest:
+        """General pipeline port; does not require or invent a model binding."""
+        from .pipelines import slot_request
+        return slot_request(job, catalog, socket_id=socket_id, slot_id=slot_id)
+
+    @staticmethod
     def request_from_task(
         task: dict, binding: ModelSocketBinding, pointer: HybridPlannerPointer,
         *, host_id: str, request_id: str, idempotency_key: str,

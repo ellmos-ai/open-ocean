@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 from importlib.resources import files
 import json
+import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -11,6 +12,8 @@ from . import (
     BACHFacade, CapacityReadback, Checkpoint, ComputeExecutorAdapter, ExitReadback,
     HostLocalArbiter, HostWriterAuthority, ResourceSocket, SlotRequest,
 )
+from .host import sample_host
+from .pipelines import ResourceBudget, catalog_document, load_catalog, shadow_plan
 
 
 def manifest() -> dict:
@@ -70,10 +73,49 @@ def fixture_demo() -> dict:
 
 
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(description="Ocean resource seam: offline manifest or explicit fixture demonstration")
-    parser.add_argument("command", nargs="?", choices=("manifest", "fixture-demo"), default="manifest")
+    parser = argparse.ArgumentParser(description="Ocean resource coordination: manifest, explicit fixture or read-only host/pipeline observation")
+    parser.add_argument("command", nargs="?", choices=("manifest", "fixture-demo", "host", "catalog", "shadow"), default="manifest")
+    parser.add_argument("--jobs", type=Path, help="Explicit job projection JSON; no queue discovery")
+    parser.add_argument("--catalog", type=Path, help="Optional explicit reference-only catalogue JSON")
+    parser.add_argument("--reserve-ram-bytes", type=int)
+    parser.add_argument("--reserve-disk-bytes", type=int)
     args = parser.parse_args(argv)
-    report = manifest() if args.command == "manifest" else fixture_demo()
+    try:
+        if args.command == "shadow":
+            if args.jobs is None:
+                parser.error("shadow requires --jobs and explicit RAM/disk reserves")
+            budget = ResourceBudget(args.reserve_ram_bytes, args.reserve_disk_bytes)
+            # Bound file reads; reject non-JSON, NaN and duplicate JSON keys.
+            def read_json(path):
+                def unique(pairs):
+                    result = {}
+                    for key, value in pairs:
+                        if key in result:
+                            raise ValueError("duplicate JSON key")
+                        result[key] = value
+                    return result
+                with path.open("rb") as stream:
+                    payload = stream.read(4 * 1024 * 1024 + 1)
+                if len(payload) > 4 * 1024 * 1024:
+                    raise ValueError("projection too large")
+                return json.loads(payload.decode("utf-8"), object_pairs_hook=unique,
+                                  parse_constant=lambda value: (_ for _ in ()).throw(ValueError("nonfinite JSON")))
+            jobs = read_json(args.jobs)
+            catalog = load_catalog(read_json(args.catalog)) if args.catalog else load_catalog()
+            observation = sample_host()
+            report = shadow_plan(jobs, observation, budget, now=time.time(), catalog=catalog)
+        elif any(value is not None for value in (args.jobs, args.catalog, args.reserve_ram_bytes, args.reserve_disk_bytes)):
+            parser.error("projection and reserve options belong to shadow only")
+        elif args.command == "host":
+            report = sample_host().to_dict()
+        elif args.command == "catalog":
+            report = catalog_document()
+        else:
+            report = manifest() if args.command == "manifest" else fixture_demo()
+    except (OSError, ValueError, TypeError) as exc:
+        print(json.dumps({"state": "HOLD", "start_authorized": False, "error": type(exc).__name__,
+                          "reason": "invalid or unavailable explicit observation input"}, sort_keys=True))
+        return 2
     print(json.dumps(report, sort_keys=True, indent=2, ensure_ascii=False))
     return 0
 

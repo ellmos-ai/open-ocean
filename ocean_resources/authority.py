@@ -134,6 +134,12 @@ class HostWriterAuthority:
     def __exit__(self, *exc):
         if self.held:
             stream = self._stream
+            # fork inherits the open-file description. LOCK_UN in the child
+            # would release the parent's POSIX lock as well; close only.
+            if self._pid != os.getpid():
+                stream.close()
+                self._stream = None
+                return
             try:
                 if os.name == "nt":
                     import msvcrt

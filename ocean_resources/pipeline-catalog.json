@@ -1,0 +1,21 @@
+{
+  "schema": "ocean-pipeline-catalog.v1",
+  "mode": "reference-only",
+  "pipelines": [
+    {"pipeline_id":"1","name":"Research compute","family":"research","executor":"compute-queue","platforms":["Darwin","Linux","Windows"],"gates":["claim","checkpoint","result-contract"],"targets":[]},
+    {"pipeline_id":"2a","name":"Repository maintenance","family":"services","executor":"githubbot","platforms":["Darwin","Linux","Windows"],"gates":["repo-lock","cooldown","visibility","review"],"targets":[]},
+    {"pipeline_id":"2b","name":"Community outreach","family":"services","executor":"outreach","platforms":["Darwin","Linux","Windows"],"gates":["approval","cooldown","publish-receipt"],"targets":[]},
+    {"pipeline_id":"2c","name":"Editorial production","family":"services","executor":"editorial","platforms":["Darwin","Linux","Windows"],"gates":["claim","independent-reviews","publication-approval"],"targets":[]},
+    {"pipeline_id":"2d","name":"Articles, research and professional channels","family":"services","executor":"content","platforms":["Darwin","Linux","Windows"],"gates":["claim-review","channel-approval"],"targets":[]},
+    {"pipeline_id":"2e","name":"Social media and branding","family":"services","executor":"social","platforms":["Darwin","Linux","Windows"],"gates":["brand-owner","publication-approval","publish-receipt"],"targets":[]},
+    {"pipeline_id":"2f","name":"Research publication","family":"services","executor":"research-publisher","platforms":["Darwin","Linux","Windows"],"gates":["project-policy","stop-clear","review","publication-approval"],"targets":[]},
+    {"pipeline_id":"2g","name":"Game publication","family":"services","executor":"game-publisher","platforms":["Darwin","Windows"],"gates":["live-test","publication-approval","version-receipt"],"targets":[]},
+    {"pipeline_id":"2h","name":"Windows store submission","family":"services","executor":"windows-store","platforms":["Windows"],"gates":["qa","signing","submission-approval"],"targets":["windows"]},
+    {"pipeline_id":"2i","name":"Android store submission","family":"services","executor":"android-store","platforms":["Darwin","Linux","Windows"],"gates":["qa","signing","submission-approval"],"targets":["android"]},
+    {"pipeline_id":"2j","name":"Apple store submission","family":"services","executor":"apple-store","platforms":["Darwin"],"gates":["qa","signing","submission-approval"],"targets":["ios"]},
+    {"pipeline_id":"2k","name":"Translation jobs","family":"services","executor":"translation","platforms":["Darwin","Linux","Windows"],"gates":["source-hash","protected-content","independent-review","privacy"],"targets":[]},
+    {"pipeline_id":"3a","name":"Game design and Blender","family":"media","executor":"design-render","platforms":["Darwin","Linux","Windows"],"gates":["toolchain","asset-rights","checkpoint"],"targets":[]},
+    {"pipeline_id":"3b","name":"Video production","family":"media","executor":"video-render","platforms":["Darwin","Linux","Windows"],"gates":["asset-rights","checkpoint","media-qa"],"targets":[]},
+    {"pipeline_id":"4","name":"Software builds","family":"builds","executor":"software-build","platforms":["Darwin","Linux","Windows"],"gates":["target-toolchain","signing","build-tests"],"targets":["windows","android","ios"]}
+  ]
+}

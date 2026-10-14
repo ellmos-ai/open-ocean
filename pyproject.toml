@@ -57,7 +57,7 @@ where = ["."]
 include = ["tools*", "ocean_resources*"]
 
 [tool.setuptools.package-data]
-ocean_resources = ["manifest.json"]
+ocean_resources = ["manifest.json", "pipeline-catalog.json"]
 
 [tool.setuptools.data-files]
 "share/open-ocean/starters/windows" = ["starters/windows/*.bat"]

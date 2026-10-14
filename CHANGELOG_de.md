@@ -1,5 +1,15 @@
 # Änderungsprotokoll
 
+## Unveröffentlicht — 2026-10-13
+
+- Offline-Kern `ocean_resources` ergänzt: generische Steckplätze/Slotanfragen, ein
+  hostlokaler Schreiber, gebundene Zuteilungen, sichere Übergabe, Fairness und begrenzter Override.
+- Injizierte BACH-Fassade, Hybrid-Planungspointer und Compute-Executor-Port ergänzt;
+  bestehende Modell-Steckplatz- und asynchrone Inferenz-Gate-Verträge bleiben Adapter.
+- Nur lesendes JSON-Manifest und ausdrückliche synthetische Fixture-Demonstration mitgeliefert,
+  samt Checkpoint-/Exit-/Resume-Tests und eigenem Dummy-Kind. Reale Zulassung, BACH-IN,
+  Queuemigration, Neustart-Recovery und Live-Cutover bleiben gesperrte Gates.
+
 *[English](CHANGELOG.md)*
 
 ## Unveröffentlicht — 2026-10-10

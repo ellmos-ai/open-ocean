@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased — 2026-10-13
+
+- Added the offline `ocean_resources` core: generic resource sockets/slot requests, one
+  host-local writer, fenced grants, conservative handoff, fairness and bounded override.
+- Added an injected BACH facade, hybrid planner pointer and compute executor port;
+  existing model socket and asynchronous inference gate contracts remain adapters.
+- Packaged a read-only JSON manifest and explicit synthetic fixture demonstration, with
+  checkpoint/exit/resume regressions including an owned dummy child. Real admission,
+  BACH-IN, queue migration, restart recovery and live cutover remain closed gates.
+
 All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),

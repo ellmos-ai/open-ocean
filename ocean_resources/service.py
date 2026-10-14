@@ -236,7 +236,7 @@ class HostService:
         operation = path[len("/v1/focus/"):]
         if operation not in OPERATIONS:
             raise ValueError("unknown transport operation")
-        if self._poll_failed.is_set() and operation not in {"status", "end_turn", "finish"}:
+        if self._poll_failed.is_set() and operation not in {"status", "end_turn"}:
             raise Hold("host transport polling failed; retain native state")
         payload = message["payload"]
         if operation in {"status", "tick"}:
@@ -271,6 +271,8 @@ class HostService:
         if not self._lifecycle.acquire(timeout=2):
             raise Hold("host transport lifecycle is busy; no operation started")
         try:
+            if self._poll_failed.is_set():
+                raise Hold("host polling failed while waiting; no operation started")
             return getattr(self.controller, operation)(*args)
         finally:
             self._lifecycle.release()

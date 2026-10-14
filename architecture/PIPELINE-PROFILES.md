@@ -8,6 +8,13 @@ pinned measurement, native host/platform/architecture, validity window, command
 fingerprint and exact socket allocation match. Default admission remains closed.
 No directory is scanned, file approved, service installed or queue changed.
 
+Windows architecture comes from the OS
+[IsWow64Process2 native-machine result](https://learn.microsoft.com/en-us/windows/win32/api/wow64apiset/nf-wow64apiset-iswow64process2),
+including emulated processes. A missing API, failed call or unknown machine stays
+closed. There is no WMI or environment-variable fallback for this approval field.
+Other platforms use their nonempty reported architecture. Two blank observations
+never constitute a matching host architecture.
+
 ## Approval and evidence
 
 The trusted host configuration selects `ProfileSource(profile_path,

@@ -25,7 +25,10 @@ interval; native lifecycle latency can be longer.
 `stop()` ends new acceptance/polling. `close()` waits for its accept loop, poll
 worker and bounded request workers within one shared five-second drain budget.
 Unexpected poll failure makes status HOLD and prevents new work, retaining the
-original torch. Neither method frees an active torch, unloads a model, stops an
+original torch. In that state only status and completion of an already admitted
+turn remain available through this transport; finish is held because its normal
+controller semantics can also start waiting work. The original executor needs
+independent safe drain/reconciliation. Neither method frees an active torch, unloads a model, stops an
 executor or clears its durable reservation. The caller must retain the writer
 and executors until native completion or explicit reconciliation. An unfinished
 loop/request causes HOLD; it must not be interpreted as released RAM. A crashed

@@ -26,7 +26,11 @@ Native Lifecycleaufrufe können länger dauern.
 stop beendet neue Annahme und neues Polling. close wartet mit einem gemeinsamen
 Fünfsekundenbudget auf Annahmeschleife, Pollarbeiter und begrenzte Anfragearbeiter.
 Unerwartetes Pollingversagen setzt Status auf HOLD und verhindert neue Arbeit,
-während die ursprüngliche Fackel erhalten bleibt. Beide geben keine Fackel frei, entladen kein Modell,
+während die ursprüngliche Fackel erhalten bleibt. Dann bleiben über diesen
+Transport nur Status und der Abschluss bereits zugelassener Turns erreichbar.
+finish bleibt gesperrt, weil es regulär auch wartende Arbeit starten könnte.
+Der ursprüngliche Executor muss unabhängig sicher geleert bzw. abgeglichen
+werden. Beide geben keine Fackel frei, entladen kein Modell,
 stoppen keinen Executor und löschen keine dauerhafte Reservierung. Der Aufrufer
 behält Writer und Executor bis zum nativen Abschluss oder zur ausdrücklichen
 Abgleichprüfung. Unbeendete Schleifen oder Anfragen liefern HOLD; dies beweist

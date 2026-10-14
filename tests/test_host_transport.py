@@ -275,6 +275,7 @@ def test_automatic_native_callback_can_read_same_service_and_poll_failure_holds(
     client.submit(SlotRequest("compute", "compute", "slot", "focus-host", "key"))
     wait_for(lambda: running(client, "compute"))
     assert observed == ["TRANSITION"]
+    client.submit(SlotRequest("waiting", "media", "other", "focus-host", "waiting-key"))
     def fail(*args):
         raise RuntimeError("private failure detail must not reach a client")
     monkeypatch.setattr(h.controller, "tick", fail)
@@ -283,4 +284,41 @@ def test_automatic_native_callback_can_read_same_service_and_poll_failure_holds(
     assert state["state"] == "HOLD" and "private failure" not in state["error"]
     with pytest.raises(Hold):
         client.submit(SlotRequest("later", "compute", "other", "focus-host", "later-key"))
+    starts = len(h.starts)
+    with pytest.raises(Hold):
+        client.finish(Grant(**state["torch"]))
+    assert len(h.starts) == starts and [request["request_id"] for request in state["waiting"]] == ["waiting"]
     assert h.writer.unresolved() is not None and state["torch"]["request_id"] == "compute"
+
+
+def test_finish_waiting_behind_failed_poll_cannot_start_queued_work(transport, monkeypatch):
+    h, service, make_client = transport
+    client = make_client(h.compute)
+    client.submit(SlotRequest("compute", "compute", "slot", "focus-host", "key"))
+    ready = wait_for(lambda: running(client, "compute"))
+    client.submit(SlotRequest("waiting", "media", "other", "focus-host", "waiting-key"))
+    poll_entered, release, finish_waiting = Event(), Event(), Event()
+    original = service._transition
+    def fail(*args):
+        poll_entered.set()
+        assert release.wait(5)
+        raise RuntimeError("expected isolated polling failure")
+    def transition(operation, *args):
+        if operation == "finish":
+            finish_waiting.set()
+        return original(operation, *args)
+    monkeypatch.setattr(h.controller, "tick", fail)
+    monkeypatch.setattr(service, "_transition", transition)
+    assert poll_entered.wait(3)
+    try:
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(client.finish, Grant(**ready["torch"]))
+            assert finish_waiting.wait(3)
+            release.set()
+            with pytest.raises(Hold):
+                future.result(timeout=5)
+    finally:
+        release.set()
+    state = client.status()
+    assert state["state"] == "HOLD" and state["torch"]["request_id"] == "compute"
+    assert [entry["request_id"] for entry in state["waiting"]] == ["waiting"] and len(h.starts) == 1

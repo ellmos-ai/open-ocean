@@ -74,14 +74,26 @@ def fixture_demo() -> dict:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Ocean resource coordination: manifest, explicit fixture or read-only host/pipeline observation")
-    parser.add_argument("command", nargs="?", choices=("manifest", "fixture-demo", "host", "catalog", "shadow"), default="manifest")
+    parser.add_argument("command", nargs="?", choices=("manifest", "fixture-demo", "host", "catalog", "shadow", "capacity"), default="manifest")
     parser.add_argument("--jobs", type=Path, help="Explicit job projection JSON; no queue discovery")
     parser.add_argument("--catalog", type=Path, help="Optional explicit reference-only catalogue JSON")
     parser.add_argument("--reserve-ram-bytes", type=int)
     parser.add_argument("--reserve-disk-bytes", type=int)
+    parser.add_argument("--reserve-cpu-units", type=int)
+    parser.add_argument("--capacity-directory", type=Path)
+    parser.add_argument("--sample-seconds", type=float)
     args = parser.parse_args(argv)
     try:
-        if args.command == "shadow":
+        if args.command == "capacity":
+            if args.jobs is not None or args.catalog is not None:
+                parser.error("capacity does not read job projections or catalogues")
+            from .capacity import CapacityPolicy, NativeCapacitySensor
+            policy = CapacityPolicy(args.reserve_ram_bytes, args.reserve_cpu_units, args.reserve_disk_bytes,
+                                    args.capacity_directory, args.sample_seconds if args.sample_seconds is not None else 0.25)
+            report = NativeCapacitySensor(policy).observe()
+        elif any(value is not None for value in (args.reserve_cpu_units, args.capacity_directory, args.sample_seconds)):
+            parser.error("CPU sampling options belong to capacity only")
+        elif args.command == "shadow":
             if args.jobs is None:
                 parser.error("shadow requires --jobs and explicit RAM/disk reserves")
             budget = ResourceBudget(args.reserve_ram_bytes, args.reserve_disk_bytes)

@@ -14,6 +14,8 @@ import uuid
 
 from .contracts import Hold, identity
 
+MAX_JOURNAL_BYTES = 64 * 1024
+
 
 class HostWriterAuthority:
     def __init__(self, directory: Path, host_id: str):
@@ -99,6 +101,8 @@ class HostWriterAuthority:
             "payload": payload,
             "sha256": hashlib.sha256(payload.encode("utf-8")).hexdigest(),
         }, sort_keys=True).encode("utf-8")
+        if len(journal) > MAX_JOURNAL_BYTES:
+            raise Hold("writer journal exceeds its durable size bound")
         # Never replace the locked inode. A torn journal fails closed on reopen.
         self._stream.seek(0)
         content = b"0" + journal
@@ -110,9 +114,9 @@ class HostWriterAuthority:
     def unresolved(self) -> dict | None:
         self.require()
         self._stream.seek(1)
-        raw = self._stream.read(64 * 1024 + 1)
+        raw = self._stream.read(MAX_JOURNAL_BYTES + 1)
         try:
-            if len(raw) > 64 * 1024:
+            if len(raw) > MAX_JOURNAL_BYTES:
                 raise ValueError("journal too large")
             outer = json.loads(raw)
             if not isinstance(outer, dict) or set(outer) != {"payload", "sha256"}:

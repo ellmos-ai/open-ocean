@@ -305,6 +305,13 @@ def test_corrupt_restart_journal_holds(tmp_path, raw):
         HostWriterAuthority(tmp_path, "fixture-host").__enter__()
 
 
+def test_writer_journal_rejects_records_over_the_restart_bound(tmp_path):
+    with HostWriterAuthority(tmp_path, "fixture-host") as writer:
+        with pytest.raises(Hold, match="size bound"):
+            writer.record({"payload": "x" * (64 * 1024)})
+        assert writer.unresolved() is None
+
+
 def test_native_bach_gate_shape_and_task_fields_are_preserved(h):
     binding = ModelSocketBinding("model", "binding-1", "agent-1", "ollama", "model:fixture")
     pointer = HybridPlannerPointer("bach", "12", "compute", "job-12", hashlib.sha256(b"fixture").hexdigest())

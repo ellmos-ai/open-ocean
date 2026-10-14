@@ -3,7 +3,7 @@
 These tests never profile a model or start an existing queue/service.
 """
 
-from dataclasses import replace
+from dataclasses import asdict, replace
 import hashlib
 import json
 import os
@@ -100,6 +100,117 @@ def test_real_process_checkpoint_exit_chat_and_bit_exact_resume(tmp_path):
             assert all(run.exited and run.child.poll() is not None for run in executor._executions.values())
         finally:
             executor.close()
+
+
+def test_process_and_checkpoint_evidence_are_durable_before_handoff(tmp_path):
+    state = tmp_path / "state"
+    state.mkdir()
+    text = WORKER.replace(
+        "memory=bytearray(1024*1024)",
+        "(root/\"application.started\").touch()\nmemory=bytearray(1024*1024)",
+    )
+    command = make_command(tmp_path, text)
+    with HostWriterAuthority(state.resolve(), "owned-test-host") as writer:
+        arbiter = setup_arbiter(writer)
+        process_time_reads = []
+        phases = []
+
+        def process_times(pid):
+            process_time_reads.append(pid)
+            return 1000.0, 900.0
+
+        def capture_before_gate(grant, evidence):
+            marker = Path(evidence["run_directory"]) / "application.started"
+            assert not marker.exists(), "application ran before durable gate evidence"
+            original_execution_record(grant, evidence)
+            saved = writer.unresolved()
+            assert saved["execution_evidence"]["gate_state"] == evidence["gate_state"]
+            phases.append(evidence["gate_state"])
+
+        original_execution_record = arbiter.record_execution_evidence
+        arbiter.record_execution_evidence = capture_before_gate
+        with OwnedProcessExecutor(arbiter, command, state.resolve(), verify) as executor:
+            executor._process_times = process_times
+            facade = BACHFacade(arbiter, {"compute": executor.adapter()})
+            arbiter.submit(SlotRequest("job", "compute", "slot", "owned-test-host", "key"))
+            grant = facade.start_next()
+            run = executor._executions[grant]
+            assert phases == ["closed", "may-open"]
+            assert process_time_reads == [run.child.pid]
+            assert (run.directory / "application.started").is_file()
+
+            accepted = executor.checkpoint(grant, run.identity)
+            saved = writer.unresolved()
+            evidence = saved["checkpoint_evidence"]
+            checkpoint_file = Path(evidence["checkpoint_file"])
+            assert evidence["payload_sha256"] == accepted.payload_sha256
+            assert hashlib.sha256(checkpoint_file.read_bytes()).hexdigest() == evidence["checkpoint_file_sha256"]
+            assert run.child.poll() is None, "checkpoint evidence must be durable before stop"
+
+            assert facade.yield_active(grant, requeue=False) == accepted
+            assert writer.unresolved() is None
+
+
+def test_stop_requires_checkpoint_evidence_after_journal_write_failure(tmp_path, monkeypatch):
+    state = tmp_path / "state"
+    state.mkdir()
+    command = make_command(tmp_path)
+    with HostWriterAuthority(state.resolve(), "owned-test-host") as writer:
+        arbiter = setup_arbiter(writer)
+        original_record = writer.record
+
+        def fail_checkpoint_record(unresolved):
+            if unresolved is not None and unresolved.get("checkpoint_evidence") is not None:
+                raise Hold("simulated checkpoint journal fsync failure")
+            original_record(unresolved)
+
+        with OwnedProcessExecutor(arbiter, command, state.resolve(), verify) as executor:
+            facade = BACHFacade(arbiter, {"compute": executor.adapter()})
+            arbiter.submit(SlotRequest("job", "compute", "slot", "owned-test-host", "key"))
+            grant = facade.start_next()
+            run = executor._executions[grant]
+            monkeypatch.setattr(writer, "record", fail_checkpoint_record)
+
+            with pytest.raises(Hold, match="simulated checkpoint journal fsync failure"):
+                executor.checkpoint(grant, run.identity)
+            assert run.accepted is not None
+            assert writer.unresolved()["checkpoint_evidence"] is None
+
+            with pytest.raises(Hold, match="simulated checkpoint journal fsync failure"):
+                executor.stop(grant, run.identity, run.accepted)
+            assert run.child.poll() is None, "stop must not proceed without the durable journal binding"
+
+
+def test_checkpoint_evidence_uses_bounded_file_snapshot(tmp_path, monkeypatch):
+    state = tmp_path / "state"
+    state.mkdir()
+    command = make_command(tmp_path)
+    with HostWriterAuthority(state.resolve(), "owned-test-host") as writer:
+        arbiter = setup_arbiter(writer)
+        with OwnedProcessExecutor(arbiter, command, state.resolve(), verify) as executor:
+            facade = BACHFacade(arbiter, {"compute": executor.adapter()})
+            arbiter.submit(SlotRequest("job", "compute", "slot", "owned-test-host", "key"))
+            grant = facade.start_next()
+            run = executor._executions[grant]
+            accepted = executor.checkpoint(grant, run.identity)
+            checkpoint_file = run.directory / "accepted.checkpoint.json"
+
+            checkpoint_file.write_bytes(b"x" * (1024 * 1024 + 1))
+            with pytest.raises(Hold, match="accepted checkpoint evidence exceeds bound"):
+                executor.stop(grant, run.identity, accepted)
+            assert run.child.poll() is None, "an oversized checkpoint must not stop the owned process"
+
+            checkpoint_file.write_text(json.dumps(asdict(accepted), sort_keys=True), encoding="utf-8")
+            original_read_bytes = Path.read_bytes
+
+            def reject_unbounded_checkpoint_read(path):
+                if path == checkpoint_file:
+                    raise AssertionError("accepted checkpoint must use a bounded stream read")
+                return original_read_bytes(path)
+
+            monkeypatch.setattr(Path, "read_bytes", reject_unbounded_checkpoint_read)
+            assert facade.yield_active(grant, requeue=False) == accepted
+            assert writer.unresolved() is None
 
 
 def test_checkpoint_validator_failure_does_not_stop_or_release_process(tmp_path):

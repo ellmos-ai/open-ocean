@@ -59,6 +59,10 @@ include = ["tools*", "ocean_resources*"]
 [tool.setuptools.package-data]
 ocean_resources = ["manifest.json"]
 
+[tool.setuptools.data-files]
+"share/open-ocean/starters/windows" = ["starters/windows/*.bat"]
+"share/open-ocean/starters/posix" = ["starters/posix/*.sh"]
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]

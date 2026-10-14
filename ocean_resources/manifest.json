@@ -60,7 +60,7 @@
   ],
   "task_union_status": "union-schema-specified-fixtures-green-no-live-cutover",
   "external_effects": [
-    "no network",
+    "no network without explicit HostService/HostClient use",
     "no model calls",
     "no production queue access",
     "no service installation",
@@ -83,6 +83,14 @@
     "idle": "ends interactive grant without phantom requeue; next native input needs a new request identity",
     "audit": "fsynced host-local token-free audit under the existing writer",
     "activation": "profile and native adapter gates remain unchanged; no production cutover"
+  },
+  "host_transport": {
+    "api": "HostService + HostClient",
+    "endpoint": "explicit 127.0.0.1 listener; no automatic service install or discovery",
+    "auth": "existing scoped controller clients; private bearer header; host and writer-session fencing",
+    "limits": "8 HTTP workers, 1 MiB JSON, absolute 2 second input deadline, no proxy/redirect/CORS",
+    "lifecycle": "caller-owned accept loop, one managed poll worker, serialized lifecycle calls and 5 second drain; stop never frees an active torch",
+    "activation": "programmatic optional transport; no native production client cutover"
   },
   "reviewed_profiles": {
     "api": "ProfileSource + ReviewedProfileGate; OwnedProcessExecutor.measure_usage",

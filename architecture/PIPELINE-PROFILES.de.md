@@ -9,6 +9,13 @@ Befehlsfingerprint und genaue Steckplatzzuteilung übereinstimmen. Standardmäß
 bleibt die Zulassung geschlossen. Es werden weder Dateien gesucht oder freigegeben
 noch Dienste installiert oder Queues verändert.
 
+Windows verwendet die native Architektur aus der Betriebssystemantwort
+[IsWow64Process2](https://learn.microsoft.com/en-us/windows/win32/api/wow64apiset/nf-wow64apiset-iswow64process2),
+auch bei emulierten Prozessen. Fehlende API, fehlgeschlagener Aufruf und unbekannte
+Architektur bleiben gesperrt. Für dieses Freigabefeld gibt es keinen WMI- oder
+Umgebungsvariablen-Fallback. Andere Plattformen verwenden ihre nichtleere
+gemeldete Architektur. Zwei leere Beobachtungen gelten niemals als Übereinstimmung.
+
 ## Freigabe und Messbeleg
 
 Die vertrauenswürdige Hostkonfiguration wählt `ProfileSource(profile_path,

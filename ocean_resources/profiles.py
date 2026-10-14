@@ -19,6 +19,32 @@ import time
 from .contracts import Hold, ResourceSocket, identity, instant, positive, sha256_hex
 
 
+def native_architecture() -> str:
+    """Native Windows machine from the OS; no WMI/environment fallback.
+
+    Other systems use their reported uname architecture. Unknown is never a
+    matching architecture, even if two unavailable observations are both blank.
+    """
+    if os.name != "nt":
+        return identity(platform.machine())
+    import ctypes
+    from ctypes import wintypes
+    try:
+        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel.GetCurrentProcess.argtypes = []
+        kernel.GetCurrentProcess.restype = wintypes.HANDLE
+        kernel.IsWow64Process2.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.USHORT),
+                                          ctypes.POINTER(wintypes.USHORT)]
+        kernel.IsWow64Process2.restype = wintypes.BOOL
+        process, native = wintypes.USHORT(), wintypes.USHORT()
+        if not kernel.IsWow64Process2(kernel.GetCurrentProcess(), ctypes.byref(process), ctypes.byref(native)):
+            raise ValueError("native Windows architecture unavailable")
+        return {0x014c: "x86", 0x01c0: "ARM", 0x01c4: "ARM", 0x0200: "IA64",
+                0x8664: "AMD64", 0xaa64: "ARM64"}[native.value]
+    except (AttributeError, KeyError, OSError) as exc:
+        raise ValueError("native Windows architecture unavailable") from exc
+
+
 def _local_file(path):
     if (not isinstance(path, Path) or not path.is_absolute() or path.drive.startswith("\\\\")
         or any(p.lower().startswith("onedrive") for p in path.parts)
@@ -76,7 +102,7 @@ class ReviewedProfileGate:
         if not instant(max_age_seconds) or max_age_seconds <= 0 or not callable(wall_clock):
             raise ValueError("explicit positive profile age and wall clock required")
         self._pid, self._host = os.getpid(), identity(platform.node())
-        self._platform, self._architecture = platform.system(), platform.machine()
+        self._platform, self._architecture = identity(platform.system()), identity(native_architecture())
         self._max_age, self._clock = max_age_seconds, wall_clock
         self._sources = {}
         for source in sources:
@@ -141,7 +167,7 @@ class ReviewedProfileGate:
     def require(self, socket: ResourceSocket) -> dict:
         try:
             if (os.getpid() != self._pid or platform.node() != self._host
-                or platform.system() != self._platform or platform.machine() != self._architecture):
+                or platform.system() != self._platform or native_architecture() != self._architecture):
                 raise ValueError("foreign profile authority process/host")
             source = self._sources.get(socket.profile_id)
             if source is None:
@@ -158,7 +184,7 @@ class ReviewedProfileGate:
         """Read-only validation for configured pins; never acquires a grant."""
         try:
             if (os.getpid() != self._pid or platform.node() != self._host
-                or platform.system() != self._platform or platform.machine() != self._architecture):
+                or platform.system() != self._platform or native_architecture() != self._architecture):
                 raise ValueError("foreign profile inspection process/host")
             profiles = [self._load(source) for source in self._sources.values()]
             return {"schema": "ocean-reviewed-profile-inspection.v1", "state": "VALIDATED",

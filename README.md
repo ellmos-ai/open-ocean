@@ -315,6 +315,11 @@ bind a CPU process allocation to pinned measurement/policy bytes and the exact
 command, host and architecture. `profiles` validates those inputs read-only.
 An expired policy blocks new starts while preserving checkpoint and safe return.
 
+The optional [shared host transport](architecture/PIPELINE-TRANSPORT.md) connects
+separate native `HostClient` processes to one explicitly started `HostService`.
+Scoped client tokens and writer-session fencing preserve the existing admission
+and lifecycle rules. Installation does not start or configure a host service.
+
 - **Works:** Resolve, Verify, SHA-pinned Fetch/Place, sandboxed Activate, rollback and the
   `ocean.py` runtime lifecycle, tested on Windows, Linux and macOS.
 - **Open:** a fresh installation on a machine outside the maintainers' development setup, and

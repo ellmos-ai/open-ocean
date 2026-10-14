@@ -16,7 +16,7 @@ import pytest
 from ocean_resources import (BACHFacade, CapacityReadback, ComputeExecutorAdapter, Hold,
                              HostLocalArbiter, HostWriterAuthority, ResourceSocket, SlotRequest)
 from ocean_resources.process import OwnedProcessExecutor
-from ocean_resources.profiles import ProfileSource, ReviewedProfileGate
+from ocean_resources.profiles import ProfileSource, ReviewedProfileGate, native_architecture
 
 
 def write_json(path, value):
@@ -29,13 +29,13 @@ def write_json(path, value):
 def documents(tmp_path):
     evidence = {"schema": "ocean-workload-measurement.v1", "scope": "cpu-process-tree",
                 "method": "sampled-rss-and-cumulative-cpu-v1", "host_id": platform.node(),
-                "platform": platform.system(), "architecture": platform.machine(), "workload_sha256": "a" * 64,
+                "platform": platform.system(), "architecture": native_architecture(), "workload_sha256": "a" * 64,
                 "peak_rss_bytes": 60, "peak_cpu_units": 0.5, "cpu_concurrency_units": 1,
                 "sample_count": 3, "sample_interval_seconds": 0.1, "started_at": 900.0, "finished_at": 901.0,
                 "exit_verified": True, "checkpoint_verified": True, "unmeasured_external_residency": False}
     profile = {"schema": "ocean-reviewed-workload-profile.v1", "kind": "cpu-owned-process", "profile_id": "reviewed",
                "socket_id": "compute", "host_id": platform.node(), "platform": platform.system(),
-               "architecture": platform.machine(), "workload_sha256": "a" * 64,
+               "architecture": native_architecture(), "workload_sha256": "a" * 64,
                "ram_bytes": 100, "cpu_units": 1, "ram_margin_bytes": 20, "evidence_sha256": "b" * 64,
                "approved_by": "operator", "approved_at": 902.0, "expires_at": 2000.0}
     return {"profile": profile, "evidence": evidence, "root": tmp_path.resolve(), "now": [1000.0]}
@@ -428,3 +428,20 @@ def test_profile_revoked_during_capacity_never_activates_frozen_application(docu
             assert arbiter.status()["torch"] is not None
         finally:
             executor.close()
+
+
+def test_missing_native_architecture_cannot_approve_matching_blank_fields(documents, monkeypatch):
+    import ocean_resources.profiles as profiles
+    documents["profile"]["architecture"] = documents["evidence"]["architecture"] = ""
+    source = source_for(documents)
+    monkeypatch.setattr(profiles, "native_architecture", lambda: "")
+    with pytest.raises(ValueError, match="identity"):
+        ReviewedProfileGate((source,), max_age_seconds=200)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows native machine API")
+def test_windows_profile_architecture_uses_kernel_when_platform_probe_is_blank(documents, monkeypatch):
+    expected = native_architecture()
+    monkeypatch.setattr(platform, "machine", lambda: "")
+    assert native_architecture() == expected
+    assert gate_for(documents).require(socket_for(documents))["architecture"] == expected

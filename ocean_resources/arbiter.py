@@ -7,11 +7,13 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from functools import wraps
+import os
 from threading import RLock
 from copy import deepcopy
 from typing import Callable
 
 from .authority import HostWriterAuthority
+from .profiles import ReviewedProfileGate
 from .contracts import (
     CapacityReadback, Checkpoint, ExitReadback, Grant, Hold, Override,
     ResourceSocket, SlotRequest, identity, instant, positive,
@@ -21,6 +23,8 @@ from .contracts import (
 def serialized(method):
     @wraps(method)
     def guarded(self, *args, **kwargs):
+        if os.getpid() != self._pid:
+            raise Hold("foreign arbiter process")
         with self._mutex:
             return method(self, *args, **kwargs)
     return guarded
@@ -44,6 +48,7 @@ class HostLocalArbiter:
         *, fixture_profiles: frozenset[str] = frozenset(), max_age: float = 2,
         heartbeat_ttl: float = 10, max_chat_burst: int = 3,
         max_override_seconds: float = 60,
+        profile_gate: ReviewedProfileGate | None = None,
     ):
         authority.require()
         if authority.unresolved() is not None:
@@ -57,11 +62,15 @@ class HostLocalArbiter:
             raise ValueError("duplicate socket identity")
         if any(s.host_id != authority.host_id for s in sockets):
             raise ValueError("all sockets must belong to the writer's host")
+        if profile_gate is not None and not isinstance(profile_gate, ReviewedProfileGate):
+            raise ValueError("explicit reviewed profile gate required")
         authority.claim_arbiter()
+        self._pid = os.getpid()
         self._mutex = RLock()
         self.authority = authority
         self._sockets = {s.socket_id: s for s in sockets}
         self._profiles = fixture_profiles
+        self._profile_gate = profile_gate
         self._sensor, self._clock = sensor, clock
         self._max_age, self._ttl = max_age, heartbeat_ttl
         self._burst, self._max_override = max_chat_burst, max_override_seconds
@@ -169,10 +178,7 @@ class HostLocalArbiter:
             raise Hold("existing torch has not been verifiably released")
         request = self._requests[self._select()]
         socket = self._sockets[request.socket_id]
-        # Only named fixture profiles may use this first seam. Real adapters are
-        # deliberately not admitted until a later profile/authorization review.
-        if not socket.profiled or socket.profile_id not in self._profiles:
-            raise Hold("unprofiled or unauthorized socket; real adapter admission remains closed")
+        self._admit_profile(socket)
         reading = self._measure()
         if reading.available_ram_bytes < socket.ram_bytes or reading.available_cpu_units < socket.cpu_units:
             raise Hold("insufficient measured capacity after the system reserve")
@@ -193,6 +199,25 @@ class HostLocalArbiter:
             raise Hold("stale, foreign or inactive grant")
         return self._active
 
+    def _admit_profile(self, socket):
+        if not socket.profiled:
+            raise Hold("unprofiled or unauthorized socket; real adapter admission remains closed")
+        if socket.profile_id in self._profiles:
+            return None
+        if self._profile_gate is None:
+            raise Hold("unprofiled or unauthorized socket; real adapter admission remains closed")
+        return self._profile_gate.require(socket)
+
+    @serialized
+    def require_workload(self, grant: Grant, workload_sha256: str | None, *, kind: str | None):
+        self._current(grant)
+        socket = self._sockets[grant.socket_id]
+        profile = self._admit_profile(socket)
+        if profile is not None and (profile["kind"] != kind or socket.workload_sha256 != workload_sha256):
+            raise Hold("execution does not match the reviewed workload and kind")
+        if socket.workload_sha256 is not None and socket.workload_sha256 != workload_sha256:
+            raise Hold("execution command differs from the configured socket")
+
     @serialized
     def bind_execution(self, grant: Grant, execution_identity: str):
         active = self._current(grant)
@@ -210,12 +235,14 @@ class HostLocalArbiter:
     @serialized
     def require_running(self, grant: Grant):
         active = self._current(grant)
+        self._admit_profile(self._sockets[grant.socket_id])
         if active.return_requested or self._now() > active.heartbeat_until:
             raise Hold("return requested or heartbeat expired")
 
     @serialized
     def heartbeat(self, grant: Grant):
         active = self._current(grant)
+        self._admit_profile(self._sockets[grant.socket_id])
         now = self._now()
         if active.return_requested or now > active.heartbeat_until:
             raise Hold("return requested or heartbeat expired; exit verification still required")
@@ -265,7 +292,7 @@ class HostLocalArbiter:
         active = self._active
         return {
             "schema": "ocean-resource-arbiter.v1",
-            "mode": "offline-first-seam-no-live-adapters",
+            "mode": "reviewed-workload-profiles" if self._profile_gate else "offline-first-seam-no-live-adapters",
             "host_id": self.authority.host_id,
             "generation": self._generation,
             "torch": asdict(active.grant) if active else None,

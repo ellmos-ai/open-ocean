@@ -92,7 +92,8 @@ class ProcessCommand:
         if (
             not isinstance(self.environment, tuple)
             or any(
-                not isinstance(k, str) or not k or "=" in k or "\x00" in k or not isinstance(v, str) or "\x00" in v
+                not isinstance(k, str) or not k or "=" in k or "\x00" in k or k == "OCEAN_RESOURCE_RUN_DIR"
+                or not isinstance(v, str) or "\x00" in v
                 for k, v in self.environment
             )
             or len(dict(self.environment)) != len(self.environment)
@@ -111,6 +112,14 @@ class ProcessCommand:
                     calculated.update(block)
             if calculated.hexdigest() != digest:
                 raise Hold("pinned process source changed or unavailable")
+
+    def fingerprint(self) -> str:
+        """Bind the fixed command; the protocol run-directory variable is dynamic."""
+        content = json.dumps({"argv": self.argv, "cwd": str(self.cwd),
+                              "source_pins": [(str(p), h) for p, h in self.source_pins],
+                              "environment": self.environment}, sort_keys=True, separators=(",", ":"),
+                             ensure_ascii=False, allow_nan=False).encode("utf-8")
+        return hashlib.sha256(content).hexdigest()
 
 
 @dataclass
@@ -153,9 +162,15 @@ class OwnedProcessExecutor:
         self.validator, self.timeout = validate_checkpoint, timeout_seconds
         self._executions: dict[Grant, _Execution] = {}
         self._mutex = RLock()
+        self._pid = os.getpid()
+
+    def _require_process(self):
+        if os.getpid() != self._pid:
+            raise Hold("foreign owned-executor process")
 
     def adapter(self) -> ComputeExecutorAdapter:
-        return ComputeExecutorAdapter(self.start, self.checkpoint, self.stop, self.readback)
+        return ComputeExecutorAdapter(self.start, self.checkpoint, self.stop, self.readback,
+                                      self.command.fingerprint(), "cpu-owned-process")
 
     @staticmethod
     def _write(path: Path, payload: dict):
@@ -221,6 +236,7 @@ class OwnedProcessExecutor:
             time.sleep(0.02)
 
     def start(self, grant: Grant, request: SlotRequest, checkpoint: Checkpoint | None, execution_identity: str) -> bool:
+        self._require_process()
         with self._mutex:
             self.arbiter.require_running(grant)
             identity(execution_identity)
@@ -231,6 +247,7 @@ class OwnedProcessExecutor:
             if checkpoint != self.arbiter.checkpoint_for(grant.request_id):
                 raise Hold("resume checkpoint is not the arbiter's verified predecessor")
             self.command.verify_sources()
+            self.arbiter.require_workload(grant, self.command.fingerprint(), kind="cpu-owned-process")
             directory = self.state_directory / uuid.uuid4().hex
             directory.mkdir(mode=0o700)
             self._write(
@@ -277,6 +294,7 @@ class OwnedProcessExecutor:
                     gate_read = None
                 if os.name == "nt":
                     try:
+                        self.arbiter.require_workload(grant, self.command.fingerprint(), kind="cpu-owned-process")
                         windows_job.assign_and_resume(job, child)
                     except BaseException:
                         # Assignment can fail while the child is suspended and
@@ -290,6 +308,7 @@ class OwnedProcessExecutor:
                 run = _Execution(grant, execution_identity, directory, child, fence, job)
                 self._executions[grant] = run
                 if gate_write is not None:
+                    self.arbiter.require_workload(grant, self.command.fingerprint(), kind="cpu-owned-process")
                     os.write(gate_write, b"G")
                     os.close(gate_write)
                     gate_write = None
@@ -322,6 +341,7 @@ class OwnedProcessExecutor:
                         os.close(descriptor)
 
     def checkpoint(self, grant: Grant, execution_identity: str) -> Checkpoint:
+        self._require_process()
         with self._mutex:
             run = self._execution(grant, execution_identity)
             if run.exited:
@@ -349,6 +369,7 @@ class OwnedProcessExecutor:
             return run.accepted
 
     def stop(self, grant: Grant, execution_identity: str, checkpoint: Checkpoint):
+        self._require_process()
         with self._mutex:
             run = self._execution(grant, execution_identity)
             if run.accepted != checkpoint or not checkpoint.valid_for(grant):
@@ -379,13 +400,56 @@ class OwnedProcessExecutor:
         return run.fence is not None and _posix_group_empty(run.fence["pgid"])
 
     def readback(self, grant: Grant, execution_identity: str) -> ExitReadback:
+        self._require_process()
         with self._mutex:
             run = self._execution(grant, execution_identity)
             exited = run.exited and run.child.poll() is not None
             return ExitReadback(grant, execution_identity, exited, 0 if exited else None, time.monotonic())
 
+    def measure_usage(self, grant: Grant, execution_identity: str) -> dict:
+        """Observe only a currently owned live tree; samples are not peak bounds.
+
+        Short-lived/reparented children and external/GPU allocations can escape
+        discrete sampling. Such workloads require separate evidence/review.
+        No process is adopted, signalled or granted capacity by this method.
+        """
+        self._require_process()
+        with self._mutex:
+            run = self._execution(grant, execution_identity)
+            if run.exited or run.child.poll() is not None:
+                raise Hold("usage measurement requires this owned live execution")
+            from .capacity import _psutil
+            try:
+                started = time.monotonic()
+                backend = _psutil()
+                process = backend.Process(run.child.pid)
+                family = [process, *process.children(recursive=True)]
+                if len(family) > 256:
+                    raise ValueError("process observation exceeds bound")
+                members = []
+                for member in family:
+                    with member.oneshot():
+                        created = member.create_time()
+                        rss = member.memory_info().rss
+                        cpu = member.cpu_times()
+                    seconds = cpu.user + cpu.system
+                    if not instant(created) or not instant(seconds) or type(rss) is not int or rss < 0:
+                        raise ValueError("process resource counters unavailable")
+                    members.append({"pid": member.pid, "created_at": created, "rss_bytes": rss, "cpu_seconds": seconds})
+                if run.child.poll() is not None or not instant(started):
+                    raise ValueError("owned execution exited during resource observation")
+                return {"schema": "ocean-owned-usage-sample.v1", "grant": asdict(grant),
+                        "execution_identity": execution_identity, "observed_at": started,
+                        "members": members, "rss_bytes": sum(m["rss_bytes"] for m in members),
+                        "cpu_seconds": sum(m["cpu_seconds"] for m in members),
+                        "scope": "sampled-live-process-tree-not-an-external-residency-proof"}
+            except Exception as exc:
+                raise Hold("owned process resource observation failed") from exc
+
     def close(self):
         """Own-process emergency cleanup; never releases the arbiter or claims a checkpoint."""
+        if os.getpid() != self._pid:
+            return  # A forked child must never signal the parent's owned work.
         with self._mutex:
             for run in self._executions.values():
                 if not run.exited:

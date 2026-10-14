@@ -32,6 +32,12 @@ def instant(value: object) -> bool:
         return False
 
 
+def sha256_hex(value: str) -> str:
+    if not isinstance(value, str) or len(value) != 64 or any(c not in "0123456789abcdef" for c in value):
+        raise ValueError("exact lower-case SHA-256 required")
+    return value
+
+
 @dataclass(frozen=True)
 class ResourceSocket:
     """A large consumer, not the agent/job that uses it."""
@@ -40,12 +46,15 @@ class ResourceSocket:
     ram_bytes: int | None
     cpu_units: int | None
     profile_id: str | None = None
+    workload_sha256: str | None = None
 
     def __post_init__(self):
         identity(self.socket_id)
         identity(self.host_id)
         if self.profile_id is not None:
             identity(self.profile_id)
+        if self.workload_sha256 is not None:
+            sha256_hex(self.workload_sha256)
 
     @property
     def profiled(self) -> bool:

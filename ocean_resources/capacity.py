@@ -100,12 +100,31 @@ def _eligible_cpus(backend, system: str, count: int) -> tuple[int, ...]:
     return result
 
 
+def _windows_in_job() -> bool:
+    """Ask whether any Windows Job constrains this process, including parents.
+
+    Querying only the innermost Job's limits cannot prove the effective budget.
+    Unknown membership must not silently become unrestricted host capacity.
+    """
+    import ctypes
+    from ctypes import wintypes
+
+    api = ctypes.WinDLL("kernel32", use_last_error=True)
+    api.GetCurrentProcess.argtypes = []
+    api.GetCurrentProcess.restype = wintypes.HANDLE
+    api.IsProcessInJob.argtypes = [wintypes.HANDLE, wintypes.HANDLE, ctypes.POINTER(wintypes.BOOL)]
+    api.IsProcessInJob.restype = wintypes.BOOL
+    inside = wintypes.BOOL()
+    if not api.IsProcessInJob(api.GetCurrentProcess(), None, ctypes.byref(inside)):
+        raise Hold("windows-job-membership-unavailable")
+    return bool(inside.value)
+
+
 class NativeCapacitySensor:
     """Process-bound trusted sensor port; default profile/claim gates stay separate.
 
-    Windows/macOS native host observations are supported. Linux counters are
-    observable, but reserve verification remains closed until effective cgroup
-    RAM/CPU constraints are proved. No native queue/service/model is discovered.
+    Windows Jobs and Linux cgroups remain closed until their effective RAM/CPU
+    constraints are proved. No native queue/service/model is discovered.
     """
 
     def __init__(self, policy: CapacityPolicy, host_id: str | None = None):
@@ -117,6 +136,13 @@ class NativeCapacitySensor:
         self.last_observation: dict | None = None
 
     def observe(self) -> dict:
+        # A child may inherit a mutex held by a vanished parent thread. Reject
+        # the foreign PID before touching that mutex or any native backend.
+        if os.getpid() != self._pid:
+            raw = time.monotonic()
+            reading = CapacityReadback(self.host_id, self._sequence + 1,
+                                       raw if instant(raw) else 0.0, None, None, None, False)
+            return self._report(reading, ["foreign-host-or-process"], None)
         with self._mutex:
             self._sequence += 1
             started_raw = time.monotonic()
@@ -135,6 +161,8 @@ class NativeCapacitySensor:
                 observations.append(first)
                 if first.host_id != self.host_id or first.platform not in {"Windows", "Darwin", "Linux"}:
                     raise Hold("unsupported-or-foreign-host")
+                if first.platform == "Windows" and _windows_in_job():
+                    raise Hold("effective-windows-job-budget-unverified")
                 before = _cpu_snapshot(backend)
                 eligible = _eligible_cpus(backend, first.platform, len(before))
                 cpu_started = time.monotonic()
@@ -150,6 +178,8 @@ class NativeCapacitySensor:
                 observed_idle = idle_cpu_units(before, after, eligible)
                 last = sample_host(self.policy.directory)
                 observations.append(last)
+                if first.platform == "Windows" and _windows_in_job():
+                    raise Hold("effective-windows-job-budget-unverified")
                 if (
                     last.host_id != self.host_id or last.platform != first.platform
                     or first.total_ram_bytes != last.total_ram_bytes
@@ -180,18 +210,21 @@ class NativeCapacitySensor:
             except Exception as exc:
                 # No private paths, process command lines or backend exceptions.
                 errors.append(str(exc) if isinstance(exc, Hold) else "native-capacity-probe-failed")
-            result = {
-                "schema": "ocean-native-capacity.v1", "mode": "read-only-capacity-observation",
-                "start_authorized": False, "reading": asdict(reading),
-                "observed_idle_cpu_units": observed_idle, "errors": errors,
-                "state": "CANDIDATE" if not errors else "HOLD",
-                "system_reserve": {"ram_bytes": self.policy.reserve_ram_bytes,
-                                   "cpu_units": self.policy.reserve_cpu_units,
-                                   "disk_bytes": self.policy.reserve_disk_bytes},
-                "profile_admission": "separate-default-closed", "models_started": 0, "queue_writes": 0,
-            }
-            self.last_observation = deepcopy(result)
-            return result
+            return self._report(reading, errors, observed_idle)
+
+    def _report(self, reading, errors, observed_idle):
+        result = {
+            "schema": "ocean-native-capacity.v1", "mode": "read-only-capacity-observation",
+            "start_authorized": False, "reading": asdict(reading),
+            "observed_idle_cpu_units": observed_idle, "errors": errors,
+            "state": "CANDIDATE" if not errors else "HOLD",
+            "system_reserve": {"ram_bytes": self.policy.reserve_ram_bytes,
+                               "cpu_units": self.policy.reserve_cpu_units,
+                               "disk_bytes": self.policy.reserve_disk_bytes},
+            "profile_admission": "separate-default-closed", "models_started": 0, "queue_writes": 0,
+        }
+        self.last_observation = deepcopy(result)
+        return result
 
     def __call__(self) -> CapacityReadback:
         return CapacityReadback(**self.observe()["reading"])

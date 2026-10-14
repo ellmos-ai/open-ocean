@@ -23,7 +23,9 @@ understate capacity; they cannot add idle time.
 Only eligible affinity CPUs count. Available CPU units are the floor of their
 measured idle shares minus the positive configured CPU reserve. On Windows,
 processor-group layouts above 64 logical CPUs stay HOLD until their effective
-budget is verified. macOS uses its exposed host CPU set. Linux counters remain
+budget is verified. A process inside any Windows Job also stays HOLD: host-wide
+RAM and affinity do not prove the effective limits of nested Jobs. Unknown Job
+membership stays HOLD. macOS uses its exposed host CPU set. Linux counters remain
 observable, but effective cgroup RAM/CPU budgets are not yet verified by this
 adapter and therefore always keep reserve verification false.
 
@@ -71,6 +73,7 @@ reading = sensor()
 ```
 
 The sensor serializes calls and emits a newer sequence even after failed probes.
-It rejects use in a forked or foreign-host process. This increment adds native
+It rejects a forked process before touching a potentially inherited locked mutex,
+and rejects a foreign host. This increment adds native
 measurement; it does not install the shared host service, qualify production
 profiles, change existing queues or complete the live Buddha/compute acceptance.

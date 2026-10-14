@@ -76,6 +76,7 @@ def native_fake(tmp_path, monkeypatch):
         Process=lambda: SimpleNamespace(cpu_affinity=lambda: data["affinity"]),
     )
     monkeypatch.setattr(capacity, "_psutil", lambda: backend)
+    monkeypatch.setattr(capacity, "_windows_in_job", lambda: False)
     monkeypatch.setattr(capacity.platform, "node", lambda: "native-host")
     monkeypatch.setattr(capacity.time, "monotonic", lambda: clock[0])
     monkeypatch.setattr(capacity.time, "sleep", lambda seconds: clock.__setitem__(0, clock[0] + seconds))
@@ -124,6 +125,39 @@ def test_linux_effective_cgroup_budget_is_never_inferred_from_host_totals(native
     report = native_fake["sensor"].observe()
     assert report["reading"]["reserve_verified"] is False
     assert "effective-cgroup-budget-unverified" in report["errors"]
+
+
+@pytest.mark.parametrize("memberships", [(True,), (False, True)])
+def test_windows_job_limits_are_not_inferred_from_host_totals(native_fake, monkeypatch, memberships):
+    states = iter(memberships)
+    monkeypatch.setattr(capacity, "_windows_in_job", lambda: next(states))
+    report = native_fake["sensor"].observe()
+    assert report["state"] == "HOLD"
+    assert report["reading"]["reserve_verified"] is False
+    assert report["reading"]["available_ram_bytes"] is None
+    assert "effective-windows-job-budget-unverified" in report["errors"]
+
+
+def test_unknown_windows_job_membership_cannot_establish_capacity(native_fake, monkeypatch):
+    def unavailable():
+        raise capacity.Hold("windows-job-membership-unavailable")
+    monkeypatch.setattr(capacity, "_windows_in_job", unavailable)
+    report = native_fake["sensor"].observe()
+    assert report["state"] == "HOLD" and report["reading"]["reserve_verified"] is False
+    assert "windows-job-membership-unavailable" in report["errors"]
+
+
+def test_foreign_process_is_rejected_before_any_inherited_mutex(native_fake, monkeypatch):
+    class InheritedLockedMutex:
+        def __enter__(self):
+            pytest.fail("foreign process must not enter a possibly inherited locked mutex")
+        def __exit__(self, *args):
+            pass
+    native_fake["sensor"]._mutex = InheritedLockedMutex()
+    monkeypatch.setattr(capacity.os, "getpid", lambda: -1)
+    report = native_fake["sensor"].observe()
+    assert report["state"] == "HOLD" and report["reading"]["reserve_verified"] is False
+    assert "foreign-host-or-process" in report["errors"] and native_fake["samples"] == 0
 
 
 def test_oldest_input_is_not_freshened_by_slow_followup_probe(native_fake, monkeypatch):

@@ -24,7 +24,10 @@ Kapazität unterschätzen, aber keinen zusätzlichen Leerlauf erzeugen.
 Es zählen nur tatsächlich zugeordnete CPUs. Nach Abzug der positiven CPU-Reserve
 wird die Summe der gemessenen Leerlaufanteile abgerundet. Windows-Konfigurationen
 mit mehr als 64 logischen CPUs bleiben bis zur Prüfung ihrer Prozessorgruppenbudgets
-HOLD. macOS verwendet die sichtbaren Host-CPUs. Unter Linux werden Zähler gemessen;
+HOLD. Auch ein Prozess in einem Windows-Job bleibt HOLD: Host-RAM und CPU-Zuordnung
+belegen die effektiven Grenzen verschachtelter Jobs nicht. Eine unbekannte
+Jobzugehörigkeit bleibt HOLD. macOS verwendet die sichtbaren Host-CPUs.
+Unter Linux werden Zähler gemessen;
 die effektiven cgroup-Grenzen für RAM und CPU sind durch diesen Adapter noch nicht
 abgenommen. Deshalb bleibt dort reserve_verified immer false.
 
@@ -75,6 +78,7 @@ reading = sensor()
 Erst nach gesonderter Profil-, Zuständigkeits- und Rechteabnahme wird sensor an
 den einen vorhandenen HostLocalArbiter übergeben. Aufrufe sind serialisiert;
 auch fehlgeschlagene Messungen erhalten eine neuere Sequenz. Ein anderer Host
-oder ein geforkter Prozess darf den Sensor nicht übernehmen. Dieser Ausbau
+oder ein geforkter Prozess darf den Sensor nicht übernehmen. Ein geforkter Prozess
+wird vor dem Zugriff auf möglicherweise geerbte gesperrte Mutexe abgewiesen. Dieser Ausbau
 liefert native Messung; gemeinsamer Hostdienst, produktive Profile und der echte
 Buddha-/Compute-Wechsel bleiben weitere Abnahmen.

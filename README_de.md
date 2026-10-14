@@ -308,6 +308,11 @@ binden die CPU-Prozesszuteilung an gepinnte Mess-/Policydateien, den konkreten
 Befehl sowie Host und Architektur. `profiles` prüft diese Eingaben lesend.
 Abgelaufene Profile sperren neue Starts; Checkpoint und sichere Rückgabe bleiben möglich.
 
+Der optionale [gemeinsame Hosttransport](architecture/PIPELINE-TRANSPORT.de.md)
+verbindet getrennte native HostClient-Prozesse mit einem ausdrücklich gestarteten
+HostService. Clientrechte und Writerbindung erhalten Ressourcen- und
+Lifecyclegates. Die Installation startet oder konfiguriert keinen Hostdienst.
+
 - **Läuft:** Resolve, Verify, SHA-gepinntes Fetch/Place, isoliertes Activate, Rollback und der
   `ocean.py`-Laufzeit-Lebenszyklus, getestet unter Windows, Linux und macOS.
 - **Offen:** eine Neuinstallation auf einem Rechner außerhalb der Entwicklungsumgebung und die

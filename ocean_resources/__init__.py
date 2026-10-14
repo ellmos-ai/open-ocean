@@ -10,6 +10,8 @@ from .contracts import (
 )
 from .host import HostObservation, sample_host
 from .pipelines import PipelineDefinition, ResourceBudget, load_catalog, route_job, shadow_plan, slot_request
+from .client import HostClient
+from .service import HostService
 
 __all__ = [
     "BACHFacade", "CapacityReadback", "Checkpoint", "ComputeExecutorAdapter",
@@ -20,4 +22,5 @@ __all__ = [
     "load_catalog", "route_job", "shadow_plan", "slot_request",
     "ControllerClient", "FocusPolicy", "HostController", "OverrideCommand",
     "ProfileSource", "ReviewedProfileGate",
+    "HostClient", "HostService",
 ]

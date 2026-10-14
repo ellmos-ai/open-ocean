@@ -156,3 +156,25 @@ def process_is_alive(pid: int) -> bool:
         return code.value == STILL_ACTIVE
     finally:
         api.CloseHandle(handle)
+
+
+def active_process_count(job: int) -> int:
+    """Query THIS owned job; zero is required before resource handoff."""
+    if type(job) is not int or job <= 0:
+        raise WindowsJobError("Ungültiges eigenes Job-Handle")
+    api = _kernel32()
+    api.QueryInformationJobObject.restype = wintypes.BOOL
+    api.QueryInformationJobObject.argtypes = [
+        wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD, ctypes.c_void_p]
+
+    class Accounting(ctypes.Structure):
+        _fields_ = [
+            ("user", ctypes.c_int64), ("kernel", ctypes.c_int64),
+            ("period_user", ctypes.c_int64), ("period_kernel", ctypes.c_int64),
+            ("page_faults", wintypes.DWORD), ("total", wintypes.DWORD),
+            ("active", wintypes.DWORD), ("terminated", wintypes.DWORD),
+        ]
+    value = Accounting()
+    if not api.QueryInformationJobObject(job, 1, ctypes.byref(value), ctypes.sizeof(value), None):
+        raise _fail("Aktive Prozesse im eigenen Job nicht prüfbar")
+    return int(value.active)

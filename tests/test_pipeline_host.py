@@ -8,7 +8,7 @@ import sys
 
 import pytest
 
-from ocean_resources import HostWriterAuthority, sample_host
+from ocean_resources import HostObservation, HostWriterAuthority, sample_host
 from ocean_resources.host import parse_macos_vm
 
 
@@ -101,3 +101,39 @@ def test_host_cli_is_json_and_does_not_write_in_empty_cwd(tmp_path):
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout)["start_authorized"] is False
     assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"observed_at": float("nan")},
+        {"observed_at": True},
+        {"available_ram_bytes": float("nan")},
+        {"available_ram_bytes": True},
+        {"available_ram_bytes": -1},
+        {"available_ram_bytes": 2001},
+        {"total_ram_bytes": None},
+        {"total_ram_bytes": 0},
+        {"disk_free_bytes": float("inf")},
+        {"disk_free_bytes": -1},
+        {"logical_cpus": True},
+        {"load_average_1m": float("nan")},
+        {"pressure": "ready"},
+        {"host_id": "../host"},
+    ],
+)
+def test_remote_or_constructed_invalid_reading_cannot_look_ready(changes):
+    values = dict(
+        host_id="test-host",
+        platform="Linux",
+        observed_at=100,
+        total_ram_bytes=2000,
+        available_ram_bytes=1000,
+        logical_cpus=4,
+        load_average_1m=None,
+        pressure="normal",
+        disk_free_bytes=1000,
+        measurement_source="test-probe",
+    )
+    with pytest.raises(ValueError):
+        HostObservation(**{**values, **changes})

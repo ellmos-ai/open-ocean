@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 import ctypes
+import math
 import os
 from pathlib import Path
 import platform
@@ -11,6 +12,8 @@ import re
 import shutil
 import subprocess
 import time
+
+from .contracts import identity, instant, positive
 
 
 @dataclass(frozen=True)
@@ -26,6 +29,38 @@ class HostObservation:
     disk_free_bytes: int | None
     measurement_source: str
     errors: tuple[str, ...] = ()
+
+    def __post_init__(self):
+        identity(self.host_id)
+        if self.platform not in {"Windows", "Darwin", "Linux", "unknown"}:
+            raise ValueError("explicit known platform or unknown required")
+        if not instant(self.observed_at):
+            raise ValueError("finite UTC observation time required")
+        if self.total_ram_bytes is not None and not positive(self.total_ram_bytes):
+            raise ValueError("invalid total physical memory")
+        for value in (self.available_ram_bytes, self.disk_free_bytes):
+            if value is not None and (type(value) is not int or value < 0):
+                raise ValueError("memory and disk samples must be nonnegative integers or unknown")
+        if self.available_ram_bytes is not None and (
+            self.total_ram_bytes is None or self.available_ram_bytes > self.total_ram_bytes
+        ):
+            raise ValueError("available memory cannot exceed known physical memory")
+        if self.logical_cpus is not None and not positive(self.logical_cpus):
+            raise ValueError("invalid logical CPU count")
+        if self.load_average_1m is not None and (
+            type(self.load_average_1m) not in {int, float}
+            or not math.isfinite(self.load_average_1m)
+            or self.load_average_1m < 0
+        ):
+            raise ValueError("finite nonnegative CPU load or unknown required")
+        if self.pressure not in {"normal", "elevated", "critical", "unknown"}:
+            raise ValueError("unknown pressure state")
+        if not isinstance(self.measurement_source, str) or not 1 <= len(self.measurement_source) <= 256:
+            raise ValueError("bounded measurement source required")
+        if not isinstance(self.errors, tuple) or any(
+            not isinstance(error, str) or not 1 <= len(error) <= 128 for error in self.errors
+        ):
+            raise ValueError("bounded explicit probe errors required")
 
     def to_dict(self) -> dict:
         return {

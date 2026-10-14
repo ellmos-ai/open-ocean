@@ -52,6 +52,15 @@ gibt den Arbiter nicht frei und erfindet keinen Checkpoint. Scheitert eine Windo
 wird das eigene suspendierte Kind direkt aufgeräumt; allein den leeren Job zu beenden genügt
 nicht. Startfehler erhalten die Reservierung bis zur verifizierten Reconciliation.
 
+Unter POSIX wartet ein isolierter Pythonstart (`-I -S`) vor der Anwendung auf eine
+geerbte Pipe. Erst die bestätigte Prozessgruppe und gespeicherte Ausführung öffnen
+dieses Starttor. EOF oder Timeout beendet den Wrapper ohne Anwendungscode. Das gilt
+auch bei automatischem Aufräumen beendeter Kinder (`SIGCHLD=SIG_IGN`). Fehlerpfade
+schließen beide Pipe-Enden. Nach bestätigtem Ende prüfen wiederholte Checkpoint-/
+Stoppaufrufe den gespeicherten Checkpoint erneut und signalisieren keine alte
+Prozessidentität. Eine vorübergehend fehlgeschlagene Kapazitätsmessung ist damit
+durch einen erneuten Freigabeversuch behebbar.
+
 ## Python-Anbindung
 
 ```python

@@ -13,6 +13,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 from threading import RLock
 import time
 from typing import Callable
@@ -32,6 +33,17 @@ from .arbiter import HostLocalArbiter
 from .contracts import Checkpoint, ExitReadback, Grant, Hold, SlotRequest, identity, instant
 
 PROTOCOL = "ocean-owned-process.v1"
+
+# Isolated interpreter startup cannot import sitecustomize or application code.
+# No application (and therefore no helper) runs until its process group is fenced.
+_POSIX_BOOTSTRAP = """
+import os, select, sys
+fd = int(sys.argv[1])
+if not select.select([fd], [], [], 30)[0] or os.read(fd, 1) != b'G':
+    raise SystemExit(125)
+os.close(fd)
+os.execve(sys.argv[2], sys.argv[2:], dict(os.environ))
+"""
 
 
 def _local_directory(path: Path) -> Path:
@@ -234,13 +246,23 @@ class OwnedProcessExecutor:
             job = None
             child = None
             fence = None
+            gate_read = gate_write = None
             try:
                 flags = 0
+                argv = self.command.argv
+                spawn_options = {}
                 if os.name == "nt":
                     job = windows_job.create_kill_on_close_job()
                     flags = windows_job.CREATE_SUSPENDED | subprocess.CREATE_NO_WINDOW
+                else:
+                    gate_read, gate_write = os.pipe()
+                    argv = (
+                        str(Path(sys.executable).resolve()), "-I", "-S", "-c",
+                        _POSIX_BOOTSTRAP, str(gate_read), *self.command.argv,
+                    )
+                    spawn_options["pass_fds"] = (gate_read,)
                 child = subprocess.Popen(
-                    self.command.argv,
+                    argv,
                     cwd=self.command.cwd,
                     env=environment,
                     stdin=subprocess.DEVNULL,
@@ -248,7 +270,11 @@ class OwnedProcessExecutor:
                     stderr=subprocess.DEVNULL,
                     creationflags=flags,
                     start_new_session=os.name != "nt",
+                    **spawn_options,
                 )
+                if gate_read is not None:
+                    os.close(gate_read)
+                    gate_read = None
                 if os.name == "nt":
                     try:
                         windows_job.assign_and_resume(job, child)
@@ -263,6 +289,10 @@ class OwnedProcessExecutor:
                     fence = _capture_posix_process_fence(child.pid)
                 run = _Execution(grant, execution_identity, directory, child, fence, job)
                 self._executions[grant] = run
+                if gate_write is not None:
+                    os.write(gate_write, b"G")
+                    os.close(gate_write)
+                    gate_write = None
                 self._wait_message(run, "ready.json")
                 self.arbiter.require_running(grant)
                 return True
@@ -271,7 +301,10 @@ class OwnedProcessExecutor:
                 try:
                     if child is not None:
                         if os.name != "nt" and fence is None:
-                            _terminate_unfenced_posix_child(child)
+                            # Only the isolated waiting bootstrap can exist here.
+                            _terminate_unfenced_posix_child(child, self.timeout)
+                            if child.poll() is None:
+                                raise Hold("waiting bootstrap cleanup is unconfirmed")
                         else:
                             _terminate_child(child, self.timeout, process_fence=fence, job_handle=job)
                     cleaned = True
@@ -283,10 +316,22 @@ class OwnedProcessExecutor:
                     if cleaned:
                         self._executions.pop(grant, None)
                 raise
+            finally:
+                for descriptor in (gate_read, gate_write):
+                    if descriptor is not None:
+                        os.close(descriptor)
 
     def checkpoint(self, grant: Grant, execution_identity: str) -> Checkpoint:
         with self._mutex:
             run = self._execution(grant, execution_identity)
+            if run.exited:
+                if (
+                    run.accepted is None
+                    or not run.accepted.valid_for(grant)
+                    or self._message(run.directory / "accepted.checkpoint.json") != asdict(run.accepted)
+                ):
+                    raise Hold("persisted accepted checkpoint changed or is unavailable")
+                return run.accepted
             self._write(
                 run.directory / "checkpoint.request.json",
                 {"schema": PROTOCOL, "grant": asdict(grant), "execution_identity": execution_identity},
@@ -310,6 +355,10 @@ class OwnedProcessExecutor:
                 raise Hold("stop requires this execution's verified checkpoint")
             if self._message(run.directory / "accepted.checkpoint.json") != asdict(checkpoint):
                 raise Hold("persisted accepted checkpoint changed or is unavailable")
+            if run.exited:
+                # A failed capacity readback must be retryable without signalling
+                # a closed Windows job or a potentially reused POSIX group.
+                return
             _terminate_child(run.child, self.timeout, process_fence=run.fence, job_handle=run.job)
             deadline = time.monotonic() + self.timeout
             while not self._empty(run):

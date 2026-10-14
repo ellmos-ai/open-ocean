@@ -49,6 +49,14 @@ the arbiter or invents a checkpoint. Failed Windows job assignment reaps the exp
 child rather than attempting to terminate an empty job only. Failed starts retain the arbiter's
 reservation pending verified reconciliation.
 
+On POSIX an isolated Python bootstrap (`-I -S`) waits on an inherited pipe before
+executing the application. Only a captured process-group fence and stored execution
+can open that gate; EOF or timeout exits without starting application code. This also
+covers hosts that automatically reap exited children (`SIGCHLD=SIG_IGN`). Both pipe
+ends are closed on parent failure. After a verified exit, checkpoint/stop retries
+revalidate the persisted checkpoint and do not signal the old process identity again;
+a temporary capacity-probe failure therefore remains recoverable.
+
 ## Python integration
 
 ```python

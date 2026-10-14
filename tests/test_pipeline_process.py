@@ -276,7 +276,7 @@ def test_release_retry_uses_verified_exit_without_signalling_again(tmp_path, mon
             arbiter.submit(SlotRequest("job", "compute", "slot", "owned-test-host", "key"))
             grant = facade.start_next()
             capacity = arbiter._sensor
-            monkeypatch.setattr(arbiter, "_sensor", lambda: replace(capacity(), available_ram=None))
+            monkeypatch.setattr(arbiter, "_sensor", lambda: replace(capacity(), available_ram_bytes=None))
             with pytest.raises(Hold):
                 facade.yield_active(grant, requeue=False)
             assert executor._executions[grant].exited

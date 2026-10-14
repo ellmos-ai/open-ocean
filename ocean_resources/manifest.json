@@ -88,8 +88,8 @@
     "api": "HostService + HostClient",
     "endpoint": "explicit 127.0.0.1 listener; no automatic service install or discovery",
     "auth": "existing scoped controller clients; private bearer header; host and writer-session fencing",
-    "limits": "8 workers, 1 MiB JSON, 2 second socket reads, no proxy/redirect/CORS",
-    "lifecycle": "caller-owned poll loop and executors; transport stop never frees an active torch",
+    "limits": "8 HTTP workers, 1 MiB JSON, absolute 2 second input deadline, no proxy/redirect/CORS",
+    "lifecycle": "caller-owned accept loop, one managed poll worker, serialized lifecycle calls and 5 second drain; stop never frees an active torch",
     "activation": "programmatic optional transport; no native production client cutover"
   },
   "reviewed_profiles": {

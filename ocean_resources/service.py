@@ -3,7 +3,8 @@ from dataclasses import fields
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import os
-from threading import BoundedSemaphore, Event, Lock, Thread, current_thread
+import socket
+from threading import BoundedSemaphore, Event, Lock, Thread, Timer, current_thread
 import time
 
 from .contracts import Grant, Hold, HybridPlannerPointer, SlotRequest, identity, positive
@@ -55,34 +56,77 @@ class _Server(HTTPServer):
 
     def __init__(self, address, handler):
         self._slots, self._mutex, self._workers = BoundedSemaphore(8), Lock(), set()
+        self._connections = {}
         super().__init__(address, handler)
 
     def process_request(self, request, address):
         if not self._slots.acquire(blocking=False):
             self.shutdown_request(request)
             return
+        phase = {"mutex": Lock(), "admitted": False, "expired": False,
+                 "expires_at": time.monotonic() + 2}
+        def expire():
+            with phase["mutex"]:
+                if phase["admitted"]:
+                    return
+                phase["expired"] = True
+                try:
+                    request.shutdown(socket.SHUT_RDWR)
+                except OSError:
+                    pass
+        deadline = Timer(2, expire)
+        phase["deadline"] = deadline
         def serve():
             try:
+                deadline.start()
                 request.settimeout(2)
                 self.finish_request(request, address)
             except Exception:
                 pass  # Never log headers, credentials or arbitrary request bodies.
             finally:
+                deadline.cancel()
+                if deadline.ident is not None:
+                    deadline.join(1)
                 self.shutdown_request(request)
                 with self._mutex:
                     self._workers.discard(current_thread())
+                    self._connections.pop(request, None)
                 self._slots.release()
         worker = Thread(target=serve, name="ocean-host-request", daemon=False)
         with self._mutex:
             self._workers.add(worker)
+            self._connections[request] = phase
         try:
             worker.start()
         except BaseException:
             with self._mutex:
                 self._workers.discard(worker)
+                self._connections.pop(request, None)
             self._slots.release()
             self.shutdown_request(request)
             raise
+
+    def admit_socket(self, request):
+        with self._mutex:
+            phase = self._connections[request]
+        with phase["mutex"]:
+            if phase["expired"] or time.monotonic() >= phase["expires_at"]:
+                raise Hold("host transport input deadline expired")
+            phase["admitted"] = True
+            phase["deadline"].cancel()
+
+    def cancel_pending(self):
+        with self._mutex:
+            connections = tuple(self._connections.items())
+        for request, phase in connections:
+            with phase["mutex"]:
+                if not phase["admitted"]:
+                    phase["expired"] = True
+                    phase["deadline"].cancel()
+                    try:
+                        request.shutdown(socket.SHUT_RDWR)
+                    except OSError:
+                        pass
 
     def drain(self, seconds=5):
         deadline = time.monotonic() + seconds
@@ -116,6 +160,8 @@ class HostService:
         self.controller, self._operator = controller, operator
         self._pid, self._stop, self._running = os.getpid(), Event(), Lock()
         self._admission = Lock()
+        self._lifecycle = Lock()
+        self._poll_mutex, self._poll_threads, self._poll_failed = Lock(), set(), Event()
         self._finished = Event()
         self._finished.set()
         self._closed = False
@@ -160,6 +206,7 @@ class HostService:
                     if len(raw) != length:
                         raise ValueError("incomplete transport body")
                     message = decode_json(raw)
+                    self.server.admit_socket(self.connection)
                     result = owner.dispatch(client_id, token, self.path, message)
                     self.respond(200, {"schema": SCHEMA, "state": "OK", "result": result})
                 except Hold:
@@ -189,12 +236,19 @@ class HostService:
         operation = path[len("/v1/focus/"):]
         if operation not in OPERATIONS:
             raise ValueError("unknown transport operation")
+        if self._poll_failed.is_set() and operation not in {"status", "end_turn", "finish"}:
+            raise Hold("host transport polling failed; retain native state")
         payload = message["payload"]
         if operation in {"status", "tick"}:
             exact(payload, ())
             if operation == "tick" and not client.operator:
                 raise Hold("operator polling permission required")
-            return getattr(self.controller, operation)(client_id, token)
+            if operation == "tick":
+                return self._transition("tick", client_id, token)
+            state = self.controller.status(client_id, token)
+            if self._poll_failed.is_set():
+                state.update(state="HOLD", error="host transport polling failed; retain native state")
+            return state
         if operation == "submit":
             return self.controller.submit(client_id, token, contract(SlotRequest, payload))
         if operation == "override":
@@ -202,7 +256,7 @@ class HostService:
         exact(payload, ("grant",) if operation == "finish" else ("grant", "turn_id"))
         grant = contract(Grant, payload["grant"])
         if operation == "finish":
-            return self.controller.finish(client_id, token, grant)
+            return self._transition("finish", client_id, token, grant)
         identity(payload["turn_id"])
         return getattr(self.controller, operation)(client_id, token, grant, payload["turn_id"])
 
@@ -213,6 +267,42 @@ class HostService:
             if self._stop.is_set():
                 raise Hold("host transport is stopping; no new operation admitted")
 
+    def _transition(self, operation, *args):
+        if not self._lifecycle.acquire(timeout=2):
+            raise Hold("host transport lifecycle is busy; no operation started")
+        try:
+            return getattr(self.controller, operation)(*args)
+        finally:
+            self._lifecycle.release()
+
+    def _start_poll(self):
+        # HTTP acceptance must remain live while a native callback checkpoints,
+        # starts, or reads this same service through a separate client process.
+        with self._admission:
+            if self._stop.is_set() or self._poll_failed.is_set():
+                return
+            with self._poll_mutex:
+                self._poll_threads = {thread for thread in self._poll_threads if thread.is_alive()}
+                if self._poll_threads or not self._lifecycle.acquire(blocking=False):
+                    return
+                def poll():
+                    try:
+                        self._require()
+                        self.controller.tick(self._operator.client_id, self._operator.token)
+                    except Exception:
+                        self._poll_failed.set()
+                    finally:
+                        self._lifecycle.release()
+                thread = Thread(target=poll, name="ocean-host-poll", daemon=False)
+                self._poll_threads.add(thread)
+                try:
+                    thread.start()
+                except BaseException:
+                    self._poll_threads.discard(thread)
+                    self._lifecycle.release()
+                    self._poll_failed.set()
+                    raise
+
     def serve_forever(self):
         self._require()
         if not self._running.acquire(blocking=False):
@@ -222,14 +312,7 @@ class HostService:
             while not self._stop.is_set():
                 self._require()
                 self._server.handle_request()
-                if not self._stop.is_set():
-                    try:
-                        self._admit()
-                    except Hold:
-                        if self._stop.is_set():
-                            break
-                        raise
-                    self.controller.tick(self._operator.client_id, self._operator.token)
+                self._start_poll()
         finally:
             self._finished.set()
             self._running.release()
@@ -239,11 +322,21 @@ class HostService:
             raise Hold("foreign host transport process")
         with self._admission:
             self._stop.set()
+        self._server.cancel_pending()
 
     def close(self):
+        deadline = time.monotonic() + 5
         self.stop()
-        if not self._finished.wait(5):
+        if not self._finished.wait(max(0, deadline - time.monotonic())):
             raise Hold("host transport loop remains active; retain the host writer")
         self._server.server_close()
-        self._server.drain()
+        with self._poll_mutex:
+            threads = tuple(self._poll_threads)
+        for thread in threads:
+            if thread is current_thread():
+                raise Hold("host polling cannot close its own lifecycle")
+            thread.join(max(0, deadline - time.monotonic()))
+        if any(thread.is_alive() for thread in threads):
+            raise Hold("host polling remains active; retain the host writer")
+        self._server.drain(max(0, deadline - time.monotonic()))
         self._closed = True

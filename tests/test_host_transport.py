@@ -5,10 +5,12 @@ from http.client import HTTPConnection
 import json
 import os
 from pathlib import Path
+import socket
 import subprocess
 import sys
-from threading import Event, Thread
+from threading import Event, Thread, current_thread
 import time
+from types import MappingProxyType
 
 import pytest
 import ocean_resources
@@ -200,3 +202,85 @@ def test_stop_fences_a_request_arriving_while_accept_loop_is_waiting(transport, 
     finally:
         accept.set()
     assert h.controller.status(*h.auth())["waiting"] == [] and h.starts == []
+
+
+def test_network_finish_waits_for_poll_without_blocking_status_or_new_requests(transport, monkeypatch):
+    h, service, make_client = transport
+    client = make_client(h.compute)
+    client.submit(SlotRequest("compute", "compute", "slot", "focus-host", "key"))
+    ready = wait_for(lambda: running(client, "compute"))
+    entered, release, finish_called = Event(), Event(), Event()
+    original_drive, original_finish = h.controller._drive, h.controller.finish
+    def drive():
+        if current_thread().name == "ocean-host-poll":
+            entered.set()
+            assert release.wait(5)
+        return original_drive()
+    def finish(*args):
+        finish_called.set()
+        return original_finish(*args)
+    monkeypatch.setattr(h.controller, "_drive", drive)
+    monkeypatch.setattr(h.controller, "finish", finish)
+    assert entered.wait(3)
+    try:
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(client.finish, Grant(**ready["torch"]))
+            assert not finish_called.wait(.15)
+            assert client.status()["host_id"] == "focus-host"
+            assert client.submit(SlotRequest("later", "media", "other", "focus-host", "later-key")) == "later"
+            release.set()
+            result = future.result(timeout=5)
+            assert result["state"] == "RUNNING" and result["torch"]["request_id"] == "later"
+            assert finish_called.is_set()
+    finally:
+        release.set()
+
+
+def test_absolute_input_deadline_and_stop_close_unauthenticated_drips(transport):
+    h, service, make_client = transport
+    peers = []
+    try:
+        for _ in range(8):
+            peer = socket.create_connection(("127.0.0.1", service.port), timeout=2)
+            peer.sendall(b"POST /v1/focus/status HTTP/1.0\r\nX-Drip: ")
+            peers.append(peer)
+        wait_for(lambda: len(service._server._workers) == 8)
+        started = time.monotonic()
+        while time.monotonic() - started < 2.4:
+            for peer in peers:
+                try:
+                    peer.sendall(b"a")
+                except OSError:
+                    pass
+            time.sleep(.1)
+        assert make_client(h.operator).status()["state"] == "IDLE"
+        service.close()
+        assert service._server._workers == set()
+    finally:
+        for peer in peers:
+            peer.close()
+
+
+def test_automatic_native_callback_can_read_same_service_and_poll_failure_holds(transport, monkeypatch):
+    h, service, make_client = transport
+    client = make_client(h.compute)
+    original = h.adapter.start
+    observed = []
+    def start(*args):
+        observed.append(client.status()["state"])
+        return original(*args)
+    # Replace the explicit fixture adapter before any execution is granted.
+    monkeypatch.setattr(h.facade, "adapters", MappingProxyType({**h.facade.adapters,
+                       "compute": replace(h.adapter, start=start)}))
+    client.submit(SlotRequest("compute", "compute", "slot", "focus-host", "key"))
+    wait_for(lambda: running(client, "compute"))
+    assert observed == ["TRANSITION"]
+    def fail(*args):
+        raise RuntimeError("private failure detail must not reach a client")
+    monkeypatch.setattr(h.controller, "tick", fail)
+    wait_for(service._poll_failed.is_set)
+    state = client.status()
+    assert state["state"] == "HOLD" and "private failure" not in state["error"]
+    with pytest.raises(Hold):
+        client.submit(SlotRequest("later", "compute", "other", "focus-host", "later-key"))
+    assert h.writer.unresolved() is not None and state["torch"]["request_id"] == "compute"

@@ -95,10 +95,18 @@ def wait_for_gate(handle_value):
 """
 
 _WINDOWS_BOOTSTRAP = _WINDOWS_GATE + """
-import os
+import subprocess
 import sys
 wait_for_gate(int(sys.argv[1]))
-os.execvpe(sys.argv[2], sys.argv[2:], dict(os.environ))
+completed = subprocess.run(
+    sys.argv[2:],
+    stdin=subprocess.DEVNULL,
+    stdout=subprocess.DEVNULL,
+    stderr=subprocess.DEVNULL,
+    close_fds=True,
+    check=False,
+)
+raise SystemExit(completed.returncode)
 """
 
 _WINDOWS_FROZEN_BOOTSTRAP = _WINDOWS_GATE + """

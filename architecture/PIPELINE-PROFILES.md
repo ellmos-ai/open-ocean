@@ -84,7 +84,11 @@ interpreter plus exactly one pinned application script (at most 8192 bytes),
 with explicit application arguments. Its verified bytes are copied into an
 isolated `-I -S -c` program before creating the child; the application path is
 never reopened for execution. POSIX executes those bytes in the already fenced
-isolated bootstrap; Windows passes them to the suspended interpreter. Actual
+isolated bootstrap. Windows starts an isolated interpreter held behind a bounded
+pipe gate, inherits only its read handle, assigns that child to the kill-on-close
+job, then performs the final source and capacity checks before opening the gate.
+An owner crash before assignment closes the only pipe writer and the bootstrap
+exits without running the application. Actual
 source pins are checked again before activation, followed by a new capacity
 sample. A mutation even after that final check cannot replace the frozen code.
 The fingerprint also binds `source_mode`. Legacy path-based commands are allowed

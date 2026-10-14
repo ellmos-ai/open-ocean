@@ -92,8 +92,12 @@ Python-Interpreter und genau ein gepinntes Anwendungsskript mit höchstens 8192
 Bytes sowie ausdrückliche Anwendungsargumente. Seine geprüften Bytes werden vor
 dem Kindstart in ein isoliertes `-I -S -c`-Programm übernommen. Der Skriptpfad
 wird zum Ausführen nicht erneut geöffnet. POSIX führt die Bytes im bereits
-abgesicherten isolierten Bootstrap aus; Windows übergibt sie dem suspendierten
-Interpreter. Direkt vor Aktivierung werden die tatsächlichen Quellpins erneut
+abgesicherten isolierten Bootstrap aus. Windows startet einen isolierten
+Interpreter, der an einer begrenzten Pipe-Schranke wartet und nur deren Lesehandle
+erbt. Erst nach der Zuweisung zum Kill-on-close-Job sowie abschließender Quell-
+und Kapazitätsprüfung öffnet der Host diese Schranke. Stürzt der Host vorher ab,
+schließt der einzige Writer und der Bootstrap endet, ohne die Anwendung zu starten.
+Direkt vor Aktivierung werden die tatsächlichen Quellpins erneut
 geprüft und die Kapazität neu gemessen. Auch eine spätere Pfadersetzung tauscht
 die eingefrorenen Codebytes nicht aus. Der Fingerprint bindet source_mode.
 Herkömmliche Pfadstarts bleiben bis zu einem eigens geprüften Artefaktadapter

@@ -39,6 +39,9 @@ replaced audit files, failed writes and a 16 MiB archival threshold fail closed.
 An injected audit sink must be trusted, bounded and non-reentrant. No token is
 included. Status reports queued requests, active grant, handoff state and errors.
 Status reads and ordinary heartbeats are not user activity.
+Start intent is audited before executor admission. A failed completion audit
+keeps the controller HOLD until a successful audit-restored record reconciles
+the still-owned grant; a later heartbeat cannot silently clear this fault.
 
 ## Handoff, idle and fairness
 
@@ -52,6 +55,8 @@ Status reads and ordinary heartbeats are not user activity.
    and `end_turn(...)`. A return request prevents new turns; an in-flight turn
    may finish. No active inference is forcibly killed. The native adapter must
    still attest application quiescence before releasing memory.
+   Completed and active turn IDs share a bounded history; capacity is reserved
+   before begin_turn, so every admitted turn can finish even at the boundary.
 4. Idle chat ends with `requeue=False`. New genuine input must create a new
    native request/idempotency identity; conversation state stays application-owned.
    A bounded interactive slice also requests return when other work waits.

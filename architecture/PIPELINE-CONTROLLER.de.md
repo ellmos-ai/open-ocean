@@ -41,6 +41,9 @@ die Archivierungsschwelle von 16 MiB halten die Aktion an. Ein eingesetzter
 Auditcallback muss vertrauenswürdig und kurz sein und darf nicht rückrufen.
 Tokens werden nicht protokolliert. Statusabfragen und Heartbeats gelten nicht
 als Nutzeraktivität.
+Die Startabsicht wird vor der Zulassung protokolliert. Scheitert das Abschluss-
+audit, bleibt der Controller HOLD, bis ein erfolgreicher audit-restored-Eintrag
+den weiterhin eigenen Grant abgleicht. Ein Heartbeat löscht diesen Fehler nicht.
 
 ## Übergabe, Inaktivität und Fairness
 
@@ -54,6 +57,8 @@ als Nutzeraktivität.
    eingerahmt. Eine Rückgabeanforderung verhindert neue Turns; laufende Inferenz
    darf enden. Der native Adapter muss weiterhin den sicheren fachlichen
    Unterbrechungspunkt bestätigen, bevor Speicher freigegeben wird.
+   Aktive und abgeschlossene Turn-IDs teilen einen begrenzten Verlauf. Bereits
+   begin_turn reserviert darin Platz; jeder zugelassene Turn kann deshalb enden.
 4. Ein inaktiver Chat endet ohne erneute Queueaufnahme. Erst echte neue Eingabe
    erhält eine neue native Request-/Idempotenz-ID. Gesprächszustand bleibt bei
    der Anwendung. Auch die begrenzte interaktive Laufzeit fordert Rückgabe an,

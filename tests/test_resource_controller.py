@@ -284,6 +284,49 @@ def test_audit_failure_refuses_override_before_mutation(focus):
     assert h.arbiter.status()["override"] is None
 
 
+def test_full_turn_history_refuses_new_turn_but_every_admitted_turn_can_end(focus):
+    h = focus
+    h.submit("chat", interactive=True)
+    h.tick()
+    grant = h.grant()
+    # Advance only protocol bookkeeping; no model requests are involved.
+    h.controller._ended_turns = {"done-" + str(i) for i in range(4095)}
+    h.controller.begin_turn(*h.auth(h.chat), grant, "last-admitted")
+    with pytest.raises(Hold):
+        h.controller.begin_turn(*h.auth(h.chat), grant, "must-not-start")
+    h.controller.end_turn(*h.auth(h.chat), grant, "last-admitted")
+    assert h.controller.status(*h.auth())["in_flight_turns"] == 0
+    assert h.tick(2)["state"] == "IDLE"
+
+
+def test_failed_write_ahead_audit_prevents_any_start(focus):
+    h = focus
+    h.submit("compute")
+    h.controller._audit_sink = lambda event: (_ for _ in ()).throw(OSError("audit unavailable"))
+    assert h.tick()["state"] == "HOLD" and not h.starts
+    assert h.tick()["state"] == "HOLD" and not h.starts
+    assert h.arbiter.status()["torch"] is None
+
+
+def test_completion_audit_failure_stays_hold_until_logged_reconciliation(focus):
+    h = focus
+    h.submit("chat", interactive=True)
+    original = h.controller._audit_sink
+    def fail_after_start(event):
+        if event["event"] in {"started", "audit-restored"}:
+            raise OSError("audit unavailable")
+        original(event)
+    h.controller._audit_sink = fail_after_start
+    assert h.tick()["state"] == "HOLD" and len(h.starts) == 1
+    assert h.tick()["state"] == "HOLD" and len(h.starts) == 1
+    with pytest.raises(Hold, match="audit unavailable"):
+        h.controller.begin_turn(*h.auth(h.chat), h.grant(), "blocked")
+    h.controller._audit_sink = original
+    assert h.tick()["state"] == "RUNNING" and len(h.starts) == 1
+    events = [json.loads(line)["event"] for line in original.path.read_text().splitlines()]
+    assert events.count("audit-restored") == 1
+
+
 def test_default_controller_audit_is_durable(focus):
     h = focus
     audit = ControllerAudit(h.writer)

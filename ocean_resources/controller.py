@@ -126,6 +126,7 @@ class HostController:
         self._return: tuple[str, bool] | None = None
         self._transition: dict | None = None
         self._error: str | None = None
+        self._audit_fault = False
         self._audit_sink = ControllerAudit(self.arbiter.authority) if audit is None else audit
 
     def _authenticate(self, client_id, token) -> ControllerClient:
@@ -154,6 +155,7 @@ class HostController:
         try:
             self._audit_sink(value)
         except Exception as exc:
+            self._audit_fault = True
             raise Hold("controller audit unavailable") from exc
 
     def _owned(self, client, grant):
@@ -184,7 +186,12 @@ class HostController:
         with self._mutex:
             request = self._owned(client, grant)
             self.arbiter.require_running(grant)
-            if not request.interactive or turn_id in self._ended_turns or len(self._turns) >= 1024:
+            if self._audit_fault:
+                raise Hold("controller audit unavailable")
+            if turn_id in self._turns:
+                return  # Idempotent retry is not fresh user activity.
+            if (not request.interactive or turn_id in self._ended_turns or len(self._turns) >= 1024
+                or len(self._ended_turns) + len(self._turns) >= 4096):
                 raise Hold("invalid or completed interactive turn")
             now = self._now()
             self._turns.add(turn_id)
@@ -196,8 +203,8 @@ class HostController:
             self._owned(client, grant)
             if turn_id in self._ended_turns:
                 return
-            if turn_id not in self._turns or len(self._ended_turns) >= 4096:
-                raise Hold("unknown interactive turn or turn history full")
+            if turn_id not in self._turns:
+                raise Hold("unknown interactive turn")
             now = self._now()
             self._turns.remove(turn_id)
             self._ended_turns.add(turn_id)
@@ -230,7 +237,7 @@ class HostController:
 
     def _snapshot(self):
         state = self.arbiter.status()
-        error = self._error
+        error = self._error or ("controller audit unavailable" if self._audit_fault else None)
         if not self._transition and state["torch"] != (asdict(self._active) if self._active else None):
             # Never adopt a reservation, including one retained by a failed start.
             error = "unowned or failed-start torch; original execution reconciliation required"
@@ -266,6 +273,10 @@ class HostController:
                 state = self.arbiter.status()
                 if state["torch"] != (asdict(self._active) if self._active else None):
                     raise Hold("unowned or failed-start torch; original execution reconciliation required")
+                if self._audit_fault:
+                    self._audit("audit-restored", active_grant=state["torch"])
+                    self._audit_fault = False
+                    self._error = None
                 if self._active is not None:
                     request = self.arbiter.request_for(self._active)
                     waiting = bool(state["waiting"])
@@ -314,6 +325,7 @@ class HostController:
                     return self._snapshot()
                 previous_burst = state["chat_burst_count"]
                 burst_limit = state["policy"]["max_chat_burst"]
+                self._audit("start-requested", candidate_request=self.arbiter.next_request().request_id)
                 self._transition = {"action": "start", "token": secrets.token_hex(16)}
             started = self.facade.start_next()
             with self._mutex:

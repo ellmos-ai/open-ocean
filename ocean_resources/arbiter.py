@@ -234,6 +234,12 @@ class HostLocalArbiter:
             raise Hold("insufficient fresh capacity at application activation")
         active.metric_sequence = reading.sequence
         self.authority.record(asdict(active))
+        # Native measurements and durable writes can block. Approval and TTL
+        # must still be valid after them, before any application instructions.
+        self.require_workload(grant, workload_sha256, kind="cpu-owned-process")
+        self.require_running(grant)
+        if not 0 <= self._now() - reading.observed_at <= self._max_age:
+            raise Hold("activation capacity expired during final approval checks")
 
     @serialized
     def bind_execution(self, grant: Grant, execution_identity: str):

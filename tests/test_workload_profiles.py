@@ -394,3 +394,37 @@ def test_huge_numeric_measurement_cli_fails_as_json_hold(documents):
         capture_output=True, text=True, timeout=20)
     assert process.returncode == 2 and json.loads(process.stdout)["state"] == "HOLD"
     assert "Traceback" not in process.stderr
+
+
+@pytest.mark.parametrize("revocation", ["expire", "evidence"])
+def test_profile_revoked_during_capacity_never_activates_frozen_application(documents, tmp_path, revocation):
+    from test_pipeline_process import make_command, verify, WORKER
+    marker = tmp_path / "application-was-activated"
+    text = f"from pathlib import Path;Path({str(marker)!r}).write_text('bad')\n" + WORKER
+    command = replace(make_command(tmp_path, text), source_mode="frozen-python")
+    for key in ("profile", "evidence"):
+        documents[key]["workload_sha256"] = command.fingerprint()
+    gate = gate_for(documents)
+    state = tmp_path / "state"
+    state.mkdir()
+    sequence = [0]
+    def sensor():
+        sequence[0] += 1
+        if sequence[0] == 2:
+            if revocation == "expire":
+                documents["now"][0] = 2000
+            else:
+                (documents["root"] / "evidence.json").write_text("{}")
+        return CapacityReadback(platform.node(), sequence[0], time.monotonic(), 1000, 2, True, True)
+    with HostWriterAuthority(state.resolve(), platform.node()) as writer:
+        arbiter = HostLocalArbiter(writer, (socket_for(documents),), sensor, time.monotonic, profile_gate=gate)
+        executor = OwnedProcessExecutor(arbiter, command, state.resolve(), verify)
+        facade = BACHFacade(arbiter, {"compute": executor.adapter()})
+        arbiter.submit(SlotRequest("job", "compute", "slot", platform.node(), "key"))
+        try:
+            with pytest.raises(Hold):
+                facade.start_next()
+            assert not marker.exists() and executor._executions == {}
+            assert arbiter.status()["torch"] is not None
+        finally:
+            executor.close()

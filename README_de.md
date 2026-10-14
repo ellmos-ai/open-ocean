@@ -297,6 +297,8 @@ ruff check .
 python -m compileall -q .
 ```
 
+GitHub Actions prüft alle Tests, die nicht mit slow markiert sind, unter Linux, Windows und macOS mit Python 3.10 bis 3.13. Das vollständige Modul tests/test_python_packages.py läuft in einem eigenen Job mit derselben Plattform- und Python-Matrix und einem Zeitlimit von 30 Minuten; der schnelle Job lässt genau dieses Modul aus. Der bestehende `tests`-Check wartet auf die vollständige Paketmatrix und schlägt fehl, wenn ein Paketjob fehlschlägt oder abgebrochen wird; damit bleibt der bisherige Branch-Protection-Pflichtcheck wirksam. Die vorhandene Integrationstestsuite mit slow bleibt in einem eigenen Job unter Ubuntu/Python 3.12. Ruff und die Bytecode-Kompilierung laufen weiterhin im schnellen Matrix-Job.
+
 Die Suite (360 Tests bestanden, 297 übersprungen; Überspringungen hängen an optionalen gepinnten Checkouts und dem Betriebssystem — gemessen unter Windows, 2026-10-04) läuft ohne Netzzugriff. Die Dokumentation wird auf Englisch und
 Deutsch nebeneinander gepflegt (`README.md` / `README_de.md`, `CHANGELOG.md` / `CHANGELOG_de.md`);
 bitte beide aktualisieren. Sicherheitsprobleme bitte über den Kanal unten melden, nicht als

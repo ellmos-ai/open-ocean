@@ -310,6 +310,11 @@ safe interactive handoff, idle return, background runtime and scoped operator ov
 over those same ports. Native executors retain their jobs; production admission and
 service activation remain separate acceptance steps.
 
+Explicitly configured [reviewed workload profiles](architecture/PIPELINE-PROFILES.md)
+bind a CPU process allocation to pinned measurement/policy bytes and the exact
+command, host and architecture. `profiles` validates those inputs read-only.
+An expired policy blocks new starts while preserving checkpoint and safe return.
+
 - **Works:** Resolve, Verify, SHA-pinned Fetch/Place, sandboxed Activate, rollback and the
   `ocean.py` runtime lifecycle, tested on Windows, Linux and macOS.
 - **Open:** a fresh installation on a machine outside the maintainers' development setup, and

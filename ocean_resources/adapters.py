@@ -17,13 +17,15 @@ class ComputeExecutorAdapter:
     """Application owns checkpoint persistence, process identity and exit/RAM probes.
 
     Callbacks must be profiled and authorized separately before any live use.
-    The first core admits only explicit fixture profiles. No queue import/write
+    Admission requires explicit fixture or independently reviewed native profiles. No queue import/write
     and no signal/OS/model command is implemented by this adapter.
     """
     start: Callable[[Grant, SlotRequest, Checkpoint | None, str], bool]
     checkpoint: Callable[[Grant, str], Checkpoint]
     stop: Callable[[Grant, str, Checkpoint], None]
     readback: Callable[[Grant, str], ExitReadback]
+    workload_sha256: str | None = None
+    execution_kind: str | None = None
 
 
 @dataclass(frozen=True)
@@ -57,6 +59,8 @@ class ModelSocketInferenceAdapter:
         request = self._arbiter.request_for(grant)
         if grant.socket_id != self.binding.socket_id:
             raise Hold("model binding belongs to another resource socket")
+        # A CPU process measurement cannot authorize an external model daemon.
+        self._arbiter.require_workload(grant, None, kind="model-api")
         self._arbiter.require_running(grant)
         async with self._gate.turn(
             chat_id,
@@ -112,6 +116,7 @@ class BACHFacade:
             adapter = self.adapters.get(grant.socket_id)
             if not isinstance(adapter, ComputeExecutorAdapter):
                 raise Hold("missing executor adapter; reservation remains held")
+            self.arbiter.require_workload(grant, adapter.workload_sha256, kind=adapter.execution_kind)
             execution_id = uuid.uuid4().hex
             self.arbiter.bind_execution(grant, execution_id)
             self._executions[grant] = (adapter, execution_id)

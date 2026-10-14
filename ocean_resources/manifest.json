@@ -18,6 +18,7 @@
       "fixture-demo",
       "host",
       "capacity",
+      "profiles",
       "catalog",
       "shadow"
     ],
@@ -40,7 +41,7 @@
     "host_routing": "central heavy/recurring preference with platform and headroom checks; proposal only"
   },
   "admission": {
-    "mode": "explicit named offline fixture profiles only",
+    "mode": "default closed; explicit offline fixture names or operator-configured pinned reviewed CPU process profiles",
     "unknown": "HOLD",
     "metrics": "fresh increasing sequence, verified reserve, RAM/CPU and pressure",
     "release": "matching generation and execution identity, valid checkpoint, verified exit and zero process residency, newer capacity readback",
@@ -82,5 +83,14 @@
     "idle": "ends interactive grant without phantom requeue; next native input needs a new request identity",
     "audit": "fsynced host-local token-free audit under the existing writer",
     "activation": "profile and native adapter gates remain unchanged; no production cutover"
+  },
+  "reviewed_profiles": {
+    "api": "ProfileSource + ReviewedProfileGate; OwnedProcessExecutor.measure_usage",
+    "approval": "explicit configured profile SHA256, evidence SHA256, native host/platform/architecture, bounded UTC validity; no automatic file discovery",
+    "binding": "socket allocation and canonical ProcessCommand argv/cwd/source pins/explicit environment fingerprint",
+    "evidence": "sampled CPU process-tree RSS and cumulative CPU; explicit reviewed concurrency and RAM margin; not a worst-case or kernel limit proof",
+    "scope": "CPU-owned processes only; external model/GPU residency remains unapproved",
+    "revocation": "re-read pinned bytes before acquire and execution; checkpoint/stop/exit/release remain available",
+    "cli": "profiles validates explicit local pins read-only, without starting work"
   }
 }

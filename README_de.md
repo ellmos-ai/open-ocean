@@ -303,6 +303,11 @@ Polling, sichere Chatübergabe, Rückgabe bei Inaktivität, Hintergrundlaufzeit 
 Operatorbefehle über dieselben Ports. Native Executoren behalten ihre Jobs; produktive
 Zulassung und Dienstaktivierung bleiben gesonderte Abnahmen.
 
+Ausdrücklich konfigurierte [geprüfte Lastprofile](architecture/PIPELINE-PROFILES.de.md)
+binden die CPU-Prozesszuteilung an gepinnte Mess-/Policydateien, den konkreten
+Befehl sowie Host und Architektur. `profiles` prüft diese Eingaben lesend.
+Abgelaufene Profile sperren neue Starts; Checkpoint und sichere Rückgabe bleiben möglich.
+
 - **Läuft:** Resolve, Verify, SHA-gepinntes Fetch/Place, isoliertes Activate, Rollback und der
   `ocean.py`-Laufzeit-Lebenszyklus, getestet unter Windows, Linux und macOS.
 - **Offen:** eine Neuinstallation auf einem Rechner außerhalb der Entwicklungsumgebung und die

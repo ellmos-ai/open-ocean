@@ -256,7 +256,8 @@ class HostController:
                 "override": state["override"], "in_flight_turns": len(self._turns),
                 "return": self._return, "transition": deepcopy(self._transition),
                 "policy": asdict(self.policy), "protected_until": self._protected_until,
-                "profile_admission": "unchanged-default-closed", "native_job_state": "native-executor-owned"}
+                "profile_admission": ("explicit-reviewed-workload-profiles" if state["mode"] == "reviewed-workload-profiles"
+                                      else "unchanged-default-closed"), "native_job_state": "native-executor-owned"}
 
     def status(self, client_id, token):
         self._authenticate(client_id, token)

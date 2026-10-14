@@ -11,6 +11,7 @@ from tempfile import TemporaryDirectory
 from . import (
     BACHFacade, CapacityReadback, Checkpoint, ComputeExecutorAdapter, ExitReadback,
     HostLocalArbiter, HostWriterAuthority, ResourceSocket, SlotRequest,
+    Hold,
 )
 from .host import sample_host
 from .pipelines import ResourceBudget, catalog_document, load_catalog, shadow_plan
@@ -74,7 +75,7 @@ def fixture_demo() -> dict:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Ocean resource coordination: manifest, explicit fixture or read-only host/pipeline observation")
-    parser.add_argument("command", nargs="?", choices=("manifest", "fixture-demo", "host", "catalog", "shadow", "capacity"), default="manifest")
+    parser.add_argument("command", nargs="?", choices=("manifest", "fixture-demo", "host", "catalog", "shadow", "capacity", "profiles"), default="manifest")
     parser.add_argument("--jobs", type=Path, help="Explicit job projection JSON; no queue discovery")
     parser.add_argument("--catalog", type=Path, help="Optional explicit reference-only catalogue JSON")
     parser.add_argument("--reserve-ram-bytes", type=int)
@@ -82,9 +83,23 @@ def main(argv=None) -> int:
     parser.add_argument("--reserve-cpu-units", type=int)
     parser.add_argument("--capacity-directory", type=Path)
     parser.add_argument("--sample-seconds", type=float)
+    parser.add_argument("--profile", type=Path)
+    parser.add_argument("--profile-sha256")
+    parser.add_argument("--evidence", type=Path)
+    parser.add_argument("--profile-max-age-seconds", type=float)
     args = parser.parse_args(argv)
     try:
-        if args.command == "capacity":
+        profile_options = (args.profile, args.profile_sha256, args.evidence, args.profile_max_age_seconds)
+        if args.command != "profiles" and any(v is not None for v in profile_options):
+            parser.error("profile options belong to profiles only")
+        if args.command == "profiles":
+            if any(v is not None for v in (args.jobs, args.catalog, args.reserve_ram_bytes, args.reserve_cpu_units,
+                                          args.reserve_disk_bytes, args.capacity_directory, args.sample_seconds)):
+                parser.error("profile inspection does not accept workload or capacity options")
+            from .profiles import ProfileSource, ReviewedProfileGate
+            source = ProfileSource(args.profile, args.profile_sha256, args.evidence)
+            report = ReviewedProfileGate((source,), max_age_seconds=args.profile_max_age_seconds).inspect()
+        elif args.command == "capacity":
             if args.jobs is not None or args.catalog is not None:
                 parser.error("capacity does not read job projections or catalogues")
             from .capacity import CapacityPolicy, NativeCapacitySensor
@@ -124,7 +139,7 @@ def main(argv=None) -> int:
             report = catalog_document()
         else:
             report = manifest() if args.command == "manifest" else fixture_demo()
-    except (OSError, ValueError, TypeError) as exc:
+    except (OSError, ValueError, TypeError, Hold) as exc:
         print(json.dumps({"state": "HOLD", "start_authorized": False, "error": type(exc).__name__,
                           "reason": "invalid or unavailable explicit observation input"}, sort_keys=True))
         return 2

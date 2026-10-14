@@ -17,6 +17,7 @@
       "manifest",
       "fixture-demo",
       "host",
+      "capacity",
       "catalog",
       "shadow"
     ],
@@ -70,5 +71,16 @@
     "system_reserve": "explicit caller headroom, no invented universal threshold",
     "cpu": "logical cores/load are observations, not authoritative free CPU",
     "start_authorized": false
+  },
+  "focus_controller": {
+    "api": "ocean_resources.HostController",
+    "loop": "explicit tick from the existing host loop; no installed service or polling thread",
+    "clients": "configured private bearer capabilities with socket, priority and interactive scopes",
+    "override": "operator-only command bound to host, writer session, request, reason, ID and bounded expiry; replay never renews",
+    "handoff": "existing facade checkpoint/stop/exit/new-capacity protocol; callbacks outside controller mutex",
+    "fairness": "bounded interactive slice and protected background runtime after the arbiter chat burst",
+    "idle": "ends interactive grant without phantom requeue; next native input needs a new request identity",
+    "audit": "fsynced host-local token-free audit under the existing writer",
+    "activation": "profile and native adapter gates remain unchanged; no production cutover"
   }
 }

@@ -305,6 +305,11 @@ candidate or HOLD; it does not qualify workload profiles or grant starts. The
 [owned process executor](architecture/PIPELINE-EXECUTOR.md) provides the separate
 application-verified checkpoint/exit/resume lifecycle for explicitly configured children.
 
+The [host focus controller](architecture/PIPELINE-CONTROLLER.md) adds explicit polling,
+safe interactive handoff, idle return, background runtime and scoped operator overrides
+over those same ports. Native executors retain their jobs; production admission and
+service activation remain separate acceptance steps.
+
 - **Works:** Resolve, Verify, SHA-pinned Fetch/Place, sandboxed Activate, rollback and the
   `ocean.py` runtime lifecycle, tested on Windows, Linux and macOS.
 - **Open:** a fresh installation on a machine outside the maintainers' development setup, and

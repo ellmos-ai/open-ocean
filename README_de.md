@@ -298,6 +298,11 @@ liefert lesend einen Kandidaten oder HOLD, ohne Lastprofile oder Starts freizuge
 Der [Executor für eigene Prozesse](architecture/PIPELINE-EXECUTOR.de.md) stellt den
 gesonderten geprüften Checkpoint-/Exit-/Resumepfad für ausdrücklich konfigurierte Kinder bereit.
 
+Die [Host-Fokussteuerung](architecture/PIPELINE-CONTROLLER.de.md) ergänzt ausdrückliches
+Polling, sichere Chatübergabe, Rückgabe bei Inaktivität, Hintergrundlaufzeit und begrenzte
+Operatorbefehle über dieselben Ports. Native Executoren behalten ihre Jobs; produktive
+Zulassung und Dienstaktivierung bleiben gesonderte Abnahmen.
+
 - **Läuft:** Resolve, Verify, SHA-gepinntes Fetch/Place, isoliertes Activate, Rollback und der
   `ocean.py`-Laufzeit-Lebenszyklus, getestet unter Windows, Linux und macOS.
 - **Offen:** eine Neuinstallation auf einem Rechner außerhalb der Entwicklungsumgebung und die

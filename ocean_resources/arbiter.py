@@ -74,6 +74,7 @@ class HostLocalArbiter:
         self._last_metric = 0
         self._chat_run = 0
         self._override: Override | None = None
+        self._controller_bound = False
         self._events: list[dict] = []
         self._authority_id = authority.authority_id
 
@@ -87,6 +88,25 @@ class HostLocalArbiter:
         if not instant(now):
             raise Hold("unknown monotonic clock")
         return now
+
+    @serialized
+    def claim_controller(self):
+        """One cooperating controller, with no adoption of an existing torch."""
+        self._require()
+        if self._controller_bound or self._active is not None:
+            raise Hold("controller already bound or active torch requires its original owner")
+        self._controller_bound = True
+
+    @serialized
+    def now(self) -> float:
+        self._require()
+        return self._now()
+
+    @serialized
+    def next_request(self) -> SlotRequest:
+        """Observe existing selection policy without acquiring or starting work."""
+        self._require()
+        return self._requests[self._select()]
 
     def _measure(self, after: int = 0) -> CapacityReadback:
         try:
@@ -252,6 +272,9 @@ class HostLocalArbiter:
             "execution_identity": active.execution_identity if active else None,
             "return_requested": active.return_requested if active else False,
             "heartbeat_expired": self._now() > active.heartbeat_until if active else False,
+            "chat_burst_count": self._chat_run,
+            "policy": {"max_chat_burst": self._burst, "heartbeat_ttl": self._ttl,
+                       "max_override_seconds": self._max_override},
             "waiting": [asdict(self._requests[r]) for r in self._pending],
             "override": asdict(self._override) if self._override else None,
             "events": deepcopy(self._events),

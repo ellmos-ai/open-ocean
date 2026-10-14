@@ -655,10 +655,11 @@ def _environment(profile: dict) -> dict:
              "system-site packages are outside this bounded operation")
     code = (
         "import json,sys; observed_prefix=sys.prefix; observed_exec_prefix=sys.exec_prefix; "
-        "sys.prefix=sys.exec_prefix=sys.argv[1]; import sysconfig; "
+        "sys.prefix=sys.exec_prefix=sys.argv[1]; import os,sysconfig; "
+        "scheme='venv' if 'venv' in sysconfig.get_scheme_names() else ('nt' if os.name=='nt' else 'posix_prefix'); "
         "print(json.dumps({'executable':sys.executable,'version':list(sys.version_info[:3]),"
         "'base_prefix':sys.base_prefix,'isolated_prefix':observed_prefix,"
-        "'isolated_exec_prefix':observed_exec_prefix,'paths':sysconfig.get_paths(scheme='venv',"
+        "'isolated_exec_prefix':observed_exec_prefix,'paths':sysconfig.get_paths(scheme=scheme,"
         "vars={'base':sys.argv[1],'platbase':sys.argv[1],'installed_base':sys.argv[1],"
         "'installed_platbase':sys.argv[1]})}))"
     )
@@ -887,7 +888,11 @@ def _inventory(environment: dict, *, skip: set[str] | None = None) -> tuple[list
         for point in points:
             if point["group"] in {"console_scripts", "gui_scripts"}:
                 existing = [path for path in _script_paths(environment, point) if path.is_file()]
-                _require(bool(existing) and all(_relative(path, root) in files for path in existing),
+                # The ensurepip-bundled pip wheel names a build-time alias (pip3.N) that
+                # the running interpreter does not install; every other script must exist.
+                bundled_alias = name == "pip" and re.fullmatch(r"pip\d+\.\d+", point["name"])
+                _require((bool(existing) or bool(bundled_alias))
+                         and all(_relative(path, root) in files for path in existing),
                          "installed entry point has a missing or incomplete script RECORD")
         result.append({"distribution": name, "version": metadata["Version"],
                        "dist_info": _relative(directory, root), "files": sorted(files),

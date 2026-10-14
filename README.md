@@ -299,6 +299,12 @@ RAM, pressure and disk read-only; `catalog` and `shadow` inspect explicit pipeli
 Central heavy/recurring preference respects host capability and headroom. Observations and
 routing proposals never authorize starts or replace native queues.
 
+The optional [native capacity port](architecture/PIPELINE-CAPACITY.md) measures CPU-counter
+deltas and subtracts explicit RAM, CPU and disk reserves. `capacity` emits a read-only
+candidate or HOLD; it does not qualify workload profiles or grant starts. The
+[owned process executor](architecture/PIPELINE-EXECUTOR.md) provides the separate
+application-verified checkpoint/exit/resume lifecycle for explicitly configured children.
+
 - **Works:** Resolve, Verify, SHA-pinned Fetch/Place, sandboxed Activate, rollback and the
   `ocean.py` runtime lifecycle, tested on Windows, Linux and macOS.
 - **Open:** a fresh installation on a machine outside the maintainers' development setup, and

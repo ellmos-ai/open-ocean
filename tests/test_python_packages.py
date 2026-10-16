@@ -358,6 +358,7 @@ def test_direct_url_replacement_after_inventory_fails_before_parse(environment, 
     packages.apply_package_plan(plan, receipt, {"module:alpha"})
     original_receipt = receipt.read_bytes()
     source = Path(plan["environment"]["paths"]["purelib"]) / "alpha-1.0.dist-info/direct_url.json"
+    original_source_size = source.stat().st_size
     source_relative = source.relative_to(target).as_posix()
     footprint = set(plan["before"]["files"]) - {source_relative}
     original_inventory = packages._inventory
@@ -404,7 +405,8 @@ def test_direct_url_replacement_after_inventory_fails_before_parse(environment, 
             "unsupported or oversized technical input|installed wheel provenance changed after inventory capture")):
         packages.verify_package_receipt(plan, receipt, {"module:alpha"})
     if kind == "oversize":
-        assert bounded_oversize_reads == [(packages._MAX_METADATA_BYTES + 1, packages._MAX_METADATA_BYTES)]
+        assert bounded_oversize_reads == [
+            (original_source_size + packages._MAX_METADATA_BYTES + 1, packages._MAX_METADATA_BYTES)]
     assert len(changed) == 1
     assert identity() == changed[0][0]
     assert packages._file_state(target, footprint) == changed[0][1]

@@ -30,7 +30,6 @@ BOUND_FIELDS = (
     "os",
     "os_system",
     "python_version",
-    "python_full_version",
     "pytest_version",
     "module_sha256",
     "pyproject_sha256",

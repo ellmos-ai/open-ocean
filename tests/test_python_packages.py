@@ -78,6 +78,29 @@ def environment(tmp_path, monkeypatch):
     return target, artifacts, path, request
 
 
+def test_target_metadata_restore_ignores_only_directory_allocation_size():
+    directory = (0o040000 | 0o755)
+    regular_file = (0o100000 | 0o644)
+    expected = {"Lib/site-packages": [directory, 0, 100],
+                "Lib/site-packages/pip.py": [regular_file, 8, 200]}
+    restored = {"Lib/site-packages": [directory, 4096, 100],
+                "Lib/site-packages/pip.py": [regular_file, 8, 200]}
+
+    assert packages._target_metadata_matches(restored, expected)
+    restored["Lib/site-packages/pip.py"][1] += 1
+    assert not packages._target_metadata_matches(restored, expected)
+    restored["Lib/site-packages/pip.py"][1] -= 1
+    restored["Lib/site-packages/pip.py"][0] += 1
+    assert not packages._target_metadata_matches(restored, expected)
+    restored["Lib/site-packages/pip.py"][0] -= 1
+    restored["Lib/site-packages"][2] += 1
+    assert not packages._target_metadata_matches(restored, expected)
+    restored["Lib/site-packages"][2] -= 1
+    del restored["Lib/site-packages/pip.py"]
+    assert not packages._target_metadata_matches(restored, expected)
+    assert not packages._target_metadata_matches({"Lib/site-packages": ["directory", 0, 100]}, expected)
+
+
 def test_plan_is_native_offline_closure_and_does_not_mutate_target(environment):
     target, artifacts, _, request = environment
     item = wheel(artifacts, "alpha", "1.0")
@@ -338,6 +361,8 @@ def test_direct_url_replacement_after_inventory_fails_before_parse(environment, 
     source_relative = source.relative_to(target).as_posix()
     footprint = set(plan["before"]["files"]) - {source_relative}
     original_inventory = packages._inventory
+    original_read_bytes = packages._read_bytes
+    bounded_oversize_reads = []
     changed = []
 
     def identity():
@@ -367,13 +392,19 @@ def test_direct_url_replacement_after_inventory_fails_before_parse(environment, 
     def no_later_wheel_validation(*args, **kwargs):
         raise AssertionError("changed provenance reached later wheel validation")
 
+    def bounded_read(path, limit=packages._MAX_WHEEL_BYTES):
+        if Path(path) == source and source.stat().st_size > limit:
+            bounded_oversize_reads.append((source.stat().st_size, limit))
+        return original_read_bytes(path, limit)
+
     monkeypatch.setattr(packages, "_inventory", capture_then_replace)
     monkeypatch.setattr(packages, "_wheel", no_later_wheel_validation)
-    started = time.monotonic()
+    monkeypatch.setattr(packages, "_read_bytes", bounded_read)
     with pytest.raises(packages.PackageError, match=(
             "unsupported or oversized technical input|installed wheel provenance changed after inventory capture")):
         packages.verify_package_receipt(plan, receipt, {"module:alpha"})
-    assert time.monotonic() - started < 10
+    if kind == "oversize":
+        assert bounded_oversize_reads == [(packages._MAX_METADATA_BYTES + 1, packages._MAX_METADATA_BYTES)]
     assert len(changed) == 1
     assert identity() == changed[0][0]
     assert packages._file_state(target, footprint) == changed[0][1]
@@ -877,7 +908,8 @@ def test_interrupted_real_restore_requires_fresh_snapshot_and_can_finish_without
     assert packages.target_metadata(plan["environment"]) == before
     evidence = packages.inspect_package_recovery(plan, journal, {"module:alpha"})
     assert packages.rollback_package_plan(plan, journal, {"module:alpha"}, recovery=evidence)["beforestate_restored"] is True
-    assert packages.target_metadata(plan["environment"]) == plan["before"]["target_metadata"]
+    assert packages._target_metadata_matches(packages.target_metadata(plan["environment"]),
+                                             plan["before"]["target_metadata"])
 
 
 @pytest.mark.skipif(os.name == "nt", reason="physical POSIX inherited flock and SIGKILL evidence")
@@ -942,7 +974,8 @@ def test_mid_pip_parent_sigkill_retains_kernel_mutex_until_writer_dies_and_recov
         assert evidence["observed"]["target_metadata"] != plan["before"]["target_metadata"]
         assert packages.rollback_package_plan(plan, journal, {"module:alpha"}, recovery=evidence)[
             "beforestate_restored"] is True
-        assert packages.target_metadata(plan["environment"]) == plan["before"]["target_metadata"]
+        assert packages._target_metadata_matches(packages.target_metadata(plan["environment"]),
+                                                 plan["before"]["target_metadata"])
         assert target.is_dir()
     finally:
         if parent.poll() is None:

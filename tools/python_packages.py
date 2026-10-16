@@ -18,6 +18,7 @@ import os
 import platform
 import re
 import signal
+import stat
 import subprocess
 import sys
 import tempfile
@@ -717,6 +718,23 @@ def target_metadata(environment: dict) -> dict:
             result[path.relative_to(root).as_posix()] = [stat.st_mode, stat.st_size, stat.st_mtime_ns]
             _require(len(result) <= _MAX_FILES, "environment metadata exceeds bound")
     return result
+
+
+def _target_metadata_matches(current: dict, expected: dict) -> bool:
+    """Compare target metadata while ignoring non-restorable directory allocation size."""
+    if not isinstance(current, dict) or not isinstance(expected, dict) or current.keys() != expected.keys():
+        return False
+    for relative, before in expected.items():
+        after = current[relative]
+        if (type(before) is not list or len(before) != 3 or type(after) is not list or len(after) != 3
+                or any(type(value) is not int for value in before + after)):
+            return False
+        if stat.S_ISDIR(before[0]) and stat.S_ISDIR(after[0]):
+            if before[0] != after[0] or before[2] != after[2]:
+                return False
+        elif before != after:
+            return False
+    return True
 
 
 def _entry_points(raw: str) -> list[dict]:
@@ -1604,7 +1622,8 @@ def rollback_package_plan(plan: dict, path: Path, components: set[str], *, recov
     _require(restored == plan["before"]["distributions"], "restored distributions differ from beforestate")
     _require(_inventory(plan["environment"]) == (plan["before"]["inventory"], plan["before"]["owners"]),
              "restored complete installed inventory differs from beforestate")
-    _require(target_metadata(plan["environment"]) == plan["before"]["target_metadata"],
+    _require(_target_metadata_matches(target_metadata(plan["environment"]),
+                                      plan["before"]["target_metadata"]),
              "restored complete target metadata differs from beforestate")
     _, profile = _profile(plan["request"]["profile_id"], plan["request"]["profile_sha256"])
     _run(_pip(plan["environment"], profile, [], dry_run=False, check=True))

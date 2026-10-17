@@ -7,7 +7,9 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from functools import wraps
+import json
 import os
+from pathlib import Path
 from threading import RLock
 from copy import deepcopy
 from typing import Callable
@@ -16,7 +18,7 @@ from .authority import HostWriterAuthority
 from .profiles import ReviewedProfileGate
 from .contracts import (
     CapacityReadback, Checkpoint, ExitReadback, Grant, Hold, Override,
-    ResourceSocket, SlotRequest, identity, instant, positive,
+    ResourceSocket, SlotRequest, identity, instant, positive, sha256_hex,
 )
 
 
@@ -38,6 +40,8 @@ class _Active:
     heartbeat_until: float
     execution_identity: str | None = None
     return_requested: bool = False
+    execution_evidence: dict | None = None
+    checkpoint_evidence: dict | None = None
 
 
 class HostLocalArbiter:
@@ -249,6 +253,142 @@ class HostLocalArbiter:
             raise Hold("execution identity cannot change")
         active.execution_identity = execution_identity
         self.authority.record(asdict(active))
+
+    @serialized
+    def record_execution_evidence(self, grant: Grant, evidence: dict):
+        """Persist process containment facts before the application gate may open.
+
+        Evidence improves restart diagnosis. It is not an independent residency
+        proof and never permits a new writer to adopt or release this execution.
+        """
+        active = self._current(grant)
+        required = {
+            "schema", "grant", "execution_identity", "command_sha256", "run_directory",
+            "owner_pid", "process", "containment", "gate_state", "recorded_at",
+        }
+        if not isinstance(evidence, dict) or set(evidence) != required:
+            raise Hold("invalid durable process evidence fields")
+        try:
+            if (evidence["schema"] != "ocean-process-evidence.v1"
+                    or evidence["grant"] != asdict(grant)
+                    or evidence["execution_identity"] != active.execution_identity
+                    or not active.execution_identity):
+                raise ValueError("execution binding")
+            sha256_hex(evidence["command_sha256"])
+            run_directory = evidence["run_directory"]
+            if (not isinstance(run_directory, str) or not Path(run_directory).is_absolute()
+                    or Path(run_directory).is_symlink()):
+                raise ValueError("run directory")
+            if not positive(evidence["owner_pid"]):
+                raise ValueError("owner process")
+            process = evidence["process"]
+            if not isinstance(process, dict) or set(process) != {"pid", "created_at", "boot_time"}:
+                raise ValueError("native process identity")
+            if not positive(process["pid"]):
+                raise ValueError("native process PID")
+            for key in ("created_at", "boot_time"):
+                if process[key] is not None and not instant(process[key]):
+                    raise ValueError("native process time")
+            containment = evidence["containment"]
+            if not isinstance(containment, dict):
+                raise ValueError("containment")
+            if containment.get("kind") == "windows-kill-on-close-job":
+                if set(containment) != {"kind", "assigned"} or containment["assigned"] is not True:
+                    raise ValueError("Windows containment")
+            elif containment.get("kind") == "posix-session-group":
+                if (set(containment) != {"kind", "pgid", "sid"}
+                        or containment["pgid"] != process["pid"]
+                        or containment["sid"] != process["pid"]):
+                    raise ValueError("POSIX containment")
+            else:
+                raise ValueError("unknown containment")
+            if evidence["gate_state"] not in {"closed", "may-open"}:
+                raise ValueError("application gate state")
+            if not instant(evidence["recorded_at"]):
+                raise ValueError("recorded time")
+            json.dumps(evidence, sort_keys=True, separators=(",", ":"), allow_nan=False)
+        except (ValueError, TypeError, KeyError, OSError) as exc:
+            raise Hold("durable process evidence is invalid") from exc
+
+        previous = active.execution_evidence
+        if previous is None:
+            if evidence["gate_state"] != "closed":
+                raise Hold("process evidence must be durable while the application gate is closed")
+        else:
+            stable = required - {"gate_state", "recorded_at"}
+            if any(previous.get(key) != evidence.get(key) for key in stable):
+                raise Hold("durable process evidence identity changed")
+            if previous["gate_state"] == evidence["gate_state"]:
+                return
+            if previous["gate_state"] != "closed" or evidence["gate_state"] != "may-open":
+                raise Hold("durable process gate state cannot move backwards")
+        active.execution_evidence = deepcopy(evidence)
+        try:
+            self.authority.record(asdict(active))
+        except BaseException:
+            active.execution_evidence = previous
+            raise
+
+    @serialized
+    def record_checkpoint_evidence(self, grant: Grant, evidence: dict):
+        """Bind a persisted accepted application checkpoint to the active journal."""
+        active = self._current(grant)
+        required = {
+            "schema", "grant", "execution_identity", "command_sha256", "run_directory",
+            "checkpoint_file", "checkpoint_file_sha256", "payload_sha256", "recorded_at",
+        }
+        if not isinstance(evidence, dict) or set(evidence) != required:
+            raise Hold("invalid durable checkpoint evidence fields")
+        try:
+            execution = active.execution_evidence
+            if (execution is None or execution["gate_state"] != "may-open"
+                    or evidence["schema"] != "ocean-checkpoint-evidence.v1"
+                    or evidence["grant"] != asdict(grant)
+                    or evidence["execution_identity"] != active.execution_identity
+                    or evidence["execution_identity"] != execution["execution_identity"]
+                    or evidence["command_sha256"] != execution["command_sha256"]
+                    or evidence["run_directory"] != execution["run_directory"]):
+                raise ValueError("checkpoint binding")
+            checkpoint_file = Path(evidence["checkpoint_file"])
+            run_directory = Path(execution["run_directory"])
+            if (not checkpoint_file.is_absolute() or checkpoint_file.is_symlink()
+                    or checkpoint_file.parent != run_directory
+                    or checkpoint_file.name != "accepted.checkpoint.json"):
+                raise ValueError("checkpoint file")
+            sha256_hex(evidence["checkpoint_file_sha256"])
+            sha256_hex(evidence["payload_sha256"])
+            if not instant(evidence["recorded_at"]):
+                raise ValueError("checkpoint recorded time")
+            json.dumps(evidence, sort_keys=True, separators=(",", ":"), allow_nan=False)
+        except (ValueError, TypeError, KeyError, OSError) as exc:
+            raise Hold("durable checkpoint evidence is invalid") from exc
+
+        previous = active.checkpoint_evidence
+        if previous is not None:
+            stable = required - {"recorded_at"}
+            if any(previous.get(key) != evidence.get(key) for key in stable):
+                raise Hold("accepted checkpoint evidence cannot change within an execution")
+            return deepcopy(previous)
+        active.checkpoint_evidence = deepcopy(evidence)
+        try:
+            self.authority.record(asdict(active))
+        except BaseException:
+            active.checkpoint_evidence = previous
+            raise
+        return deepcopy(active.checkpoint_evidence)
+
+    @serialized
+    def require_checkpoint_evidence(self, grant: Grant, evidence: dict):
+        """Require the accepted checkpoint binding to be present in the durable journal."""
+        active = self._current(grant)
+        if active.checkpoint_evidence != evidence:
+            raise Hold("accepted checkpoint evidence is not recorded by the active arbiter")
+        saved = self.authority.unresolved()
+        if (not isinstance(saved, dict)
+                or saved.get("grant") != asdict(grant)
+                or saved.get("checkpoint_evidence") != evidence):
+            raise Hold("accepted checkpoint evidence is not durably present in the writer journal")
+        return deepcopy(evidence)
 
     @serialized
     def request_for(self, grant: Grant) -> SlotRequest:

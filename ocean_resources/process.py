@@ -237,6 +237,7 @@ class _Execution:
     job: int | None
     accepted: Checkpoint | None = None
     exited: bool = False
+    process_identity: dict | None = None
 
 
 class OwnedProcessExecutor:
@@ -273,6 +274,78 @@ class OwnedProcessExecutor:
         if os.getpid() != self._pid:
             raise Hold("foreign owned-executor process")
 
+    @staticmethod
+    def _process_times(pid: int) -> tuple[float | None, float | None]:
+        """Capture optional native PID-reuse and boot-time clues, never admission."""
+        try:
+            from .capacity import _psutil
+
+            backend = _psutil()
+            created_at = float(backend.Process(pid).create_time())
+            boot_time = float(backend.boot_time())
+            if not instant(created_at) or not instant(boot_time):
+                return None, None
+            return created_at, boot_time
+        except Exception:
+            return None, None
+
+    def _execution_evidence(self, run: _Execution, *, gate_state: str) -> dict:
+        if run.process_identity is None:
+            created_at, boot_time = self._process_times(run.child.pid)
+            run.process_identity = {
+                "pid": run.child.pid,
+                "created_at": created_at,
+                "boot_time": boot_time,
+            }
+        if os.name == "nt":
+            if run.job is None:
+                raise Hold("Windows recovery evidence requires the assigned kill-on-close job")
+            containment = {"kind": "windows-kill-on-close-job", "assigned": True}
+        else:
+            if run.fence is None:
+                raise Hold("POSIX recovery evidence requires the captured process group")
+            containment = {"kind": "posix-session-group", "pgid": run.fence["pgid"], "sid": run.fence["sid"]}
+        return {
+            "schema": "ocean-process-evidence.v1",
+            "grant": asdict(run.grant),
+            "execution_identity": run.identity,
+            "command_sha256": self.command.fingerprint(),
+            "run_directory": str(run.directory.resolve()),
+            "owner_pid": os.getpid(),
+            "process": dict(run.process_identity),
+            "containment": containment,
+            "gate_state": gate_state,
+            "recorded_at": time.time(),
+        }
+
+    def _record_checkpoint_evidence(self, run: _Execution):
+        if run.accepted is None or not run.accepted.valid_for(run.grant):
+            raise Hold("cannot persist evidence for an unverified checkpoint")
+        path = run.directory / "accepted.checkpoint.json"
+        if path.is_symlink():
+            raise Hold("linked accepted checkpoint refused")
+        try:
+            with path.open("rb") as stream:
+                raw = stream.read(1024 * 1024 + 1)
+        except OSError as exc:
+            raise Hold("persisted accepted checkpoint is unavailable") from exc
+        if len(raw) > 1024 * 1024:
+            raise Hold("accepted checkpoint evidence exceeds bound")
+        if self._decode_message(raw) != asdict(run.accepted):
+            raise Hold("persisted accepted checkpoint changed or is unavailable")
+        evidence = {
+            "schema": "ocean-checkpoint-evidence.v1",
+            "grant": asdict(run.grant),
+            "execution_identity": run.identity,
+            "command_sha256": self.command.fingerprint(),
+            "run_directory": str(run.directory.resolve()),
+            "checkpoint_file": str(path.resolve()),
+            "checkpoint_file_sha256": hashlib.sha256(raw).hexdigest(),
+            "payload_sha256": run.accepted.payload_sha256,
+            "recorded_at": time.time(),
+        }
+        return self.arbiter.record_checkpoint_evidence(run.grant, evidence)
+
     def adapter(self) -> ComputeExecutorAdapter:
         return ComputeExecutorAdapter(self.start, self.checkpoint, self.stop, self.readback,
                                       self.command.fingerprint(), "cpu-owned-process")
@@ -298,6 +371,10 @@ class OwnedProcessExecutor:
             raise Hold("linked worker response refused")
         with path.open("rb") as stream:
             raw = stream.read(1024 * 1024 + 1)
+        return OwnedProcessExecutor._decode_message(raw)
+
+    @staticmethod
+    def _decode_message(raw: bytes) -> dict:
         if len(raw) > 1024 * 1024:
             raise Hold("worker response exceeds bound")
 
@@ -426,9 +503,15 @@ class OwnedProcessExecutor:
                     fence = _capture_posix_process_fence(child.pid)
                 run = _Execution(grant, execution_identity, directory, child, fence, job)
                 self._executions[grant] = run
+                self.arbiter.record_execution_evidence(
+                    grant, self._execution_evidence(run, gate_state="closed")
+                )
                 if gate_write is not None:
                     self.command.verify_sources()
                     self.arbiter.prepare_execution(grant, self.command.fingerprint(), source_mode=self.command.source_mode)
+                    self.arbiter.record_execution_evidence(
+                        grant, self._execution_evidence(run, gate_state="may-open")
+                    )
                     os.write(gate_write, b"G")
                     os.close(gate_write)
                     gate_write = None
@@ -464,14 +547,13 @@ class OwnedProcessExecutor:
         self._require_process()
         with self._mutex:
             run = self._execution(grant, execution_identity)
-            if run.exited:
-                if (
-                    run.accepted is None
-                    or not run.accepted.valid_for(grant)
-                    or self._message(run.directory / "accepted.checkpoint.json") != asdict(run.accepted)
-                ):
+            if run.accepted is not None:
+                if not run.accepted.valid_for(grant):
                     raise Hold("persisted accepted checkpoint changed or is unavailable")
+                self._record_checkpoint_evidence(run)
                 return run.accepted
+            if run.exited:
+                raise Hold("exited execution has no verified accepted checkpoint")
             self._write(
                 run.directory / "checkpoint.request.json",
                 {"schema": PROTOCOL, "grant": asdict(grant), "execution_identity": execution_identity},
@@ -486,6 +568,7 @@ class OwnedProcessExecutor:
                 raise Hold("application checkpoint is not verified and quiescent")
             run.accepted = Checkpoint.create(grant, payload)
             self._write(run.directory / "accepted.checkpoint.json", asdict(run.accepted))
+            self._record_checkpoint_evidence(run)
             return run.accepted
 
     def stop(self, grant: Grant, execution_identity: str, checkpoint: Checkpoint):
@@ -494,8 +577,8 @@ class OwnedProcessExecutor:
             run = self._execution(grant, execution_identity)
             if run.accepted != checkpoint or not checkpoint.valid_for(grant):
                 raise Hold("stop requires this execution's verified checkpoint")
-            if self._message(run.directory / "accepted.checkpoint.json") != asdict(checkpoint):
-                raise Hold("persisted accepted checkpoint changed or is unavailable")
+            evidence = self._record_checkpoint_evidence(run)
+            self.arbiter.require_checkpoint_evidence(grant, evidence)
             if run.exited:
                 # A failed capacity readback must be retryable without signalling
                 # a closed Windows job or a potentially reused POSIX group.

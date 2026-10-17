@@ -34,7 +34,8 @@ def test_ci_workflow_integrity():
     assert "ruff check" in content
     assert "compileall" in content
     assert "pytest" in content
-    assert content.count('python -m pip install -e ".[test,gui]"') == 2
+    # The regular, slow, package-plan, and package-shard jobs install separately.
+    assert content.count('python -m pip install -e ".[test,gui]"') == 4
 
 
 def test_stale_workflow_integrity():

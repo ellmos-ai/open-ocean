@@ -761,6 +761,11 @@ def _main(argv: list[str] | None = None, *, emitter=print) -> int:
         elif package_plan is not None:
             validate_package_plan(package_plan, observed_components)
         if package_plan is not None:
+            if args.report is not None:
+                report_path = args.report.resolve(strict=False)
+                package_venv = Path(package_plan["environment"]["venv"]).resolve(strict=False)
+                if report_path.is_relative_to(package_venv):
+                    raise PackageError("package report must be outside the target environment")
             _package_component_bindings(package_plan, components)
             package_before = package_target_state(package_plan)
             package_evidence = {"plan_hash": package_plan["content_hash"],

@@ -1,9 +1,19 @@
 # Gemeinsame GUI: Ocean-Verbrauchervertrag
 
-Stand: 2026-10-08. Implementierter Kandidat, keine Produktionsinstallation und
+Stand: 2026-10-22. Implementierter Kandidat, keine Produktionsinstallation und
 kein Laufzeit-, Browser- oder Geräteabnahmebeleg. Open Ocean bleibt Version 0.1.2.
 
 ## Release und Herkunft
+
+`architecture/gui-consumer.v1.json` bindet den veröffentlichten
+[GUI-Release 0.2.28](https://github.com/ellmos-ai/ellmos-system-gui/releases/tag/v0.2.28)
+an Quellencommit `1d6c0f985834f10ae9e5e051205a33b83efaaa54` und Archiv-SHA-256
+`5b79f083ed58cdbc59b09a250efa715780e7c8074f45bca93b16682af18072f4`.
+Das Originalarchiv enthält 26 HTML-Seiten und 360 im Distmanifest deklarierte
+Dateien. Der Pin behält `status=pinned_artifact_only` und `activation_ready=false`:
+Archivprüfung, Platzierung, Backendadapter und Geräteabnahme benötigen jeweils
+ihren eigenen Beleg. Die vorhandenen Consumer prüfen das veröffentlichte Artefakt;
+hier wird keine zweite GUI-Quelle angelegt.
 
 Die gemeinsame Astro-GUI wird aus einem veröffentlichten, sauberen Quellencommit
 als ZIP konsumiert. Der Verbraucher benötigt den vollständigen 40-stelligen
@@ -109,9 +119,10 @@ Geräteschlüssel oder Hostbindungen erzeugt.
 `available=true` bedeutet, dass ein Adapter implementiert und konfiguriert ist.
 Es ist kein Livenessbeleg. `verification_scope=adapter` und
 `runtime_verified=false` machen diese Grenze maschinenlesbar. Eine vorhandene
-HTML-Seite ist kein nativer Anbieter. Derzeit ist nur die Übersicht als
-`configured` ausgewiesen, wenn der GUI-Release geprüft ist; die übrigen 19 Seiten
-haben fehlende Widgetadapter. Native Slots/Tasks und Schreibaktionen bleiben
+HTML-Seite ist kein nativer Anbieter. Der Seitenstatus wird aus dem vorhandenen
+Seitenlesemanifest und den tatsächlich gebundenen Moduladaptern ermittelt.
+Die 26 HTML-Seiten im Release belegen keine vollständige Adapterabdeckung.
+Native Slots/Tasks und Schreibaktionen bleiben
 ausdrücklich nicht verfügbar; ihre Adapterrouten antworten mit HTTP 503.
 
 | Endpunkt | Implementierung |
@@ -152,4 +163,5 @@ Ein sauber gebauter und veröffentlichter GUI-Release mit unveränderlichen Pins
 Installer-Discovery/Audit, externem Approval/Grant und eigener Sandbox ist der
 nächste Integrationsschritt. Diese Arbeit veröffentlicht oder installiert nichts
 produktiv. Laufzeit, Browser, Mac/Windows, Login und Geräte müssen anschließend
-separat abgenommen werden. Die 19 Seiten ohne native Widgetadapter bleiben offen.
+separat abgenommen werden. Seiten mit fehlenden nativen Widgetadaptern bleiben
+offen, auch wenn ihre HTML-Dateien bereits im Release enthalten sind.

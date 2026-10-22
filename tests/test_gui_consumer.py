@@ -16,11 +16,11 @@ from tools.gui_server import OceanGuiApp
 COMMIT = "a" * 40
 
 
-def test_shipped_pin_is_the_published_gui022_release():
+def test_shipped_pin_is_the_published_gui_release():
     pin = json.loads((Path(__file__).parents[1] / "architecture/gui-consumer.v1.json").read_text(encoding="utf-8"))
-    assert pin["version"] == "0.2.3"
-    assert pin["source"]["commit"] == "dc880878bd0416ab8c14108c74e8911a15f10f8d"
-    assert pin["source"]["archive_sha256"] == "2d5d15f5b7df7f929f557ee2bbe557f1b0eeb60820dca79e6b0a764759cffeef"
+    assert pin["version"] == "0.2.28"
+    assert pin["source"]["commit"] == "1d6c0f985834f10ae9e5e051205a33b83efaaa54"
+    assert pin["source"]["archive_sha256"] == "5b79f083ed58cdbc59b09a250efa715780e7c8074f45bca93b16682af18072f4"
     assert pin["activation_ready"] is False
 
 

@@ -70,6 +70,22 @@ Grants oder Truststores auswählen. Status und Plan geben nur Strukturfelder aus
 
 ## Capability-Vertrag v1
 
+### Gemeinsame Metadaten im Provider-Origin
+
+Die Lifecycle-Brücke stellt wie der eigenständige GUI-Verbraucher
+`GET /api/gui/brand` und `GET /api/gui/backend-origin` bereit. Im Provider-Origin
+gelten die vorhandene Providersession, Authentifizierung vor Methodenablehnung
+auch für die Slashvarianten und `Cache-Control: no-store`. Branding und
+unverifizierter Herkunftsvertrag stammen gemeinsam aus `tools/gui_metadata.py`.
+Die Capability-Auskunft beschreibt diese Metadatenrouten als verfügbare Adapter;
+`runtime_verified` bleibt `false`.
+
+Die Backend-Herkunft bleibt ausdrücklich `unknown`: Verbindung, Schema, Instanz
+und Adapterbindung sind nicht verifiziert; Claimautorität und Cacheaktivität
+werden nicht behauptet. Ein erfolgreicher Metadatenabruf, die Providersession
+oder eine Loopback-Adresse ersetzt keinen Nachweis des nativen Task-Backends.
+Die Bereitstellung dieser Routen ist noch keine Geräte- oder Laufzeitabnahme.
+
 `GET /api/gui/capabilities` antwortet mit `schema=ellmos.gui.capabilities.v1`:
 
 | Feld | Semantik |

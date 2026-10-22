@@ -12,14 +12,9 @@ from tools.gui_consumer import (
     DEFAULT_PIN, MANIFEST, InspectionError, VerifiedGuiRelease, _read_pin, _safe_name,
     inspect_installation, verify_gui_archive,
 )
+from tools.gui_metadata import BRAND_SCHEMA, DEFAULT_BRAND, unverified_backend_origin
 
 CAP_SCHEMA = "ellmos.gui.capabilities.v1"
-BRAND_SCHEMA = "ellmos-system-gui.brand.v1"
-ORIGIN_SCHEMA = "ellmos-system-gui.backend-origin.v1"
-DEFAULT_BRAND = {
-    "schema": BRAND_SCHEMA, "label": "Ocean", "product": "Open Ocean",
-    "logo_text": "OCEAN", "logo_path": None, "theme": "ocean",
-}
 
 
 def _utc_now() -> str:
@@ -205,11 +200,7 @@ class OceanGuiApp:
         if path == "/api/gui/brand":
             payload = self.brand
         elif path == "/api/gui/backend-origin":
-            payload = {
-                "schema": ORIGIN_SCHEMA, "mode": "unknown", "declared_mode": None,
-                "reason_code": "ocean_backend_adapter_unbound",
-                "observed_at": None,
-            }
+            payload = unverified_backend_origin()
         elif path == "/api/gui/capabilities":
             payload = self._capabilities(served=True)
         elif path.startswith("/api/"):

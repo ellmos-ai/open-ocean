@@ -21,6 +21,7 @@ try:
     from .module_binding import bound_module_dir
     from .gui_page_reads import SCHEMA as PAGE_READS_SCHEMA, load as load_page_reads, normalize as page_reads_normalize, pages_status
     from .gui_release import GuiReleaseError, VerifiedGuiRelease, verify_installed_gui
+    from .gui_metadata import DEFAULT_BRAND, unverified_backend_origin
 except ImportError:  # ocean_runtime.py direct entry point
     from gui_page_reads import SCHEMA as PAGE_READS_SCHEMA, load as load_page_reads, normalize as page_reads_normalize, pages_status
     from capability_views import ocean_inventory, skill_library
@@ -29,6 +30,7 @@ except ImportError:  # ocean_runtime.py direct entry point
     from fetch_place import verify_bound_provider
     from module_binding import bound_module_dir
     from gui_release import GuiReleaseError, VerifiedGuiRelease, verify_installed_gui
+    from gui_metadata import DEFAULT_BRAND, unverified_backend_origin
 
 SCHEMA = "ellmos.gui.capabilities.v1"
 BRIDGE_CONFIG = "ocean.gui-bridge.json"
@@ -317,6 +319,8 @@ class GuiBridge:
     def capabilities(self) -> dict:
         endpoints = []
         for path, provider in [("/api/gui/capabilities", True),
+                               ("/api/gui/brand", True),
+                               ("/api/gui/backend-origin", True),
                                *(("/api/installer/" + name, self.providers[name] is not None) for name in ("detect", "plan", "status")),
                                ("/api/policies", self.providers["policies"] is not None),
                                ("/api/capabilities/catalog", self.providers["catalog"] is not None)]:
@@ -402,8 +406,7 @@ class GuiBridge:
                 "kit": {"revision": self.gui.source_commit if self.gui else None,
                         "version": None, "archive_sha256": self.gui.archive_sha256 if self.gui else None,
                         "verified": self.gui is not None, "installed": installed, "served": False},
-                "brand": {"schema": "ellmos-system-gui.brand.v1", "label": "Ocean", "product": "Open Ocean",
-                          "logo_text": "OCEAN", "logo_path": None, "theme": "ocean"},
+                "brand": dict(DEFAULT_BRAND),
                 "gui": {"status": "installed" if installed else "unavailable",
                         "source_commit": self.gui.source_commit if self.gui else None,
                         "archive_sha256": self.gui.archive_sha256 if self.gui else None},
@@ -514,6 +517,17 @@ def mount_gui_bridge(app: Any, bridge: GuiBridge, require_auth: Callable, requir
                 await response(scope, receive, send)
         for variant in (path, path + "/"):
             app.router.routes.append(Route(variant, endpoint=Guarded(), methods=None))
+
+    def brand_route(request):
+        return JSONResponse(dict(DEFAULT_BRAND), headers={"Cache-Control": "no-store"})
+
+    def backend_origin_route(request):
+        return JSONResponse(unverified_backend_origin(), headers={"Cache-Control": "no-store"})
+
+    # These are provider-session routes, not the public standalone shell.
+    # A successful metadata response does not grant backend/claim authority.
+    add_guarded("/api/gui/brand", brand_route)
+    add_guarded("/api/gui/backend-origin", backend_origin_route)
 
     def catalog_route(request):
         # Same validation outcome as BACH's FastAPI Query constraints: 422 with a detail list.

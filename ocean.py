@@ -144,6 +144,10 @@ def build_parser() -> argparse.ArgumentParser:
     up.add_argument("--apply", action="store_true", help="Transaktion und Laufzeit wirklich starten")
     up.add_argument("--policy-registry", type=Path, help="explizite lokale Registry für den lesenden Moduladapter")
     up.add_argument(
+        "--lock-cache", type=Path,
+        help="absoluter Pfad zum kanonischen Host-Lock-Cache (nur mit gemeinsamem GUI-Release)",
+    )
+    up.add_argument(
         "--health-timeout",
         type=float,
         default=DEFAULT_HEALTH_TIMEOUT,
@@ -423,6 +427,7 @@ def main(argv: list[str] | None = None) -> int:
                 health_timeout=args.health_timeout,
                 gui_archive=args.gui_archive, gui_source_commit=args.gui_source_commit,
                 gui_archive_sha256=args.gui_archive_sha256, policy_registry=args.policy_registry,
+                lock_cache=args.lock_cache,
             )
         except LifecycleError as exc:
             print(str(exc), file=sys.stderr)

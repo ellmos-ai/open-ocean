@@ -881,10 +881,20 @@ def select_usecases_component(components: list[dict[str, Any]], workspace: Path)
     return candidates[0]
 
 
+def _validated_host_lock_cache(lock_cache: Path | None) -> Path | None:
+    """Validate explicit host configuration without discovering or reading a feed."""
+    if lock_cache is not None and (not isinstance(lock_cache, Path) or not lock_cache.is_absolute()):
+        raise LifecycleError("Lock-Cache benötigt einen ausdrücklich angegebenen absoluten Hostpfad.", exit_code=3)
+    return lock_cache
+
+
 def build_bridge_config(plan_paths: dict[str, str], components: list[dict[str, Any]], workspace: Path,
-                        policy_registry: Path | None) -> dict[str, Any]:
-    """The content of ocean.gui-bridge.json: plan paths plus the bound policy-registry and ellmos-tests components."""
+                        policy_registry: Path | None, *, lock_cache: Path | None = None) -> dict[str, Any]:
+    """Private host configuration: fixed plan paths and explicitly bound read providers."""
+    lock_cache = _validated_host_lock_cache(lock_cache)
     bridge_config: dict[str, Any] = {"schema": "ellmos.open-ocean.gui-bridge.v1", "plan_paths": plan_paths}
+    if lock_cache is not None:
+        bridge_config["lock_cache"] = str(lock_cache)
     policy_components = [item for item in components if item.get("kind") == "module"
                          and (item.get("detail") or {}).get("catalog_id") == "policy-registry"]
     if policy_registry is not None and len(policy_components) == 1:
@@ -911,7 +921,11 @@ def up_from_paths(
     gui_source_commit: str | None = None,
     gui_archive_sha256: str | None = None,
     policy_registry: Path | None = None,
+    lock_cache: Path | None = None,
 ) -> dict[str, Any]:
+    lock_cache = _validated_host_lock_cache(lock_cache)
+    if lock_cache is not None and gui_archive is None:
+        raise LifecycleError("Lock-Cache-Bindung benötigt ein gemeinsames GUI-Release.", exit_code=3)
     _assert_runtime_start_available(workspace, host=host, port=port)
     transaction = run_transaction(
         bundles_root=bundles_root,
@@ -942,7 +956,9 @@ def up_from_paths(
                       "source_pins": str(source_pins)}
         if component_bindings is not None:
             plan_paths["component_bindings"] = str(component_bindings)
-        bridge_config = build_bridge_config(plan_paths, transaction["components"], workspace, policy_registry)
+        bridge_config = build_bridge_config(
+            plan_paths, transaction["components"], workspace, policy_registry, lock_cache=lock_cache,
+        )
         _write_json_private(workspace / "ocean.gui-bridge.json", bridge_config)
     _assert_composition_complete(plan, workspace)
     runtime_state = start_runtime(

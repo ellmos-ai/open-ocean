@@ -1,12 +1,12 @@
 {
   "schema": "ellmos.open-ocean.gui-consumer.v1",
   "id": "ellmos-system-gui",
-  "version": "0.2.3",
+  "version": "0.2.28",
   "status": "pinned_artifact_only",
   "source": {
     "repository": "ellmos-ai/ellmos-system-gui",
-    "commit": "dc880878bd0416ab8c14108c74e8911a15f10f8d",
-    "archive_sha256": "2d5d15f5b7df7f929f557ee2bbe557f1b0eeb60820dca79e6b0a764759cffeef",
+    "commit": "1d6c0f985834f10ae9e5e051205a33b83efaaa54",
+    "archive_sha256": "5b79f083ed58cdbc59b09a250efa715780e7c8074f45bca93b16682af18072f4",
     "dist_manifest_schema": "ellmos-system-gui.dist.v1"
   },
   "required_backend_routes": [

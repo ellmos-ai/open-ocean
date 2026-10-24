@@ -78,6 +78,35 @@ beim Provider. Der Bridge-Router wird innerhalb dessen Sessionmiddleware montier
 schreibt feste Planpfade; REST-Requests können keine Dateipfade, Befehle, Quellen,
 Grants oder Truststores auswählen. Status und Plan geben nur Strukturfelder aus.
 
+## Explizite Bindung des Host-Lock-Caches
+
+`ocean up --lock-cache <absoluter Hostpfad>` bindet den kanonischen
+Host-Lock-Cache an den bestehenden lesenden Governance-Adapter. Die Python-API
+`up_from_paths(..., lock_cache=Path(...))` übergibt dieselbe optionale Bindung
+an `build_bridge_config(..., lock_cache=Path(...))`.
+
+Der Pfad muss ausdrücklich angegeben und absolut sein. Relative Pfade und
+andere Argumenttypen werden mit einem lesbaren Lifecycle-Fehler abgewiesen.
+Bei `up` muss zugleich ein gemeinsames GUI-Release angegeben sein. Diese
+Prüfungen erfolgen vor Laufzeitprüfung, Installation und Schreibaktionen.
+
+Die Bindung steht ausschließlich in der privaten lokalen
+`ocean.gui-bridge.json`. Es gibt keinen Standardpfad, keine automatische
+Suche und keinen Workspace-Scan. Der angegebene Pfad allein belegt nicht,
+dass die Datei tatsächlich der kanonische Feed des Hosts ist.
+
+Eine noch fehlende Datei darf gebunden werden. Fehlende, veraltete oder
+ungültige Cache-Inhalte meldet der vorhandene Reader weiterhin nach seinem
+bestehenden Verfügbarkeitsvertrag. Die Bindung bestätigt weder die Aktualität
+des Feeds noch einen erreichbaren HTTP-Endpunkt oder die authentifizierte
+Anzeige in der GUI.
+
+Ein `up` mit gemeinsamem GUI-Release erzeugt die Bridge-Konfiguration vollständig
+neu. Ohne `--lock-cache` wird eine frühere Bindung nicht übernommen. Für dieselbe
+Bindung muss der Pfad bei jedem solchen `up` erneut angegeben werden.
+`start` verwendet die bereits erzeugte Konfiguration; die REST-Schnittstelle
+bietet keine Auswahl des Hostpfads.
+
 ## Capability-Vertrag v1
 
 ### Gemeinsame Metadaten im Provider-Origin

@@ -338,6 +338,8 @@ ruff check .
 python -m compileall -q .
 ```
 
+GitHub Actions checks all tests not marked slow across Linux, Windows, and macOS with Python 3.10–3.13. In every OS/Python cell, a plan job collects the complete tests/test_python_packages.py module and deterministically partitions its exact test IDs into six non-empty shards. Each shard independently re-collects the module and checks exact ID equality plus the run, attempt, commit, module and pyproject hashes, OS, Python, and pytest version before running its assigned IDs. Missing or mismatched plans fail closed. Shard jobs keep the 30-minute limit and are capped at 12 concurrent hosted runners; the fast job excludes exactly that module. The existing `tests` check waits for every plan and shard job and fails if any is unsuccessful or cancelled, preserving the existing branch protection check. The existing slow integration suite remains a separate Ubuntu/Python 3.12 job. Ruff and bytecode compilation run in the fast matrix job.
+
 The suite (360 tests passed, 297 skipped; skips are gated on optional pinned checkouts and the OS — measured on Windows, 2026-10-04) runs without network access. Documentation is kept in English and
 German side by side (`README.md` / `README_de.md`, `CHANGELOG.md` / `CHANGELOG_de.md`); please
 update both. Security issues go through the channel below, not public issues.
@@ -387,6 +389,36 @@ Licensed under the permissive **MIT License** ([`LICENSE`](LICENSE)).
 Third-party development dependencies and their licenses are inventoried in [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md).
 
 ---
+
+## Existing Python environment package transactions
+
+`tools/python_packages.py` is part of the existing Ocean transaction engine. It operates on an
+existing physical PEP405 environment and does not bootstrap a venv or adopt a provider. The
+operator selects trusted profiles through `OCEAN_PYTHON_PROFILES_ROOT`; requests bind only
+`profile_id`, the profile's raw SHA-256, pinned wheel inputs and declared entry points.
+The target and artifact root come from that profile. The derived venv installation scheme
+is reported separately from isolated interpreter measurements; site hooks are not imported.
+
+The package planner checks offline wheel closure, installed ownership, reverse dependencies
+and beforestate. Apply consumes frozen, hash-verified wheel bytes. Verification reads physical
+distribution metadata, RECORD, provenance and entry points without importing package code.
+File, archive, JSON and process-output captures have explicit bounds and reject special files
+or identity drift. Existing editable/legacy distributions and incomplete/shared ownership
+fail closed; conversion of a native editable environment needs a separate plan.
+
+The standalone CLI and the consuming Installer use the same venv-wide mutex around the whole
+mutation and journal finalization. The Installer consumes verified original core exports in
+process rather than creating another engine. POSIX pip inherits the same locked file
+description, keeping exclusion after controller death. On Windows 10+, the writer belongs to
+a kill-on-close job at process creation, before primary-thread resume. Unsupported kernel
+facilities fail closed; no unsecured process-launch fallback is used for package writers.
+
+`--inspect-python-package-recovery` captures the current plan/journal/profile/executor/target
+bindings. `--reconcile-python-packages` may finalize a complete measured afterstate without
+pip replay. Partial apply or interrupted rollback needs a fresh recovery CAS and the calling
+Installer's existing externally signed rollback grant. Unknown paths remain a repair gate.
+Planning evidence, source review and synthetic QA are separate from native apply, approval,
+grants and runtime acceptance. Installer bootstrap and service switching are separate scopes.
 
 ## LLM Context & Discovery
 

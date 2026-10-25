@@ -912,7 +912,7 @@ def main(argv: list[str] | None = None, *, emitter=print) -> int:
     parser.add_argument("--python-package-plan-json")
     parser.add_argument("--python-package-plan-file", type=Path)
     parser.add_argument("--python-package-plan-file-sha256")
-    known, _ = parser.parse_known_args(arguments)
+    known, remaining = parser.parse_known_args(arguments)
     try:
         plan = None
         if known.python_package_plan_file is not None:
@@ -922,9 +922,12 @@ def main(argv: list[str] | None = None, *, emitter=print) -> int:
             if hashlib.sha256(raw).hexdigest() != known.python_package_plan_file_sha256:
                 raise PackageError("package plan source raw hash differs")
             for flag in ("--python-package-plan-file", "--python-package-plan-file-sha256"):
-                index = arguments.index(flag)
-                del arguments[index:index + 2]
-            arguments.extend(["--python-package-plan-json", raw.decode("utf-8")])
+                count = sum(token == flag or token.startswith(flag + "=") for token in arguments)
+                if count != 1:
+                    raise PackageError("one immutable hashed package-plan file input required")
+            # argparse consumes both --option value and --option=value. Reuse
+            # its remaining tokens and the single hash-verified byte capture.
+            arguments = remaining + ["--python-package-plan-json", raw.decode("utf-8")]
         elif known.python_package_plan_json is not None:
             plan = json.loads(known.python_package_plan_json)
         if plan is None:

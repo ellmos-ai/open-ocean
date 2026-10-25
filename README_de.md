@@ -331,6 +331,8 @@ ruff check .
 python -m compileall -q .
 ```
 
+GitHub Actions prüft alle Tests, die nicht mit slow markiert sind, unter Linux, Windows und macOS mit Python 3.10 bis 3.13. In jeder OS/Python-Zelle sammelt ein Plan-Job das vollständige Modul tests/test_python_packages.py und teilt seine exakten Test-IDs deterministisch in sechs nicht leere Shards auf. Jeder Shard sammelt das Modul erneut und prüft die vollständige ID-Gleichheit sowie Run, Attempt, Commit, Modul- und pyproject-Hashes, Betriebssystem, Python- und pytest-Version, bevor er seine zugewiesenen IDs ausführt. Fehlende oder abweichende Pläne schlagen geschlossen fehl. Die Shard-Jobs behalten das Zeitlimit von 30 Minuten; höchstens zwölf Hosted Runner laufen gleichzeitig. Der schnelle Job lässt genau dieses Modul aus. Der bestehende `tests`-Check wartet auf alle Plan- und Shard-Jobs und schlägt fehl, wenn einer davon fehlschlägt oder abgebrochen wird; damit bleibt der bisherige Branch-Protection-Pflichtcheck wirksam. Die vorhandene Integrationstestsuite mit slow bleibt unverändert ein eigener Job unter Ubuntu/Python 3.12. Ruff und die Bytecode-Kompilierung laufen weiterhin im schnellen Matrix-Job.
+
 Die Suite (360 Tests bestanden, 297 übersprungen; Überspringungen hängen an optionalen gepinnten Checkouts und dem Betriebssystem — gemessen unter Windows, 2026-10-04) läuft ohne Netzzugriff. Die Dokumentation wird auf Englisch und
 Deutsch nebeneinander gepflegt (`README.md` / `README_de.md`, `CHANGELOG.md` / `CHANGELOG_de.md`);
 bitte beide aktualisieren. Sicherheitsprobleme bitte über den Kanal unten melden, nicht als
@@ -381,6 +383,39 @@ Lizenziert unter der freien **MIT-Lizenz** ([`LICENSE`](LICENSE)).
 Drittanbieter-Entwicklungswerkzeuge und deren Lizenzen sind in [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md) dokumentiert.
 
 ---
+
+## Pakettransaktionen für eine bestehende Python-Umgebung
+
+`tools/python_packages.py` gehört zur vorhandenen Ocean-Transaktionsengine. Die Operation
+verwendet eine bestehende physische PEP405-Umgebung; sie legt keine Venv an und adoptiert
+keinen Provider. Der Operator wählt die vertrauenswürdige Profilquelle über
+`OCEAN_PYTHON_PROFILES_ROOT`. Anfragen binden nur `profile_id`, den rohen SHA-256 des Profils,
+gepinntes Wheelmaterial und deklarierte Entry Points. Ziel und Artefaktwurzel stammen aus
+diesem Profil. Das abgeleitete Venv-Installationsschema wird getrennt von den isolierten
+Interpretermessungen ausgewiesen; Site-Hooks werden nicht importiert.
+
+Die Planung prüft die Offline-Abhängigkeiten, vorhandene Dateieigentümer, Rückwärtsabhängigkeiten
+und den Vorzustand. Apply verwendet eingefrorene, hashgeprüfte Wheelbytes. Verify misst physische
+Distributionsmetadaten, RECORD, Provenienz und Entry Points, ohne Paketcode zu importieren.
+Datei-, Archiv-, JSON- und Prozessausgaben werden begrenzt aufgenommen; Spezialdateien und
+Identitätsdrift werden abgewiesen. Bestehende Editable-/Legacy-Distributionen sowie unvollständige
+oder geteilte Eigentümerschaften stoppen die Operation. Eine native Editable-Umstellung braucht
+einen eigenen Plan.
+
+Standalone-CLI und konsumierender Installer verwenden denselben Venv-Mutex über die gesamte
+Mutation und Journalfinalisierung. Der Installer konsumiert die verifizierten Original-Core-
+Exports im selben Prozess. POSIX-Pip erbt dieselbe gesperrte Dateibeschreibung und hält die
+Sperre auch nach dem Tod des Controllers. Unter Windows 10+ ist der Writer bereits bei der
+Prozesserzeugung einem Kill-on-close-Job zugeordnet, bevor sein primärer Thread fortgesetzt
+wird. Fehlende Kernelunterstützung stoppt den Paketwriter; es gibt keinen ungeschützten Fallback.
+
+`--inspect-python-package-recovery` erfasst die aktuellen Plan-/Journal-/Profil-/Executor-/
+Zielbindungen. `--reconcile-python-packages` kann einen vollständig gemessenen Nachzustand
+finalisieren, ohne Pip erneut auszuführen. Ein partielles Apply oder unterbrochenes Rollback
+braucht eine frische Recovery-CAS und den vorhandenen extern signierten Rollback-Grant des
+aufrufenden Installers. Unbekannte Pfade bleiben ein Reparaturgate. Planungsbelege, Source-Review
+und synthetische QA sind getrennt von Native-Apply, Freigabe, Grants und Laufzeitabnahme.
+Installer-Bootstrap und Dienstumschaltung bleiben eigene Scopes.
 
 ## LLM-Kontext und Discovery
 

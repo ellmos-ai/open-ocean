@@ -1,6 +1,6 @@
-# BACH → open-ocean: Extraktionsroadmap
+# legacy → open-ocean: Extraktionsroadmap
 
-*[English](BACH-EXTRACTION-ROADMAP.md)*
+*[English](EXTRACTION-ROADMAP.md)*
 
 - **Stand:** 2026-08-08
 - **Status:** ausführbare Architekturroadmap; noch kein Paritätsnachweis
@@ -8,26 +8,26 @@
 
 ## Ziel und Messlatte
 
-open-ocean entsteht durch Extraktion aus BACH, nicht durch einen unabhängigen Neubau. Für jede
+open-ocean entsteht durch Extraktion aus Open Ocean, nicht durch einen unabhängigen Neubau. Für jede
 Funktion gilt dieselbe Schleusenfolge:
 
 ```mermaid
 flowchart LR
-  A[BACH-Vertrag erfassen] --> B[Modul extrahieren]
+  A[Open Ocean-Vertrag erfassen] --> B[Modul extrahieren]
   B --> C[Äquivalenztests]
-  C --> D[BACH delegiert an Modul]
+  C --> D[Open Ocean delegiert an Modul]
   D --> E[Bundle-Rezept]
   E --> F[open-ocean installiert]
   F --> G[Schleusen-Test auf Fremdsystem]
 ```
 
 Ein Handlername allein ist keine Parität. Gezählt wird erst, wenn Operationsvertrag,
-Zustandsübernahme, Fehlerverhalten, Rückweg, BACH-Rückintegration und ein Test außerhalb des
+Zustandsübernahme, Fehlerverhalten, Rückweg, Open Ocean-Rückintegration und ein Test außerhalb des
 Entwicklungsrechners belegt sind. Die ursprüngliche Vollinstanz bleibt dabei lebendig: Funktion
-fließt aus BACH heraus und anschließend über einen dünnen Adapter wieder hinein.
+fließt aus Open Ocean heraus und anschließend über einen dünnen Adapter wieder hinein.
 
 Die Freigabebedingung nennt den belegten Runtime-Snapshot von **113 Handlernamen** vom
-2026-06-15. Der aktuelle Quellstand am BACH-Commit
+2026-06-15. Der aktuelle Quellstand am Open Ocean-Commit
 `5e8fe80607091378477523b2b6dc99e8c17d7d18` deklariert statisch **105 kanonische Profile**,
 **13 Aliasregeln**, davon **9 tatsächlich namenserweiternd**, und damit **114 erreichbare Namen**.
 Die drei Aliasziele `curriculum`, `data_analysis` und `messages` existieren im aktuellen
@@ -39,15 +39,15 @@ Profilbestand nicht. Diese Abweichung wird nicht schöngerechnet:
 - Ein neuer Name darf nicht durch Festhalten an der älteren Zahl aus der Roadmap fallen.
 
 Die maschinenlesbare Basis liegt in
-[`bach-parity-baseline.v1.json`](bach-parity-baseline.v1.json). Der rein statische Prüfer
-[`../tools/audit_bach_handlers.py`](../tools/audit_bach_handlers.py) importiert oder startet BACH
+[`open_ocean-parity-baseline.v1.json`](open_ocean-parity-baseline.v1.json). Der rein statische Prüfer
+[`../tools/audit_bach_handlers.py`](../tools/audit_bach_handlers.py) importiert oder startet Open Ocean
 nicht.
 
 ## Warum Cluster 9 zuerst kommt
 
 Cluster 9 trägt Zustand, Pfade, Sicherung, Lebenszyklus, Diagnose und Schutzgrenzen. Ohne diese
 Schicht können spätere Fachmodule zwar einzeln existieren, aber weder sicher installiert noch
-aktualisiert, geprüft, zurückgerollt oder wieder in BACH eingebaut werden. Der Kernel ist daher
+aktualisiert, geprüft, zurückgerollt oder wieder in Open Ocean eingebaut werden. Der Kernel ist daher
 nicht der größte Funktionsblock, sondern die Voraussetzung für alle weiteren Blöcke.
 
 Der aktuelle Modulkatalog enthält 51 Module. Für Cluster 9 gibt es plausible Teilträger, aber
@@ -62,10 +62,10 @@ noch keinen einzigen akzeptierten Ende-zu-Ende-Paritätsnachweis:
 
 „Kandidat/teilweise" ist bewusst keine grüne Ampel. Beispielsweise deckt
 `sqlite-transit-sync` verifizierte SQLite-Übertragung und Datenbank-Snapshots, aber nicht
-automatisch die gesamten BACH-Verträge für Abfrage, Export, Sicherung und Wiederherstellung.
-Der gleichnamige BACH-Handler `snapshot` ist ausdrücklich als andere Domäne belegt: Er speichert
+automatisch die gesamten Open Ocean-Verträge für Abfrage, Export, Sicherung und Wiederherstellung.
+Der gleichnamige Open Ocean-Handler `snapshot` ist ausdrücklich als andere Domäne belegt: Er speichert
 Session-ID, offene Aufgaben und Working Memory als JSON-Zeile. Der neue private Träger
-`session-checkpoint` passt zu dieser Domäne, bleibt aber Kandidat/teilweise, bis BACH-Sammler,
+`session-checkpoint` passt zu dieser Domäne, bleibt aber Kandidat/teilweise, bis Open Ocean-Sammler,
 Ausgabeübersetzung und Alt/Neu-Äquivalenz vorhanden sind.
 
 ## Leitplanken der Extraktion
@@ -73,12 +73,12 @@ Ausgabeübersetzung und Alt/Neu-Äquivalenz vorhanden sind.
 1. **Operationsvertrag vor Code.** Vor der Extraktion werden Eingaben, Ausgaben, Seiteneffekte,
    Dry-Run-Verhalten, Fehlerfälle und Zustandsorte pro Handler festgehalten.
 2. **Persönliche Daten bleiben zurück.** Code, Schema und leere Vorlagen dürfen fließen;
-   BACH-Datenbanken, Backups, Logs, Tokens, Pfadwerte und Nutzereinstellungen nicht.
-3. **Ein Zustandsbesitzer.** Nach der Extraktion besitzt das Modul seinen Zustand. BACH greift
+   Open Ocean-Datenbanken, Backups, Logs, Tokens, Pfadwerte und Nutzereinstellungen nicht.
+3. **Ein Zustandsbesitzer.** Nach der Extraktion besitzt das Modul seinen Zustand. Open Ocean greift
    nur über die öffentliche Schnittstelle zu; parallele Schreibpfade sind verboten.
-4. **Rückintegration gehört zur Definition of Done.** Ein externes Modul ohne BACH-Adapter ist
+4. **Rückintegration gehört zur Definition of Done.** Ein externes Modul ohne Open Ocean-Adapter ist
    erst halb extrahiert.
-5. **Rückwärtskompatibilität ist messbar.** Bestehende BACH-Aufrufe und Aliasnamen bleiben
+5. **Rückwärtskompatibilität ist messbar.** Bestehende Open Ocean-Aufrufe und Aliasnamen bleiben
    während der Übergangszeit funktionsgleich; Abkündigungen brauchen Migration und Frist.
 6. **Fehlschlag bleibt geschlossen.** Hash-, Schema-, Rechte-, Backup- oder
    Migrationsfehler stoppen die Operation. Warnen und weitermachen ist kein gültiger Modus.
@@ -93,11 +93,11 @@ Ausgabeübersetzung und Alt/Neu-Äquivalenz vorhanden sind.
 | Paket | Umfang | Vorhandene Kandidaten | Ergebnis |
 |---|---|---|---|
 | **K9-0 Vertrag und Inventur** | Registry, Aliasdrift, Operationsflächen, Katalog-Fingerprint | `system-explorer` als späterer Importträger | Baseline und reproduzierbarer Audit; **in diesem Stand angelegt** |
-| **K9-1 Daten und Kontinuität** | `db`, `dbsync`, `sync`, `backup`, `restore`; `snapshot` als getrennte Session-Checkpoint-Naht | `sqlite-transit-sync`, `session-checkpoint`, `system-gap-master`, `system-explorer`, geplantes `mac-backup` | portable Daten-API, Sicherungsformat, Restore-Probe, Session-Checkpoint-Träger und BACH-Adapter |
+| **K9-1 Daten und Kontinuität** | `db`, `dbsync`, `sync`, `backup`, `restore`; `snapshot` als getrennte Session-Checkpoint-Naht | `sqlite-transit-sync`, `session-checkpoint`, `system-gap-master`, `system-explorer`, geplantes `mac-backup` | portable Daten-API, Sicherungsformat, Restore-Probe, Session-Checkpoint-Träger und Open Ocean-Adapter |
 | **K9-2 Beobachtung und Qualität** | `status`, `healthcheck`, `logs`, `tokens`, `maintain`, `tuev`, `scan`, `watcher` | `system-explorer`, `ellmos-tests`, `project-docs-template`, `ellmos-unified-gui` | einheitliches Zustands-/Ereignismodell, Health-Probes und wartbare Prüfläufe |
-| **K9-3 Lebenszyklus und Distribution** | `update`, `upgrade`, `setup`, `settings`, `session`, `shutdown`, `path`, `mount`, `dist` | `policy-registry`, privates `ellmos-core`, Repository `bundles`; unterstützter OCEAN-Installer-Lebenszyklus implementiert, BACH-Parität offen | Installer-Kern mit Transaktion, Migration, Rollback und hostneutralen Pfaden |
+| **K9-3 Lebenszyklus und Distribution** | `update`, `upgrade`, `setup`, `settings`, `session`, `shutdown`, `path`, `mount`, `dist` | `policy-registry`, privates `ellmos-core`, Repository `bundles`; unterstützter OCEAN-Installer-Lebenszyklus implementiert, Open Ocean-Parität offen | Installer-Kern mit Transaktion, Migration, Rollback und hostneutralen Pfaden |
 | **K9-4 Grenzen und Bedienung** | `fs`, `trash`, `sandbox`, `lang`, `gui`, `help` | `system-explorer`, `lock-master`, `ellmos-unified-gui`, `project-docs-template` | Dateisystem-Policy, Quarantäne/Papierkorb, echte Isolation, i18n- und Hilfeschnittstelle |
-| **K9-5 BACH-Reintegration** | dünne Adapter für alle 29 kanonischen Profile plus `health` | neue Ausgaben aus K9-1 bis K9-4 | BACH ruft externe Verträge auf; alte interne Schreibpfade sind abgeschaltet |
+| **K9-5 Open Ocean-Reintegration** | dünne Adapter für alle 29 kanonischen Profile plus `health` | neue Ausgaben aus K9-1 bis K9-4 | Open Ocean ruft externe Verträge auf; alte interne Schreibpfade sind abgeschaltet |
 | **K9-6 Bundle und Schleuse** | Kernel-Rezept, Installer-Auflösung, frische Installation | `bundles`, open-ocean-Installer | per Hash gepinntes Rezept und erfolgreicher Fremdsystem-Test |
 
 Die Bezeichnungen `K9-DATA`, `K9-OBSERVE`, `K9-LIFECYCLE` und `K9-BOUNDARY` in der JSON-Basis
@@ -116,7 +116,7 @@ Handler gelesen. Sie sind der Startpunkt für Verträge, nicht bereits deren vol
 | `sync` | `status`, `all`, `skills`, `tools` | teilweise: `system-gap-master`, `sqlite-transit-sync` |
 | `backup` | `create`, `list`, `info`, `status` | teilweise: `sqlite-transit-sync`; `mac-backup` nur geplant |
 | `restore` | `list`, `info`, `file`, `category` | teilweise: Snapshot-Träger vorhanden, Restore-Parität offen |
-| `snapshot` | `create`, `load`, `list`, `delete` | teilweise: korrekter privater Träger `session-checkpoint` vorhanden; BACH-Adapter und Äquivalenz offen |
+| `snapshot` | `create`, `load`, `list`, `delete` | teilweise: korrekter privater Träger `session-checkpoint` vorhanden; Open Ocean-Adapter und Äquivalenz offen |
 | `status` | Systemzusammenfassung | teilweise: `system-explorer`, `ellmos-unified-gui` |
 | `healthcheck` | `status`, `all`, `disk`, `network`, `nas`, `dns`, `ping` | **Lücke**; `health` ist nur Alias |
 | `logs` | `status`, `show`, `tail`, `clear` | teilweise: Run-/Trace-Verläufe, kein einheitlicher Systemlog-Vertrag |
@@ -127,7 +127,7 @@ Handler gelesen. Sie sind der Startpunkt für Verträge, nicht bereits deren vol
 | `watcher` | `status`, `start`, `stop`, `events`, `logs`, `classify` | **Lücke** |
 | `update` | `check`, `apply`, `status`, `rollback`, `verify`, `migrations` | **Lücke** |
 | `upgrade` | Status/Prüfung sowie Upgrade oder Reparatur von Kern, Hub, Skills, Tools, GUI und Vorlagen | **Lücke** |
-| `setup` | `preflight`, Nutzer, Sprache, Secrets, MCP, Hooks, n8n, ProSync, Vollinstallation | **Lücke für BACH-Parität**; OCEANs unterstützter Installer-Pfad ist implementiert |
+| `setup` | `preflight`, Nutzer, Sprache, Secrets, MCP, Hooks, n8n, ProSync, Vollinstallation | **Lücke für Open Ocean-Parität**; OCEANs unterstützter Installer-Pfad ist implementiert |
 | `settings` | `list`, `get`, `set`, `reset`, `export`, `import`, `categories` | teilweise: `policy-registry` |
 | `session` | `start`, `end`, `status`, `check`, `next` | **Lücke** |
 | `shutdown` | `complete`, `quick`, `emergency` | **Lücke** |
@@ -144,12 +144,12 @@ Handler gelesen. Sie sind der Startpunkt für Verträge, nicht bereits deren vol
 ## K9-1-Zwischenstand: `dbsync` und die `snapshot`-Naht
 
 Der maschinenlesbare Vertrag
-[`bach-k9-data-contract.v1.json`](bach-k9-data-contract.v1.json) bindet die 9 `dbsync`- und
-4 `snapshot`-Operationen an die statisch geprüften BACH-Dateien. Die SQL-Fixtures unter
+[`open_ocean-k9-data-contract.v1.json`](open_ocean-k9-data-contract.v1.json) bindet die 9 `dbsync`- und
+4 `snapshot`-Operationen an die statisch geprüften Open Ocean-Dateien. Die SQL-Fixtures unter
 [`../tests/fixtures/k9_data`](../tests/fixtures/k9_data) enthalten ausschließlich synthetische
 Knoten, Werte und Platzhalter. Der Prüfer
 [`../tools/check_k9_data_contract.py`](../tools/check_k9_data_contract.py) importiert oder startet
-BACH nicht; er prüft BACH per AST und Hash und führt nur den Träger gegen temporäre
+Open Ocean nicht; er prüft Open Ocean per AST und Hash und führt nur den Träger gegen temporäre
 Fixture-Datenbanken aus.
 
 Der gepinnte Trägercommit `7648a20b11ca958e9622d2b5d8a13fd02613e92a` stellt in
@@ -158,11 +158,11 @@ Größe, SHA-256 und SQLite-Integrität werden vor der Auswahl geprüft, der Sta
 Dry-Run im eigenen Knotenbereich, und fremde Knoten benötigen zusätzlich zur Anwendung die
 ausdrückliche All-Node-Freigabe. Der ausgewählte Pull erhält BACHs Lebenszyklus „ein neuester
 Fremdstand“, ohne Merge- und State-Logik in den Adapter zu kopieren. Das schließt die generische
-Mechanik, aber noch nicht den BACH-Vertrag: täglicher Push-Guard, Heartbeat, Cooldown,
+Mechanik, aber noch nicht den Open Ocean-Vertrag: täglicher Push-Guard, Heartbeat, Cooldown,
 Textausgabe sowie `enable`/`disable` bleiben Adapteraufgaben. Ihr vollständiger
 maschinenlesbarer Vertrag liegt in
-[`bach-k9-dbsync-adapter.v1.json`](bach-k9-dbsync-adapter.v1.json); `init` ist durch die im
-BACH-Quelltext dokumentierte veraltete Erstkopie kein zulässiges Golden Target.
+[`open_ocean-k9-dbsync-adapter.v1.json`](open_ocean-k9-dbsync-adapter.v1.json); `init` ist durch die im
+Open Ocean-Quelltext dokumentierte veraltete Erstkopie kein zulässiges Golden Target.
 
 `snapshot` wurde nicht in den SQLite-Träger gedrückt. Der neue private Träger
 [`session-checkpoint`](session-checkpoint-capability.v1.json), gepinnt auf
@@ -172,12 +172,12 @@ Namensräume und unterstützt einen reversiblen, standardmäßig trockenen Expor
 begrenzter Datensatzanzahl und Gesamtnutzlast. Neue sensible Dateien erhalten unter POSIX nur
 Eigentümerrechte; unter Windows bleibt die lokale Verzeichnis-ACL die Vertraulichkeitsgrenze. Die
 anonymisierte Fixture prüft Erstellen, Laden, Auflisten, Löschen, Export, Import und die
-Datensatzgrenze. Sammlung aus BACH-Tabellen, historische Textausgabe und jede
+Datensatzgrenze. Sammlung aus Open Ocean-Tabellen, historische Textausgabe und jede
 Wiederherstellungswirkung bleiben strikt beim späteren Adapter. Das Profil ist damit
 Kandidat/teilweise, nicht akzeptiert.
 
-Dieser Zwischenstand ist **kein Äquivalenznachweis**: Während des BACH-Holds lief keine alte
-Implementierung gegen die Fixture, BACH delegiert noch nicht, und Migration, Rückweg, Bundle,
+Dieser Zwischenstand ist **kein Äquivalenznachweis**: Während des Open Ocean-Holds lief keine alte
+Implementierung gegen die Fixture, Open Ocean delegiert noch nicht, und Migration, Rückweg, Bundle,
 Installer sowie Fremdsystem-Schleuse sind offen.
 
 ## Abnahmekette je Handler
@@ -190,7 +190,7 @@ vorliegen:
 2. **Fixture-Parität:** Alte und neue Implementierung laufen gegen denselben anonymisierten
    Ausgangszustand; Ergebnisse und erlaubte Zustandsänderungen stimmen überein.
 3. **Migration und Rückweg:** Export/Import sowie Rollback wurden auf einer Kopie geprüft.
-4. **BACH-IN:** Der BACH-Handler ist nur noch Adapter zum Modul; ein Guard verhindert den alten
+4. **Open Ocean-IN:** Der Open Ocean-Handler ist nur noch Adapter zum Modul; ein Guard verhindert den alten
    parallelen Schreibweg.
 5. **Bundle:** Der Träger steht im Modulkatalog und in einem hashgepinnten Kernel-Rezept. Optionale
    Hostfunktionen sind als Auswahl oder Adapter modelliert, nicht hart vorausgesetzt.
@@ -220,13 +220,13 @@ nicht jedoch die Kernel-Gates überspringen.
 
 ## Unmittelbar nächste Umsetzungsschritte
 
-1. `tools/check_k9_data_contract.py` als Pflichtgate beibehalten und bei BACH-Quellhash-,
+1. `tools/check_k9_data_contract.py` als Pflichtgate beibehalten und bei Open Ocean-Quellhash-,
    Operations- oder einem der beiden Trägercommit-Drifts stoppen.
-2. Nach dem Hold die gepinnte dünne `dbsync`-Adapter-Spezifikation sowie BACH-Sammler und
+2. Nach dem Hold die gepinnte dünne `dbsync`-Adapter-Spezifikation sowie Open Ocean-Sammler und
    -Formatter für `session-checkpoint` implementieren; `init` bis zur Quellfehlerklärung getrennt
    halten.
 3. Alte und neue Implementierung gegen dieselben anonymisierten Fixtures ausführen. Nur bei
-   grüner Zustands-, Ausgabe- und Fehleräquivalenz BACH-IN vorbereiten.
+   grüner Zustands-, Ausgabe- und Fehleräquivalenz Open Ocean-IN vorbereiten.
 4. Danach `db`, `backup` und `restore` innerhalb K9-1 vermessen; offene Kernel-Lücken erst nach
    derselben Grenzprüfung in Repository-Zuschnitte überführen.
 
@@ -234,9 +234,9 @@ nicht jedoch die Kernel-Gates überspringen.
 
 ```powershell
 python tools\audit_bach_handlers.py `
-  --bach-root C:\path\to\bach `
+  --open_ocean-root C:\path\to\open_ocean `
   --module-catalog C:\path\to\modules.catalog.json `
-  --baseline architecture\bach-parity-baseline.v1.json `
+  --baseline architecture\open_ocean-parity-baseline.v1.json `
   --expect-registered 114 `
   --summary
 ```

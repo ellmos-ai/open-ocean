@@ -1,10 +1,10 @@
 {
-  "schema": "ellmos.open-ocean-bach-k9-dbsync-adapter.v1",
+  "schema": "ellmos.open-ocean-k9-dbsync-adapter.v1",
   "status": "specified-carrier-surfaces-green-not-implemented",
   "recorded_at": "2026-09-21",
-  "claim_boundary": "This specification makes the future BACH adapter implementable without copying generic merge mechanics. The inspected BACH source can lazily select its existing external TransitSync seam, but this document is not an implemented Ocean adapter, old/new equivalence, BACH-IN, migration, rollback, bundle, installer, or off-host evidence.",
+  "claim_boundary": "This specification makes the future Open Ocean adapter implementable without copying generic merge mechanics. The inspected Open Ocean source can lazily select its existing external TransitSync seam, but this document is not an implemented Ocean adapter, old/new equivalence, Open Ocean-IN, migration, rollback, bundle, installer, or off-host evidence.",
   "sources": {
-    "bach": {
+    "open_ocean": {
       "commit": "8392ed8cecd9ac598d1b3b711b8e3df1b7c1dc4d",
       "handler": "system/hub/db_sync.py",
       "sha256": "9947344814dc65feff22bdd0ef078de9255d202f4f8252a64c76e43415e96444"
@@ -24,9 +24,9 @@
   },
   "state_ownership": {
     "application": [
-      "live BACH database schema and application rows",
-      "BACH-specific snapshot redaction policy",
-      "BACH startup and exit lifecycle"
+      "live Open Ocean database schema and application rows",
+      "Open Ocean-specific snapshot redaction policy",
+      "Open Ocean startup and exit lifecycle"
     ],
     "carrier": [
       "verified transit snapshot and manifest pairs",
@@ -38,17 +38,17 @@
       "daily push guard",
       "heartbeat compatibility state",
       "transient-failure cooldown",
-      "BACH tuple and text output translation"
+      "Open Ocean tuple and text output translation"
     ],
     "forbidden": [
       "adapter reimplementation of SQLite backup or merge",
-      "carrier access to BACH tables beyond configured merge and redaction policies",
-      "parallel legacy and carrier writes after BACH-IN",
+      "carrier access to Open Ocean tables beyond configured merge and redaction policies",
+      "parallel legacy and carrier writes after Open Ocean-IN",
       "automatic first-copy or schema guessing"
     ]
   },
   "adapter_state": {
-    "schema": "ellmos.bach-dbsync-adapter-state.v1",
+    "schema": "ellmos.open_ocean-dbsync-adapter-state.v1",
     "location": "injected local path outside transit",
     "fields": {
       "deferred_snapshots": "map from verified snapshot basename to failed_at, retry_after and error class",
@@ -212,7 +212,7 @@
       "copy-only test database",
       "legacy transit inventory and sync_state hash recorded",
       "carrier configuration validated",
-      "no live BACH process"
+      "no live Open Ocean process"
     ],
     "steps": [
       "map legacy host names to carrier node ids without changing snapshot payloads",
@@ -226,6 +226,6 @@
     "all nine operations exercised against the same anonymized old/new starting state after the hold",
     "allowed files, rows, messages and failure classes compared",
     "migration and rollback executed on copies",
-    "legacy parallel writes proven disabled during BACH-IN"
+    "legacy parallel writes proven disabled during Open Ocean-IN"
   ]
 }

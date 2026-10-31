@@ -250,6 +250,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Passwort aus der Standardeingabe lesen (für lokale Automatisierung)",
     )
     user_add.add_argument("--json", action="store_true")
+    task_cmd = commands.add_parser(
+        "task",
+        help="Einheitliches Task-Lifecycle-Werkzeug über den Taskkern taskplan (list|take|renew|submit|return|block|reclaim)",
+    )
+    task_cmd.add_argument("task_args", nargs=argparse.REMAINDER, help="Argumente für taskplan task")
     return parser
 
 
@@ -568,6 +573,29 @@ def main(argv: list[str] | None = None) -> int:
             else f"Benutzer '{report['username']}' wurde angelegt."
         )
         return 0
+    if args.command == "task":
+        task_args = list(args.task_args or [])
+        if task_args and task_args[0] == "--":
+            task_args = task_args[1:]
+        if _module_available("taskplan"):
+            completed = subprocess.run(
+                [sys.executable, "-m", "taskplan", "task", *task_args],
+                check=False,
+            )
+            return int(completed.returncode)
+        task_master_repo = Path(__file__).resolve().parent.parent / "task-master"
+        if (task_master_repo / "taskplan" / "__main__.py").is_file():
+            env = dict(os.environ)
+            existing_pp = env.get("PYTHONPATH", "")
+            env["PYTHONPATH"] = f"{task_master_repo}{os.pathsep}{existing_pp}" if existing_pp else str(task_master_repo)
+            completed = subprocess.run(
+                [sys.executable, "-m", "taskplan", "task", *task_args],
+                env=env,
+                check=False,
+            )
+            return int(completed.returncode)
+        print("[FEHLER] Taskkern 'taskplan' (task-master) ist nicht verfügbar.", file=sys.stderr)
+        return 3
     print(f"Der Befehl '{args.command}' wird in diesem Build noch nicht ausgeführt.", file=sys.stderr)
     return 3
 

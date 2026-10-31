@@ -12,6 +12,14 @@ from .host import HostObservation, sample_host
 from .pipelines import PipelineDefinition, ResourceBudget, load_catalog, route_job, shadow_plan, slot_request
 from .client import HostClient
 from .service import HostService
+from .ram_distributor import (
+    ConsumerCapability,
+    DistributorRequest,
+    FallbackDecision,
+    RAMDistributor,
+    UserProximity,
+    WatchdogHysteresisPolicy,
+)
 
 __all__ = [
     "BACHFacade", "CapacityReadback", "Checkpoint", "ComputeExecutorAdapter",
@@ -23,4 +31,6 @@ __all__ = [
     "ControllerClient", "FocusPolicy", "HostController", "OverrideCommand",
     "ProfileSource", "ReviewedProfileGate",
     "HostClient", "HostService",
+    "ConsumerCapability", "DistributorRequest", "FallbackDecision",
+    "RAMDistributor", "UserProximity", "WatchdogHysteresisPolicy",
 ]

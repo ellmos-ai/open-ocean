@@ -196,3 +196,168 @@ def locks_view(locks: dict) -> dict:
 
 AUDIT_UNAVAILABLE = {"availability": "unavailable", "reason": "task_history_unavailable",
                      "source": "task_history", "events": [], "count": 0}
+
+def task_history_audit(db_path: Path | None, limit: int = 50) -> dict[str, Any]:
+    """Read-only task_history audit view matching BACH ``GET /api/governance/audit`` (#2094)."""
+    import re
+    import sqlite3
+    from contextlib import closing
+    if db_path is None:
+        return dict(AUDIT_UNAVAILABLE)
+    try:
+        uri = Path(db_path).resolve().as_uri() + "?mode=ro"
+        with closing(sqlite3.connect(uri, uri=True, timeout=2)) as conn:
+            conn.execute("PRAGMA query_only = ON")
+            rows = conn.execute(
+                "SELECT rowid, task_id, action, field_changed, changed_at "
+                "FROM task_history ORDER BY rowid DESC LIMIT ?", (int(limit),)
+            ).fetchall()
+    except (OSError, sqlite3.Error, ValueError):
+        return dict(AUDIT_UNAVAILABLE)
+
+    events = []
+    for audit_id, task_id, action, field, timestamp in rows:
+        try:
+            task_number = int(task_id)
+            event_time = datetime.fromisoformat(str(timestamp).replace("Z", "+00:00")).isoformat()
+            if task_number < 1:
+                continue
+        except (TypeError, ValueError):
+            continue
+        events.append({
+            "id": int(audit_id),
+            "task_id": task_number,
+            "action": action if action in {"field_change", "status_change"} else "other",
+            "field": field if isinstance(field, str) and re.fullmatch(r"[a-z_]{1,40}", field) else "unknown",
+            "changed_at": event_time,
+        })
+    return {
+        "availability": "available",
+        "source": "task_history",
+        "actor_verified": False,
+        "values_included": False,
+        "events": events,
+        "count": len(events),
+        "observed_at": _now().isoformat(),
+    }
+
+
+def task_result_view(db_path: Path | None, task_id: int) -> dict[str, Any]:
+    """Read-only task result & lease submission view (#2098)."""
+    import json
+    import sqlite3
+    from contextlib import closing
+    if db_path is None:
+        raise GovernanceUnavailable("source-not-in-composition")
+    try:
+        uri = Path(db_path).resolve().as_uri() + "?mode=ro"
+        with closing(sqlite3.connect(uri, uri=True, timeout=2)) as conn:
+            conn.row_factory = sqlite3.Row
+            conn.execute("PRAGMA query_only = ON")
+            row = conn.execute(
+                "SELECT id, title, status, completed_at, updated_at FROM tasks WHERE id = ?",
+                (int(task_id),),
+            ).fetchone()
+            if row is None:
+                return {"available": True, "found": False, "task_id": int(task_id), "result": None}
+            lease_row = None
+            try:
+                lease_row = conn.execute(
+                    "SELECT lease_id, worker_id, worker_host, status, result_summary, "
+                    "verification_cmd, verification_exit_code, verification_output, changed_files_json, updated_at "
+                    "FROM task_leases WHERE task_id = ? ORDER BY updated_at DESC LIMIT 1",
+                    (int(task_id),),
+                ).fetchone()
+            except sqlite3.Error:
+                lease_row = None
+    except (OSError, sqlite3.Error, ValueError) as exc:
+        raise GovernanceUnavailable("task_result_unavailable") from exc
+
+    lease_data = None
+    if lease_row is not None:
+        try:
+            changed = json.loads(lease_row["changed_files_json"] or "[]")
+            if not isinstance(changed, list):
+                changed = []
+        except ValueError:
+            changed = []
+        lease_data = {
+            "lease_id": lease_row["lease_id"],
+            "worker_id": lease_row["worker_id"],
+            "worker_host": lease_row["worker_host"],
+            "status": lease_row["status"],
+            "result_summary": lease_row["result_summary"] or "",
+            "verification_cmd": lease_row["verification_cmd"] or "",
+            "verification_exit_code": lease_row["verification_exit_code"],
+            "verification_output": lease_row["verification_output"] or "",
+            "changed_files": [str(f) for f in changed[:200]],
+            "updated_at": lease_row["updated_at"],
+        }
+    return {
+        "schema": "ellmos.task-result.v1",
+        "available": True,
+        "found": True,
+        "task_id": int(row["id"]),
+        "title": row["title"],
+        "status": row["status"],
+        "completed_at": row["completed_at"],
+        "updated_at": row["updated_at"],
+        "lease_submission": lease_data,
+    }
+
+
+def task_assignees_view(config_path: Path | None) -> dict[str, Any]:
+    """Read-only task assignees projection matching ``bach.task-assignees.v1`` (#2097)."""
+    import json
+    if config_path is None:
+        raise GovernanceUnavailable("source-not-in-composition")
+    raw, _ = _read_bytes(Path(config_path), Path(config_path).parent, MAX_LOCK_CACHE_BYTES)
+    version = hashlib.sha256(raw).hexdigest()
+    data = json.loads(raw.decode("utf-8-sig"))
+    if not isinstance(data, dict):
+        raise ValueError("Invalid task assignees configuration")
+    slots = data.get("agents") or data.get("slots") or []
+    if not isinstance(slots, list):
+        raise ValueError("Invalid slots list")
+    targets = []
+    for slot in slots[:200]:
+        if not isinstance(slot, dict) or not isinstance(slot.get("id"), str):
+            continue
+        enabled = bool(slot.get("enabled", True))
+        worker = slot.get("execution_kind", "worker") == "worker"
+        verified = bool(slot.get("runtime_verified", False))
+        living = bool(slot.get("living", False))
+        assignable = enabled and worker and verified and living
+        reason = ("" if assignable else
+                  "disabled" if not enabled else
+                  "not_task_worker" if not worker else
+                  "runtime_not_verified" if not verified else "worker_not_ready")
+        targets.append({
+            "id": f"slot:{slot['id']}",
+            "type": slot.get("type", "system-slot"),
+            "name": slot.get("name") or slot["id"],
+            "slot_id": slot["id"],
+            "blueprint_id": slot.get("blueprint_id"),
+            "blueprint_version": slot.get("blueprint_version"),
+            "backend": slot.get("backend"),
+            "model": slot.get("model"),
+            "enabled": enabled,
+            "living": living if verified else None,
+            "running": slot.get("running") if verified else None,
+            "runtime_verified": verified,
+            "assignable": assignable,
+            "reason": reason,
+            "binding": {
+                "assigned_slot": slot["id"],
+                "assigned_to": str(slot.get("backend") or "").upper(),
+                "required_model": slot.get("model"),
+            },
+        })
+    return {
+        "schema": "bach.task-assignees.v1",
+        "source": "ocean_slots_projection",
+        "configuration_version": version,
+        "runtime_verified": bool(targets) and all(t["runtime_verified"] for t in targets),
+        "targets": targets,
+    }
+

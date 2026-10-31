@@ -14,7 +14,7 @@ from types import ModuleType
 from typing import Any, Callable
 
 try:
-    from .capability_views import ocean_inventory, skill_library
+    from .capability_views import ocean_inventory, skill_library, software_inventory
     from .catalog_projection import KINDS as CATALOG_KINDS, observe as observe_catalog, _read_bytes
     from . import governance_bridge as gov
     from .fetch_place import verify_bound_provider
@@ -24,7 +24,7 @@ try:
     from .gui_metadata import DEFAULT_BRAND, unverified_backend_origin
 except ImportError:  # ocean_runtime.py direct entry point
     from gui_page_reads import SCHEMA as PAGE_READS_SCHEMA, load as load_page_reads, normalize as page_reads_normalize, pages_status
-    from capability_views import ocean_inventory, skill_library
+    from capability_views import ocean_inventory, skill_library, software_inventory
     from catalog_projection import KINDS as CATALOG_KINDS, observe as observe_catalog, _read_bytes
     import governance_bridge as gov
     from fetch_place import verify_bound_provider
@@ -290,16 +290,20 @@ class GuiBridge:
                  policies: Callable[[], dict] | None = None, modules: list[dict] | None = None,
                  catalog: Callable[..., dict] | None = None, ocean: Callable[[], dict] | None = None,
                  skills: Callable[[], dict] | None = None, registry: Callable[..., dict] | None = None,
-                 locks: Callable[[], dict] | None = None, usecases: Callable[[], dict] | None = None):
+                 locks: Callable[[], dict] | None = None, usecases: Callable[..., dict] | None = None,
+                 software: Callable[[], dict] | None = None, audit: Callable[..., dict] | None = None,
+                 task_assignees: Callable[[], dict] | None = None, task_result: Callable[..., dict] | None = None):
         self.gui = gui
         self.providers = {"detect": self.detect, "plan": plan, "status": status, "policies": policies, "catalog": catalog,
-                          "ocean": ocean, "skills": skills, "registry": registry, "locks": locks, "usecases": usecases}
+                          "ocean": ocean, "skills": skills, "registry": registry, "locks": locks, "usecases": usecases,
+                          "software": software, "audit": audit, "task_assignees": task_assignees, "task_result": task_result}
         self.modules = modules or []
 
     def detect(self) -> dict:
         return {"schema": "ellmos.open-ocean.installer-detect.v1", "read_only": True,
                 "provider": {"id": "open-ocean", "version": "0.1.2"},
-                "native": {name: provider is not None for name, provider in self.providers.items() if name not in {"detect", "registry", "locks", "usecases"}},
+                "native": {name: provider is not None for name, provider in self.providers.items()
+                           if name not in {"detect", "registry", "locks", "usecases", "software", "audit", "task_assignees", "task_result"}},
                 "apply": {"available": False, "reason": "Nur die externe Installer-Approval-/Grant-Kette darf Änderungen ausführen."},
                 "runtime_verified": False, "verification_scope": "adapter"}
 
@@ -351,7 +355,7 @@ class GuiBridge:
                 ("/api/governance/status", lock_ok or self.providers["registry"] is not None,
                  "Weder Lock-Cache noch Policy-Registry gebunden.", {"id": "open-ocean", "version": "0.1.2"}),
                 ("/api/governance/locks", lock_ok, lock_reason, {"id": "lock-cache", "version": None}),
-                ("/api/governance/audit", False, "task_history_unavailable", None),
+                ("/api/governance/audit", self.providers["audit"] is not None, "task_history_unavailable", {"id": "task-master", "version": None}),
                 ("/api/usecases", usecases_reason is None, usecases_reason, {"id": "ellmos-tests", "version": None})]:
             endpoints.append({"method": "GET", "path": path, "kind": "read", "available": available,
                               "provider": provider if available else None,
@@ -363,8 +367,12 @@ class GuiBridge:
                               "provider": {"id": "open-ocean", "version": "0.1.2"} if provider else None,
                               "auth": "provider-session", "runtime_verified": False, "verification_scope": "adapter",
                               "reason": None if provider else "Kein nativer Anbieter konfiguriert."})
+        sw_ok = self.providers["software"] is not None
+        endpoints.append({"method": "GET", "path": "/api/capabilities/software", "kind": "read", "available": sw_ok,
+                          "provider": {"id": "open-ocean", "version": "0.1.2"} if sw_ok else None,
+                          "auth": "provider-session", "runtime_verified": False,
+                          "verification_scope": "adapter", "reason": None if sw_ok else "source-not-in-composition"})
         for method, path, kind, reason in [
-                ("GET", "/api/capabilities/software", "read", "source-not-in-composition"),
                 ("GET", "/api/capabilities/skills/{id}/source", "read", "no-adapter"),
                 ("GET", "/api/capabilities/skills/{id}/history", "read", "no-adapter"),
                 ("GET", "/api/capabilities/skills/{id}/history/{revision}", "read", "no-adapter"),
@@ -375,15 +383,23 @@ class GuiBridge:
                               "auth": "provider-session", "runtime_verified": False,
                               "verification_scope": "adapter", "reason": reason})
         # A rendered page and a native executable service are different evidence.
+        ta_ok = self.providers["task_assignees"] is not None
         for method, path, kind in [("GET", "/api/tasks", "read"), ("POST", "/api/tasks", "write"),
                                    ("GET", "/api/task-assignees", "read"),
                                    ("GET", "/api/agents/native/slots", "read"),
                                    ("GET", "/api/agents/native/tasks", "read"),
                                    ("POST", "/api/agents/native/tasks", "action"),
                                    ("POST", "/api/installer/apply", "action")]:
-            endpoints.append({"method": method, "path": path, "kind": kind, "available": False,
-                              "provider": None, "auth": "provider-session", "runtime_verified": False,
-                              "verification_scope": "adapter", "reason": "Kein freigegebener nativer GUI-Adapter vorhanden."})
+            is_avail = ta_ok if (method == "GET" and path == "/api/task-assignees") else False
+            endpoints.append({"method": method, "path": path, "kind": kind, "available": is_avail,
+                              "provider": {"id": "open-ocean", "version": "0.1.2"} if is_avail else None,
+                              "auth": "provider-session", "runtime_verified": False,
+                              "verification_scope": "adapter",
+                              "reason": None if is_avail else "Kein freigegebener nativer GUI-Adapter vorhanden."})
+        if self.providers["task_result"] is not None:
+            endpoints.append({"method": "GET", "path": "/api/tasks/{id}/result", "kind": "read", "available": True,
+                              "provider": {"id": "task-master", "version": None}, "auth": "provider-session",
+                              "runtime_verified": False, "verification_scope": "adapter", "reason": None})
         # The page-to-endpoint table is the GUI's own manifest from the verified release, never a hand table here.
         page_reads = load_page_reads(self.gui)
         served = {f"{e['method']} {page_reads_normalize(e['path'])}": e["available"] for e in endpoints}
@@ -480,8 +496,26 @@ def _bridge_core(workspace: Path, *, gui_pins: tuple[str, str] | None = None) ->
             usecases = usecases_reader(uc_component, workspace / "modules")
         except BridgeUnavailable:
             usecases = None
+    software = None
+    sw_reg = config.get("software_registry")
+    if isinstance(sw_reg, str) and sw_reg.strip() and Path(sw_reg).is_file():
+        sw_path = Path(sw_reg)
+        software = lambda: software_inventory(releases_path=sw_path)  # noqa: E731
+    audit = None
+    task_result = None
+    task_db = config.get("task_db")
+    if isinstance(task_db, str) and task_db.strip() and Path(task_db).is_file():
+        db_p = Path(task_db)
+        audit = lambda limit=50: gov.task_history_audit(db_p, limit=limit)  # noqa: E731
+        task_result = lambda task_id: gov.task_result_view(db_p, int(task_id))  # noqa: E731
+    task_assignees = None
+    ta_cfg = config.get("task_assignees_config")
+    if isinstance(ta_cfg, str) and ta_cfg.strip() and Path(ta_cfg).is_file():
+        ta_p = Path(ta_cfg)
+        task_assignees = lambda: gov.task_assignees_view(ta_p)  # noqa: E731
     return GuiBridge(gui=gui, plan=plan, status=status, policies=policies, modules=modules,
-                     registry=registry_reader, locks=locks, usecases=usecases)
+                     registry=registry_reader, locks=locks, usecases=usecases,
+                     software=software, audit=audit, task_assignees=task_assignees, task_result=task_result)
 
 
 def mount_gui_bridge(app: Any, bridge: GuiBridge, require_auth: Callable, require_admin: Callable) -> None:
@@ -562,9 +596,15 @@ def mount_gui_bridge(app: Any, bridge: GuiBridge, require_auth: Callable, requir
     add_guarded("/api/capabilities/skills/library", inventory_route("skills", "Aktuelle Skill-Bibliothek nicht lesbar"))
 
     def software_route(request):
-        # The software register (.SOFTWARE/releases.json) is not part of the OCEAN composition: no substitute data.
-        return JSONResponse({"available": False, "reason": "source-not-in-composition"},
-                            status_code=503, headers={"Cache-Control": "no-store"})
+        provider = bridge.providers["software"]
+        if provider is None:
+            return JSONResponse({"available": False, "reason": "source-not-in-composition"},
+                                status_code=503, headers={"Cache-Control": "no-store"})
+        try:
+            return JSONResponse(provider(), headers={"Cache-Control": "no-store"})
+        except (OSError, ValueError, RuntimeError):
+            return JSONResponse({"detail": "Software-Quellen nicht lesbar"},
+                                status_code=503, headers={"Cache-Control": "no-store"})
     add_guarded("/api/capabilities/software", software_route)
 
     def make_route(name, *, kind=None):
@@ -660,9 +700,45 @@ def _mount_governance(app: Any, bridge: GuiBridge, add_guarded: Callable, requir
         if not raw.isdigit() or not 1 <= int(raw) <= 100:
             return json_response({"detail": [{"loc": ["query", "limit"], "msg": "Input should be between 1 and 100",
                                               "type": "int_parsing"}]}, status_code=422, headers=headers)
-        # task_history belongs to task-master, not to this composition; dsgvo_audit_log has other semantics.
+        provider = bridge.providers["audit"]
+        if provider is not None:
+            try:
+                return json_response(provider(int(raw)), headers=headers)
+            except Exception:  # noqa: BLE001
+                return json_response(gov.AUDIT_UNAVAILABLE, headers=headers)
         return json_response(gov.AUDIT_UNAVAILABLE, headers=headers)
     add_guarded("/api/governance/audit", audit_route)
+
+    def task_assignees_route(request):
+        provider = bridge.providers["task_assignees"]
+        if provider is None:
+            return json_response({"available": False, "reason": "Kein nativer Anbieter konfiguriert.",
+                                  "runtime_verified": False}, status_code=503, headers=headers)
+        try:
+            return json_response(provider(), headers=headers)
+        except Exception:  # noqa: BLE001
+            return json_response({"available": False, "reason": "source-unreadable",
+                                  "runtime_verified": False}, status_code=503, headers=headers)
+    add_guarded("/api/task-assignees", task_assignees_route)
+
+    def task_result_route(request):
+        raw = request.path_params.get("task_id", "")
+        if not re.fullmatch(r"[+-]?\d{1,%d}" % USECASE_MAX_ID_DIGITS, raw) or int(raw) < 1:
+            return json_response({"detail": [{"type": "int_parsing", "loc": ["path", "task_id"],
+                                              "msg": "Input should be a valid positive integer",
+                                              "input": raw}]}, status_code=422, headers=headers)
+        provider = bridge.providers["task_result"]
+        if provider is None:
+            return json_response({"available": False, "reason": "source-not-in-composition"},
+                                 status_code=503, headers=headers)
+        try:
+            return json_response(provider(int(raw)), headers=headers)
+        except gov.GovernanceUnavailable as exc:
+            return json_response({"available": False, "reason": str(exc)}, status_code=503, headers=headers)
+        except Exception:  # noqa: BLE001
+            return json_response({"available": False, "reason": "task_result_unavailable"},
+                                 status_code=503, headers=headers)
+    add_guarded("/api/tasks/{task_id}/result", task_result_route)
 
     def usecases_route(request):
         provider = bridge.providers["usecases"]

@@ -169,3 +169,86 @@ def skill_library(*, workspace: Path) -> dict:
     # No path redaction: the BACH library has no path field, and name/category/version/description are the skill author's own
     # text (a literal /dev/null must stay as written). Redaction stays on the Ocean source inventory above.
     return _bounded(result)
+
+MAX_SOFTWARE_BYTES = 2_000_000
+
+
+def _text(value, limit=300) -> str:
+    return value[:limit] if isinstance(value, str) and "\x00" not in value else ""
+
+
+def _catalog_link(value) -> str | None:
+    from urllib.parse import urlsplit
+    if not isinstance(value, str) or len(value) > 1000:
+        return None
+    try:
+        parsed = urlsplit(value)
+        if (parsed.scheme not in {"https", "http"} or not parsed.hostname
+                or parsed.username or parsed.password or parsed.query or parsed.fragment):
+            return None
+        return value
+    except ValueError:
+        return None
+
+
+def software_inventory(*, releases_path: Path) -> dict:
+    """Serve BACH's ``GET /api/capabilities/software`` contract from a bound ``releases.json``."""
+    releases_path = Path(releases_path)
+    root = releases_path.parent
+    raw, _ = _read_bytes(releases_path, root, MAX_SOFTWARE_BYTES)
+    data = json.loads(raw.decode("utf-8-sig"))
+    if not isinstance(data, dict) or not isinstance(data.get("projects"), list):
+        raise ValueError("Software-Register benötigt eine Projektliste")
+    revision = hashlib.sha256(raw).hexdigest()
+    projects = data["projects"]
+    truncated = len(projects) > MAX_ITEMS
+    items = []
+    seen = set()
+    for project in projects[:MAX_ITEMS]:
+        if not isinstance(project, dict):
+            raise ValueError("Ungültiger Software-Projekteintrag")
+        name = _text(project.get("name"), 180)
+        relative = project.get("path")
+        if (not name or not isinstance(relative, str) or not relative
+                or "\\" in relative or ":" in relative or "\x00" in relative
+                or relative.startswith("/") or ".." in relative.split("/")):
+            raise ValueError("Ungültiger Software-Projektpfad")
+        key = hashlib.sha256(("releases.json:" + relative).encode("utf-8")).hexdigest()[:24]
+        if key in seen:
+            continue
+        targets = project.get("targets", [])
+        if not isinstance(targets, list):
+            raise ValueError("Software-Veröffentlichungen benötigen eine Liste")
+        publications = []
+        for target in targets[:30]:
+            if not isinstance(target, dict):
+                continue
+            publications.append({
+                "type": _text(target.get("type"), 80),
+                "platform": _text(target.get("platform"), 80),
+                "declared_status": _text(target.get("status"), 80),
+                "version": _text(target.get("version"), 100) or None,
+                "url": _catalog_link(target.get("release_url")) or _catalog_link(target.get("url")),
+                "live_verified": False,
+            })
+        seen.add(key)
+        folder = _child(root, *relative.split("/"))
+        items.append({
+            "id": key, "name": name,
+            "description": _text(project.get("description")),
+            "version": _text(project.get("version"), 100) or None,
+            "category": relative.split("/", 1)[0],
+            "lifecycle": _text(project.get("lifecycle"), 80),
+            "source_version": revision, "source": "<software>/releases.json",
+            "code_present": bool(folder is not None and folder.is_dir()),
+            "installed": None, "runtime_active": None,
+            "evidence": "software_release_catalog", "publications": publications,
+        })
+    items.sort(key=lambda item: item["name"].casefold())
+    result = {
+        "schema": OCEAN_SCHEMA, "kind": "software", "items": items,
+        "sources": [{"path": "<software>/releases.json", "available": True, "source_version": revision}],
+        "errors": [], "truncated": truncated, "catalog": "software-applications", "count": len(items),
+    }
+    return _bounded(_redact(result, [0]))
+

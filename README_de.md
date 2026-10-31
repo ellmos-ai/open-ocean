@@ -214,7 +214,11 @@ Wer nach **Ocean** (oder **BACH**) sucht und sich für die Installation entschei
 | **macOS** | **`.dmg` / `.pkg` Universal-Installer** (Apple Silicon & Intel) | Mac App Store / Homebrew Cask |
 | **Linux** | **`.AppImage` / `.deb` / `.rpm` Installer** | Flathub / Snap |
 
-1. **Herunterladen & Starten:** Du lädst den Installer für dein Betriebssystem herunter und startest ihn. Du wirst Schritt für Schritt durch die Installation geleitet (inkl. Einrichtung **lokaler Modelle** wie Ollama und **nicht-lokaler Cloud-/Subscription-Modelle** sowie deiner gewünschten Modul-Grundausstattung).
+1. **Herunterladen & Starten (Hermes-inspirierte 4-stufige Menüführung von wichtig zu unwichtiger):** Du lädst den Installer für dein Betriebssystem herunter und startest ihn (`ellmos-installer onboarding`):
+   - **Stufe 1 — Modelle, Subscriptions & API-Zugänge:** Lokale Modelle (**Ollama**) erkennen sowie Subscriptions und API-Keys (**Claude**, **Codex/OpenAI**, **Gemini**, **OpenRouter**, **Ollama Cloud**, **Kimi**) sicher im lokalen Keyring hinterlegen.
+   - **Stufe 2 — Wichtige System-MCPs, Berechtigungs- & Autoritätseinstellungen:** Zentrale System-MCPs (**`ellmos-filecommander`**, **`ellmos-controlcenter-mcp`**, `codecommander`, `homebase`) sowie Arbeitsbaum-Zugriffsbereich (`sandbox | ocean | free`), Review-Modus und 5-stufige Eskalationsleiter einstellen.
+   - **Stufe 3 — Connectoren:** **Telegram**, **WhatsApp**, **Discord** und **E-Mail-Bridge** direkt verbinden.
+   - **Stufe 4 — Ausdehnung (`Rinnsal ↔ BACH ↔ Meer`), Plugins, weitere MCPs & Skills:** Individuelle Modul-Ausdehnung sowie optionale Plugins, MCPs und Skills auswählen.
 2. **Bestandteile jederzeit nachinstallieren oder deinstallieren:** Dein Ocean bleibt jederzeit anpassbar. Über den Installer oder direkt aus der **System-GUI (`ellmos-system-gui`)** lassen sich Bestandteile (Module, Bundles, Skills) später jederzeit **nachinstallieren oder rückstandslos deinstallieren**.
 3. **Einstiegsabhängiges Branding (`open-ocean` vs. `bach`):**
    - **Einstieg über `open-ocean`:** Du erhältst das reine **Ocean-Branding** in der System-GUI (`resolve_entry_point_brand("open-ocean")`) — das BACH-Branding entfällt vollständig.

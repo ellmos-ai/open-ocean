@@ -213,7 +213,11 @@ When you look for **Ocean** (or **BACH**) and decide to install it, you are guid
 | **macOS** | **`.dmg` / `.pkg` Universal Installer** (Apple Silicon & Intel) | Mac App Store / Homebrew Cask |
 | **Linux** | **`.AppImage` / `.deb` / `.rpm` Installer** | Flathub / Snap |
 
-1. **Download & Start:** Download the installer for your OS and launch it. You are guided step by step through the installation (configuring **local models** such as Ollama and **non-local cloud/subscription models** out of the box, plus your initial module selection).
+1. **Download & Start (Hermes-Inspired 4-Stage Priority Onboarding):** Download the installer for your OS and launch it. You are guided through setup in strict order of importance (`ellmos-installer onboarding`):
+   - **Stage 1 — Models, Subscriptions & API Keys:** Connect local models (**Ollama**) and store subscriptions/API keys (**Claude**, **OpenAI/Codex**, **Gemini**, **OpenRouter**, **Ollama Cloud**, **Kimi**) in your local secret store.
+   - **Stage 2 — Core System MCPs, Permissions & Authority:** Configure essential system MCPs (**`ellmos-filecommander`**, **`ellmos-controlcenter-mcp`**, `codecommander`, `homebase`) alongside workspace write-scopes (`sandbox | ocean | free`), review policy, and the 5-tier escalation ladder.
+   - **Stage 3 — Connectors:** Link messaging channels such as **Telegram**, **WhatsApp**, **Discord**, and **Email**.
+   - **Stage 4 — Extent (`Rinnsal ↔ BACH ↔ Meer`), Plugins, Additional MCPs & Skills:** Choose your module extent and optional plugins, MCPs, and skills.
 2. **Add or Uninstall Components Anytime:** Your Ocean is never static. At any point after installation, you can **install additional modules/bundles or cleanly uninstall existing components** via the installer or directly inside the **System GUI (`ellmos-system-gui`)**.
 3. **Entry-Point Branding (`open-ocean` vs. `bach`):**
    - **Entering via `open-ocean`:** You receive pure **Ocean branding** in the System GUI (`resolve_entry_point_brand("open-ocean")`) — BACH branding is completely omitted.

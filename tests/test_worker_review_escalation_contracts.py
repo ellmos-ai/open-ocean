@@ -9,7 +9,7 @@ from tools.escalation_ladder import (
     validate_learning_candidate,
     validate_persona_routing_manifest,
 )
-from tools.gui_metadata import resolve_entry_point_brand
+from tools.gui_metadata import build_onboarding_wizard_contract, resolve_entry_point_brand
 from tools.help_projection import (
     gui_showcase_and_competitor_matrix,
     pipeline_acceptance_matrix,
@@ -210,3 +210,13 @@ def test_resolve_entry_point_brand_ocean_vs_bach():
     assert bach_brand["foreground_product"] == "Open Ocean"
     assert "BACH" in bach_brand["subtitle"]
     assert "Ocean" in bach_brand["subtitle"]
+
+    wizard = build_onboarding_wizard_contract("bach")
+    assert wizard["schema"] == "ellmos-system-gui.onboarding-wizard.v1"
+    assert wizard["reconfigurable_anytime"] is True
+    assert [s["stage_id"] for s in wizard["stages"]] == [
+        "models_and_subscriptions",
+        "system_mcps_and_authority",
+        "connectors",
+        "extensions_plugins_mcps_skills",
+    ]

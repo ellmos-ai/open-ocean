@@ -13,7 +13,29 @@ ORIGIN_SCHEMA = "ellmos-system-gui.backend-origin.v1"
 DEFAULT_BRAND = {
     "schema": BRAND_SCHEMA, "label": "Ocean", "product": "Open Ocean",
     "logo_text": "OCEAN", "logo_path": None, "theme": "ocean",
+    "entry_point": "open-ocean", "edition": "ocean",
+    "subtitle": None, "foreground_product": "Open Ocean",
 }
+BACH_ON_OCEAN_BRAND = {
+    "schema": BRAND_SCHEMA, "label": "Ocean · BACH", "product": "Open Ocean",
+    "logo_text": "OCEAN · BACH", "logo_path": None, "theme": "ocean-bach",
+    "entry_point": "bach", "edition": "bach",
+    "subtitle": "BACH — a curated edition of Ocean",
+    "foreground_product": "Open Ocean",
+}
+
+
+def resolve_entry_point_brand(entry_point: str = "open-ocean") -> dict:
+    """Resolve GUI brand contract based on user installation/entry point.
+
+    - 'open-ocean' (or 'ocean'): Pure Ocean branding without BACH branding.
+    - 'bach': BACH branding where Ocean stands in the foreground of the GUI
+      and BACH is presented as a curated version/form of Ocean.
+    """
+    normalized = (entry_point or "open-ocean").strip().lower()
+    if normalized in ("bach", "ellmos-ai/bach", "bach-edition"):
+        return dict(BACH_ON_OCEAN_BRAND)
+    return dict(DEFAULT_BRAND)
 
 
 def unverified_backend_origin() -> dict:

@@ -109,13 +109,18 @@ bietet keine Auswahl des Hostpfads.
 
 ## Capability-Vertrag v1
 
-### Gemeinsame Metadaten im Provider-Origin
+### Gemeinsame Metadaten im Provider-Origin & Einstiegsabhängiges Branding
 
 Die Lifecycle-Brücke stellt wie der eigenständige GUI-Verbraucher
 `GET /api/gui/brand` und `GET /api/gui/backend-origin` bereit. Im Provider-Origin
 gelten die vorhandene Providersession, Authentifizierung vor Methodenablehnung
 auch für die Slashvarianten und `Cache-Control: no-store`. Branding und
-unverifizierter Herkunftsvertrag stammen gemeinsam aus `tools/gui_metadata.py`.
+unverifizierter Herkunftsvertrag stammen gemeinsam aus `tools/gui_metadata.py`
+(`resolve_entry_point_brand(entry_point)`).
+
+- **Einstieg über `open-ocean` (`DEFAULT_BRAND`, `edition="ocean"`):** Reines **Ocean-Branding** (`label="Ocean"`, `product="Open Ocean"`, `foreground_product="Open Ocean"`, `subtitle=None`) — das BACH-Branding entfällt vollständig.
+- **Einstieg über `bach` (`BACH_ON_OCEAN_BRAND`, `edition="bach"`):** **BACH-Branding auf Ocean**, bei dem **Ocean weiterhin im Vordergrund der GUI steht** (`foreground_product="Open Ocean"`) und BACH als kuratierte Version/Ausprägungsform von Ocean dargestellt wird (`label="Ocean · BACH"`, `subtitle="BACH — a curated edition of Ocean"`).
+
 Die Capability-Auskunft beschreibt diese Metadatenrouten als verfügbare Adapter;
 `runtime_verified` bleibt `false`.
 

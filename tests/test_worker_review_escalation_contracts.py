@@ -9,6 +9,7 @@ from tools.escalation_ladder import (
     validate_learning_candidate,
     validate_persona_routing_manifest,
 )
+from tools.gui_metadata import resolve_entry_point_brand
 from tools.help_projection import (
     gui_showcase_and_competitor_matrix,
     pipeline_acceptance_matrix,
@@ -194,3 +195,18 @@ def test_cli_api_reference_parity_and_15_pipeline_acceptance():
     showcase = gui_showcase_and_competitor_matrix()
     assert len(showcase["walkthrough_views"]) == 5
     assert showcase["hyperframes_composition"]["engine"] == "hyperframes"
+
+
+def test_resolve_entry_point_brand_ocean_vs_bach():
+    ocean_brand = resolve_entry_point_brand("open-ocean")
+    assert ocean_brand["edition"] == "ocean"
+    assert ocean_brand["label"] == "Ocean"
+    assert ocean_brand["foreground_product"] == "Open Ocean"
+    assert ocean_brand["subtitle"] is None
+
+    bach_brand = resolve_entry_point_brand("bach")
+    assert bach_brand["edition"] == "bach"
+    assert bach_brand["label"] == "Ocean · BACH"
+    assert bach_brand["foreground_product"] == "Open Ocean"
+    assert "BACH" in bach_brand["subtitle"]
+    assert "Ocean" in bach_brand["subtitle"]

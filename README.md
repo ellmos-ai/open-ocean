@@ -203,6 +203,35 @@ no longer part of the public guarantees.
 
 ---
 
+## 📦 Download, Guided Installation & Scaling (`Rinnsal ↔ BACH ↔ Meer`)
+
+When you look for **Ocean** (or **BACH**) and decide to install it, you are guided directly from the repository README to the **ELLMOS / Ocean Installer (`ellmos-installer`)** and the current installable release for your operating system:
+
+| Operating System | Primary OS-Native Installer | Optional App Store Channel (Additional Convenience Service) |
+|---|---|---|
+| **Windows** | **`.exe` / `.msi` Guided Setup** | Microsoft Store (MSIX) |
+| **macOS** | **`.dmg` / `.pkg` Universal Installer** (Apple Silicon & Intel) | Mac App Store / Homebrew Cask |
+| **Linux** | **`.AppImage` / `.deb` / `.rpm` Installer** | Flathub / Snap |
+
+1. **Download & Start:** Download the installer for your OS and launch it. You are guided step by step through the installation (configuring **local models** such as Ollama and **non-local cloud/subscription models** out of the box, plus your initial module selection).
+2. **Add or Uninstall Components Anytime:** Your Ocean is never static. At any point after installation, you can **install additional modules/bundles or cleanly uninstall existing components** via the installer or directly inside the **System GUI (`ellmos-system-gui`)**.
+3. **Entry-Point Branding (`open-ocean` vs. `bach`):**
+   - **Entering via `open-ocean`:** You receive pure **Ocean branding** in the System GUI (`resolve_entry_point_brand("open-ocean")`) — BACH branding is completely omitted.
+   - **Entering via `bach`:** You receive **BACH branding**, where **Ocean still stands in the foreground of the GUI**, and BACH is presented as a curated version/form of Ocean (*"BACH — a curated edition of Ocean"*, `resolve_entry_point_brand("bach")`).
+
+### Two-Axis Ocean Architecture: Individual Extent vs. Authorization Tiers
+
+- **Axis 1 — Individual Extent (`Rinnsal ↔ BACH ↔ Meer`):** Public Ocean ships with a balanced standard extent of modules. By deselecting or adding modules and bundles, every user shapes their own Ocean:
+  - **Rinnsal:** Lightweight minimal extent (e.g., core memory + task kernel).
+  - **BACH:** Curated everyday desktop & personal cognitive OS edition with the unified GUI (`ellmos-system-gui`) for local and non-local models.
+  - **Meer:** Broadly expanded multi-domain and multi-agent extent with additional specialist bundles.
+- **Axis 2 — Authorization & System Tiers (`full-ocean` · `ocean-dev` · `ocean-admin`):**
+  - **`full-ocean` (Installer Access Tier):** Bound to `ellmos-installer`. The installer fulfills the promise of access to the **full Ocean catalog** to the extent the user is authorized — all public modules for standard users, plus non-public/licensed modules for authorized users via cryptographic `capability-grant.v1` grants.
+  - **`ocean-dev` (Developer & Diagnostic Tier):** Publicly available developer, audit, test, and build modules (`system-explorer`, `system-auditor`, `system-gap-master`, `ellmos-tests`, `module-gate`), which normal users do not necessarily install by default.
+  - **`ocean-admin` (Operator & Cluster Tier):** The maintainer's full multi-host production environment (Mac Studio 24/7 leader, workstations, private/unreleased research and domain modules, `.SYNC`).
+
+---
+
 ## Quickstart & Usage
 
 open-ocean requires Python 3.10+ and `cryptography>=41` (used by `ocean inspect` for Ed25519

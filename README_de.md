@@ -204,6 +204,35 @@ und gehören nicht mehr zu den öffentlichen Garantien.
 
 ---
 
+## 📦 Download, Geführte Installation & Skalierung (`Rinnsal ↔ BACH ↔ Meer`)
+
+Wer nach **Ocean** (oder **BACH**) sucht und sich für die Installation entscheidet, wird direkt aus der README zum **ELLMOS / Ocean Installer (`ellmos-installer`)** und zur aktuellen installierbaren Version für sein Betriebssystem geleitet:
+
+| Betriebssystem | Primärer nativer OS-Installer | Optionaler App-Store-Kanal (Zusatzservice) |
+|---|---|---|
+| **Windows** | **`.exe` / `.msi` Geführtes Setup** | Microsoft Store (MSIX) |
+| **macOS** | **`.dmg` / `.pkg` Universal-Installer** (Apple Silicon & Intel) | Mac App Store / Homebrew Cask |
+| **Linux** | **`.AppImage` / `.deb` / `.rpm` Installer** | Flathub / Snap |
+
+1. **Herunterladen & Starten:** Du lädst den Installer für dein Betriebssystem herunter und startest ihn. Du wirst Schritt für Schritt durch die Installation geleitet (inkl. Einrichtung **lokaler Modelle** wie Ollama und **nicht-lokaler Cloud-/Subscription-Modelle** sowie deiner gewünschten Modul-Grundausstattung).
+2. **Bestandteile jederzeit nachinstallieren oder deinstallieren:** Dein Ocean bleibt jederzeit anpassbar. Über den Installer oder direkt aus der **System-GUI (`ellmos-system-gui`)** lassen sich Bestandteile (Module, Bundles, Skills) später jederzeit **nachinstallieren oder rückstandslos deinstallieren**.
+3. **Einstiegsabhängiges Branding (`open-ocean` vs. `bach`):**
+   - **Einstieg über `open-ocean`:** Du erhältst das reine **Ocean-Branding** in der System-GUI (`resolve_entry_point_brand("open-ocean")`) — das BACH-Branding entfällt vollständig.
+   - **Einstieg über `bach`:** Du erhältst das **BACH-Branding**, bei dem **Ocean ebenfalls im Vordergrund der GUI steht**, BACH jedoch als kuratierte Version/Ausprägungsform von Ocean dargestellt wird (*„BACH — eine kuratierte Edition von Ocean"*, `resolve_entry_point_brand("bach")`).
+
+### Zwei-Achsen-Modell: Individuelle Ausdehnung vs. Berechtigungs- & Systemstufen
+
+- **Achse 1 — Individuelle Ausdehnung (`Rinnsal ↔ BACH ↔ Meer`):** Das öffentliche Ocean besitzt eine ausgewogene Standard-Ausdehnung an Modulen. Indem Module und Bundles abgewählt oder hinzugenommen werden, erhält jeder Nutzer sein individuelles Ocean:
+  - **Rinnsal:** Schlanker Minimal-Ausbau (z. B. nur Gedächtnis- und Taskkern).
+  - **BACH:** Kuratierter Alltags- und Desktop-Ausbau mit gemeinsamer GUI (`ellmos-system-gui`) für lokale und nicht-lokale Modelle.
+  - **Meer:** Breit ausgebautes Mehrdomänen- und Multi-Agenten-System mit zahlreichen Fachbundles.
+- **Achse 2 — Berechtigungs- & Systemstufen (`full-ocean` · `ocean-dev` · `ocean-admin`):**
+  - **`full-ocean` (Installer-Zugangsstufe):** An den `ellmos-installer` gebundenes Berechtigungskonzept — der Installer erfüllt das Versprechen auf Zugang zum vollen Ocean, sofern berechtigt (für normale Nutzer alle öffentlichen Module; für berechtigte Personen zusätzlich nicht veröffentlichte Module über signierte `capability-grant.v1`-Grants).
+  - **`ocean-dev` (Entwickler- & Diagnose-Ausbau):** Durchaus öffentliche Entwickler-, Prüf- und Bau-Module (`system-explorer`, `system-auditor`, `system-gap-master`, `ellmos-tests`, `module-gate`), die ein normaler Nutzer im Standard-Ausbau nicht zwingend mitinstalliert.
+  - **`ocean-admin` (Betreiber- & Cluster-Ausbau):** Lukas' Gesamtsystem mit dem Mac Studio als 24/7-Leader, Workstations, unveröffentlichten privaten Forschungs-/Fachmodulen und `.SYNC`.
+
+---
+
 ## Schnellstart und CLI-Nutzung
 
 open-ocean braucht Python 3.10+ und `cryptography>=41` (für die Ed25519-Belegprüfung von

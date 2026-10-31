@@ -199,3 +199,105 @@ def evaluate_service_review(
     if not _scope_matches(scope, task, action):
         return _decision(False, "scope_denied")
     return _decision(True, "allow")
+
+
+CONFIGURABLE_REVIEW_POLICIES = frozenset({
+    "any_fresh_run",
+    "different_model",
+    "different_provider",
+    "specific_models",
+})
+
+
+def evaluate_configurable_review_policy(
+    *,
+    policy_mode: str = "any_fresh_run",
+    producer_model: str,
+    producer_provider: str,
+    producer_generation: str,
+    reviewer_model: str,
+    reviewer_provider: str,
+    reviewer_generation: str,
+    allowed_models: list[str] | tuple[str, ...] = (),
+    has_code_scope: bool = True,
+    result_text_present: bool = True,
+) -> dict[str, object]:
+    """Evaluate configurable review model rule and text-only (`scope_not_recorded`) support (#2210).
+
+    Default policy `any_fresh_run` permits any model (including the same model family)
+    as long as the review executes in a fresh run (`producer_generation != reviewer_generation`).
+    Tasks without a recorded git/code scope (`has_code_scope=False`) are reviewable via
+    `scope_mode="scope_not_recorded"` when `result_text_present=True`.
+    """
+    if policy_mode not in CONFIGURABLE_REVIEW_POLICIES:
+        return {
+            "schema": DECISION_SCHEMA,
+            "allowed": False,
+            "reason_code": "invalid_policy_mode",
+            "policy_mode": policy_mode,
+            "scope_mode": "unknown",
+        }
+    if not _nonempty_text(producer_generation) or not _nonempty_text(reviewer_generation):
+        return {
+            "schema": DECISION_SCHEMA,
+            "allowed": False,
+            "reason_code": "invalid_request",
+            "policy_mode": policy_mode,
+            "scope_mode": "unknown",
+        }
+    if producer_generation.strip() == reviewer_generation.strip():
+        return {
+            "schema": DECISION_SCHEMA,
+            "allowed": False,
+            "reason_code": "self_review",
+            "policy_mode": policy_mode,
+            "scope_mode": "code_scope" if has_code_scope else "scope_not_recorded",
+        }
+    if not has_code_scope and not result_text_present:
+        return {
+            "schema": DECISION_SCHEMA,
+            "allowed": False,
+            "reason_code": "empty_result_without_scope",
+            "policy_mode": policy_mode,
+            "scope_mode": "scope_not_recorded",
+        }
+
+    p_model = producer_model.strip().casefold()
+    r_model = reviewer_model.strip().casefold()
+    p_prov = producer_provider.strip().casefold()
+    r_prov = reviewer_provider.strip().casefold()
+
+    if policy_mode == "different_model" and p_model == r_model:
+        return {
+            "schema": DECISION_SCHEMA,
+            "allowed": False,
+            "reason_code": "same_model_denied",
+            "policy_mode": policy_mode,
+            "scope_mode": "code_scope" if has_code_scope else "scope_not_recorded",
+        }
+    if policy_mode == "different_provider" and p_prov == r_prov:
+        return {
+            "schema": DECISION_SCHEMA,
+            "allowed": False,
+            "reason_code": "same_provider_denied",
+            "policy_mode": policy_mode,
+            "scope_mode": "code_scope" if has_code_scope else "scope_not_recorded",
+        }
+    if policy_mode == "specific_models":
+        allowed_set = {m.strip().casefold() for m in allowed_models if isinstance(m, str) and m.strip()}
+        if r_model not in allowed_set:
+            return {
+                "schema": DECISION_SCHEMA,
+                "allowed": False,
+                "reason_code": "model_not_in_allowed_list",
+                "policy_mode": policy_mode,
+                "scope_mode": "code_scope" if has_code_scope else "scope_not_recorded",
+            }
+
+    return {
+        "schema": DECISION_SCHEMA,
+        "allowed": True,
+        "reason_code": "allow",
+        "policy_mode": policy_mode,
+        "scope_mode": "code_scope" if has_code_scope else "scope_not_recorded",
+    }

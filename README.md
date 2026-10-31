@@ -428,3 +428,18 @@ maintained in [`llms.txt`](llms.txt).
 ## Portable agent starter files
 
 `starters/windows/` ships START, SYSTEM-AUDITOR, TICKET-MASTER, PINGPONG and MULTI-BOT `.bat` files; `starters/posix/` ships their shell equivalents. The wheel includes them in `share/open-ocean/starters/`. They delegate to the existing TASKPLAN Startcenter and module role contracts. Install the reviewed TASKPLAN version with Startcenter and the optional role modules first. These files set no personal paths, accounts, models or trusted automation. They do not register or start background jobs during installation. Run START to choose a role. PingPong requires an explicit sync root/own slot and supports its verified Codex/Claude adapters; MULTI-BOT uses the public githubbot-core package. For previews pass `--dry-run --provider codex`; missing modules produce an installation hint.
+
+
+## Package Tests & Deterministic Sharding
+
+To keep every CI matrix cell well below the 20-minute job timeout (`#2195`, `#3494`, `#3495`), the test suite uses stateless deterministic sharding (`K = 4`):
+
+```text
+shard(nodeid) = int(sha256(nodeid)[:8], 16) % K
+```
+
+Reproduce any shard locally:
+
+```bash
+python -m pytest -q -m "not slow" --shard-index=0 --shard-count=4
+```

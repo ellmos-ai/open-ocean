@@ -20,12 +20,13 @@ jobs:
       - package-tests
       - package-test-shards
     if: always()
-    timeout-minutes: 15
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ["3.10", "3.11", "3.12", "3.13"]
+        shard: [0, 1, 2, 3]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Require complete package test matrix
@@ -47,15 +48,25 @@ jobs:
           python -m pip install -e ".[test,gui]"
 
       - name: Lint with ruff
+        if: matrix.shard == 0
         run: python -m ruff check .
 
       - name: Bytecode compilation check
+        if: matrix.shard == 0
         run: python -m compileall -q tools tests architecture
 
-      - name: Run fast test suite
+      - name: Run sharded fast test suite
         env:
           PYTHONIOENCODING: utf-8
-        run: python -m pytest -q -m "not slow" --ignore=tests/test_python_packages.py
+        run: python -m pytest -q -m "not slow" --ignore=tests/test_python_packages.py --shard-index=${{ matrix.shard }} --shard-count=4 --junitxml=junit-shard-${{ matrix.shard }}.xml
+
+      - name: Upload JUnit XML shard artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-${{ matrix.os }}-py${{ matrix.python-version }}-shard-${{ matrix.shard }}
+          path: junit-shard-${{ matrix.shard }}.xml
+          if-no-files-found: ignore
 
   package-tests:
     name: Package test plan (${{ matrix.os }}, Python ${{ matrix.python-version }})

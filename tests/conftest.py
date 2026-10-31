@@ -348,3 +348,40 @@ def _ocean_runtime_process_hygiene(tmp_path_factory):
             + ", ".join(str(pid) for pid, _, _ in leftover),
             file=sys.stderr,
         )
+
+
+def pytest_addoption(parser):
+    group = parser.getgroup("shard", "Deterministic sha256 test sharding (#3494)")
+    group.addoption(
+        "--shard-index",
+        action="store",
+        type=int,
+        default=None,
+        help="Zero-based shard index in [0, shard-count).",
+    )
+    group.addoption(
+        "--shard-count",
+        action="store",
+        type=int,
+        default=None,
+        help="Total number of deterministic shards (K >= 1).",
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    shard_index = config.getoption("--shard-index")
+    shard_count = config.getoption("--shard-count")
+    if shard_index is None and shard_count is None:
+        return
+    if shard_index is None or shard_count is None:
+        raise pytest.UsageError("Both --shard-index and --shard-count must be specified together.")
+    from tools.pytest_shard import filter_items_for_shard
+    try:
+        kept = filter_items_for_shard(items, shard_index, shard_count)
+    except ValueError as exc:
+        raise pytest.UsageError(str(exc)) from exc
+    kept_set = set(kept)
+    deselected = [item for item in items if item not in kept_set]
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
+    items[:] = kept

@@ -343,12 +343,41 @@ def test_three_tier_authority_tunneling_and_authority_desert_prevention():
     assert c_completed["dispatch"]["dispatch_mode"] == "local_doc_update"
     assert c_completed["dispatch"]["execution_locality"] == "local_ocean_bach_only"
 
-    # Standard-Dispatch (local_taskplan): Ursache 1 & 2 erzeugen lokalen Reparatur-Task fuer Hintergrund-Worker
+    # Standard-Dispatch (local_taskplan): Ursache 1 & 2 erzeugen lokalen Reparatur-Task fuer Hintergrund-Worker + transparente Entscheidungsregel-Spur
     assert c_erosion["dispatch"]["dispatch_mode"] == "local_taskplan"
+    assert c_erosion["dispatch"]["selected_branches"] == ["local_taskplan", "user_notification"]
+    assert c_erosion["dispatch"]["decision_rule_trace"]["transparent"] is True
+    assert c_erosion["dispatch"]["decision_rule_trace"]["rule_source"] == "cause_routing:unintended_erosion"
     assert c_erosion["dispatch"]["target"] == "bach_or_ocean_taskplan"
     assert c_erosion["dispatch"]["assigned_worker"] == "background_worker"
     assert c_erosion["dispatch"]["priority"] == "P1"
     assert c_erosion["dispatch"]["developer_redirect_active"] is False
+
+    # Trigger-basierte Kombination (z. B. manual_developer_wish -> local_genie_marblerun + user_notification)
+    disp_trigger = resolve_doc_machine_dispatch(
+        cause="planned_terraforming_pending",
+        task_action="create_implementation_task",
+        trigger="manual_developer_wish",
+    )
+    assert disp_trigger["dispatch_mode"] == "local_marblerun_wishes"
+    assert disp_trigger["selected_branches"] == ["local_genie_marblerun", "user_notification"]
+    assert disp_trigger["decision_rule_trace"]["rule_source"] == "trigger_override:manual_developer_wish"
+
+    # Explizite Kombination mehrerer Aktionszweige (Task + Local Genie + GitLab Wishes + Userbenachrichtigung)
+    disp_combo = resolve_doc_machine_dispatch(
+        cause="unintended_erosion",
+        task_action="create_bugfix_terraforming_task",
+        branches_override=["local_taskplan", "local_genie_marblerun", "gitlab_wishes_come_true", "user_notification"],
+        active_tier="ocean-dev",
+    )
+    assert disp_combo["dispatch_mode"] == "wishes_redirect"
+    assert disp_combo["selected_branches"] == [
+        "local_taskplan",
+        "local_genie_marblerun",
+        "gitlab_wishes_come_true",
+        "user_notification",
+    ]
+    assert disp_combo["decision_rule_trace"]["rule_source"] == "explicit_branches_override"
 
     # Option 2: Lokale MarbleRun wishes-come-true-local Kette
     disp_marblerun = resolve_doc_machine_dispatch(
@@ -381,6 +410,7 @@ def test_three_tier_authority_tunneling_and_authority_desert_prevention():
     repo_root = Path(__file__).resolve().parents[1]
     loaded_cfg = load_doc_machine_config(workspace_root=repo_root)
     assert loaded_cfg["default_repair_dispatch"] == "local_taskplan"
+    assert loaded_cfg["decision_processing_rules"]["transparent"] is True
     assert loaded_cfg["wishes_redirect"]["enabled"] is False
 
 

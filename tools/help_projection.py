@@ -187,6 +187,14 @@ DOC_DIFF_CAUSES = (
     "aligned",                         # Kein Diff: Doku und Realität stimmen überein
 )
 
+AVAILABLE_DECISION_BRANCHES = (
+    "local_taskplan",                  # Zweig 1: Einfache Task im lokalen taskplan fuer Hintergrund-Worker einstellen
+    "local_genie_marblerun",           # Zweig 2: Lokale MarbleRun / Local-Genie Staffette (wishes-come-true-local)
+    "gitlab_wishes_come_true",         # Zweig 3: GitLab / Wishes-Come-True Pipeline (Entwickler-Feature wishes_redirect)
+    "user_notification",               # Zweig 4: Direkte Nutzerbenachrichtigung (GUI-Inbox, Telegram, Bericht)
+    "local_doc_update",                # Zweig 5: Automatisches Nachziehen von Doku & Uebersetzungen
+)
+
 DEFAULT_DOC_MACHINE_CONFIG: Dict[str, Any] = {
     "enabled": True,
     "execution_locality": "local_ocean_bach_only",
@@ -194,8 +202,45 @@ DEFAULT_DOC_MACHINE_CONFIG: Dict[str, Any] = {
     "available_repair_dispatches": [
         "local_taskplan",
         "local_marblerun_wishes",
+        "local_genie_marblerun",
+        "gitlab_wishes_come_true",
+        "user_notification",
         "wishes_redirect",
     ],
+    "decision_processing_rules": {
+        "transparent": True,
+        "configurable_per_trigger_and_cause": True,
+        "allow_branch_combinations": True,
+        "available_branches": list(AVAILABLE_DECISION_BRANCHES),
+        "cause_routing": {
+            "aligned": {
+                "branches": [],
+                "reason": "Doku-Claim und gemessene Realitaet stimmen ueberein (Beleg-Hash erneuern).",
+            },
+            "completed_terraforming_doc_lag": {
+                "branches": ["local_doc_update"],
+                "reason": "Ursache 3 (Erfolgtes Terraforming): Code wurde gewollt weiterentwickelt -> Doku & i18n lokal nachziehen.",
+            },
+            "planned_terraforming_pending": {
+                "branches": ["local_taskplan"],
+                "reason": "Ursache 2 (Geplantes Terraforming): Vorauseilende Doku (SOLL) -> Taskstatus pruefen/Task anlegen und SOLL vs. IST trennen.",
+            },
+            "unintended_erosion": {
+                "branches": ["local_taskplan", "user_notification"],
+                "reason": "Ursache 1 (Ungewollte Erosion/Drift): Code/Dienst ungewollt abgedriftet -> SOLL in Doku bewahren, P1-Reparatur-Task einstellen + Nutzer informieren.",
+            },
+        },
+        "trigger_overrides": {
+            "manual_developer_wish": {
+                "branches": ["local_genie_marblerun", "user_notification"],
+                "reason": "Manueller Entwickler-Trigger startet lokale Genie/MarbleRun-Kette mit Rueckmeldung.",
+            },
+            "ci_or_gitlab_issue": {
+                "branches": ["gitlab_wishes_come_true", "local_taskplan"],
+                "reason": "GitLab/CI-Trigger kombiniert Wishes-Come-True-Branch mit lokalem Task-Tracking.",
+            },
+        },
+    },
     "local_taskplan": {
         "enabled": True,
         "db_target": "bach_or_ocean_taskplan",
@@ -207,6 +252,11 @@ DEFAULT_DOC_MACHINE_CONFIG: Dict[str, Any] = {
         "enabled": False,
         "chain_name": "wishes-come-true-local",
         "max_rounds": 3,
+    },
+    "user_notification": {
+        "enabled": True,
+        "channels": ["gui_user_inbox", "telegram_optional"],
+        "notify_on_causes": ["unintended_erosion"],
     },
     "wishes_redirect": {
         "enabled": False,
@@ -260,40 +310,69 @@ def resolve_doc_machine_dispatch(
     *,
     cause: str,
     task_action: str,
+    trigger: str = "deterministic_doc_scan",
+    branches_override: List[str] | None = None,
     config_override: Dict[str, Any] | None = None,
     workspace_root: Path | None = None,
     active_tier: str = "ocean-dev",
 ) -> Dict[str, Any]:
-    """Resolve the local Ocean/BACH execution dispatch for a classified documentation diff.
+    """Transparent & Configurable Decision Processing Rule Engine for BACH & Ocean (`ellmos-doc-keeper`).
 
-    Keeps all actions strictly local in Ocean or BACH:
-      - `aligned` -> no action (`none`)
-      - `completed_terraforming_doc_lag` (Ursache 3) -> local doc update (`local_doc_update`)
-      - `unintended_erosion` (Ursache 1) & `planned_terraforming_pending` (Ursache 2):
-          * Standard (`local_taskplan`): creates/updates a repair or implementation task in the local
-            Ocean/BACH taskplan DB for a background worker.
-          * Option 2 (`local_marblerun_wishes`): triggers the local MarbleRun `wishes-come-true-local` chain.
-          * Option 3 (`wishes_redirect` — configurable developer feature in `config.json` for Lukas):
-            when `wishes_redirect.enabled == True` and `active_tier` satisfies `required_tier`,
-            redirects the repair order to the configured `wishes-come-true` / `local-genie` / MarbleRun target.
+    Determines both the primary `dispatch_mode` and the combinable `selected_branches`
+    (`local_taskplan`, `local_genie_marblerun`, `gitlab_wishes_come_true`, `user_notification`, `local_doc_update`)
+    along with a transparent audit receipt (`decision_rule_trace`).
     """
     cfg = load_doc_machine_config(workspace_root=workspace_root, config_override=config_override)
     locality = str(cfg.get("execution_locality") or "local_ocean_bach_only")
+    rules = cfg.get("decision_processing_rules") or {}
+    cause_routing = rules.get("cause_routing") or {}
+    trigger_overrides = rules.get("trigger_overrides") or {}
+
+    if branches_override is not None:
+        selected_branches = [b for b in branches_override if b in AVAILABLE_DECISION_BRANCHES]
+        rule_source = "explicit_branches_override"
+        rule_reason = "Vom Aufrufer/Operator explizit gesetzte Aktionszweige."
+    elif trigger in trigger_overrides and isinstance(trigger_overrides[trigger], dict):
+        t_rule = trigger_overrides[trigger]
+        selected_branches = list(t_rule.get("branches") or [])
+        rule_source = f"trigger_override:{trigger}"
+        rule_reason = str(t_rule.get("reason") or f"Trigger-Regel fuer {trigger}")
+    else:
+        c_rule = cause_routing.get(cause) or {}
+        selected_branches = list(c_rule.get("branches") or [])
+        rule_source = f"cause_routing:{cause}"
+        rule_reason = str(c_rule.get("reason") or f"Deterministische Regel fuer Ursache {cause}")
 
     if cause == "aligned":
         return {
             "dispatch_mode": "none",
+            "selected_branches": [],
             "execution_locality": locality,
             "target": "none",
             "developer_redirect_active": False,
+            "decision_rule_trace": {
+                "transparent": True,
+                "trigger": trigger,
+                "cause": cause,
+                "rule_source": rule_source,
+                "reason": rule_reason,
+            },
         }
 
     if cause == "completed_terraforming_doc_lag":
         return {
             "dispatch_mode": "local_doc_update",
+            "selected_branches": selected_branches or ["local_doc_update"],
             "execution_locality": locality,
             "target": "ocean_bach_docs_and_i18n",
             "developer_redirect_active": False,
+            "decision_rule_trace": {
+                "transparent": True,
+                "trigger": trigger,
+                "cause": cause,
+                "rule_source": rule_source,
+                "reason": rule_reason,
+            },
         }
 
     redirect_cfg = cfg.get("wishes_redirect") or {}
@@ -301,9 +380,14 @@ def resolve_doc_machine_dispatch(
     redirect_enabled = bool(redirect_cfg.get("enabled", False))
     redirect_causes = list(redirect_cfg.get("redirect_on_causes") or ["unintended_erosion", "planned_terraforming_pending"])
 
-    if redirect_enabled and cause in redirect_causes and active_tier in allowed_tiers:
+    if (redirect_enabled and cause in redirect_causes and active_tier in allowed_tiers) or (
+        "gitlab_wishes_come_true" in selected_branches and active_tier in allowed_tiers
+    ):
+        if "gitlab_wishes_come_true" not in selected_branches and "local_genie_marblerun" not in selected_branches:
+            selected_branches = ["gitlab_wishes_come_true"] + [b for b in selected_branches if b != "local_taskplan"]
         return {
             "dispatch_mode": "wishes_redirect",
+            "selected_branches": selected_branches,
             "execution_locality": locality,
             "target": str(redirect_cfg.get("target_mode") or "local_marblerun_chain"),
             "target_chain": str(redirect_cfg.get("target_chain") or "wishes-come-true-local"),
@@ -311,17 +395,38 @@ def resolve_doc_machine_dispatch(
             "wishes_come_true_repo_path": str(redirect_cfg.get("wishes_come_true_repo_path") or ""),
             "developer_redirect_active": True,
             "task_action": task_action,
+            "decision_rule_trace": {
+                "transparent": True,
+                "trigger": trigger,
+                "cause": cause,
+                "rule_source": "wishes_redirect_developer_feature" if redirect_enabled else rule_source,
+                "reason": rule_reason,
+            },
         }
 
     default_dispatch = str(cfg.get("default_repair_dispatch") or "local_taskplan")
     marblerun_cfg = cfg.get("local_marblerun_wishes") or {}
-    if default_dispatch == "local_marblerun_wishes" or bool(marblerun_cfg.get("enabled", False)):
+    if (
+        default_dispatch in ("local_marblerun_wishes", "local_genie_marblerun")
+        or bool(marblerun_cfg.get("enabled", False))
+        or "local_genie_marblerun" in selected_branches
+    ):
+        if "local_genie_marblerun" not in selected_branches:
+            selected_branches = ["local_genie_marblerun"] + [b for b in selected_branches if b != "local_taskplan"]
         return {
             "dispatch_mode": "local_marblerun_wishes",
+            "selected_branches": selected_branches,
             "execution_locality": locality,
             "target": str(marblerun_cfg.get("chain_name") or "wishes-come-true-local"),
             "developer_redirect_active": False,
             "task_action": task_action,
+            "decision_rule_trace": {
+                "transparent": True,
+                "trigger": trigger,
+                "cause": cause,
+                "rule_source": rule_source,
+                "reason": rule_reason,
+            },
         }
 
     tp_cfg = cfg.get("local_taskplan") or {}
@@ -330,14 +435,24 @@ def resolve_doc_machine_dispatch(
         if cause == "unintended_erosion"
         else str(tp_cfg.get("priority_planned_terraforming") or "P2")
     )
+    if not selected_branches:
+        selected_branches = ["local_taskplan"]
     return {
         "dispatch_mode": "local_taskplan",
+        "selected_branches": selected_branches,
         "execution_locality": locality,
         "target": str(tp_cfg.get("db_target") or "bach_or_ocean_taskplan"),
         "assigned_worker": str(tp_cfg.get("assigned_worker") or "background_worker"),
         "priority": priority,
         "developer_redirect_active": False,
         "task_action": task_action,
+        "decision_rule_trace": {
+            "transparent": True,
+            "trigger": trigger,
+            "cause": cause,
+            "rule_source": rule_source,
+            "reason": rule_reason,
+        },
     }
 
 

@@ -565,3 +565,29 @@ def classify_doc_reality_diff(
         "dispatch": dispatch,
     }
 
+
+def audit_repository_with_doc_keeper(
+    repo_root: str | Path,
+    *,
+    config_override: Dict[str, Any] | None = None,
+) -> Dict[str, Any]:
+    """Delegate generic repository 3-Cause documentation audit to the standalone `doc-keeper` module."""
+    import sys
+
+    root_path = Path(repo_root).resolve()
+    candidates = [
+        root_path.parent / "doc-keeper" / "src",
+        Path("C:/_Local_DEV/repos/doc-keeper/src"),
+        Path("C:/Users/User/OneDrive/.TOPICS/.AI/.MODULES/.CONTROL/doc-keeper/src"),
+    ]
+    for cand in candidates:
+        if cand.is_dir() and str(cand) not in sys.path:
+            sys.path.insert(0, str(cand))
+    from doc_keeper.extractor import audit_repository
+
+    return audit_repository(
+        root_path,
+        config_override=config_override,
+    )
+
+

@@ -78,6 +78,28 @@ def environment(tmp_path, monkeypatch):
     return target, artifacts, path, request
 
 
+def test_serialized_package_wrapper_preserves_keyword_arguments(monkeypatch):
+    from contextlib import nullcontext
+
+    monkeypatch.setattr(packages, "_profile", lambda *_: (b"", {}))
+    monkeypatch.setattr(packages, "_venv_mutex", lambda *_: nullcontext())
+    request = {"profile_id": "synthetic-qa-only", "profile_sha256": "0" * 64}
+    plan = {"request": request}
+
+    @packages._serialized
+    def plan_operation(plan, mode):
+        return plan, mode
+
+    @packages._serialized
+    def request_operation(request, mode):
+        return request, mode
+
+    assert request_operation(request=request, mode="keyword") == (request, "keyword")
+    assert request_operation(request, "positional") == (request, "positional")
+    assert plan_operation(plan=plan, mode="keyword") == (plan, "keyword")
+    assert plan_operation(plan, "positional") == (plan, "positional")
+
+
 def test_target_metadata_restore_ignores_only_directory_allocation_size():
     directory = (0o040000 | 0o755)
     regular_file = (0o100000 | 0o644)

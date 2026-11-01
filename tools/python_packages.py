@@ -215,12 +215,18 @@ def package_transaction(plan: dict):
 
 def _serialized(function):
     import functools
+    import inspect
+    signature = inspect.signature(function)
+    first_parameter = next(iter(signature.parameters))
+
     @functools.wraps(function)
-    def operation(value, *args, **kwargs):
+    def operation(*args, **kwargs):
+        bound = signature.bind(*args, **kwargs)
+        value = bound.arguments[first_parameter]
         request = value.get("request", value)
         _, profile = _profile(request["profile_id"], request["profile_sha256"])
         with _venv_mutex(profile):
-            return function(value, *args, **kwargs)
+            return function(*args, **kwargs)
     return operation
 
 

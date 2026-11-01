@@ -16,7 +16,9 @@ from tools.gui_metadata import build_onboarding_wizard_contract, resolve_entry_p
 from tools.help_projection import (
     classify_doc_reality_diff,
     gui_showcase_and_competitor_matrix,
+    load_doc_machine_config,
     pipeline_acceptance_matrix,
+    resolve_doc_machine_dispatch,
     verify_cli_api_reference_parity,
 )
 from tools.task_result_review_policy import evaluate_configurable_review_policy
@@ -338,5 +340,48 @@ def test_three_tier_authority_tunneling_and_authority_desert_prevention():
     )
     assert c_completed["cause"] == "completed_terraforming_doc_lag"
     assert c_completed["deterministic_action"] == "update_doc_and_translations"
+    assert c_completed["dispatch"]["dispatch_mode"] == "local_doc_update"
+    assert c_completed["dispatch"]["execution_locality"] == "local_ocean_bach_only"
+
+    # Standard-Dispatch (local_taskplan): Ursache 1 & 2 erzeugen lokalen Reparatur-Task fuer Hintergrund-Worker
+    assert c_erosion["dispatch"]["dispatch_mode"] == "local_taskplan"
+    assert c_erosion["dispatch"]["target"] == "bach_or_ocean_taskplan"
+    assert c_erosion["dispatch"]["assigned_worker"] == "background_worker"
+    assert c_erosion["dispatch"]["priority"] == "P1"
+    assert c_erosion["dispatch"]["developer_redirect_active"] is False
+
+    # Option 2: Lokale MarbleRun wishes-come-true-local Kette
+    disp_marblerun = resolve_doc_machine_dispatch(
+        cause="unintended_erosion",
+        task_action="create_bugfix_terraforming_task",
+        config_override={"default_repair_dispatch": "local_marblerun_wishes"},
+    )
+    assert disp_marblerun["dispatch_mode"] == "local_marblerun_wishes"
+    assert disp_marblerun["target"] == "wishes-come-true-local"
+    assert disp_marblerun["developer_redirect_active"] is False
+
+    # Option 3: Konfigurierbares Entwickler-Feature `wishes_redirect` in config.json fuer Lukas (ocean-dev)
+    disp_redirect = resolve_doc_machine_dispatch(
+        cause="unintended_erosion",
+        task_action="create_bugfix_terraforming_task",
+        config_override={
+            "wishes_redirect": {
+                "enabled": True,
+                "target_mode": "local_genie_pipeline",
+                "target_chain": "wishes-come-true-local",
+            }
+        },
+        active_tier="ocean-dev",
+    )
+    assert disp_redirect["dispatch_mode"] == "wishes_redirect"
+    assert disp_redirect["developer_redirect_active"] is True
+    assert disp_redirect["target"] == "local_genie_pipeline"
+
+    # Kanonische Datei config/doc_machine.config.json im Repo ist ladbar
+    repo_root = Path(__file__).resolve().parents[1]
+    loaded_cfg = load_doc_machine_config(workspace_root=repo_root)
+    assert loaded_cfg["default_repair_dispatch"] == "local_taskplan"
+    assert loaded_cfg["wishes_redirect"]["enabled"] is False
+
 
 

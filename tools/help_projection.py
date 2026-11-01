@@ -187,6 +187,159 @@ DOC_DIFF_CAUSES = (
     "aligned",                         # Kein Diff: Doku und Realität stimmen überein
 )
 
+DEFAULT_DOC_MACHINE_CONFIG: Dict[str, Any] = {
+    "enabled": True,
+    "execution_locality": "local_ocean_bach_only",
+    "default_repair_dispatch": "local_taskplan",
+    "available_repair_dispatches": [
+        "local_taskplan",
+        "local_marblerun_wishes",
+        "wishes_redirect",
+    ],
+    "local_taskplan": {
+        "enabled": True,
+        "db_target": "bach_or_ocean_taskplan",
+        "assigned_worker": "background_worker",
+        "priority_unintended_erosion": "P1",
+        "priority_planned_terraforming": "P2",
+    },
+    "local_marblerun_wishes": {
+        "enabled": False,
+        "chain_name": "wishes-come-true-local",
+        "max_rounds": 3,
+    },
+    "wishes_redirect": {
+        "enabled": False,
+        "feature_tier": "developer_only",
+        "required_tier": "ocean-dev",
+        "owner": "lukas",
+        "target_mode": "local_marblerun_chain",
+        "target_chain": "wishes-come-true-local",
+        "local_genie_repo_path": "C:\\_Local_DEV\\repos\\local-genie",
+        "wishes_come_true_repo_path": "C:\\_Local_DEV\\repos\\wishes-come-true",
+        "redirect_on_causes": [
+            "unintended_erosion",
+            "planned_terraforming_pending",
+        ],
+        "allow_auto_fix_branch": True,
+    },
+}
+
+
+def load_doc_machine_config(workspace_root: Path | None = None, config_override: Dict[str, Any] | None = None) -> Dict[str, Any]:
+    """Load the local Documentation Machine configuration (`config/doc_machine.config.json` or override)."""
+    from copy import deepcopy
+
+    cfg = deepcopy(DEFAULT_DOC_MACHINE_CONFIG)
+    if workspace_root is not None:
+        cfg_path = Path(workspace_root) / "config" / "doc_machine.config.json"
+        if cfg_path.is_file():
+            try:
+                raw = json.loads(cfg_path.read_text(encoding="utf-8"))
+                doc_block = raw.get("doc_machine", raw) if isinstance(raw, dict) else {}
+                if isinstance(doc_block, dict):
+                    for k, v in doc_block.items():
+                        if isinstance(v, dict) and isinstance(cfg.get(k), dict):
+                            cfg[k].update(v)
+                        else:
+                            cfg[k] = v
+            except Exception:
+                pass
+    if isinstance(config_override, dict):
+        doc_block = config_override.get("doc_machine", config_override)
+        if isinstance(doc_block, dict):
+            for k, v in doc_block.items():
+                if isinstance(v, dict) and isinstance(cfg.get(k), dict):
+                    cfg[k].update(v)
+                else:
+                    cfg[k] = v
+    return cfg
+
+
+def resolve_doc_machine_dispatch(
+    *,
+    cause: str,
+    task_action: str,
+    config_override: Dict[str, Any] | None = None,
+    workspace_root: Path | None = None,
+    active_tier: str = "ocean-dev",
+) -> Dict[str, Any]:
+    """Resolve the local Ocean/BACH execution dispatch for a classified documentation diff.
+
+    Keeps all actions strictly local in Ocean or BACH:
+      - `aligned` -> no action (`none`)
+      - `completed_terraforming_doc_lag` (Ursache 3) -> local doc update (`local_doc_update`)
+      - `unintended_erosion` (Ursache 1) & `planned_terraforming_pending` (Ursache 2):
+          * Standard (`local_taskplan`): creates/updates a repair or implementation task in the local
+            Ocean/BACH taskplan DB for a background worker.
+          * Option 2 (`local_marblerun_wishes`): triggers the local MarbleRun `wishes-come-true-local` chain.
+          * Option 3 (`wishes_redirect` — configurable developer feature in `config.json` for Lukas):
+            when `wishes_redirect.enabled == True` and `active_tier` satisfies `required_tier`,
+            redirects the repair order to the configured `wishes-come-true` / `local-genie` / MarbleRun target.
+    """
+    cfg = load_doc_machine_config(workspace_root=workspace_root, config_override=config_override)
+    locality = str(cfg.get("execution_locality") or "local_ocean_bach_only")
+
+    if cause == "aligned":
+        return {
+            "dispatch_mode": "none",
+            "execution_locality": locality,
+            "target": "none",
+            "developer_redirect_active": False,
+        }
+
+    if cause == "completed_terraforming_doc_lag":
+        return {
+            "dispatch_mode": "local_doc_update",
+            "execution_locality": locality,
+            "target": "ocean_bach_docs_and_i18n",
+            "developer_redirect_active": False,
+        }
+
+    redirect_cfg = cfg.get("wishes_redirect") or {}
+    allowed_tiers = ("ocean-dev", "ocean-admin")
+    redirect_enabled = bool(redirect_cfg.get("enabled", False))
+    redirect_causes = list(redirect_cfg.get("redirect_on_causes") or ["unintended_erosion", "planned_terraforming_pending"])
+
+    if redirect_enabled and cause in redirect_causes and active_tier in allowed_tiers:
+        return {
+            "dispatch_mode": "wishes_redirect",
+            "execution_locality": locality,
+            "target": str(redirect_cfg.get("target_mode") or "local_marblerun_chain"),
+            "target_chain": str(redirect_cfg.get("target_chain") or "wishes-come-true-local"),
+            "local_genie_repo_path": str(redirect_cfg.get("local_genie_repo_path") or ""),
+            "wishes_come_true_repo_path": str(redirect_cfg.get("wishes_come_true_repo_path") or ""),
+            "developer_redirect_active": True,
+            "task_action": task_action,
+        }
+
+    default_dispatch = str(cfg.get("default_repair_dispatch") or "local_taskplan")
+    marblerun_cfg = cfg.get("local_marblerun_wishes") or {}
+    if default_dispatch == "local_marblerun_wishes" or bool(marblerun_cfg.get("enabled", False)):
+        return {
+            "dispatch_mode": "local_marblerun_wishes",
+            "execution_locality": locality,
+            "target": str(marblerun_cfg.get("chain_name") or "wishes-come-true-local"),
+            "developer_redirect_active": False,
+            "task_action": task_action,
+        }
+
+    tp_cfg = cfg.get("local_taskplan") or {}
+    priority = (
+        str(tp_cfg.get("priority_unintended_erosion") or "P1")
+        if cause == "unintended_erosion"
+        else str(tp_cfg.get("priority_planned_terraforming") or "P2")
+    )
+    return {
+        "dispatch_mode": "local_taskplan",
+        "execution_locality": locality,
+        "target": str(tp_cfg.get("db_target") or "bach_or_ocean_taskplan"),
+        "assigned_worker": str(tp_cfg.get("assigned_worker") or "background_worker"),
+        "priority": priority,
+        "developer_redirect_active": False,
+        "task_action": task_action,
+    }
+
 
 def classify_doc_reality_diff(
     *,
@@ -198,15 +351,25 @@ def classify_doc_reality_diff(
     previously_worked_in_reality: bool = False,
     linked_task_id: str | None = None,
     task_status: str | None = None,
+    config_override: Dict[str, Any] | None = None,
+    workspace_root: Path | None = None,
+    active_tier: str = "ocean-dev",
 ) -> Dict[str, Any]:
-    """Deterministic 3-Cause Classifier & Action Router for Documentation <-> Reality Diffs (ellmos-doc-keeper).
+    """Deterministic 3-Cause Classifier & Local Ocean/BACH Action Router for Documentation <-> Reality Diffs.
 
     Distinguishes between:
-      1. `unintended_erosion` (Erosion/Drift: code broke or drifted unintentionally -> create repair task, keep SOLL in doc)
-      2. `planned_terraforming_pending` (Missing/Planned Terraforming: doc states SOLL, code not ready -> check/update/create task, mark SOLL vs. IST)
-      3. `completed_terraforming_doc_lag` (Completed Terraforming: code was intentionally advanced -> update doc & translations)
+      1. `unintended_erosion` (Erosion/Drift: code broke or drifted unintentionally -> local repair task in Ocean/BACH for background worker, keep SOLL in doc)
+      2. `planned_terraforming_pending` (Missing/Planned Terraforming: doc states SOLL, code not ready -> check/update/create local task, mark SOLL vs. IST)
+      3. `completed_terraforming_doc_lag` (Completed Terraforming: code was intentionally advanced -> update doc & translations locally)
     """
     if reality_matches_doc:
+        dispatch = resolve_doc_machine_dispatch(
+            cause="aligned",
+            task_action="none",
+            config_override=config_override,
+            workspace_root=workspace_root,
+            active_tier=active_tier,
+        )
         return {
             "schema": "ellmos.doc-keeper.diff-classification.v1",
             "claim_statement": claim_statement,
@@ -217,10 +380,18 @@ def classify_doc_reality_diff(
             "update_ist_in_doc": False,
             "task_action": "none",
             "linked_task_id": linked_task_id,
+            "dispatch": dispatch,
         }
 
     # Ursache 3: Erfolgtes Terraforming im Code mit lückenhafter Doku (BACH-Standardfall, aber jetzt belegt!)
     if code_has_newer_intentional_change and (task_status == "done" or not planned_in_roadmap_or_decisions):
+        dispatch = resolve_doc_machine_dispatch(
+            cause="completed_terraforming_doc_lag",
+            task_action="none",
+            config_override=config_override,
+            workspace_root=workspace_root,
+            active_tier=active_tier,
+        )
         return {
             "schema": "ellmos.doc-keeper.diff-classification.v1",
             "claim_statement": claim_statement,
@@ -231,11 +402,19 @@ def classify_doc_reality_diff(
             "update_ist_in_doc": True,
             "task_action": "none",
             "linked_task_id": linked_task_id,
+            "dispatch": dispatch,
         }
 
     # Ursache 2: Fehlendes / nur geplantes Terraforming (Vorauseilende Doku / SOLL)
     if planned_in_roadmap_or_decisions and not previously_worked_in_reality:
         task_act = "verify_or_adjust_existing_task" if linked_task_id else "create_implementation_task"
+        dispatch = resolve_doc_machine_dispatch(
+            cause="planned_terraforming_pending",
+            task_action=task_act,
+            config_override=config_override,
+            workspace_root=workspace_root,
+            active_tier=active_tier,
+        )
         return {
             "schema": "ellmos.doc-keeper.diff-classification.v1",
             "claim_statement": claim_statement,
@@ -246,9 +425,18 @@ def classify_doc_reality_diff(
             "update_ist_in_doc": True,
             "task_action": task_act,
             "linked_task_id": linked_task_id,
+            "dispatch": dispatch,
         }
 
     # Ursache 1: Ungewollte Erosion / Drift / Regression
+    task_act = "reopen_or_escalate_task" if linked_task_id else "create_bugfix_terraforming_task"
+    dispatch = resolve_doc_machine_dispatch(
+        cause="unintended_erosion",
+        task_action=task_act,
+        config_override=config_override,
+        workspace_root=workspace_root,
+        active_tier=active_tier,
+    )
     return {
         "schema": "ellmos.doc-keeper.diff-classification.v1",
         "claim_statement": claim_statement,
@@ -257,7 +445,8 @@ def classify_doc_reality_diff(
         "deterministic_action": "create_repair_terraforming_task_keep_doc_soll",
         "preserve_soll_in_doc": True,
         "update_ist_in_doc": True,
-        "task_action": "reopen_or_escalate_task" if linked_task_id else "create_bugfix_terraforming_task",
+        "task_action": task_act,
         "linked_task_id": linked_task_id,
+        "dispatch": dispatch,
     }
 

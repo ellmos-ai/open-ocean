@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from ocean import main as ocean_main
@@ -106,7 +107,20 @@ def test_watchdog_hysteresis_policy_prevents_cold_start_false_alarm() -> None:
     assert reason_crit == "sustained_critical_memory_pressure"
 
 
-def test_ocean_cli_task_delegates_to_taskplan(tmp_path: Path) -> None:
+def test_ocean_cli_task_delegates_to_taskplan(tmp_path: Path, monkeypatch) -> None:
+    # Hermetic stand-in for the external task-master core: prints its argv and exits 0.
+    stub_root = tmp_path / "stub"
+    package = stub_root / "taskplan"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    (package / "__main__.py").write_text(
+        "import json, sys\nprint(json.dumps(sys.argv[1:]))\n",
+        encoding="utf-8",
+    )
+    monkeypatch.syspath_prepend(str(stub_root))
+    existing = os.environ.get("PYTHONPATH", "")
+    monkeypatch.setenv("PYTHONPATH", f"{stub_root}{os.pathsep}{existing}" if existing else str(stub_root))
+
     db_file = str(tmp_path / "ocean_tasks.db")
     rc = ocean_main(
         [

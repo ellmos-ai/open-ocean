@@ -9,7 +9,6 @@ submission ALWAYS requires explicit user approval (submission_requires_user_appr
 from __future__ import annotations
 
 from collections.abc import Mapping
-from pathlib import Path
 from typing import Any
 
 REQUIRED_MSIX_FIELDS = (

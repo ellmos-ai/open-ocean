@@ -342,6 +342,50 @@ flowchart TD
 ```
 
 
+### 3. Boss- & Experten-Rollen in Ocean: Dual-Routing, Flexible Anbieter-Sockel & die 3-Tab-Agenten-Bibliothek (`ellmos.role-socket-catalog.v1`)
+
+In Ocean bleiben die bewährten BACH-**Boss-Agenten (Koordinatoren)** und **Domänen-Experten** als **anbieterunabhängige Rollen (`roles[]`)** mit **dualem Routing** und **flexiblem Anbieter-Sockel (`model_sockets` über `clutch` + `agents-heart`)** erhalten:
+
+- **Duales Routing (`semantic_umbrella_and_persona` + `deterministic_controlcenter_mcp`):**
+  - **Semantisches Routing:** Umbrella-Skills (`projekt-pipeline-umbrella`, `therapie-umbrella`, `selbstmanagement` usw.) und `semantic-persona-routing` (`persona_router.py`) wählen kontextsensitiv die passende Koordinatoren-/Experten-Rolle samt Skill-Set.
+  - **Deterministisches Routing:** `ellmos-controlcenter-mcp` (`controlcenter_resolve_semantic_route`, `controlcenter_switch_profile`) übernimmt das regelgebundene, deterministische Routing und Profil-Umschalten.
+- **Flexibler Anbieter-Sockel (`reasoning_coordinator`, `domain_specialist`, `fast_worker`):** Rollen sind von festen Modell-Anbietern entkoppelt und lassen sich zur Laufzeit flexibel mit **Claude (`claude`)**, **OpenAI/Codex (`codex`)**, **Gemini/Antigravity (`agy`)**, **Kimi (`kimi`)**, **lokalem Ollama (`ollama`)** oder **OpenRouter (`openrouter`)** bestücken.
+- **3-Tab-Agenten-Bibliothek (`/agenten/bibliothek`, `build_full_agent_library_catalog`):** Vereint die 6 Koordinatoren-Rollen (`ati`, `bueroassistent`, `finanz-assistent`, `gesundheitsassistent`, `persoenlicher-assistent`, `produktivitaet`), 22+ Domänen-Experten und **17 explizite Modul-Rollen (`roles[]`)** aus 9 Ocean-Modul-Repositories (`task-master`, `ticket-master`, `MarbleRun`, `system-auditor`, `compare-race`, `ellmos-installer`, `foerderplaner`, `ai-media-editor`, `clip-storyboard-director`) in Tab 1 (`templates`), Tab 2 (`prompt_agents`) und Tab 3 (`chains`).
+
+```mermaid
+flowchart TD
+    classDef routeLayer fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0369a1
+    classDef roleLayer fill:#ecfdf5,stroke:#059669,stroke-width:2px,color:#065f46
+    classDef socketLayer fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#92400e
+
+    subgraph R1["1. Duales Routing (Semantisch vs. Deterministisch)"]
+        SEM["Semantisches Routing
+Umbrella-Skills (*-umbrella) + semantic-persona-routing"]:::routeLayer
+        DET["Deterministisches Routing
+ellmos-controlcenter-mcp (resolve_semantic_route / switch_profile)"]:::routeLayer
+    end
+
+    subgraph R2["2. Ocean-Rollen & 3-Tab-Agenten-Bibliothek (ellmos.agent-library.v1)"]
+        COORD["6 Koordinatoren-Rollen (ehem. BACH-Bosse)
+ati, bueroassistent, finanz-assistent, gesundheitsassistent, persoenlicher-assistent, produktivitaet"]:::roleLayer
+        EXP["22+ Domänen-Experten & 17 Modul-Rollen (roles[])
+tasksolver, ticket-master, ticket-writer, marble-controller, doc-keeper, race-starter, foerderplaner-expert, media-creator, storyboard-director"]:::roleLayer
+        SEM --> COORD
+        DET --> COORD
+        COORD --> EXP
+    end
+
+    subgraph R3["3. Flexibler Anbieter-Sockel (model_sockets + clutch + agents-heart)"]
+        SOCK["Standardisierte Modell-Sockel
+reasoning_coordinator | domain_specialist | fast_worker"]:::socketLayer
+        PROV["Austauschbare LLM-Anbieter
+Claude | Codex/GPT | Gemini/AGY | Kimi | Lokales Ollama | OpenRouter"]:::socketLayer
+        COORD --> SOCK
+        EXP --> SOCK
+        SOCK --> PROV
+    end
+```
+
 ---
 
 ## Schnellstart und CLI-Nutzung

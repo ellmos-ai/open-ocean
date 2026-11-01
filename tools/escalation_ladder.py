@@ -8,7 +8,9 @@ Covers:
 """
 from __future__ import annotations
 
+import json
 import re
+from pathlib import Path
 from typing import Any
 
 ESCALATION_SCHEMA = "ellmos.escalation-ladder.v1"
@@ -17,6 +19,176 @@ COGNITIVE_AUTHORITY_LOOP_SCHEMA = "ellmos.cognitive-authority-loop.v1"
 PERSONA_ROUTING_SCHEMA = "ellmos.persona-routing.v2"
 LEARNING_CANDIDATE_SCHEMA = "ellmos.learning-loop-candidate.v1"
 AGENT_LIBRARY_SCHEMA = "ellmos.agent-library.v1"
+ROLE_SOCKET_CATALOG_SCHEMA = "ellmos.role-socket-catalog.v1"
+
+# Flexible provider sockets decouple Ocean/BACH roles from a fixed LLM vendor (`clutch` + `agents-heart`).
+PROVIDER_SOCKET_PROFILES: dict[str, dict[str, Any]] = {
+    "reasoning_coordinator": {
+        "socket_id": "reasoning_coordinator",
+        "description": "High-reasoning coordinator socket for Umbrella/Boss routing and multi-step orchestration.",
+        "providers": {
+            "claude": "claude-opus-4-6",
+            "codex": "gpt-5.4",
+            "agy": "gemini-3.1-pro",
+            "kimi": "kimi-k2.5",
+            "ollama": "qwen3.5:35b-a3b",
+            "openrouter": "anthropic/claude-opus-4-6",
+        },
+    },
+    "domain_specialist": {
+        "socket_id": "domain_specialist",
+        "description": "Balanced specialist socket for domain experts, audits, and structured report generation.",
+        "providers": {
+            "claude": "claude-sonnet-4-6",
+            "codex": "gpt-5.4-mini",
+            "agy": "gemini-3-flash",
+            "kimi": "kimi-k2.5",
+            "ollama": "qwen3.5:35b-a3b",
+            "openrouter": "anthropic/claude-sonnet-4-6",
+        },
+    },
+    "fast_worker": {
+        "socket_id": "fast_worker",
+        "description": "Low-latency execution socket for atomic worker tasks, ticket triage, and hygiene scans.",
+        "providers": {
+            "claude": "claude-haiku-4-5",
+            "codex": "gpt-5.4-mini",
+            "agy": "gemini-3-flash-lite",
+            "kimi": "kimi-k2.5",
+            "ollama": "qwen2.5-coder:14b",
+            "openrouter": "google/gemini-2.5-flash",
+        },
+    },
+}
+
+# Canonical BACH Boss (Coordinator) & Expert roles mapped to Ocean dual-routing + flexible provider sockets.
+OCEAN_ROLE_ROUTING_AND_SOCKET_CATALOG: tuple[dict[str, Any], ...] = (
+    # --- 6 Coordinators (formerly BACH Boss Agents) ---
+    {
+        "id": "ati",
+        "label": "ATI (Software-Entwicklung & Tooling)",
+        "tier": "coordinator",
+        "legacy_bach_kind": "boss",
+        "semantic_route": "projekt-pipeline-umbrella",
+        "deterministic_route": "controlcenter_resolve_semantic_route(domain='dev')",
+        "socket_id": "reasoning_coordinator",
+        "experts": ("entwickler-agent", "system-architekt", "devops-experte"),
+    },
+    {
+        "id": "bueroassistent",
+        "label": "Büroassistent (Steuern, Verwaltung & Dokumente)",
+        "tier": "coordinator",
+        "legacy_bach_kind": "boss",
+        "semantic_route": "office-administration-umbrella",
+        "deterministic_route": "controlcenter_resolve_semantic_route(domain='office')",
+        "socket_id": "reasoning_coordinator",
+        "experts": ("steuer-agent", "foerderplaner", "bewerbungsexperte", "rechtsberater"),
+    },
+    {
+        "id": "finanz-assistent",
+        "label": "Finanz-Assistent (Banking, Budget & Versicherungen)",
+        "tier": "coordinator",
+        "legacy_bach_kind": "boss",
+        "semantic_route": "finance-insurance-umbrella",
+        "deterministic_route": "controlcenter_resolve_semantic_route(domain='finance')",
+        "socket_id": "reasoning_coordinator",
+        "experts": ("finanz-experte", "versicherungs-experte", "immobilien-experte"),
+    },
+    {
+        "id": "gesundheitsassistent",
+        "label": "Gesundheitsassistent (Medizin, Labor & Prävention)",
+        "tier": "coordinator",
+        "legacy_bach_kind": "boss",
+        "semantic_route": "therapie-umbrella",
+        "deterministic_route": "controlcenter_resolve_semantic_route(domain='health_therapy')",
+        "socket_id": "reasoning_coordinator",
+        "experts": ("gesundheitsverwalter", "psychologischer-berater"),
+    },
+    {
+        "id": "persoenlicher-assistent",
+        "label": "Persönlicher Assistent (Alltag, Termine & Kontakte)",
+        "tier": "coordinator",
+        "legacy_bach_kind": "boss",
+        "semantic_route": "personal-life-umbrella",
+        "deterministic_route": "controlcenter_resolve_semantic_route(domain='personal')",
+        "socket_id": "reasoning_coordinator",
+        "experts": ("reise-experte", "haushalts-experte", "kommunikations-experte"),
+    },
+    {
+        "id": "produktivitaet",
+        "label": "Produktivität (Selbstmanagement & Ziele)",
+        "tier": "coordinator",
+        "legacy_bach_kind": "boss",
+        "semantic_route": "selbstmanagement",
+        "deterministic_route": "controlcenter_resolve_semantic_route(domain='productivity')",
+        "socket_id": "reasoning_coordinator",
+        "experts": ("projekt-experte", "qualitaets-experte", "dokumentations-experte", "forschungs-experte"),
+    },
+    # --- Representative Domain Experts (with flexible provider sockets) ---
+    {
+        "id": "steuer-agent",
+        "label": "Steuer-Experte (Belege & ELSTER)",
+        "tier": "expert",
+        "legacy_bach_kind": "expert",
+        "semantic_route": "office-administration-umbrella -> steuer-agent",
+        "deterministic_route": "controlcenter_switch_profile(profile='office-tax')",
+        "socket_id": "domain_specialist",
+    },
+    {
+        "id": "foerderplaner",
+        "label": "Förderplaner (ICF & Teilhabeplanung)",
+        "tier": "expert",
+        "legacy_bach_kind": "expert",
+        "semantic_route": "therapie-umbrella -> foerderplaner",
+        "deterministic_route": "controlcenter_switch_profile(profile='therapy-icf')",
+        "socket_id": "domain_specialist",
+    },
+    {
+        "id": "bewerbungsexperte",
+        "label": "Bewerbungsexperte (CV, Matching & Anschreiben)",
+        "tier": "expert",
+        "legacy_bach_kind": "expert",
+        "semantic_route": "office-administration-umbrella -> bewerbungsexperte",
+        "deterministic_route": "controlcenter_find_skill(query='bewerbungsexperte')",
+        "socket_id": "domain_specialist",
+    },
+    {
+        "id": "gesundheitsverwalter",
+        "label": "Gesundheitsverwalter (Befunde & Medikation)",
+        "tier": "expert",
+        "legacy_bach_kind": "expert",
+        "semantic_route": "therapie-umbrella -> gesundheitsverwalter",
+        "deterministic_route": "controlcenter_switch_profile(profile='health-records')",
+        "socket_id": "domain_specialist",
+    },
+    {
+        "id": "psychologischer-berater",
+        "label": "Psychologischer Berater (Stabilisierung & Gesprächsführung)",
+        "tier": "expert",
+        "legacy_bach_kind": "expert",
+        "semantic_route": "therapie-umbrella -> counseling-basics",
+        "deterministic_route": "controlcenter_find_skill(query='therapie-umbrella')",
+        "socket_id": "domain_specialist",
+    },
+    {
+        "id": "forschungs-experte",
+        "label": "Forschungs-Experte (Literatur, ArXiv & Claim-Mode)",
+        "tier": "expert",
+        "legacy_bach_kind": "expert",
+        "semantic_route": "research-umbrella -> claim-mode",
+        "deterministic_route": "controlcenter_find_skill(query='claim-mode')",
+        "socket_id": "domain_specialist",
+    },
+    {
+        "id": "dokumentations-experte",
+        "label": "Dokumentations-Experte (Doc-Keeper & 3-Ursachen-Prüfung)",
+        "tier": "expert",
+        "legacy_bach_kind": "expert",
+        "semantic_route": "docs-analysis -> doc-keeper",
+        "deterministic_route": "controlcenter_find_skill(query='docs-analysis')",
+        "socket_id": "domain_specialist",
+    },
+)
 
 AUTHORITY_TUNNEL_TIERS = (
     "semantic_tunneling",     # Tier 1: Dynamic everyday reversible work (authority_ref / goal context)
@@ -130,18 +302,31 @@ def validate_persona_routing_manifest(manifest: dict[str, Any]) -> dict[str, Any
             problems.append(f"roles[{idx}] must be a dict")
             continue
         role_id = role.get("id")
-        kind = role.get("kind")
         if not isinstance(role_id, str) or not role_id.strip():
             problems.append(f"roles[{idx}].id missing")
         elif role_id in seen_roles:
             problems.append(f"duplicate role id: {role_id}")
         else:
             seen_roles.add(role_id)
-        if kind not in {"boss", "expert", "worker", "reviewer"}:
-            problems.append(f"roles[{idx}].kind must be boss|expert|worker|reviewer")
-        caps = role.get("capabilities")
-        if not isinstance(caps, list) or not caps or any(not isinstance(c, str) for c in caps):
-            problems.append(f"roles[{idx}].capabilities must be a non-empty string list")
+
+        # Support both the ellmos.module.v2.schema.json role contract (label, prompt, request, modes)
+        # and the internal capability contract (kind, capabilities).
+        if "prompt" in role or "label" in role or "request" in role or "modes" in role:
+            if not isinstance(role.get("label"), str) or not role["label"].strip():
+                problems.append(f"roles[{idx}].label must be a non-empty string")
+            if not isinstance(role.get("prompt"), str) or not role["prompt"].strip():
+                problems.append(f"roles[{idx}].prompt must be a non-empty relative path")
+            if not isinstance(role.get("request"), str) or not role["request"].strip():
+                problems.append(f"roles[{idx}].request must be a non-empty string")
+            if not isinstance(role.get("modes"), list):
+                problems.append(f"roles[{idx}].modes must be a list")
+        else:
+            kind = role.get("kind")
+            if kind not in {"boss", "expert", "worker", "reviewer"}:
+                problems.append(f"roles[{idx}].kind must be boss|expert|worker|reviewer")
+            caps = role.get("capabilities")
+            if not isinstance(caps, list) or not caps or any(not isinstance(c, str) for c in caps):
+                problems.append(f"roles[{idx}].capabilities must be a non-empty string list")
 
     maintenance = manifest.get("maintenance", [])
     if not isinstance(maintenance, list):
@@ -167,6 +352,94 @@ def validate_persona_routing_manifest(manifest: dict[str, Any]) -> dict[str, Any
         "maintenance_count": len(maintenance),
         "problems": problems,
     }
+
+
+def get_ocean_role_routing_catalog() -> dict[str, Any]:
+    """Return the canonical BACH-to-Ocean Coordinator & Expert role catalog with flexible provider sockets."""
+    coordinators = [r for r in OCEAN_ROLE_ROUTING_AND_SOCKET_CATALOG if r["tier"] == "coordinator"]
+    experts = [r for r in OCEAN_ROLE_ROUTING_AND_SOCKET_CATALOG if r["tier"] == "expert"]
+    return {
+        "schema": ROLE_SOCKET_CATALOG_SCHEMA,
+        "routing_modes": ("semantic_umbrella_and_persona", "deterministic_controlcenter_mcp"),
+        "provider_sockets": PROVIDER_SOCKET_PROFILES,
+        "coordinators": coordinators,
+        "experts": experts,
+        "total_roles": len(OCEAN_ROLE_ROUTING_AND_SOCKET_CATALOG),
+    }
+
+
+def discover_module_role_templates(repos_root: str | Path | None = None) -> list[dict[str, Any]]:
+    """Scan installed module `ellmos-module.v2.json` manifests and return Agent-Library templates."""
+    root = Path(repos_root) if repos_root is not None else Path(__file__).resolve().parents[2]
+    if not root.is_dir():
+        return []
+    discovered: list[dict[str, Any]] = []
+    for child in sorted(root.iterdir(), key=lambda p: p.name.casefold()):
+        manifest_path = child / "ellmos-module.v2.json"
+        if not manifest_path.is_file():
+            continue
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(manifest, dict):
+            continue
+        module_id = str(manifest.get("id") or child.name)
+        roles = manifest.get("roles")
+        if not isinstance(roles, list):
+            continue
+        for role in roles:
+            if not isinstance(role, dict) or not role.get("id"):
+                continue
+            discovered.append(
+                {
+                    "id": f"{module_id}:{role['id']}",
+                    "role_id": str(role["id"]),
+                    "module_id": module_id,
+                    "label": str(role.get("label") or role["id"]),
+                    "source": "module_manifest_role",
+                    "prompt": role.get("prompt"),
+                    "request": role.get("request"),
+                    "providers": list(role.get("providers") or ("claude", "codex", "agy", "kimi")),
+                    "socket_id": "domain_specialist",
+                }
+            )
+    return discovered
+
+
+def build_full_agent_library_catalog(
+    repos_root: str | Path | None = None,
+    *,
+    extra_prompt_agents: list[dict[str, Any]] | None = None,
+    extra_chains: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Build the populated 3-tab Agent-Library catalog combining BACH Coordinator/Expert roles and module `roles[]`."""
+    role_templates: list[dict[str, Any]] = [
+        {
+            "id": f"ocean-role:{r['id']}",
+            "role_id": r["id"],
+            "module_id": "open-ocean",
+            "label": r["label"],
+            "tier": r["tier"],
+            "source": "ocean_role_socket_catalog",
+            "semantic_route": r["semantic_route"],
+            "deterministic_route": r["deterministic_route"],
+            "socket_id": r["socket_id"],
+            "providers": list(PROVIDER_SOCKET_PROFILES[r["socket_id"]]["providers"].keys()),
+        }
+        for r in OCEAN_ROLE_ROUTING_AND_SOCKET_CATALOG
+    ]
+    module_templates = discover_module_role_templates(repos_root)
+    default_chains = [
+        {"id": "marblerun:doc-keeper-machine", "kind": "marblerun", "label": "Doc-Keeper Machine (3-Cause Audit)"},
+        {"id": "marblerun:wishes-come-true-local", "kind": "marblerun", "label": "Wishes-Come-True Local Genie"},
+        {"id": "toolchain:daily-hygiene", "kind": "toolchain", "label": "Daily Hygiene & Lock Check"},
+    ]
+    return project_agent_library_catalog(
+        templates=role_templates + module_templates,
+        prompt_agents=list(extra_prompt_agents or []),
+        chains=list(extra_chains if extra_chains is not None else default_chains),
+    )
 
 
 def validate_learning_candidate(candidate: dict[str, Any]) -> dict[str, Any]:

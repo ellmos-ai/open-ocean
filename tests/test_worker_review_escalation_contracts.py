@@ -4,8 +4,11 @@ from __future__ import annotations
 from pathlib import Path
 
 from tools.escalation_ladder import (
+    build_full_agent_library_catalog,
+    discover_module_role_templates,
     evaluate_cognitive_action_authority,
     evaluate_escalation,
+    get_ocean_role_routing_catalog,
     project_agent_library_catalog,
     record_post_action_authority_feedback,
     validate_learning_candidate,
@@ -412,6 +415,54 @@ def test_three_tier_authority_tunneling_and_authority_desert_prevention():
     assert loaded_cfg["default_repair_dispatch"] == "local_taskplan"
     assert loaded_cfg["decision_processing_rules"]["transparent"] is True
     assert loaded_cfg["wishes_redirect"]["enabled"] is False
+
+
+def test_ocean_role_routing_sockets_and_module_template_discovery(tmp_path: Path):
+    import json
+
+    cat = get_ocean_role_routing_catalog()
+    assert cat["schema"] == "ellmos.role-socket-catalog.v1"
+    assert len(cat["coordinators"]) == 6
+    assert len(cat["experts"]) >= 7
+    assert {"claude", "codex", "agy", "kimi", "ollama", "openrouter"}.issubset(
+        set(cat["provider_sockets"]["reasoning_coordinator"]["providers"].keys())
+    )
+
+    # Validate v2 schema role format in validate_persona_routing_manifest
+    v2_manifest = {
+        "id": "marblerun",
+        "roles": [
+            {
+                "id": "marble-controller",
+                "label": "MARBLE-CONTROLLER",
+                "prompt": "prompts/example_controller.txt",
+                "request": "Start as MARBLE-CONTROLLER.",
+                "modes": [],
+                "providers": ["claude", "codex", "agy", "kimi"],
+            }
+        ],
+    }
+    val = validate_persona_routing_manifest(v2_manifest)
+    assert val["valid"] is True
+    assert val["role_count"] == 1
+
+    # Discover module role templates from a mock repos root
+    mod_dir = tmp_path / "MarbleRun"
+    mod_dir.mkdir()
+    (mod_dir / "ellmos-module.v2.json").write_text(json.dumps(v2_manifest), encoding="utf-8")
+    discovered = discover_module_role_templates(tmp_path)
+    assert len(discovered) == 1
+    assert discovered[0]["id"] == "marblerun:marble-controller"
+    assert discovered[0]["source"] == "module_manifest_role"
+
+    full_lib = build_full_agent_library_catalog(tmp_path)
+    assert full_lib["schema"] == "ellmos.agent-library.v1"
+    template_ids = {t["id"] for t in full_lib["templates"]}
+    assert "ocean-role:ati" in template_ids
+    assert "ocean-role:bueroassistent" in template_ids
+    assert "ocean-role:foerderplaner" in template_ids
+    assert "marblerun:marble-controller" in template_ids
+
 
 
 

@@ -6,7 +6,7 @@ Formula:
 from __future__ import annotations
 
 import hashlib
-from typing import Iterable, List, Sequence, TypeVar
+from typing import List, Sequence, TypeVar
 
 T = TypeVar("T")
 

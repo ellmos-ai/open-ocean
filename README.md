@@ -229,8 +229,8 @@ When you look for **Ocean** (or **BACH**) and decide to install it, you are guid
   - **Rinnsal:** Lightweight minimal extent (e.g., core memory + task kernel).
   - **BACH:** Curated everyday desktop & personal cognitive OS edition with the unified GUI (`ellmos-system-gui`) for local and non-local models.
   - **Meer:** Broadly expanded multi-domain and multi-agent extent with additional specialist bundles.
-- **Axis 2 — Authorization & System Tiers (`full-ocean` · `ocean-dev` · `ocean-admin`):**
-  - **`full-ocean` (Installer Access Tier):** Bound to `ellmos-installer`. The installer fulfills the promise of access to the **full Ocean catalog** to the extent the user is authorized — all public modules for standard users, plus non-public/licensed modules for authorized users via cryptographic `capability-grant.v1` grants.
+- **Axis 2 — Authorization & System Tiers (`ocean-installer` · `ocean-dev` · `ocean-admin`):**
+  - **`ocean-installer` (Installer Access Tier):** Bound to `ellmos-installer`. The installer fulfills the promise of access to the **full Ocean catalog** to the extent the user is authorized — all public modules for standard users, plus non-public/licensed modules for authorized users via cryptographic `capability-grant.v1` grants.
   - **`ocean-dev` (Developer & Diagnostic Tier):** Publicly available developer, audit, test, and build modules (`system-explorer`, `system-auditor`, `system-gap-master`, `ellmos-tests`, `module-gate`), which normal users do not necessarily install by default.
   - **`ocean-admin` (Operator & Cluster Tier):** The maintainer's full multi-host production environment (Mac Studio 24/7 leader, workstations, private/unreleased research and domain modules, `.SYNC`).
 

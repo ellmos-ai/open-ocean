@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from tools.help_projection import DOC_PRECEDENCE, extract_manifest_docs, project_installed_module_help
+from tools.help_projection import DOC_PRECEDENCE, project_installed_module_help
 
 
 def test_repo_root_has_skill_md_and_core_doc():

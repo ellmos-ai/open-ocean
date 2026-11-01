@@ -9,7 +9,6 @@ from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 from tools.capability_views import software_inventory
-from tools import governance_bridge as gov
 from tools.gui_bridge import GuiBridge, bridge_from_workspace, mount_gui_bridge
 
 HEADERS = {"x-test-session": "ok"}

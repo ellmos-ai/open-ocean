@@ -1,0 +1,132 @@
+{
+  "schema": "ellmos.doc-keeper-audit-report.v1",
+  "generated_at": "2026-11-01T02:12:48.119636+00:00",
+  "chain_id": "doc-keeper-machine",
+  "role_id": "marblerun:doc-keeper",
+  "parity_check": {
+    "schema": "ellmos.open-ocean.cli-api-parity.v1",
+    "drift_detected": false,
+    "missing_cli_subcommands": [],
+    "supported_locales": [
+      "de",
+      "en",
+      "es",
+      "ja",
+      "ru",
+      "zh"
+    ],
+    "locale_files": {
+      "de": "SKILL.md",
+      "en": "docs/SKILL.en.md",
+      "es": "docs/SKILL.es.md",
+      "ja": "docs/SKILL.ja.md",
+      "ru": "docs/SKILL.ru.md",
+      "zh": "docs/SKILL.zh.md"
+    },
+    "missing_locales": []
+  },
+  "findings": [
+    {
+      "schema": "ellmos.doc-keeper.diff-classification.v1",
+      "claim_statement": "Personas/Agents sind anbieterunabhaengige Ocean-Rollen mit Dual-Routing und flexiblem Anbieter-Sockel (ellmos.role-socket-catalog.v1)",
+      "doc_source": "system/docs/help/agents.txt",
+      "cause": "completed_terraforming_doc_lag",
+      "deterministic_action": "update_doc_and_translations",
+      "preserve_soll_in_doc": true,
+      "update_ist_in_doc": true,
+      "task_action": "none",
+      "linked_task_id": "T-2478",
+      "dispatch": {
+        "dispatch_mode": "local_doc_update",
+        "selected_branches": [
+          "local_doc_update"
+        ],
+        "execution_locality": "local_ocean_bach_only",
+        "target": "ocean_bach_docs_and_i18n",
+        "developer_redirect_active": false,
+        "decision_rule_trace": {
+          "transparent": true,
+          "trigger": "deterministic_doc_scan",
+          "cause": "completed_terraforming_doc_lag",
+          "rule_source": "cause_routing:completed_terraforming_doc_lag",
+          "reason": "Ursache 3 (Erfolgtes Terraforming): Code wurde gewollt weiterentwickelt -> Doku & i18n lokal nachziehen."
+        }
+      },
+      "execution_status": "completed_local_doc_update",
+      "updated_files": [
+        "system/docs/help/agents.txt",
+        "system/docs/help/agents_en.txt"
+      ]
+    },
+    {
+      "schema": "ellmos.doc-keeper.diff-classification.v1",
+      "claim_statement": "Zukunft: Persona-Dateien in agents/personas/ (schrittweise Migration)",
+      "doc_source": "system/docs/help/agents.txt",
+      "cause": "planned_terraforming_pending",
+      "deterministic_action": "check_task_status_and_split_soll_ist",
+      "preserve_soll_in_doc": true,
+      "update_ist_in_doc": true,
+      "task_action": "verify_or_adjust_existing_task",
+      "linked_task_id": "T-2448",
+      "dispatch": {
+        "dispatch_mode": "local_taskplan",
+        "selected_branches": [
+          "local_taskplan"
+        ],
+        "execution_locality": "local_ocean_bach_only",
+        "target": "bach_or_ocean_taskplan",
+        "assigned_worker": "background_worker",
+        "priority": "P2",
+        "developer_redirect_active": false,
+        "task_action": "verify_or_adjust_existing_task",
+        "decision_rule_trace": {
+          "transparent": true,
+          "trigger": "deterministic_doc_scan",
+          "cause": "planned_terraforming_pending",
+          "rule_source": "cause_routing:planned_terraforming_pending",
+          "reason": "Ursache 2 (Geplantes Terraforming): Vorauseilende Doku (SOLL) -> Taskstatus pruefen/Task anlegen und SOLL vs. IST trennen."
+        }
+      },
+      "execution_status": "soll_preserved_and_task_synced"
+    },
+    {
+      "schema": "ellmos.doc-keeper.diff-classification.v1",
+      "claim_statement": "steuer-agent Persona Theodor: Penibler Steuerberater (Meticulous tax advisor)",
+      "doc_source": "system/docs/help/agents.txt",
+      "cause": "unintended_erosion",
+      "deterministic_action": "create_repair_terraforming_task_keep_doc_soll",
+      "preserve_soll_in_doc": true,
+      "update_ist_in_doc": true,
+      "task_action": "reopen_or_escalate_task",
+      "linked_task_id": "T-2630",
+      "dispatch": {
+        "dispatch_mode": "local_taskplan",
+        "selected_branches": [
+          "local_taskplan",
+          "user_notification"
+        ],
+        "execution_locality": "local_ocean_bach_only",
+        "target": "bach_or_ocean_taskplan",
+        "assigned_worker": "background_worker",
+        "priority": "P1",
+        "developer_redirect_active": false,
+        "task_action": "reopen_or_escalate_task",
+        "decision_rule_trace": {
+          "transparent": true,
+          "trigger": "deterministic_doc_scan",
+          "cause": "unintended_erosion",
+          "rule_source": "cause_routing:unintended_erosion",
+          "reason": "Ursache 1 (Ungewollte Erosion/Drift): Code/Dienst ungewollt abgedriftet -> SOLL in Doku bewahren, P1-Reparatur-Task einstellen + Nutzer informieren."
+        }
+      },
+      "execution_status": "repaired_erosion_and_notified"
+    }
+  ],
+  "summary": {
+    "total_claims_probed": 24,
+    "aligned_claims": 21,
+    "completed_terraforming_doc_lag": 1,
+    "planned_terraforming_pending": 1,
+    "unintended_erosion": 1
+  }
+}

@@ -178,3 +178,86 @@ def gui_showcase_and_competitor_matrix() -> Dict[str, Any]:
             ],
         },
     }
+
+
+DOC_DIFF_CAUSES = (
+    "unintended_erosion",              # Ursache 1: Ungewollte Erosion / Regression im Code/System
+    "planned_terraforming_pending",    # Ursache 2: Gewolltes Terraforming (SOLL), aber noch nicht fertig umgesetzt
+    "completed_terraforming_doc_lag",  # Ursache 3: Gewolltes Terraforming im Code umgesetzt, Doku hinkt hinterher
+    "aligned",                         # Kein Diff: Doku und Realität stimmen überein
+)
+
+
+def classify_doc_reality_diff(
+    *,
+    claim_statement: str,
+    doc_source: str,
+    reality_matches_doc: bool,
+    code_has_newer_intentional_change: bool = False,
+    planned_in_roadmap_or_decisions: bool = False,
+    previously_worked_in_reality: bool = False,
+    linked_task_id: str | None = None,
+    task_status: str | None = None,
+) -> Dict[str, Any]:
+    """Deterministic 3-Cause Classifier & Action Router for Documentation <-> Reality Diffs (ellmos-doc-keeper).
+
+    Distinguishes between:
+      1. `unintended_erosion` (Erosion/Drift: code broke or drifted unintentionally -> create repair task, keep SOLL in doc)
+      2. `planned_terraforming_pending` (Missing/Planned Terraforming: doc states SOLL, code not ready -> check/update/create task, mark SOLL vs. IST)
+      3. `completed_terraforming_doc_lag` (Completed Terraforming: code was intentionally advanced -> update doc & translations)
+    """
+    if reality_matches_doc:
+        return {
+            "schema": "ellmos.doc-keeper.diff-classification.v1",
+            "claim_statement": claim_statement,
+            "doc_source": doc_source,
+            "cause": "aligned",
+            "deterministic_action": "keep_verified",
+            "preserve_soll_in_doc": True,
+            "update_ist_in_doc": False,
+            "task_action": "none",
+            "linked_task_id": linked_task_id,
+        }
+
+    # Ursache 3: Erfolgtes Terraforming im Code mit lückenhafter Doku (BACH-Standardfall, aber jetzt belegt!)
+    if code_has_newer_intentional_change and (task_status == "done" or not planned_in_roadmap_or_decisions):
+        return {
+            "schema": "ellmos.doc-keeper.diff-classification.v1",
+            "claim_statement": claim_statement,
+            "doc_source": doc_source,
+            "cause": "completed_terraforming_doc_lag",
+            "deterministic_action": "update_doc_and_translations",
+            "preserve_soll_in_doc": True,
+            "update_ist_in_doc": True,
+            "task_action": "none",
+            "linked_task_id": linked_task_id,
+        }
+
+    # Ursache 2: Fehlendes / nur geplantes Terraforming (Vorauseilende Doku / SOLL)
+    if planned_in_roadmap_or_decisions and not previously_worked_in_reality:
+        task_act = "verify_or_adjust_existing_task" if linked_task_id else "create_implementation_task"
+        return {
+            "schema": "ellmos.doc-keeper.diff-classification.v1",
+            "claim_statement": claim_statement,
+            "doc_source": doc_source,
+            "cause": "planned_terraforming_pending",
+            "deterministic_action": "check_task_status_and_split_soll_ist",
+            "preserve_soll_in_doc": True,
+            "update_ist_in_doc": True,
+            "task_action": task_act,
+            "linked_task_id": linked_task_id,
+        }
+
+    # Ursache 1: Ungewollte Erosion / Drift / Regression
+    return {
+        "schema": "ellmos.doc-keeper.diff-classification.v1",
+        "claim_statement": claim_statement,
+        "doc_source": doc_source,
+        "cause": "unintended_erosion",
+        "deterministic_action": "create_repair_terraforming_task_keep_doc_soll",
+        "preserve_soll_in_doc": True,
+        "update_ist_in_doc": True,
+        "task_action": "reopen_or_escalate_task" if linked_task_id else "create_bugfix_terraforming_task",
+        "linked_task_id": linked_task_id,
+    }
+

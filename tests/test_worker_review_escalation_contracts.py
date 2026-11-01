@@ -14,6 +14,7 @@ from tools.escalation_ladder import (
 )
 from tools.gui_metadata import build_onboarding_wizard_contract, resolve_entry_point_brand
 from tools.help_projection import (
+    classify_doc_reality_diff,
     gui_showcase_and_competitor_matrix,
     pipeline_acceptance_matrix,
     verify_cli_api_reference_parity,
@@ -304,4 +305,38 @@ def test_three_tier_authority_tunneling_and_authority_desert_prevention():
     )
     assert fb_desert["classification"] == "error_authority_desert"
     assert fb_desert["is_error"] is True
+
+    # 3-Cause Doc-Reality Diff Classifier (Erosion vs. Planned Terraforming vs. Completed Terraforming)
+    c_erosion = classify_doc_reality_diff(
+        claim_statement="org.ellmos.bach.docs-maintenance runs every 300s without backoff",
+        doc_source="docs/architecture/DOCS-MAINTENANCE.md",
+        reality_matches_doc=False,
+        previously_worked_in_reality=True,
+    )
+    assert c_erosion["cause"] == "unintended_erosion"
+    assert c_erosion["deterministic_action"] == "create_repair_terraforming_task_keep_doc_soll"
+    assert c_erosion["task_action"] == "create_bugfix_terraforming_task"
+
+    c_planned = classify_doc_reality_diff(
+        claim_statement="All 76 modules expose docs[] in ellmos.module.v2.json",
+        doc_source="ANFORDERUNGEN-DETAIL.md",
+        reality_matches_doc=False,
+        planned_in_roadmap_or_decisions=True,
+        linked_task_id="#2459",
+        task_status="in_progress",
+    )
+    assert c_planned["cause"] == "planned_terraforming_pending"
+    assert c_planned["deterministic_action"] == "check_task_status_and_split_soll_ist"
+    assert c_planned["task_action"] == "verify_or_adjust_existing_task"
+
+    c_completed = classify_doc_reality_diff(
+        claim_statement="ellmos-installer supports 4-stage onboarding command",
+        doc_source="README.md",
+        reality_matches_doc=False,
+        code_has_newer_intentional_change=True,
+        task_status="done",
+    )
+    assert c_completed["cause"] == "completed_terraforming_doc_lag"
+    assert c_completed["deterministic_action"] == "update_doc_and_translations"
+
 

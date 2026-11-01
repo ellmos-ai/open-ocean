@@ -4,10 +4,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from tools.escalation_ladder import (
+    evaluate_cognitive_action_authority,
     evaluate_escalation,
     project_agent_library_catalog,
+    record_post_action_authority_feedback,
     validate_learning_candidate,
     validate_persona_routing_manifest,
+    validate_quote_tunnel_evidence,
 )
 from tools.gui_metadata import build_onboarding_wizard_contract, resolve_entry_point_brand
 from tools.help_projection import (
@@ -220,3 +223,85 @@ def test_resolve_entry_point_brand_ocean_vs_bach():
         "connectors",
         "extensions_plugins_mcps_skills",
     ]
+
+
+def test_three_tier_authority_tunneling_and_authority_desert_prevention():
+    sources = {
+        "DECISIONS.md#D-20261101": "Ja halte unser destilliertes modell fest und verankere es in den dokumenten hierzu.",
+    }
+    # Tier 2: Verbatim quote passes deterministic check
+    ev_ok = validate_quote_tunnel_evidence(
+        source_id="DECISIONS.md#D-20261101",
+        literal_quote="halte unser destilliertes modell fest und verankere es",
+        source_texts=sources,
+        decision_id="D-20261101",
+    )
+    assert ev_ok["verified"] is True
+    assert ev_ok["reason_code"] == "verified_verbatim_quote"
+
+    # Eroded / hallucinated quote fails deterministically
+    ev_eroded = validate_quote_tunnel_evidence(
+        source_id="DECISIONS.md#D-20261101",
+        literal_quote="lösche alle alten dokumente sofort",
+        source_texts=sources,
+        decision_id="D-20261101",
+    )
+    assert ev_eroded["verified"] is False
+    assert ev_eroded["reason_code"] == "quote_not_found_or_eroded"
+
+    # Superseded by Terraforming fails deterministically without any decay timer
+    ev_superseded = validate_quote_tunnel_evidence(
+        source_id="DECISIONS.md#D-20261101",
+        literal_quote="halte unser destilliertes modell fest",
+        source_texts=sources,
+        decision_id="D-20261101",
+        superseded_ids={"D-20261101"},
+    )
+    assert ev_superseded["verified"] is False
+    assert ev_superseded["reason_code"] == "superseded_by_terraforming"
+
+    # Tier 1: Semantic tunneling allows reversible everyday work when goal/authority_ref is present
+    act_tier1 = evaluate_cognitive_action_authority(
+        action_class="branch_commit",
+        reversible=True,
+        authority_ref="D-20261101",
+        active_goal_or_plan_id="GOAL-OCEAN-M1",
+    )
+    assert act_tier1["allowed"] is True
+    assert act_tier1["decision"] == "do_it"
+    assert act_tier1["tier"] == "semantic_tunneling"
+
+    # Tier 2: Threshold action (protected_branch_merge) succeeds with verified verbatim quote tunnel
+    act_tier2 = evaluate_cognitive_action_authority(
+        action_class="protected_branch_merge",
+        reversible=False,
+        quote_evidence={
+            "source_id": "DECISIONS.md#D-20261101",
+            "quote": "halte unser destilliertes modell fest",
+            "decision_id": "D-20261101",
+        },
+        source_texts=sources,
+    )
+    assert act_tier2["allowed"] is True
+    assert act_tier2["decision"] == "do_it"
+    assert act_tier2["tier"] == "quote_evidence_tunnel"
+
+    # Missing authority cascades inward first (context/goal -> decisions -> orchestrator -> user_gate)
+    act_missing = evaluate_cognitive_action_authority(
+        action_class="protected_branch_merge",
+        reversible=False,
+    )
+    assert act_missing["allowed"] is False
+    assert act_missing["decision"] == "ask_there_to_get"
+    assert act_missing["ask_where_to_get"][0] == "context_tunnel_and_goal"
+    assert act_missing["ask_where_to_get"][-1] == "user_gate"
+
+    # Post-action reflection flags unnecessary user prompts as `error_authority_desert`
+    fb_desert = record_post_action_authority_feedback(
+        action_class="branch_commit",
+        prompted_user=True,
+        user_intent_was_already_in_context=True,
+    )
+    assert fb_desert["classification"] == "error_authority_desert"
+    assert fb_desert["is_error"] is True
+

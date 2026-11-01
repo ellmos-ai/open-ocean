@@ -12,9 +12,23 @@ import re
 from typing import Any
 
 ESCALATION_SCHEMA = "ellmos.escalation-ladder.v1"
+AUTHORITY_EVIDENCE_SCHEMA = "ellmos.authority-evidence.v1"
+COGNITIVE_AUTHORITY_LOOP_SCHEMA = "ellmos.cognitive-authority-loop.v1"
 PERSONA_ROUTING_SCHEMA = "ellmos.persona-routing.v2"
 LEARNING_CANDIDATE_SCHEMA = "ellmos.learning-loop-candidate.v1"
 AGENT_LIBRARY_SCHEMA = "ellmos.agent-library.v1"
+
+AUTHORITY_TUNNEL_TIERS = (
+    "semantic_tunneling",     # Tier 1: Dynamic everyday reversible work (authority_ref / goal context)
+    "quote_evidence_tunnel",  # Tier 2: Deterministic verbatim quote check against source (NemoFold evidence.py)
+    "hard_gate",              # Tier 3: Cryptographic / LOCK.user / hashed security question gate
+)
+INWARD_FIRST_AUTHORITY_CASCADE = (
+    "context_tunnel_and_goal",
+    "decisions_and_user_mind",
+    "parent_orchestrator",
+    "user_gate",
+)
 
 AUTHORITY_LEVELS = ("worker", "reviewer", "boss", "operator", "user_gate")
 ACTION_MIN_AUTHORITY = {
@@ -210,3 +224,184 @@ def project_agent_library_catalog(
         "prompt_agents": list(prompt_agents),
         "chains": normalized_chains,
     }
+
+
+def _normalize_quote(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def validate_quote_tunnel_evidence(
+    *,
+    source_id: str,
+    literal_quote: str,
+    source_texts: dict[str, str],
+    decision_id: str | None = None,
+    superseded_ids: set[str] | tuple[str, ...] = (),
+) -> dict[str, Any]:
+    """Deterministic quote-tunnel verifier (`ellmos-authority-evidence`, extracted from NemoFold `evidence.py`).
+
+    Checks in <1 ms whether `literal_quote` exists verbatim in `source_texts[source_id]` and has not been
+    superseded by Terraforming (intentional user document edits) or corrupted by natural drift/erosion.
+    """
+    if not isinstance(source_id, str) or not source_id.strip():
+        return {
+            "schema": AUTHORITY_EVIDENCE_SCHEMA,
+            "verified": False,
+            "reason_code": "empty_source_id",
+            "source_id": source_id,
+            "decision_id": decision_id,
+        }
+    if decision_id and decision_id in set(superseded_ids):
+        return {
+            "schema": AUTHORITY_EVIDENCE_SCHEMA,
+            "verified": False,
+            "reason_code": "superseded_by_terraforming",
+            "source_id": source_id,
+            "decision_id": decision_id,
+        }
+    raw_source = source_texts.get(source_id)
+    if raw_source is None:
+        return {
+            "schema": AUTHORITY_EVIDENCE_SCHEMA,
+            "verified": False,
+            "reason_code": "unknown_source",
+            "source_id": source_id,
+            "decision_id": decision_id,
+        }
+    norm_quote = _normalize_quote(literal_quote)
+    norm_source = _normalize_quote(raw_source)
+    if not norm_quote or norm_quote not in norm_source:
+        return {
+            "schema": AUTHORITY_EVIDENCE_SCHEMA,
+            "verified": False,
+            "reason_code": "quote_not_found_or_eroded",
+            "source_id": source_id,
+            "decision_id": decision_id,
+        }
+    return {
+        "schema": AUTHORITY_EVIDENCE_SCHEMA,
+        "verified": True,
+        "reason_code": "verified_verbatim_quote",
+        "source_id": source_id,
+        "decision_id": decision_id,
+    }
+
+
+def evaluate_cognitive_action_authority(
+    *,
+    action_class: str,
+    reversible: bool = True,
+    target_locked: bool = False,
+    authority_ref: str | None = None,
+    active_goal_or_plan_id: str | None = None,
+    quote_evidence: dict[str, Any] | None = None,
+    source_texts: dict[str, str] | None = None,
+    has_hard_gate: bool = False,
+) -> dict[str, Any]:
+    """Evaluate the cognitive action loop (`Want to act -> Authority Checker -> Do it / Ask there to get`).
+
+    Implements the 3-tier hybrid (`semantic_tunneling` -> `quote_evidence_tunnel` -> `hard_gate`)
+    and explicitly prevents the `authority_desert` error class where clear, context-secured user intent
+    would otherwise be blocked by static borders.
+    """
+    required_level = ACTION_MIN_AUTHORITY.get(action_class, "operator")
+
+    # Tier 3: Hard Gate required for locked targets or irreversible user_gate actions
+    if target_locked or required_level == "user_gate":
+        if has_hard_gate:
+            return {
+                "schema": COGNITIVE_AUTHORITY_LOOP_SCHEMA,
+                "allowed": True,
+                "decision": "do_it",
+                "tier": "hard_gate",
+                "reason_code": "hard_gate_verified",
+                "ask_where_to_get": (),
+                "authority_desert_risk": False,
+            }
+        return {
+            "schema": COGNITIVE_AUTHORITY_LOOP_SCHEMA,
+            "allowed": False,
+            "decision": "ask_there_to_get",
+            "tier": "hard_gate",
+            "reason_code": "locked_or_irreversible_requires_hard_gate",
+            "ask_where_to_get": ("user_gate",),
+            "authority_desert_risk": False,
+        }
+
+    # Tier 2: Deterministic Quote-Tunnel (`ellmos-authority-evidence`) for threshold / non-reversible actions
+    if quote_evidence and source_texts is not None:
+        check = validate_quote_tunnel_evidence(
+            source_id=str(quote_evidence.get("source_id", "")),
+            literal_quote=str(quote_evidence.get("quote", "")),
+            source_texts=source_texts,
+            decision_id=quote_evidence.get("decision_id"),
+            superseded_ids=tuple(quote_evidence.get("superseded_ids", ())),
+        )
+        if check["verified"]:
+            return {
+                "schema": COGNITIVE_AUTHORITY_LOOP_SCHEMA,
+                "allowed": True,
+                "decision": "do_it",
+                "tier": "quote_evidence_tunnel",
+                "reason_code": "quote_tunnel_verified",
+                "ask_where_to_get": (),
+                "authority_desert_risk": False,
+            }
+
+    # Tier 1: Semantic Authority Tunneling for reversible everyday actions backed by goal/plan/authority_ref
+    has_semantic_context = bool(
+        (authority_ref and authority_ref.strip())
+        or (active_goal_or_plan_id and active_goal_or_plan_id.strip())
+    )
+    if reversible and has_semantic_context and required_level in {"worker", "reviewer", "boss"}:
+        return {
+            "schema": COGNITIVE_AUTHORITY_LOOP_SCHEMA,
+            "allowed": True,
+            "decision": "do_it",
+            "tier": "semantic_tunneling",
+            "reason_code": "semantic_context_secured",
+            "ask_where_to_get": (),
+            "authority_desert_risk": False,
+        }
+
+    # Authority missing -> cascade inward first before interrupting user
+    return {
+        "schema": COGNITIVE_AUTHORITY_LOOP_SCHEMA,
+        "allowed": False,
+        "decision": "ask_there_to_get",
+        "tier": "quote_evidence_tunnel" if not reversible else "semantic_tunneling",
+        "reason_code": "authority_missing_cascade_inward_first",
+        "ask_where_to_get": INWARD_FIRST_AUTHORITY_CASCADE,
+        "authority_desert_risk": has_semantic_context,
+    }
+
+
+def record_post_action_authority_feedback(
+    *,
+    action_class: str,
+    prompted_user: bool,
+    user_intent_was_already_in_context: bool,
+    action_exceeded_intent: bool = False,
+) -> dict[str, Any]:
+    """After-Action Reflection, Learning & Feedback for the Cognitive Authority Loop."""
+    if action_exceeded_intent:
+        classification = "error_overreach"
+        lesson = "Tighten threshold check: require Tier-2 quote_evidence_tunnel for this action scope."
+    elif prompted_user and user_intent_was_already_in_context:
+        classification = "error_authority_desert"
+        lesson = (
+            "Authority desert detected: user intent was already context-secured in Goal/Plan/Transcript. "
+            "Propagate authority_ref / quote_evidence via WorkflowHooker instead of prompting user."
+        )
+    else:
+        classification = "aligned_flow"
+        lesson = "Authority flow matched user intent without friction."
+
+    return {
+        "schema": COGNITIVE_AUTHORITY_LOOP_SCHEMA,
+        "action_class": action_class,
+        "classification": classification,
+        "is_error": classification in {"error_overreach", "error_authority_desert"},
+        "lesson": lesson,
+    }
+

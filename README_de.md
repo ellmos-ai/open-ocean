@@ -230,8 +230,8 @@ Wer nach **Ocean** (oder **BACH**) sucht und sich für die Installation entschei
   - **Rinnsal:** Schlanker Minimal-Ausbau (z. B. nur Gedächtnis- und Taskkern).
   - **BACH:** Kuratierter Alltags- und Desktop-Ausbau mit gemeinsamer GUI (`ellmos-system-gui`) für lokale und nicht-lokale Modelle.
   - **Meer:** Breit ausgebautes Mehrdomänen- und Multi-Agenten-System mit zahlreichen Fachbundles.
-- **Achse 2 — Berechtigungs- & Systemstufen (`full-ocean` · `ocean-dev` · `ocean-admin`):**
-  - **`full-ocean` (Installer-Zugangsstufe):** An den `ellmos-installer` gebundenes Berechtigungskonzept — der Installer erfüllt das Versprechen auf Zugang zum vollen Ocean, sofern berechtigt (für normale Nutzer alle öffentlichen Module; für berechtigte Personen zusätzlich nicht veröffentlichte Module über signierte `capability-grant.v1`-Grants).
+- **Achse 2 — Berechtigungs- & Systemstufen (`ocean-installer` · `ocean-dev` · `ocean-admin`):**
+  - **`ocean-installer` (Installer-Zugangsstufe):** An den `ellmos-installer` gebundenes Berechtigungskonzept — der Installer erfüllt das Versprechen auf Zugang zum vollen Ocean, sofern berechtigt (für normale Nutzer alle öffentlichen Module; für berechtigte Personen zusätzlich nicht veröffentlichte Module über signierte `capability-grant.v1`-Grants).
   - **`ocean-dev` (Entwickler- & Diagnose-Ausbau):** Durchaus öffentliche Entwickler-, Prüf- und Bau-Module (`system-explorer`, `system-auditor`, `system-gap-master`, `ellmos-tests`, `module-gate`), die ein normaler Nutzer im Standard-Ausbau nicht zwingend mitinstalliert.
   - **`ocean-admin` (Betreiber- & Cluster-Ausbau):** Lukas' Gesamtsystem mit dem Mac Studio als 24/7-Leader, Workstations, unveröffentlichten privaten Forschungs-/Fachmodulen und `.SYNC`.
 

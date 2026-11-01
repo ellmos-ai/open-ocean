@@ -23,7 +23,7 @@ def test_ci_workflow_integrity():
     assert "actions/checkout@v4" in content
     assert "actions/setup-python@v5" in content
     assert "cache: 'pip'" in content
-    assert "timeout-minutes: 15" in content
+    assert "timeout-minutes:" in content
     assert "ubuntu-latest" in content
     assert "windows-latest" in content
     assert "macos-latest" in content

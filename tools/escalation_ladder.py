@@ -678,3 +678,49 @@ def record_post_action_authority_feedback(
         "lesson": lesson,
     }
 
+
+CAPABILITY_PERMISSION_SCHEMA = "ellmos.capability-permissions.v1"
+
+DEFAULT_CAPABILITY_PERMISSIONS: dict[str, bool] = {
+    "system_tools": True,
+    "browser_control": True,
+    "camera": False,
+    "microphone": False,
+    "screen_capture": False,
+    "voice_tts": True,
+    "speech_to_text": True,
+    "smarthome_robotics": False,
+    "ollama": True,
+}
+
+
+def evaluate_capability_permission(
+    capability_key: str,
+    permissions: dict[str, bool] | None = None,
+    *,
+    has_user_gate: bool = False,
+) -> dict[str, Any]:
+    """Fail-closed evaluation of hardware/device capability permissions (#3763-#3768 / Ocean #533-#538)."""
+    effective = dict(DEFAULT_CAPABILITY_PERMISSIONS)
+    if permissions:
+        for k, v in permissions.items():
+            if k in effective:
+                effective[k] = bool(v)
+    if capability_key not in effective:
+        return {
+            "schema": CAPABILITY_PERMISSION_SCHEMA,
+            "capability": capability_key,
+            "allowed": False,
+            "reason_code": "unknown_capability_denied_fail_closed",
+            "effective_permissions": effective,
+        }
+    granted = bool(effective[capability_key]) or bool(has_user_gate)
+    return {
+        "schema": CAPABILITY_PERMISSION_SCHEMA,
+        "capability": capability_key,
+        "allowed": granted,
+        "reason_code": "capability_granted" if granted else "capability_disabled_in_permissions_matrix",
+        "effective_permissions": effective,
+    }
+
+

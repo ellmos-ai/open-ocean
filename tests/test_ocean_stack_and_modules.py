@@ -57,6 +57,27 @@ def test_ocean_stack_bridge_binds_all_11_canonical_modules() -> None:
     assert report["bound_count"] == 11
     for name, info in report["modules"].items():
         assert info["bound"] is True, f"Module {name} failed to bind: {info}"
+    expected_ext = {
+        "ellmos-voice-io",
+        "ellmos-talk",
+        "ellmos-sensation",
+        "ellmos-homecontrol",
+        "ellmos-robotics",
+    }
+    assert set(report["capability_extensions"].keys()) == expected_ext
+    assert report["capability_extensions_bound_count"] == 5
+    for name, info in report["capability_extensions"].items():
+        assert info["bound"] is True, f"Capability extension {name} failed to bind: {info}"
+
+    from tools.escalation_ladder import evaluate_capability_permission
+
+    cam_default = evaluate_capability_permission("camera")
+    assert cam_default["allowed"] is False
+    cam_enabled = evaluate_capability_permission("camera", {"camera": True})
+    assert cam_enabled["allowed"] is True
+    unknown_cap = evaluate_capability_permission("nuclear_reactor")
+    assert unknown_cap["allowed"] is False
+
 
 
 def test_ocean_cli_stack_status_returns_zero(capsys) -> None:

@@ -1,0 +1,218 @@
+{
+  "schema": "ellmos.api-cli-reference.v1",
+  "product": "open-ocean",
+  "cli_command_count": 10,
+  "http_route_count": 3,
+  "module_binding_count": 11,
+  "cli_commands": [
+    {
+      "command": "down",
+      "prog": "ocean down",
+      "help": "Nur die zugehörige OCEAN-Laufzeit kontrolliert beenden",
+      "options": [
+        "--workspace",
+        "--json"
+      ]
+    },
+    {
+      "command": "gui",
+      "prog": "ocean gui",
+      "help": "gepinntes System-GUI-Kit prüfen oder lokal bereitstellen",
+      "options": [
+        "--archive",
+        "--dist-root",
+        "--receipt",
+        "--brand-config",
+        "--host",
+        "--port",
+        "--serve",
+        "--json"
+      ]
+    },
+    {
+      "command": "inspect",
+      "prog": "ocean inspect",
+      "help": "installierte Komponenten mit nativer System-Explorer-Evidenz rein lesend prüfen",
+      "options": [
+        "--workspace",
+        "--resolution",
+        "--receipt",
+        "--trust-store",
+        "--trust-store-sha256",
+        "--expected-instance-id",
+        "--expected-host-id",
+        "--root-only-resolution",
+        "--evaluated-at",
+        "--expected-provider-version",
+        "--component-bindings",
+        "--json"
+      ]
+    },
+    {
+      "command": "plan",
+      "prog": "ocean plan",
+      "help": "Komposition und Laufzeit rein lesend prüfen",
+      "options": [
+        "--bundles-root",
+        "--system-manifest",
+        "--modules-catalog",
+        "--skills-registry",
+        "--component-bindings",
+        "--source-pins",
+        "--workspace",
+        "--gui-archive",
+        "--gui-source-commit",
+        "--gui-archive-sha256",
+        "--json"
+      ]
+    },
+    {
+      "command": "stack-status",
+      "prog": "ocean stack-status",
+      "help": "Status aller 11 kanonischen Ocean-Module im Plattformkern anzeigen",
+      "options": [
+        "--json"
+      ]
+    },
+    {
+      "command": "start",
+      "prog": "ocean start",
+      "help": "installierten OCEAN-Stand oder eine deklarierte Modulrolle starten",
+      "options": [
+        "--workspace",
+        "--host",
+        "--port",
+        "--health-timeout",
+        "--json",
+        "--manifest",
+        "--provider",
+        "--model",
+        "--effort",
+        "--request",
+        "--cwd",
+        "--name",
+        "--dry-run"
+      ]
+    },
+    {
+      "command": "status",
+      "prog": "ocean status",
+      "help": "Installations- und Laufzeitstatus live prüfen",
+      "options": [
+        "--workspace",
+        "--json"
+      ]
+    },
+    {
+      "command": "task",
+      "prog": "ocean task",
+      "help": "Einheitliches Task-Lifecycle-Werkzeug über den Taskkern taskplan (list|take|renew|submit|return|block|reclaim)",
+      "options": []
+    },
+    {
+      "command": "up",
+      "prog": "ocean up",
+      "help": "OCEAN in einer lokalen Sandbox installieren und starten",
+      "options": [
+        "--bundles-root",
+        "--system-manifest",
+        "--modules-catalog",
+        "--skills-registry",
+        "--component-bindings",
+        "--source-pins",
+        "--workspace",
+        "--gui-archive",
+        "--gui-source-commit",
+        "--gui-archive-sha256",
+        "--json",
+        "--host",
+        "--port",
+        "--apply",
+        "--policy-registry",
+        "--lock-cache",
+        "--health-timeout"
+      ]
+    },
+    {
+      "command": "user",
+      "prog": "ocean user",
+      "help": "Benutzer der aktiven OCEAN-Laufzeit verwalten",
+      "options": []
+    }
+  ],
+  "http_routes": [
+    {
+      "method": "GET",
+      "path": "/api/gui/capabilities",
+      "source": "tools/gui_server.py"
+    },
+    {
+      "method": "GET",
+      "path": "/api/gui/kit-manifest",
+      "source": "tools/gui_server.py"
+    },
+    {
+      "method": "GET",
+      "path": "/health",
+      "source": "tools/gui_server.py"
+    }
+  ],
+  "module_bindings": [
+    {
+      "id": "agent-library",
+      "module": "tools.agent_library",
+      "bound": true
+    },
+    {
+      "id": "capability-views",
+      "module": "tools.capability_views",
+      "bound": true
+    },
+    {
+      "id": "doc-keeper",
+      "module": "doc_keeper.extractor",
+      "bound": true
+    },
+    {
+      "id": "ellmos-worker",
+      "module": "tools.worker_worktree_policy",
+      "bound": true
+    },
+    {
+      "id": "escalation-ladder",
+      "module": "tools.escalation_ladder",
+      "bound": true
+    },
+    {
+      "id": "governance-bridge",
+      "module": "tools.governance_bridge",
+      "bound": true
+    },
+    {
+      "id": "learning-loop",
+      "module": "tools.learning_loop",
+      "bound": true
+    },
+    {
+      "id": "ocean-resources",
+      "module": "ocean_resources.ram_distributor",
+      "bound": true
+    },
+    {
+      "id": "persona-routing",
+      "module": "tools.persona_routing",
+      "bound": true
+    },
+    {
+      "id": "review-policy",
+      "module": "tools.task_result_review_policy",
+      "bound": true
+    },
+    {
+      "id": "task-master",
+      "module": "taskplan.lease",
+      "bound": true
+    }
+  ],
+  "sha256": "18604ec2d5e169ed56b5737aaa6bb45549d22feedeff7dc87dc3d17e26ef6acf"
+}

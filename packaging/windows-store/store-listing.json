@@ -1,0 +1,16 @@
+{
+  "schema": "open-ocean.windows-store-listing.v1",
+  "display_name": "Open-Ocean Desktop",
+  "short_description": "Local AI Agent Studio & Governance Workbench",
+  "privacy_policy_url": "https://ellmos.ai/privacy",
+  "support_contact_url": "https://ellmos.ai/support",
+  "age_rating_questionnaire_completed": true,
+  "category": "DeveloperTools",
+  "screenshots": [
+    "assets/store/living-board.png",
+    "assets/store/running-board.png"
+  ],
+  "windows_subsystem": "GUI",
+  "embeds_legacy_astro_copy": false,
+  "submission_requires_user_approval": true
+}

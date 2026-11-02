@@ -255,6 +255,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Einheitliches Task-Lifecycle-Werkzeug über den Taskkern taskplan (list|take|renew|submit|return|block|reclaim)",
     )
     task_cmd.add_argument("task_args", nargs=argparse.REMAINDER, help="Argumente für taskplan task")
+    stack_cmd = commands.add_parser(
+        "stack-status",
+        help="Status aller 11 kanonischen Ocean-Module im Plattformkern anzeigen",
+    )
+    stack_cmd.add_argument("--json", action="store_true")
     return parser
 
 
@@ -596,6 +601,15 @@ def main(argv: list[str] | None = None) -> int:
             return int(completed.returncode)
         print("[FEHLER] Taskkern 'taskplan' (task-master) ist nicht verfügbar.", file=sys.stderr)
         return 3
+    if args.command == "stack-status":
+        from tools.ocean_stack_bridge import ocean_stack_status
+
+        report = ocean_stack_status()
+        if args.json:
+            print(json.dumps(report, indent=2, ensure_ascii=False))
+        else:
+            print(f"OCEAN Stack-Bindungen: {report['bound_count']}/{report['total_modules']} Module aktiv.")
+        return 0 if report["bound_count"] == report["total_modules"] else 1
     print(f"Der Befehl '{args.command}' wird in diesem Build noch nicht ausgeführt.", file=sys.stderr)
     return 3
 

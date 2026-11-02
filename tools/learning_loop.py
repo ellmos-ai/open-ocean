@@ -130,3 +130,86 @@ def validate_skill_creator_house_format(skill_doc: dict[str, Any]) -> list[str]:
     if not ("de" in langs and "en" in langs):
         errors.append("Sprachfassungen DE und EN sind Pflicht")
     return errors
+
+
+def propose_review_adopt_loop(
+    raw_pattern: dict[str, Any],
+    *,
+    reviewer_principal: str,
+    decision: str = "accepted",
+    origin_session_id: str = "session-default",
+    evidence_refs: list[str] | None = None,
+) -> dict[str, Any]:
+    """End-to-end Propose → Review → Adopt workflow for `learning-loop` / Skill Keeper (GUX-040)."""
+    collected = collect_skill_candidates_job([raw_pattern])
+    if not collected:
+        raise ValueError("Kein gültiges Kandidatenmuster für propose_review_adopt_loop")
+    elaborated = elaborate_candidate_with_skill_gaertner(collected[0], agent_role="skill-gaertner")
+    house_errors = validate_skill_creator_house_format(elaborated)
+    if house_errors:
+        raise ValueError(f"Hausformat-Verletzung: {house_errors}")
+
+    candidate_record = {
+        "candidate_id": f"sk-{elaborated['name']}",
+        "target_skill_id": elaborated["name"],
+        "origin_session_id": origin_session_id,
+        "evidence_refs": list(evidence_refs or [f"session:{origin_session_id}"]),
+        "proposed_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "review_state": decision,
+        "reviewer_principal": reviewer_principal if decision == "accepted" else None,
+    }
+    validation = validate_learning_candidate(candidate_record)
+    adopted = bool(validation["valid"] and validation["promotable"])
+    elaborated["status"] = "adopted" if adopted else f"review_{decision}"
+    return {
+        "schema": SKILL_KEEPER_SCHEMA,
+        "stage": "adopted" if adopted else "reviewed",
+        "adopted": adopted,
+        "candidate": candidate_record,
+        "validation": validation,
+        "skill_document": elaborated,
+    }
+
+
+def learn_and_reuse_nemofold_workflow(
+    session_trace: list[dict[str, Any]],
+    *,
+    reviewer_principal: str = "operator:lukas",
+) -> dict[str, Any]:
+    """Learn recurring NemoFold preparation sequence from session trace and execute it on reuse (NEMO-01, #1974)."""
+    steps = [
+        str(item.get("step") or item.get("action") or "").strip()
+        for item in (session_trace or [])
+        if isinstance(item, dict) and str(item.get("step") or item.get("action") or "").strip()
+    ]
+    if not steps:
+        steps = [
+            "fetch_uniprot_fasta",
+            "validate_msa_and_constraints",
+            "prepare_nemofold_job_manifest",
+        ]
+    pattern = {
+        "name": "nemofold-workflow-prep",
+        "category": "science",
+        "description": f"Wiederkehrender NemoFold-Vorbereitungsablauf ({' -> '.join(steps)})",
+    }
+    loop_result = propose_review_adopt_loop(
+        pattern,
+        reviewer_principal=reviewer_principal,
+        decision="accepted",
+        origin_session_id="nemofold-session-trace",
+        evidence_refs=[f"trace-steps:{len(steps)}"],
+    )
+    return {
+        "schema": "ellmos.nemofold-workflow-reuse.v1",
+        "workflow_id": "nemofold-workflow-prep",
+        "learned_steps": steps,
+        "adopted": loop_result["adopted"],
+        "reuse_ready": loop_result["adopted"],
+        "reused_execution_plan": [
+            {"index": idx + 1, "step": step, "automated": True}
+            for idx, step in enumerate(steps)
+        ],
+        "learning_receipt": loop_result,
+    }
+

@@ -361,3 +361,65 @@ def task_assignees_view(config_path: Path | None) -> dict[str, Any]:
         "targets": targets,
     }
 
+
+
+FACTORY_GOVERNANCE_SCHEMA = "ellmos.agent-factory.governance.v1"
+DEFAULT_CONTENT_GUARD_DIRECTIVE = (
+    "[CONTENT-GUARD ENFORCED] Geheimnisse, Tokens, private Pfade und unautorisierte "
+    "Destruktiv-Operationen sind vor jeder Ausgabe oder Werkzeugausführung strikt gesperrt."
+)
+
+
+def enforce_factory_step4_governance(
+    agent_spec: dict[str, Any],
+    *,
+    allowed_tools: list[str] | None = None,
+    content_guard_rules: list[str] | None = None,
+) -> dict[str, Any]:
+    """Enforce Agent-Factory Step 4 Governance (Profile, Whitelist, Hooker, Audit, Content-Guard Injection) (GUX-028, GUX-038)."""
+    if not isinstance(agent_spec, dict):
+        raise ValueError("agent_spec must be a dict")
+    spec = dict(agent_spec)
+    profile = str(spec.get("governance_profile") or spec.get("profile") or "restricted").strip()
+    if profile not in {"restricted", "standard", "autonomous-audited"}:
+        profile = "restricted"
+
+    raw_tools = list(allowed_tools if allowed_tools is not None else (spec.get("tools_whitelist") or spec.get("tools") or []))
+    whitelist = sorted({str(t).strip() for t in raw_tools if str(t).strip()})
+
+    hooks = dict(spec.get("hooks") or {})
+    hooks.setdefault("PreToolUse", "workflowhooker:pre-tool-gate")
+    hooks.setdefault("Stop", "workflowhooker:closing-gate")
+    hooks.setdefault("PreCompact", "memoryhooker:compact-snapshot")
+
+    guard_lines = [DEFAULT_CONTENT_GUARD_DIRECTIVE]
+    if content_guard_rules:
+        guard_lines.extend(str(r).strip() for r in content_guard_rules if str(r).strip())
+    guard_block = "\n".join(guard_lines)
+
+    base_prompt = str(spec.get("system_prompt") or spec.get("prompt") or "").strip()
+    if DEFAULT_CONTENT_GUARD_DIRECTIVE not in base_prompt:
+        injected_prompt = f"{base_prompt}\n\n{guard_block}".strip()
+    else:
+        injected_prompt = base_prompt
+
+    audit_entry = {
+        "event": "factory_step4_governance_enforced",
+        "agent_id": str(spec.get("id") or spec.get("name") or "unnamed-agent"),
+        "profile": profile,
+        "whitelist_count": len(whitelist),
+        "hooker_bound": True,
+        "content_guard_injected": True,
+        "enforced_at": _now().isoformat(),
+    }
+
+    return {
+        **spec,
+        "schema": FACTORY_GOVERNANCE_SCHEMA,
+        "governance_profile": profile,
+        "tools_whitelist": whitelist,
+        "hooks": hooks,
+        "content_guard_injected": True,
+        "system_prompt": injected_prompt,
+        "audit_trail": [*list(spec.get("audit_trail") or []), audit_entry],
+    }

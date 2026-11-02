@@ -225,10 +225,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     inspect.add_argument("--json", action="store_true")
     gui = commands.add_parser("gui", help="gepinntes System-GUI-Kit prüfen oder lokal bereitstellen")
-    gui.add_argument("--archive", type=Path, required=True, help="lokales, gepinntes System-GUI-Release-ZIP")
+    gui.add_argument("--archive", type=Path, help="lokales, gepinntes System-GUI-Release-ZIP")
     gui.add_argument("--dist-root", type=Path, help="vorhandener lokaler dist-Baum für Installationsprüfung")
     gui.add_argument("--receipt", type=Path, help="zugehöriger Installationsbeleg")
     gui.add_argument("--brand-config", type=Path, help="validierte Verbraucherbeschriftung")
+    gui.add_argument("--universal-fallback", action="store_true", help="Fallback auf ellmos-universal-gui aktivieren (GUX-002)")
     gui.add_argument("--host", choices=["127.0.0.1", "localhost"], default="127.0.0.1")
     gui.add_argument("--port", type=int, default=8811)
     gui.add_argument("--serve", action="store_true", help="nur nach explizitem Aufruf lokal binden")
@@ -518,14 +519,21 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "gui":
         from tools.gui_consumer import DEFAULT_PIN, InspectionError
-        from tools.gui_server import OceanGuiApp
+        from tools.gui_server import OceanGuiApp, resolve_ocean_gui_app
 
         pin_path = DEFAULT_PIN
         try:
-            app = OceanGuiApp(
-                args.archive, pin_path=pin_path, brand_path=args.brand_config,
-                dist_root=args.dist_root, receipt_path=args.receipt,
-            )
+            if args.archive is None or getattr(args, "universal_fallback", False):
+                app = resolve_ocean_gui_app(
+                    args.archive, pin_path=pin_path, brand_path=args.brand_config,
+                    dist_root=args.dist_root, receipt_path=args.receipt,
+                    fallback_to_universal=True,
+                )
+            else:
+                app = OceanGuiApp(
+                    args.archive, pin_path=pin_path, brand_path=args.brand_config,
+                    dist_root=args.dist_root, receipt_path=args.receipt,
+                )
         except (InspectionError, OSError, ValueError, json.JSONDecodeError) as exc:
             reason = exc.reason if isinstance(exc, InspectionError) else "gui_config_unavailable"
             print(json.dumps({"status": "unavailable", "reason_code": reason}, ensure_ascii=False), file=sys.stderr)

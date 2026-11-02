@@ -214,3 +214,46 @@ class OceanGuiApp:
             return
         if not await self.serve_static(scope, send):
             await _reply(send, 404, b"", "text/plain; charset=utf-8", method)
+
+
+
+def resolve_ocean_gui_app(
+    archive_path: Path | None = None,
+    *,
+    pin_path: Path = DEFAULT_PIN,
+    brand_path: Path | None = None,
+    dist_root: Path | None = None,
+    receipt_path: Path | None = None,
+    fallback_to_universal: bool = False,
+    manifest: dict | Path | None = None,
+):
+    """Resolve `OceanGuiApp` when a verified archive is provided, or fall back to `ellmos-universal-gui` (`GUX-001`, `GUX-002`)."""
+    if archive_path is not None and not fallback_to_universal:
+        return OceanGuiApp(
+            archive_path,
+            pin_path=pin_path,
+            brand_path=brand_path,
+            dist_root=dist_root,
+            receipt_path=receipt_path,
+        )
+    if archive_path is not None and fallback_to_universal:
+        try:
+            return OceanGuiApp(
+                archive_path,
+                pin_path=pin_path,
+                brand_path=brand_path,
+                dist_root=dist_root,
+                receipt_path=receipt_path,
+            )
+        except (InspectionError, OSError, ValueError, json.JSONDecodeError):
+            pass
+
+    from tools.ocean_stack_bridge import load_universal_gui_module, ocean_stack_status
+
+    uni_mod = load_universal_gui_module()
+    brand = _brand_from_file(brand_path) if brand_path is not None else None
+    return uni_mod.UniversalGuiFallbackApp(
+        manifest=manifest,
+        brand=brand,
+        stack_provider=ocean_stack_status,
+    )

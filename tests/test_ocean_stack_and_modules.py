@@ -28,10 +28,13 @@ from tools.learning_loop import (
 )
 from tools.ocean_stack_bridge import ocean_stack_status
 from tools.persona_routing import (
+    CANONICAL_INTERFACE_SYSTEM_SLOTS,
     ORIGIN_REMOVED_BADGE,
+    PRIMARY_INTERFACE_INTEGRATED_ROLES,
     ModuleDeliveryCatalog,
     get_ocean_role_routing_catalog,
     project_module_library_and_routines,
+    resolve_role_execution_target,
     validate_persona_routing_manifest,
 )
 
@@ -63,9 +66,10 @@ def test_ocean_stack_bridge_binds_all_11_canonical_modules() -> None:
         "ellmos-sensation",
         "ellmos-homecontrol",
         "ellmos-robotics",
+        "ellmos-universal-gui",
     }
     assert set(report["capability_extensions"].keys()) == expected_ext
-    assert report["capability_extensions_bound_count"] == 5
+    assert report["capability_extensions_bound_count"] == 6
     for name, info in report["capability_extensions"].items():
         assert info["bound"] is True, f"Capability extension {name} failed to bind: {info}"
 
@@ -122,6 +126,88 @@ def test_persona_routing_and_module_delivery_projection() -> None:
     cat.uninstall_module("ellmos-skill-creator")
     vm_after = project_module_library_and_routines(cat)
     assert vm_after["agent_instances"][0]["origin_badge"] == ORIGIN_REMOVED_BADGE
+
+
+def test_interface_system_slots_and_two_stage_role_execution() -> None:
+    assert "ticket-master" in PRIMARY_INTERFACE_INTEGRATED_ROLES
+    assert "boss-coordinator" in PRIMARY_INTERFACE_INTEGRATED_ROLES
+    canonical_ids = {s["id"] for s in CANONICAL_INTERFACE_SYSTEM_SLOTS}
+    assert {"buddha_chat", "buddha_connector", "buddha_talk", "buddha_always_on"}.issubset(canonical_ids)
+
+    cat = ModuleDeliveryCatalog()
+    cat.install_or_update_module({
+        "id": "ellmos-sensation",
+        "version": "1.0.0",
+        "roles": [{"id": "sensation-observer", "label": "Sensorik-Beobachter", "default_access": "cli"}],
+        "interface_slots": [
+            {
+                "id": "interface_sensation",
+                "label": "Sensoren & Kamera",
+                "surface": "sensor",
+                "required_on_install": False,
+                "supports_model_fallbacks": True,
+                "integrated_roles": ["personal-assistant", "ticket-master", "boss-coordinator"],
+                "unassigned_behavior": "Ohne Besetzung ist die Sensorik-Schnittstelle deaktiviert.",
+            }
+        ],
+    })
+    vm_unoccupied = project_module_library_and_routines(cat)
+    sensation_slot = next(s for s in vm_unoccupied["interface_slots"] if s["key"] == "ellmos-sensation:interface_sensation")
+    assert sensation_slot["occupied"] is False
+    assert "Nicht besetzt" in sensation_slot["status_badge"]
+
+    occupied = cat.occupy_interface_slot(
+        "ellmos-sensation:interface_sensation",
+        backend="ollama",
+        model="qwen3:8b",
+        model_fallbacks=[{"backend": "anthropic", "model": "claude-haiku-4-5"}],
+    )
+    assert occupied["occupied"] is True
+    assert occupied["status"] == "ready"
+    assert len(occupied["model_fallbacks"]) == 1
+
+    # Stage 1: Dynamic persona-routing on active interface slot when no Living agent pins the role
+    stage1 = resolve_role_execution_target(
+        "ticket-master",
+        living_agents=[],
+        active_interface_slot={
+            "id": "buddha_chat",
+            "occupied": True,
+            "backend": "anthropic",
+            "model": "claude-sonnet-4-6",
+            "model_fallbacks": [{"backend": "ollama", "model": "qwen3:8b"}],
+            "integrated_roles": list(PRIMARY_INTERFACE_INTEGRATED_ROLES),
+        },
+    )
+    assert stage1["resolution_stage"] == "dynamic_persona_routing"
+    assert stage1["integrated_in_interface"] is True
+    assert stage1["requires_zero_idle_ram"] is True
+
+    # Stage 2: Pinned Living agent with dedicated model binding takes priority over dynamic routing
+    stage2 = resolve_role_execution_target(
+        "foerderplaner",
+        living_agents=[
+            {
+                "id": "living_foerderplaner",
+                "role_id": "foerderplaner",
+                "enabled": True,
+                "backend": "openai",
+                "model": "gpt-4.1",
+                "model_fallbacks": [{"backend": "ollama", "model": "qwen3:8b"}],
+            }
+        ],
+        active_interface_slot={
+            "id": "buddha_chat",
+            "occupied": True,
+            "backend": "anthropic",
+            "model": "claude-sonnet-4-6",
+        },
+    )
+    assert stage2["resolution_stage"] == "pinned_living_agent"
+    assert stage2["agent_id"] == "living_foerderplaner"
+    assert stage2["backend"] == "openai"
+    assert stage2["model"] == "gpt-4.1"
+    assert stage2["requires_zero_idle_ram"] is False
 
 
 def test_learning_loop_skill_keeper_pipeline() -> None:

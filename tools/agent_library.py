@@ -18,7 +18,9 @@ from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
 from tools.persona_routing import (
+    CANONICAL_INTERFACE_SYSTEM_SLOTS,
     OCEAN_ROLE_ROUTING_AND_SOCKET_CATALOG,
+    PRIMARY_INTERFACE_INTEGRATED_ROLES,
     PROVIDER_SOCKET_PROFILES,
 )
 
@@ -62,6 +64,52 @@ def discover_module_role_templates(repos_root: str | Path | None = None) -> list
                     "request": role.get("request"),
                     "providers": list(role.get("providers") or ("claude", "codex", "agy", "kimi")),
                     "socket_id": "domain_specialist",
+                }
+            )
+    return discovered
+
+
+def discover_module_interface_slots(repos_root: str | Path | None = None) -> list[dict[str, Any]]:
+    """Scan installed module `ellmos-module.v2.json` manifests for optional `interface_slots[]` (Systemplätze)."""
+    root = Path(repos_root) if repos_root is not None else Path(__file__).resolve().parents[2]
+    discovered: list[dict[str, Any]] = [dict(slot, source="canonical_core") for slot in CANONICAL_INTERFACE_SYSTEM_SLOTS]
+    seen_ids = {slot["id"] for slot in discovered}
+    if not root.is_dir():
+        return discovered
+    for child in sorted(root.iterdir(), key=lambda p: p.name.casefold()):
+        manifest_path = child / "ellmos-module.v2.json"
+        if not manifest_path.is_file():
+            continue
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(manifest, dict):
+            continue
+        module_id = str(manifest.get("id") or child.name)
+        interface_slots = manifest.get("interface_slots")
+        if not isinstance(interface_slots, list):
+            continue
+        for slot in interface_slots:
+            if not isinstance(slot, dict) or not slot.get("id"):
+                continue
+            sid = str(slot["id"]).strip()
+            if sid in seen_ids:
+                continue
+            seen_ids.add(sid)
+            discovered.append(
+                {
+                    "id": sid,
+                    "module_id": module_id,
+                    "label": str(slot.get("label") or sid),
+                    "surface": str(slot.get("surface") or "hardware"),
+                    "default_integrated_roles": list(
+                        slot.get("default_integrated_roles") or PRIMARY_INTERFACE_INTEGRATED_ROLES
+                    ),
+                    "allow_unassigned": bool(slot.get("allow_unassigned", True)),
+                    "supports_fallbacks": bool(slot.get("supports_fallbacks", True)),
+                    "preoccupied_on_install": bool(slot.get("preoccupied_on_install", False)),
+                    "source": "module_manifest_interface_slot",
                 }
             )
     return discovered

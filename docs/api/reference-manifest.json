@@ -23,6 +23,7 @@
         "--dist-root",
         "--receipt",
         "--brand-config",
+        "--universal-fallback",
         "--host",
         "--port",
         "--serve",
@@ -214,5 +215,5 @@
       "bound": true
     }
   ],
-  "sha256": "18604ec2d5e169ed56b5737aaa6bb45549d22feedeff7dc87dc3d17e26ef6acf"
+  "sha256": "c87842d6cafe3c536a96c9166bd0b8105a2503de580c0b9e96f5237d4966e108"
 }

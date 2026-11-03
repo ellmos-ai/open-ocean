@@ -15,7 +15,55 @@ INTERVAL_REF_RE = re.compile(r"^(config|routine|policy):[A-Za-z0-9._/-]+$")
 VALID_MAINTENANCE_CLASSES = frozenset({"job", "agent-recommended", "agent-required"})
 VALID_DIFFICULTIES = frozenset({"low", "medium", "high"})
 VALID_ACCESS_TYPES = frozenset({"api", "cli", "browser", "local"})
+VALID_INTERFACE_SURFACES = frozenset(
+    {"chat", "connector", "talk", "voice", "always_on", "sensation", "sensor", "homecontrol", "robotics", "hardware"}
+)
 ORIGIN_REMOVED_BADGE = "Herkunft entfernt"
+
+PRIMARY_INTERFACE_INTEGRATED_ROLES: tuple[str, ...] = (
+    "personal-assistant",
+    "ticket-master",
+    "boss-coordinator",
+)
+
+CANONICAL_INTERFACE_SYSTEM_SLOTS: tuple[dict[str, Any], ...] = (
+    {
+        "id": "buddha_chat",
+        "label": "💬 Chat · Persönlicher Assistent",
+        "surface": "chat",
+        "default_integrated_roles": list(PRIMARY_INTERFACE_INTEGRATED_ROLES),
+        "allow_unassigned": False,
+        "supports_fallbacks": True,
+        "preoccupied_on_install": True,
+    },
+    {
+        "id": "buddha_connector",
+        "label": "📱 Connectoren · Telegram / WhatsApp / Signal",
+        "surface": "connector",
+        "default_integrated_roles": list(PRIMARY_INTERFACE_INTEGRATED_ROLES),
+        "allow_unassigned": True,
+        "supports_fallbacks": True,
+        "preoccupied_on_install": True,
+    },
+    {
+        "id": "buddha_talk",
+        "label": "🎙️ ELLMOS-Talk · Live-Funkgerät",
+        "surface": "talk",
+        "default_integrated_roles": list(PRIMARY_INTERFACE_INTEGRATED_ROLES),
+        "allow_unassigned": True,
+        "supports_fallbacks": True,
+        "preoccupied_on_install": True,
+    },
+    {
+        "id": "buddha_always_on",
+        "label": "⚡ Always-On · Hintergrund-Wächter",
+        "surface": "always_on",
+        "default_integrated_roles": ["hintergrund_worker"],
+        "allow_unassigned": True,
+        "supports_fallbacks": True,
+        "preoccupied_on_install": True,
+    },
+)
 
 CLASS_UI_META: dict[str, dict[str, Any]] = {
     "job": {
@@ -261,11 +309,34 @@ def validate_persona_routing_manifest(manifest: dict[str, Any]) -> dict[str, Any
         if not isinstance(item.get("entrypoint"), str) or not item["entrypoint"].strip():
             problems.append(f"maintenance[{idx}].entrypoint missing")
 
+    interface_slots = manifest.get("interface_slots", [])
+    if not isinstance(interface_slots, list):
+        problems.append("interface_slots must be a list")
+        interface_slots = []
+    seen_interfaces: set[str] = set()
+    for idx, slot in enumerate(interface_slots):
+        if not isinstance(slot, dict):
+            problems.append(f"interface_slots[{idx}] must be a dict")
+            continue
+        slot_id = slot.get("id")
+        if not isinstance(slot_id, str) or not slot_id.strip():
+            problems.append(f"interface_slots[{idx}].id missing")
+        elif slot_id in seen_interfaces:
+            problems.append(f"duplicate interface_slot id: {slot_id}")
+        else:
+            seen_interfaces.add(slot_id)
+        if not isinstance(slot.get("label"), str) or not slot["label"].strip():
+            problems.append(f"interface_slots[{idx}].label missing")
+        surface = str(slot.get("surface") or "hardware").strip()
+        if surface not in VALID_INTERFACE_SURFACES:
+            problems.append(f"interface_slots[{idx}].surface invalid: {surface}")
+
     return {
         "schema": PERSONA_ROUTING_SCHEMA,
         "valid": len(problems) == 0,
         "role_count": len(roles),
         "maintenance_count": len(maintenance),
+        "interface_slot_count": len(interface_slots),
         "problems": problems,
     }
 
@@ -356,7 +427,95 @@ def validate_module_delivery_manifest(manifest: dict[str, Any]) -> list[str]:
         if not isinstance(requirements, list):
             errors.append(f"maintenance[{idx}].requirements muss eine Liste sein")
 
+    interface_slots = manifest.get("interface_slots", [])
+    if not isinstance(interface_slots, list):
+        errors.append("interface_slots muss eine Liste sein")
+        interface_slots = []
+    seen_ifaces: set[str] = set()
+    for idx, slot in enumerate(interface_slots):
+        if not isinstance(slot, dict):
+            errors.append(f"interface_slots[{idx}] muss ein Objekt sein")
+            continue
+        sid = str(slot.get("id") or "").strip()
+        label = str(slot.get("label") or "").strip()
+        surface = str(slot.get("surface") or "hardware").strip()
+        if not sid:
+            errors.append(f"interface_slots[{idx}].id fehlt")
+        elif sid in seen_ifaces:
+            errors.append(f"interface_slots[{idx}].id doppelt: {sid}")
+        else:
+            seen_ifaces.add(sid)
+        if not label:
+            errors.append(f"interface_slots[{idx}].label fehlt")
+        if surface not in VALID_INTERFACE_SURFACES:
+            errors.append(f"interface_slots[{idx}].surface ungültig: {surface}")
+
     return errors
+
+
+def resolve_role_execution_target(
+    role_id: str,
+    *,
+    living_agents: list[dict[str, Any]],
+    active_interface_slot: dict[str, Any],
+) -> dict[str, Any]:
+    """2-Stufen-Rollenmodell mit Vorrang für gepinnte Living-Agenten (Nutzerentscheidung 04.11.2026):
+    1. Prüft zuerst, ob unter 'Deine Agenten (Living)' ein aktiver Agent existiert, der `role_id`
+       mit eigener Modellbindung (`model` + `model_fallbacks`) besetzt (Stufe 2: `pinned_living_agent`).
+    2. Andernfalls läuft die Rolle dynamisch im aktuellen Schnittstellen-Systemplatz (Stufe 1: `dynamic_persona_routing`),
+       sofern dieser besetzt ist.
+    """
+    normalized_role = str(role_id or "").strip()
+    if not normalized_role:
+        raise ValueError("role_id darf nicht leer sein")
+
+    canonical_ids = {s["id"] for s in CANONICAL_INTERFACE_SYSTEM_SLOTS}
+    for agent in living_agents or []:
+        if not isinstance(agent, dict):
+            continue
+        aid = str(agent.get("id") or "").strip()
+        if aid in canonical_ids or agent.get("slot_category") == "interface_system_slot":
+            continue
+        if agent.get("enabled") is False:
+            continue
+        agent_role = str(agent.get("role_id") or agent.get("pinned_role_id") or "").strip()
+        model = str(agent.get("model") or "").strip()
+        if agent_role == normalized_role and model:
+            return {
+                "role_id": normalized_role,
+                "resolution_stage": "pinned_living_agent",
+                "agent_id": aid,
+                "agent_name": str(agent.get("name") or aid),
+                "backend": str(agent.get("backend") or "ollama"),
+                "model": model,
+                "model_fallbacks": list(agent.get("model_fallbacks") or []),
+                "requires_zero_idle_ram": False,
+            }
+
+    iface_id = str(active_interface_slot.get("id") or "buddha_chat")
+    iface_model = str(active_interface_slot.get("model") or "").strip()
+    iface_enabled = active_interface_slot.get("enabled", True) is not False and active_interface_slot.get("occupied", True) is not False
+    if not iface_model or not iface_enabled:
+        return {
+            "role_id": normalized_role,
+            "resolution_stage": "interface_unassigned",
+            "agent_id": iface_id,
+            "active": False,
+            "reason": "Schnittstellen-Systemplatz ist nicht besetzt; dieser Bereich ist inaktiv.",
+        }
+
+    integrated = list(active_interface_slot.get("integrated_roles") or PRIMARY_INTERFACE_INTEGRATED_ROLES)
+    return {
+        "role_id": normalized_role,
+        "resolution_stage": "dynamic_persona_routing",
+        "agent_id": iface_id,
+        "agent_name": str(active_interface_slot.get("name") or iface_id),
+        "backend": str(active_interface_slot.get("backend") or "ollama"),
+        "model": iface_model,
+        "model_fallbacks": list(active_interface_slot.get("model_fallbacks") or []),
+        "integrated_in_interface": normalized_role in integrated,
+        "requires_zero_idle_ram": True,
+    }
 
 
 @dataclass
@@ -367,6 +526,7 @@ class ModuleDeliveryCatalog:
     agent_instances: dict[str, dict[str, Any]] = field(default_factory=dict)
     maintenance_catalog: dict[str, dict[str, Any]] = field(default_factory=dict)
     scheduled_maintenance: dict[str, dict[str, Any]] = field(default_factory=dict)
+    interface_slots: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def install_or_update_module(self, manifest: dict[str, Any]) -> None:
         errors = validate_module_delivery_manifest(manifest)
@@ -406,6 +566,62 @@ class ModuleDeliveryCatalog:
             if key in self.scheduled_maintenance:
                 self.scheduled_maintenance[key]["origin_removed"] = False
                 self.scheduled_maintenance[key]["origin_badge"] = None
+
+        for islot in manifest.get("interface_slots", []):
+            key = f"{module_id}:{islot['id']}"
+            existing = self.interface_slots.get(key, {})
+            self.interface_slots[key] = {
+                **islot,
+                "key": key,
+                "origin_module": module_id,
+                "origin_version": version,
+                "surface": str(islot.get("surface") or "hardware"),
+                "default_integrated_roles": list(
+                    islot.get("default_integrated_roles") or PRIMARY_INTERFACE_INTEGRATED_ROLES
+                ),
+                "allow_unassigned": bool(islot.get("allow_unassigned", True)),
+                "supports_fallbacks": bool(islot.get("supports_fallbacks", True)),
+                "occupied": bool(existing.get("occupied", False)),
+                "backend": existing.get("backend", ""),
+                "model": existing.get("model", ""),
+                "model_fallbacks": list(existing.get("model_fallbacks") or []),
+                "status": existing.get("status", "inactive_unassigned"),
+                "origin_removed": False,
+                "origin_badge": None,
+            }
+
+    def occupy_interface_slot(
+        self,
+        slot_key: str,
+        *,
+        backend: str,
+        model: str,
+        model_fallbacks: list[dict[str, str]] | None = None,
+    ) -> dict[str, Any]:
+        if slot_key not in self.interface_slots:
+            raise KeyError(f"Unbekannter Schnittstellen-Systemplatz: {slot_key}")
+        slot = self.interface_slots[slot_key]
+        if not str(model or "").strip():
+            return self.unassign_interface_slot(slot_key)
+        slot["occupied"] = True
+        slot["backend"] = str(backend or "ollama").strip()
+        slot["model"] = str(model).strip()
+        slot["model_fallbacks"] = list(model_fallbacks or [])
+        slot["status"] = "ready"
+        return slot
+
+    def unassign_interface_slot(self, slot_key: str) -> dict[str, Any]:
+        if slot_key not in self.interface_slots:
+            raise KeyError(f"Unbekannter Schnittstellen-Systemplatz: {slot_key}")
+        slot = self.interface_slots[slot_key]
+        if not slot.get("allow_unassigned", True):
+            raise ValueError(f"Systemplatz {slot_key} darf nicht unbesetzt bleiben")
+        slot["occupied"] = False
+        slot["backend"] = ""
+        slot["model"] = ""
+        slot["model_fallbacks"] = []
+        slot["status"] = "inactive_unassigned"
+        return slot
 
     def instantiate_agent(self, template_key: str, instance_id: str, **overrides: Any) -> dict[str, Any]:
         if template_key not in self.role_templates:
@@ -450,6 +666,10 @@ class ModuleDeliveryCatalog:
         for k in removed_maint:
             del self.maintenance_catalog[k]
 
+        removed_interfaces = [k for k, v in self.interface_slots.items() if v["origin_module"] == module_id]
+        for k in removed_interfaces:
+            del self.interface_slots[k]
+
         marked_instances = []
         for iid, inst in self.agent_instances.items():
             if inst.get("origin_module") == module_id:
@@ -468,6 +688,7 @@ class ModuleDeliveryCatalog:
             "module_id": module_id,
             "removed_templates": removed_templates,
             "removed_maintenance": removed_maint,
+            "removed_interface_slots": removed_interfaces,
             "marked_instances": marked_instances,
             "marked_schedules": marked_schedules,
         }
@@ -545,8 +766,29 @@ def project_module_library_and_routines(catalog: ModuleDeliveryCatalog) -> dict[
             "origin_badge": sched.get("origin_badge") or f"Modul: {sched['origin_module']}",
         })
 
+    interface_slot_cards: list[dict[str, Any]] = []
+    for key, islot in sorted(catalog.interface_slots.items()):
+        occupied = bool(islot.get("occupied"))
+        interface_slot_cards.append({
+            "key": key,
+            "id": islot["id"],
+            "label": islot["label"],
+            "surface": islot.get("surface", "hardware"),
+            "origin_module": islot["origin_module"],
+            "origin_badge": islot.get("origin_badge") or f"Modul: {islot['origin_module']}",
+            "default_integrated_roles": list(islot.get("default_integrated_roles") or PRIMARY_INTERFACE_INTEGRATED_ROLES),
+            "allow_unassigned": bool(islot.get("allow_unassigned", True)),
+            "supports_fallbacks": bool(islot.get("supports_fallbacks", True)),
+            "occupied": occupied,
+            "backend": islot.get("backend", ""),
+            "model": islot.get("model", ""),
+            "model_fallbacks": list(islot.get("model_fallbacks") or []),
+            "status_badge": f"Besetzt von: {islot['model']}" if occupied else "Nicht besetzt · Schnittstelle inaktiv",
+        })
+
     return {
         "agent_library": library_cards,
         "agent_instances": instance_cards,
         "routines": routine_items,
+        "interface_slots": interface_slot_cards,
     }

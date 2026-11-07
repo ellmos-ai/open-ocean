@@ -1,5 +1,20 @@
 # Änderungsprotokoll
 
+## Unveröffentlicht — 2026-11-07
+
+### Ergänzt (PB-10, #3993)
+
+- Agenten-Bibliothek: Modul-Rollen werden aus Geschwisterordnern, **zusätzlich** aus konfigurierbaren Modulwurzeln
+  (`OCEAN_MODULE_ROOTS`, `extra_roots`) **und** aus installierten Paketen mit `ellmos-module.v2.json`
+  (`importlib.metadata`) gefunden. Jede Vorlage trägt `origin` (`builtin` | `manifest`), `module_id` und bei Manifesten
+  `manifest_path` / `found_via`. `source` bleibt unverändert (die GUI liest es).
+- Soll-Rollenliste als Datenquelle (`config/agent_library_expected_roles.json`): jede Soll-Rolle steht im Katalog
+  (`maps_to`) oder mit Grund in `exceptions[]`. Alle Ausnahmen tragen „Vorschlag, Nutzerbestätigung offen“; welche
+  Legacy-Rollen entfallen, entscheidet der Nutzer.
+- `/api/agenten/library` liefert zusätzlich `counts` (ocean_roles, module_roles, modules, templates, exceptions,
+  expected, covered, module_pending, uncovered), `role_exceptions[]` (`origin: legacy`), `expected_roles` und
+  `module_manifests[]`; der GUI-Kopf braucht keine Festzahl mehr.
+
 ## Unveröffentlicht — 2026-10-13
 
 - Offline-Kern `ocean_resources` ergänzt: generische Steckplätze/Slotanfragen, ein

@@ -1,0 +1,321 @@
+{
+  "schema": "ellmos.agent-library.expected-roles.v1",
+  "note": "Soll-Rollenliste der Agenten-Bibliothek (PB-10, #3993). Jede Soll-Rolle ist im Katalog (maps_to) oder steht in exceptions mit Grund. Ausnahmen sind Vorschläge; welche Legacy-Rollen entfallen, entscheidet Lukas.",
+  "expected": [
+    {
+      "id": "persoenlich",
+      "label": "Paul - Alltags- und Arbeitsorganisation",
+      "kind": "boss",
+      "source": "bach/system/docs/help/roles.txt",
+      "maps_to": "ocean-role:persoenlicher-assistent"
+    },
+    {
+      "id": "bueroassistent",
+      "label": "Clara - Dokumentenverwaltung, Ablage, Schriftverkehr",
+      "kind": "boss",
+      "source": "bach/system/docs/help/roles.txt",
+      "maps_to": "ocean-role:bueroassistent"
+    },
+    {
+      "id": "gesundheit",
+      "label": "Helena - Gesundheitsdossiers, Laborwerte",
+      "kind": "boss",
+      "source": "bach/system/docs/help/roles.txt",
+      "maps_to": "ocean-role:gesundheitsassistent"
+    },
+    {
+      "id": "finanzen",
+      "label": "Felix - Budget, Belege, Kontenübersichten",
+      "kind": "boss",
+      "source": "bach/system/docs/help/roles.txt",
+      "maps_to": "ocean-role:finanz-assistent"
+    },
+    {
+      "id": "ati",
+      "label": "Atlas - Task-, Tool- und Code-Scanner",
+      "kind": "boss",
+      "source": "bach/system/docs/help/roles.txt",
+      "maps_to": "ocean-role:ati"
+    },
+    {
+      "id": "aboservice",
+      "label": "Anton - Abonnements, Verträge, wiederkehrende Kosten",
+      "kind": "expert",
+      "source": "bach/system/docs/help/roles.txt"
+    },
+    {
+      "id": "bewerbung",
+      "label": "Benjamin - Lebenslauf, Anschreiben",
+      "kind": "expert",
+      "source": "bach/system/docs/help/roles.txt",
+      "maps_to": "ocean-role:bewerbungsexperte"
+    },
+    {
+      "id": "data-analysis",
+      "label": "Diana - Datenanalyse, Statistiken",
+      "kind": "expert",
+      "source": "bach/system/docs/help/roles.txt"
+    },
+    {
+      "id": "decision",
+      "label": "Dietrich - Entscheidungsvorlagen, Briefings",
+      "kind": "expert",
+      "source": "bach/system/docs/help/roles.txt"
+    },
+    {
+      "id": "foerderplaner",
+      "label": "Florian - Förderberichte, ICF",
+      "kind": "expert",
+      "source": "bach/system/docs/help/roles.txt",
+      "maps_to": "ocean-role:foerderplaner"
+    },
+    {
+      "id": "haushalt",
+      "label": "Martha - Haushaltsroutinen, Vorräte",
+      "kind": "expert",
+      "source": "bach/system/docs/help/roles.txt"
+    },
+    {
+      "id": "steuer",
+      "label": "Theodor - Steuererklärung, Belegzuordnung",
+      "kind": "expert",
+      "source": "bach/system/docs/help/roles.txt",
+      "maps_to": "ocean-role:steuer-agent"
+    },
+    {
+      "id": "transkript",
+      "label": "Tristan - Transkription von Audio/Meetings",
+      "kind": "expert",
+      "source": "bach/system/docs/help/roles.txt"
+    },
+    {
+      "id": "wiki",
+      "label": "Wilhelm - Wiki-Wissensbeiträge",
+      "kind": "expert",
+      "source": "bach/system/docs/help/roles.txt"
+    },
+    {
+      "id": "ticket-master",
+      "label": "Ticket-Triage (Modul ticket-master)",
+      "kind": "extra",
+      "source": "bach/system/docs/help/roles.txt",
+      "maps_to": "ticket-master:ticket-master",
+      "module": "ticket-master"
+    },
+    {
+      "id": "task-divider",
+      "label": "Proaktive Aufgabenzerlegung",
+      "kind": "extra",
+      "source": "bach/system/docs/help/roles.txt"
+    },
+    {
+      "id": "ticket-writer",
+      "label": "Ticket-Erfasser (Modul ticket-master)",
+      "kind": "module",
+      "source": "Desktop/OCEAN/AKTUELLER-PLAN.md Punkt 9",
+      "maps_to": "ticket-master:ticket-writer",
+      "module": "ticket-master"
+    },
+    {
+      "id": "system-auditor",
+      "label": "Systemauditor (Modul system-auditor)",
+      "kind": "module",
+      "source": "Desktop/OCEAN/AKTUELLER-PLAN.md Punkt 9",
+      "maps_to": "system-auditor:system-auditor",
+      "module": "system-auditor"
+    },
+    {
+      "id": "foerderplaner-expert",
+      "label": "Förderplaner-Fachrolle (Modul foerderplaner)",
+      "kind": "module",
+      "source": "Desktop/OCEAN/AKTUELLER-PLAN.md Punkt 9",
+      "maps_to": "foerderplaner:foerderplaner-expert",
+      "module": "foerderplaner"
+    },
+    {
+      "id": "entwickler",
+      "label": "Entwickler (BACH-Agent)",
+      "kind": "bach_agent",
+      "source": "bach/system/agents/entwickler"
+    },
+    {
+      "id": "research",
+      "label": "Recherche (BACH-Agent)",
+      "kind": "bach_agent",
+      "source": "bach/system/agents/research",
+      "maps_to": "ocean-role:forschungs-experte"
+    },
+    {
+      "id": "versicherungen",
+      "label": "Versicherungen (BACH-Agent)",
+      "kind": "bach_agent",
+      "source": "bach/system/agents/versicherungen",
+      "maps_to": "ocean-role:finanz-assistent"
+    },
+    {
+      "id": "selbstmanagement",
+      "label": "Selbstmanagement (BACH-Experte)",
+      "kind": "bach_agent",
+      "source": "bach/system/agents/_experts/selbstmanagement",
+      "maps_to": "ocean-role:produktivitaet"
+    },
+    {
+      "id": "production",
+      "label": "production (BACH-Agent)",
+      "kind": "bach_agent",
+      "source": "bach/system/agents/production"
+    },
+    {
+      "id": "reflection",
+      "label": "reflection (BACH-Agent)",
+      "kind": "bach_agent",
+      "source": "bach/system/agents/reflection"
+    },
+    {
+      "id": "test-agent",
+      "label": "test-agent (BACH-Agent)",
+      "kind": "bach_agent",
+      "source": "bach/system/agents/test-agent"
+    },
+    {
+      "id": "queue-maintainer",
+      "label": "queue-maintainer (BACH-Agent)",
+      "kind": "bach_agent",
+      "source": "bach/system/agents/queue-maintainer"
+    },
+    {
+      "id": "zuordnungsregler",
+      "label": "zuordnungsregler (BACH-Agent)",
+      "kind": "bach_agent",
+      "source": "bach/system/agents/zuordnungsregler"
+    },
+    {
+      "id": "buddha_boss",
+      "label": "buddha_boss (Systemplatz)",
+      "kind": "buddha_slot",
+      "source": "bach/system/hub/_services/chat/slots_config.py (LEGACY_PRECONFIGURED_ROLE_SLOT_IDS)"
+    },
+    {
+      "id": "buddha_developer",
+      "label": "buddha_developer (Systemplatz)",
+      "kind": "buddha_slot",
+      "source": "bach/system/hub/_services/chat/slots_config.py (LEGACY_PRECONFIGURED_ROLE_SLOT_IDS)"
+    },
+    {
+      "id": "buddha_research",
+      "label": "buddha_research (Systemplatz)",
+      "kind": "buddha_slot",
+      "source": "bach/system/hub/_services/chat/slots_config.py (LEGACY_PRECONFIGURED_ROLE_SLOT_IDS)"
+    },
+    {
+      "id": "mini-agent",
+      "label": "Miniagent als Vorlagenart (fester Ein-/Ausgabevertrag)",
+      "kind": "template_kind",
+      "source": "Desktop/OCEAN/ANFORDERUNGEN-DETAIL.md Z. 84 (Familie 3, Nutzer 24.10.)"
+    }
+  ],
+  "exceptions": [
+    {
+      "id": "aboservice",
+      "reason": "kein Modul mit roles[]-Eintrag vorhanden; in BACH nur als Persona/Beschreibung geführt, nicht erfunden",
+      "status": "Vorschlag, Nutzerbestätigung offen",
+      "proposal": "Rolle einem zuständigen Modul als roles[]-Eintrag zuordnen oder aus der Soll-Liste streichen; Lukas entscheidet, welche Legacy-Rollen entfallen."
+    },
+    {
+      "id": "data-analysis",
+      "reason": "kein Modul mit roles[]-Eintrag vorhanden; in BACH nur als Persona/Beschreibung geführt, nicht erfunden",
+      "status": "Vorschlag, Nutzerbestätigung offen",
+      "proposal": "Rolle einem zuständigen Modul als roles[]-Eintrag zuordnen oder aus der Soll-Liste streichen; Lukas entscheidet, welche Legacy-Rollen entfallen."
+    },
+    {
+      "id": "decision",
+      "reason": "kein Modul mit roles[]-Eintrag vorhanden; in BACH nur als Persona/Beschreibung geführt, nicht erfunden",
+      "status": "Vorschlag, Nutzerbestätigung offen",
+      "proposal": "Rolle einem zuständigen Modul als roles[]-Eintrag zuordnen oder aus der Soll-Liste streichen; Lukas entscheidet, welche Legacy-Rollen entfallen."
+    },
+    {
+      "id": "haushalt",
+      "reason": "kein Modul mit roles[]-Eintrag vorhanden; in BACH nur als Persona/Beschreibung geführt, nicht erfunden",
+      "status": "Vorschlag, Nutzerbestätigung offen",
+      "proposal": "Rolle einem zuständigen Modul als roles[]-Eintrag zuordnen oder aus der Soll-Liste streichen; Lukas entscheidet, welche Legacy-Rollen entfallen."
+    },
+    {
+      "id": "transkript",
+      "reason": "kein Modul mit roles[]-Eintrag vorhanden; in BACH nur als Persona/Beschreibung geführt, nicht erfunden",
+      "status": "Vorschlag, Nutzerbestätigung offen",
+      "proposal": "Rolle einem zuständigen Modul als roles[]-Eintrag zuordnen oder aus der Soll-Liste streichen; Lukas entscheidet, welche Legacy-Rollen entfallen."
+    },
+    {
+      "id": "wiki",
+      "reason": "kein Modul mit roles[]-Eintrag vorhanden; in BACH nur als Persona/Beschreibung geführt, nicht erfunden; WikiStub-Seed hat ein Manifest, aber ohne roles[]",
+      "status": "Vorschlag, Nutzerbestätigung offen",
+      "proposal": "roles[] im zuständigen Wiki-Modul ergänzen oder Rolle streichen; Nutzerentscheidung."
+    },
+    {
+      "id": "task-divider",
+      "reason": "BACH-nativ (taskmaster_roles.py / task_cut_rule.py); das Modul task-master führt keinen Prompt dafür, daher kein roles[]-Eintrag ohne Erfindung",
+      "status": "Vorschlag, Nutzerbestätigung offen",
+      "proposal": "task-master um roles[]-Eintrag task-divider samt Prompt erweitern, falls die Rolle Ocean-Vorlage werden soll; Nutzerentscheidung."
+    },
+    {
+      "id": "entwickler",
+      "reason": "Kein eigener Katalogeintrag; ati (Software-Entwicklung & Tooling) deckt das Aufgabenfeld, ein Modul gibt es nicht",
+      "status": "Vorschlag, Nutzerbestätigung offen",
+      "proposal": "ati als Entwickler-Vorlage gelten lassen oder eigene Vorlage anlegen; Nutzerentscheidung."
+    },
+    {
+      "id": "production",
+      "reason": "BACH-internes Agentenverzeichnis ohne Ocean-Modul; keine roles[]-Quelle vorhanden",
+      "status": "Vorschlag, Nutzerbestätigung offen",
+      "proposal": "Als Betriebsagent außerhalb der Bibliothek belassen oder einem Modul zuordnen; Nutzerentscheidung."
+    },
+    {
+      "id": "reflection",
+      "reason": "BACH-internes Agentenverzeichnis ohne Ocean-Modul; keine roles[]-Quelle vorhanden",
+      "status": "Vorschlag, Nutzerbestätigung offen",
+      "proposal": "Als Betriebsagent außerhalb der Bibliothek belassen oder einem Modul zuordnen; Nutzerentscheidung."
+    },
+    {
+      "id": "test-agent",
+      "reason": "BACH-internes Agentenverzeichnis ohne Ocean-Modul; keine roles[]-Quelle vorhanden",
+      "status": "Vorschlag, Nutzerbestätigung offen",
+      "proposal": "Als Betriebsagent außerhalb der Bibliothek belassen oder einem Modul zuordnen; Nutzerentscheidung."
+    },
+    {
+      "id": "queue-maintainer",
+      "reason": "BACH-internes Agentenverzeichnis ohne Ocean-Modul; keine roles[]-Quelle vorhanden",
+      "status": "Vorschlag, Nutzerbestätigung offen",
+      "proposal": "Als Betriebsagent außerhalb der Bibliothek belassen oder einem Modul zuordnen; Nutzerentscheidung."
+    },
+    {
+      "id": "zuordnungsregler",
+      "reason": "BACH-internes Agentenverzeichnis ohne Ocean-Modul; keine roles[]-Quelle vorhanden",
+      "status": "Vorschlag, Nutzerbestätigung offen",
+      "proposal": "Als Betriebsagent außerhalb der Bibliothek belassen oder einem Modul zuordnen; Nutzerentscheidung."
+    },
+    {
+      "id": "buddha_boss",
+      "reason": "Nur Systemplatz-ID ohne Rollen-/Prompt-Definition; der Plan sieht sie als optionale Vorlagen vor",
+      "status": "Vorschlag, Nutzerbestätigung offen",
+      "proposal": "Vorlagen aus den Systemplatz-Rollen (boss_routing / entwickler / recherche) ableiten, sobald Lukas es freigibt; Nutzerentscheidung."
+    },
+    {
+      "id": "buddha_developer",
+      "reason": "Nur Systemplatz-ID ohne Rollen-/Prompt-Definition; der Plan sieht sie als optionale Vorlagen vor",
+      "status": "Vorschlag, Nutzerbestätigung offen",
+      "proposal": "Vorlagen aus den Systemplatz-Rollen (boss_routing / entwickler / recherche) ableiten, sobald Lukas es freigibt; Nutzerentscheidung."
+    },
+    {
+      "id": "buddha_research",
+      "reason": "Nur Systemplatz-ID ohne Rollen-/Prompt-Definition; der Plan sieht sie als optionale Vorlagen vor",
+      "status": "Vorschlag, Nutzerbestätigung offen",
+      "proposal": "Vorlagen aus den Systemplatz-Rollen (boss_routing / entwickler / recherche) ableiten, sobald Lukas es freigibt; Nutzerentscheidung."
+    },
+    {
+      "id": "mini-agent",
+      "reason": "Datenmodell nur als Laufzeit-Familie mini_agent in AutomationLifecycleRegistry (Routinen/Ready-Lifecycle); als Vorlagenart der Bibliothek existiert es nicht",
+      "status": "Vorschlag, Nutzerbestätigung offen",
+      "proposal": "Folgeaufgabe: Vorlagenart mit input_schema/output_schema-Vertrag definieren; Nutzerentscheidung zum Zuschnitt."
+    }
+  ]
+}

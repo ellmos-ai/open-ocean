@@ -10,8 +10,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from dataclasses import dataclass, field
 from datetime import datetime
+from importlib import metadata
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -30,24 +32,78 @@ TRIGGERS = frozenset({"manual", "event", "routine", "calendar_once"})
 ALLOWED_SCHEMES = frozenset({"http", "https"})
 
 
-def discover_module_role_templates(repos_root: str | Path | None = None) -> list[dict[str, Any]]:
-    """Scan installed module `ellmos-module.v2.json` manifests and return Agent-Library templates."""
-    root = Path(repos_root) if repos_root is not None else Path(__file__).resolve().parents[2]
-    if not root.is_dir():
-        return []
-    discovered: list[dict[str, Any]] = []
-    for child in sorted(root.iterdir(), key=lambda p: p.name.casefold()):
-        manifest_path = child / "ellmos-module.v2.json"
-        if not manifest_path.is_file():
+MODULE_MANIFEST = "ellmos-module.v2.json"
+MODULE_ROOTS_ENV = "OCEAN_MODULE_ROOTS"  # os.pathsep-getrennte Ordner, deren Unterordner Module sind
+EXPECTED_ROLES_PATH = Path(__file__).resolve().parents[1] / "config" / "agent_library_expected_roles.json"
+
+
+def _installed_manifest_paths(dist_path: list[str] | None = None) -> list[Path]:
+    """Manifeste, die installierte Pakete mitliefern (RECORD enthält `ellmos-module.v2.json`)."""
+    found: list[Path] = []
+    dists = metadata.distributions(path=list(dist_path)) if dist_path is not None else metadata.distributions()
+    for dist in dists:
+        for f in dist.files or ():
+            if f.name == MODULE_MANIFEST:
+                located = Path(str(dist.locate_file(f)))
+                if located.is_file():
+                    found.append(located)
+    return found
+
+
+def discover_module_manifests(
+    repos_root: str | Path | None = None,
+    *,
+    extra_roots: list[str | Path] | None = None,
+    include_installed: bool | None = None,
+    dist_path: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Alle lesbaren Modulmanifeste: Geschwisterordner, `extra_roots`, `$OCEAN_MODULE_ROOTS`, installierte Pakete.
+
+    Reihenfolge = Vorrang; ein Modul (`id`) zählt einmal, der erste Fund gewinnt. Installierte Pakete werden nur beim
+    Standardaufruf (ohne `repos_root`) einbezogen, damit explizite Wurzeln hermetisch bleiben.
+    """
+    default_root = Path(repos_root) if repos_root is not None else Path(__file__).resolve().parents[2]
+    roots = [default_root, *(Path(r) for r in (extra_roots or ()))]
+    roots += [Path(r) for r in os.environ.get(MODULE_ROOTS_ENV, "").split(os.pathsep) if r.strip()]
+    candidates: list[tuple[Path, str]] = []
+    for root in roots:
+        if root.is_dir():
+            candidates += [(child / MODULE_MANIFEST, "root") for child in sorted(root.iterdir(), key=lambda p: p.name.casefold())]
+    if include_installed if include_installed is not None else repos_root is None:
+        candidates += [(path, "installed") for path in _installed_manifest_paths(dist_path)]
+    manifests: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for path, via in candidates:
+        if not path.is_file():
             continue
         try:
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             continue
         if not isinstance(manifest, dict):
             continue
-        module_id = str(manifest.get("id") or child.name)
-        roles = manifest.get("roles")
+        module_id = str(manifest.get("id") or path.parent.name)
+        if module_id in seen:
+            continue
+        seen.add(module_id)
+        manifests.append({"module_id": module_id, "path": path, "found_via": via, "manifest": manifest})
+    return manifests
+
+
+def discover_module_role_templates(
+    repos_root: str | Path | None = None,
+    *,
+    extra_roots: list[str | Path] | None = None,
+    include_installed: bool | None = None,
+    dist_path: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Scan module `ellmos-module.v2.json` manifests (siehe `discover_module_manifests`) and return Agent-Library templates."""
+    discovered: list[dict[str, Any]] = []
+    for entry in discover_module_manifests(
+        repos_root, extra_roots=extra_roots, include_installed=include_installed, dist_path=dist_path
+    ):
+        module_id = entry["module_id"]
+        roles = entry["manifest"].get("roles")
         if not isinstance(roles, list):
             continue
         for role in roles:
@@ -59,7 +115,10 @@ def discover_module_role_templates(repos_root: str | Path | None = None) -> list
                     "role_id": str(role["id"]),
                     "module_id": module_id,
                     "label": str(role.get("label") or role["id"]),
-                    "source": "module_manifest_role",
+                    "source": "module_manifest_role",  # GUI-Vertrag (bibliothek.astro), nicht ändern
+                    "origin": "manifest",
+                    "found_via": entry["found_via"],
+                    "manifest_path": str(entry["path"]),
                     "prompt": role.get("prompt"),
                     "request": role.get("request"),
                     "providers": list(role.get("providers") or ("claude", "codex", "agy", "kimi")),
@@ -67,6 +126,36 @@ def discover_module_role_templates(repos_root: str | Path | None = None) -> list
                 }
             )
     return discovered
+
+
+def load_expected_roles(path: str | Path | None = None) -> dict[str, Any]:
+    """Soll-Rollenliste (`config/agent_library_expected_roles.json`): `expected[]` und `exceptions[]`."""
+    return json.loads(Path(path or EXPECTED_ROLES_PATH).read_text(encoding="utf-8"))
+
+
+def check_expected_roles(
+    templates: list[dict[str, Any]], expected_doc: dict[str, Any], *, found_modules: set[str]
+) -> dict[str, Any]:
+    """Jede Soll-Rolle ist im Katalog (`covered`), mit Grund ausgenommen (`excepted`), wartet auf ein nicht gefundenes
+    Modul (`module_pending`) oder fehlt (`uncovered`). Dazu: Ausnahmen ohne Soll-Rolle (`orphan_exceptions`) und
+    Ausnahmen, die der Katalog längst erfüllt (`stale_exceptions`)."""
+    ids = {t["id"] for t in templates}
+    exceptions = {x["id"] for x in expected_doc.get("exceptions", [])}
+    expected_ids = {e["id"] for e in expected_doc.get("expected", [])}
+    report: dict[str, list[str]] = {k: [] for k in ("covered", "excepted", "module_pending", "uncovered", "stale_exceptions")}
+    for e in expected_doc.get("expected", []):
+        if e.get("maps_to") in ids:
+            report["covered"].append(e["id"])
+            if e["id"] in exceptions:
+                report["stale_exceptions"].append(e["id"])
+        elif e["id"] in exceptions:
+            report["excepted"].append(e["id"])
+        elif e.get("module") and e["module"] not in found_modules:
+            report["module_pending"].append(e["id"])
+        else:
+            report["uncovered"].append(e["id"])
+    report["orphan_exceptions"] = sorted(exceptions - expected_ids)
+    return report
 
 
 def discover_module_interface_slots(repos_root: str | Path | None = None) -> list[dict[str, Any]]:
@@ -145,6 +234,9 @@ def build_full_agent_library_catalog(
     *,
     extra_prompt_agents: list[dict[str, Any]] | None = None,
     extra_chains: list[dict[str, Any]] | None = None,
+    extra_roots: list[str | Path] | None = None,
+    include_installed: bool | None = None,
+    dist_path: list[str] | None = None,
 ) -> dict[str, Any]:
     """Build the populated 3-tab Agent-Library catalog combining BACH Coordinator/Expert roles and module `roles[]`."""
     role_templates: list[dict[str, Any]] = [
@@ -155,6 +247,7 @@ def build_full_agent_library_catalog(
             "label": r["label"],
             "tier": r["tier"],
             "source": "ocean_role_socket_catalog",
+            "origin": "builtin",
             "semantic_route": r["semantic_route"],
             "deterministic_route": r["deterministic_route"],
             "socket_id": r["socket_id"],
@@ -162,17 +255,50 @@ def build_full_agent_library_catalog(
         }
         for r in OCEAN_ROLE_ROUTING_AND_SOCKET_CATALOG
     ]
-    module_templates = discover_module_role_templates(repos_root)
+    manifests = discover_module_manifests(
+        repos_root, extra_roots=extra_roots, include_installed=include_installed, dist_path=dist_path
+    )
+    module_templates = discover_module_role_templates(
+        repos_root, extra_roots=extra_roots, include_installed=include_installed, dist_path=dist_path
+    )
     default_chains = [
         {"id": "marblerun:doc-keeper-machine", "kind": "marblerun", "label": "Doc-Keeper Machine (3-Cause Audit)"},
         {"id": "marblerun:wishes-come-true-local", "kind": "marblerun", "label": "Wishes-Come-True Local Genie"},
         {"id": "toolchain:daily-hygiene", "kind": "toolchain", "label": "Daily Hygiene & Lock Check"},
     ]
-    return project_agent_library_catalog(
+    catalog = project_agent_library_catalog(
         templates=role_templates + module_templates,
         prompt_agents=list(extra_prompt_agents or []),
         chains=list(extra_chains if extra_chains is not None else default_chains),
     )
+    try:
+        expected_doc = load_expected_roles()
+    except OSError:  # repo-only Datei (config/ ist nicht im Paket): Katalog trotzdem liefern
+        expected_doc = {"expected": [], "exceptions": []}
+    report = check_expected_roles(
+        catalog["templates"], expected_doc, found_modules={m["module_id"] for m in manifests}
+    )
+    exceptions = [dict(x, origin="legacy") for x in expected_doc.get("exceptions", [])]
+    catalog["role_exceptions"] = exceptions
+    catalog["expected_roles"] = report
+    catalog["module_manifests"] = [
+        {"module_id": m["module_id"], "path": str(m["path"]), "found_via": m["found_via"],
+         "roles": len(m["manifest"].get("roles") or [])}
+        for m in manifests
+    ]
+    # Die GUI liest `counts` statt einer Festzahl (z. B. "19 Modul-Rollen").
+    catalog["counts"] = {
+        "ocean_roles": len(role_templates),
+        "module_roles": len(module_templates),
+        "modules": len({t["module_id"] for t in module_templates}),
+        "templates": len(catalog["templates"]),
+        "exceptions": len(exceptions),
+        "expected": len(expected_doc.get("expected", [])),
+        "covered": len(report["covered"]),
+        "module_pending": len(report["module_pending"]),
+        "uncovered": len(report["uncovered"]),
+    }
+    return catalog
 
 
 @dataclass

@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased — 2026-11-07
+
+### Added (PB-10, #3993)
+
+- Agent library: module roles are now discovered from sibling folders **and** configurable module roots
+  (`OCEAN_MODULE_ROOTS`, `extra_roots`) **and** installed packages that ship `ellmos-module.v2.json`
+  (`importlib.metadata`). Every template carries `origin` (`builtin` | `manifest`), `module_id` and, for manifests,
+  `manifest_path` / `found_via`. `source` is unchanged (the GUI reads it).
+- Expected-role list as data (`config/agent_library_expected_roles.json`): every expected role is in the catalog
+  (`maps_to`) or listed in `exceptions[]` with a reason. All exceptions are marked "Vorschlag, Nutzerbestätigung offen";
+  which legacy roles are dropped is decided by the user.
+- `/api/agenten/library` now also returns `counts` (ocean_roles, module_roles, modules, templates, exceptions, expected,
+  covered, module_pending, uncovered), `role_exceptions[]` (`origin: legacy`), `expected_roles` and `module_manifests[]`,
+  so the GUI header no longer needs a fixed number.
+
 ## Unreleased — 2026-10-13
 
 - Added the offline `ocean_resources` core: generic resource sockets/slot requests, one

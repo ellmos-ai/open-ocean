@@ -8,9 +8,11 @@
 """
 from __future__ import annotations
 
+import csv
 import hashlib
 import json
 import os
+import sys
 from dataclasses import dataclass, field
 from datetime import datetime
 from importlib import metadata
@@ -37,17 +39,52 @@ MODULE_ROOTS_ENV = "OCEAN_MODULE_ROOTS"  # os.pathsep-getrennte Ordner, deren Un
 EXPECTED_ROLES_PATH = Path(__file__).resolve().parents[1] / "config" / "agent_library_expected_roles.json"
 
 
-def _installed_manifest_paths(dist_path: list[str] | None = None) -> list[Path]:
-    """Manifeste, die installierte Pakete mitliefern (RECORD enthält `ellmos-module.v2.json`)."""
-    found: list[Path] = []
+_INSTALLED_CACHE: dict[tuple, list[tuple[Path, str]]] = {}
+
+
+def _site_signature(dist_path: list[str] | None) -> tuple:
+    """Cache-Schlüssel: Suchpfade samt mtime. Eine (De-)Installation ändert die mtime des Site-Ordners."""
+    dirs = [str(d) for d in (dist_path if dist_path is not None else sys.path)]
+    sig = []
+    for d in dirs:
+        try:
+            sig.append((d, os.stat(d).st_mtime_ns))
+        except OSError:
+            sig.append((d, None))
+    return tuple(sig)
+
+
+def _installed_manifests(dist_path: list[str] | None = None) -> list[tuple[Path, str]]:
+    """(absoluter Pfad, RECORD-relativer Pfad) der von installierten Paketen mitgelieferten Manifeste.
+
+    Liest nur den RECORD-Text je Distribution; `Distribution.files` wird bewusst nicht benutzt, weil es ab
+    Python 3.12 jede installierte Datei per stat prüft (gemessen: 71 s auf dem Laptop, 1,1 s auf dem Mac).
+    Ergebnis wird je Prozess gecacht, solange sich die Suchpfade nicht ändern.
+    """
+    key = _site_signature(dist_path)
+    cached = _INSTALLED_CACHE.get(key)
+    if cached is not None:
+        return cached
+    found: list[tuple[Path, str]] = []
     dists = metadata.distributions(path=list(dist_path)) if dist_path is not None else metadata.distributions()
     for dist in dists:
-        for f in dist.files or ():
-            if f.name == MODULE_MANIFEST:
-                located = Path(str(dist.locate_file(f)))
-                if located.is_file():
-                    found.append(located)
+        record = dist.read_text("RECORD")
+        if not record or MODULE_MANIFEST not in record:
+            continue
+        for row in csv.reader(line for line in record.splitlines() if MODULE_MANIFEST in line):
+            name = row[0] if row else ""
+            if name.replace("\\", "/").rsplit("/", 1)[-1] != MODULE_MANIFEST:
+                continue
+            located = Path(str(dist.locate_file(name)))
+            if located.is_file():
+                found.append((located, name.replace("\\", "/")))
+    _INSTALLED_CACHE.clear()  # nur der aktuelle Stand zählt
+    _INSTALLED_CACHE[key] = found
     return found
+
+
+def _installed_manifest_paths(dist_path: list[str] | None = None) -> list[Path]:
+    return [path for path, _rel in _installed_manifests(dist_path)]
 
 
 def discover_module_manifests(
@@ -65,15 +102,19 @@ def discover_module_manifests(
     default_root = Path(repos_root) if repos_root is not None else Path(__file__).resolve().parents[2]
     roots = [default_root, *(Path(r) for r in (extra_roots or ()))]
     roots += [Path(r) for r in os.environ.get(MODULE_ROOTS_ENV, "").split(os.pathsep) if r.strip()]
-    candidates: list[tuple[Path, str]] = []
+    # (Pfad, Herkunft, Pfad relativ zur Wurzel bzw. zum Site-Ordner; nur der relative Pfad verlässt den Prozess)
+    candidates: list[tuple[Path, str, str]] = []
     for root in roots:
         if root.is_dir():
-            candidates += [(child / MODULE_MANIFEST, "root") for child in sorted(root.iterdir(), key=lambda p: p.name.casefold())]
+            candidates += [
+                (child / MODULE_MANIFEST, "root", f"{child.name}/{MODULE_MANIFEST}")
+                for child in sorted(root.iterdir(), key=lambda p: p.name.casefold())
+            ]
     if include_installed if include_installed is not None else repos_root is None:
-        candidates += [(path, "installed") for path in _installed_manifest_paths(dist_path)]
+        candidates += [(path, "installed", rel) for path, rel in _installed_manifests(dist_path)]
     manifests: list[dict[str, Any]] = []
     seen: set[str] = set()
-    for path, via in candidates:
+    for path, via, rel in candidates:
         if not path.is_file():
             continue
         try:
@@ -86,7 +127,7 @@ def discover_module_manifests(
         if module_id in seen:
             continue
         seen.add(module_id)
-        manifests.append({"module_id": module_id, "path": path, "found_via": via, "manifest": manifest})
+        manifests.append({"module_id": module_id, "path": path, "rel_path": rel, "found_via": via, "manifest": manifest})
     return manifests
 
 
@@ -96,12 +137,17 @@ def discover_module_role_templates(
     extra_roots: list[str | Path] | None = None,
     include_installed: bool | None = None,
     dist_path: list[str] | None = None,
+    manifests: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
-    """Scan module `ellmos-module.v2.json` manifests (siehe `discover_module_manifests`) and return Agent-Library templates."""
+    """Scan module `ellmos-module.v2.json` manifests (siehe `discover_module_manifests`) and return Agent-Library templates.
+
+    `manifests` erlaubt, einen bereits gemachten Scan wiederzuverwenden (ein Scan je Anfrage)."""
     discovered: list[dict[str, Any]] = []
-    for entry in discover_module_manifests(
-        repos_root, extra_roots=extra_roots, include_installed=include_installed, dist_path=dist_path
-    ):
+    if manifests is None:
+        manifests = discover_module_manifests(
+            repos_root, extra_roots=extra_roots, include_installed=include_installed, dist_path=dist_path
+        )
+    for entry in manifests:
         module_id = entry["module_id"]
         roles = entry["manifest"].get("roles")
         if not isinstance(roles, list):
@@ -118,7 +164,7 @@ def discover_module_role_templates(
                     "source": "module_manifest_role",  # GUI-Vertrag (bibliothek.astro), nicht ändern
                     "origin": "manifest",
                     "found_via": entry["found_via"],
-                    "manifest_path": str(entry["path"]),
+                    "manifest_path": entry["rel_path"],
                     "prompt": role.get("prompt"),
                     "request": role.get("request"),
                     "providers": list(role.get("providers") or ("claude", "codex", "agy", "kimi")),
@@ -258,9 +304,7 @@ def build_full_agent_library_catalog(
     manifests = discover_module_manifests(
         repos_root, extra_roots=extra_roots, include_installed=include_installed, dist_path=dist_path
     )
-    module_templates = discover_module_role_templates(
-        repos_root, extra_roots=extra_roots, include_installed=include_installed, dist_path=dist_path
-    )
+    module_templates = discover_module_role_templates(manifests=manifests)
     default_chains = [
         {"id": "marblerun:doc-keeper-machine", "kind": "marblerun", "label": "Doc-Keeper Machine (3-Cause Audit)"},
         {"id": "marblerun:wishes-come-true-local", "kind": "marblerun", "label": "Wishes-Come-True Local Genie"},
@@ -282,7 +326,7 @@ def build_full_agent_library_catalog(
     catalog["role_exceptions"] = exceptions
     catalog["expected_roles"] = report
     catalog["module_manifests"] = [
-        {"module_id": m["module_id"], "path": str(m["path"]), "found_via": m["found_via"],
+        {"module_id": m["module_id"], "path": m["rel_path"], "found_via": m["found_via"],
          "roles": len(m["manifest"].get("roles") or [])}
         for m in manifests
     ]

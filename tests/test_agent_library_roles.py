@@ -7,11 +7,14 @@ Rollenquelle robust (Modulwurzeln, installierte Pakete, Herkunft je Rolle), Soll
 from __future__ import annotations
 
 import json
+import os
+from importlib import metadata
 from pathlib import Path
 
 from tools.agent_library import (
     MODULE_ROOTS_ENV,
     build_full_agent_library_catalog,
+    _installed_manifest_paths,
     check_expected_roles,
     discover_module_role_templates,
     load_expected_roles,
@@ -42,7 +45,8 @@ def test_discovery_finds_modules_outside_sibling_folder(tmp_path: Path, monkeypa
     one = found[0]
     assert one["origin"] == "manifest"
     assert one["module_id"] == "ticket-master"
-    assert Path(one["manifest_path"]) == manifest
+    assert one["manifest_path"] == "ticket-master/ellmos-module.v2.json"  # relativ zur Wurzel, kein Benutzerpfad
+    assert manifest.is_file()
     assert one["source"] == "module_manifest_role"  # GUI-Vertrag (bibliothek.astro) bleibt unberührt
 
 
@@ -144,3 +148,70 @@ def test_counts_are_derived_from_catalog_not_fixed(tmp_path: Path, monkeypatch) 
     assert counts["templates"] == len(lib["templates"])
     assert counts["exceptions"] == len(lib["role_exceptions"]) > 0
     assert all(e["origin"] == "legacy" for e in lib["role_exceptions"])
+
+
+def _fake_site(site: Path, module: str, n_files: int = 3000) -> Path:
+    """Fake-Distribution mit vielen RECORD-Einträgen (nicht vorhanden) und einem Manifest."""
+    _write_manifest(site / module, module, ["r"])
+    dist = site / f"{module}-1.0.dist-info"
+    dist.mkdir()
+    (dist / "METADATA").write_text(f"Metadata-Version: 2.1\nName: {module}\nVersion: 1.0\n", encoding="utf-8")
+    lines = [f"{module}/gen/f{i}.py,," for i in range(n_files)] + [f"{module}/ellmos-module.v2.json,,"]
+    (dist / "RECORD").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return dist
+
+
+def test_installed_scan_reads_record_without_per_file_stat(tmp_path: Path, monkeypatch) -> None:
+    site = tmp_path / "site"
+    _fake_site(site, "bigmod")
+
+    def boom(self):
+        raise AssertionError("Distribution.files stattet jede installierte Datei (Python >= 3.12)")
+
+    monkeypatch.setattr(metadata.Distribution, "files", property(boom))
+    found = _installed_manifest_paths([str(site)])
+    assert [p.name for p in found] == ["ellmos-module.v2.json"]
+
+
+def test_installed_scan_is_cached_per_process_and_invalidated_by_site_change(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.delenv(MODULE_ROOTS_ENV, raising=False)
+    site = tmp_path / "site"
+    site.mkdir()
+    _fake_site(site, "moda")
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    reads: list[str] = []
+    orig = metadata.PathDistribution.read_text
+
+    def counting(self, filename):
+        reads.append(filename)
+        return orig(self, filename)
+
+    monkeypatch.setattr(metadata.PathDistribution, "read_text", counting)
+
+    first = build_full_agent_library_catalog(empty, include_installed=True, dist_path=[str(site)])
+    assert reads.count("RECORD") == 1, "höchstens ein Scan je Anfrage"
+    second = build_full_agent_library_catalog(empty, include_installed=True, dist_path=[str(site)])
+    assert reads.count("RECORD") == 1, "zweite Anfrage nutzt den Prozess-Cache"
+    assert first["counts"]["module_roles"] == second["counts"]["module_roles"] == 1
+
+    _fake_site(site, "modb")  # neue Distribution -> mtime der Site-Wurzel ändert sich
+    st = os.stat(site)
+    os.utime(site, ns=(st.st_atime_ns, st.st_mtime_ns + 5_000_000_000))
+    third = build_full_agent_library_catalog(empty, include_installed=True, dist_path=[str(site)])
+    assert third["counts"]["module_roles"] == 2
+
+
+def test_api_payload_has_no_absolute_local_paths(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.delenv(MODULE_ROOTS_ENV, raising=False)
+    root = tmp_path / "home" / "someone" / "services"
+    _write_manifest(root / "m1", "m1", ["a"])
+    site = tmp_path / "site"
+    site.mkdir()
+    _fake_site(site, "modx")
+    lib = build_full_agent_library_catalog(root, include_installed=True, dist_path=[str(site)])
+    blob = json.dumps(lib, ensure_ascii=False)
+    assert str(tmp_path) not in blob and tmp_path.as_posix() not in blob and "someone" not in blob
+    paths = {m["module_id"]: m["path"] for m in lib["module_manifests"]}
+    assert paths["m1"] == "m1/ellmos-module.v2.json"
+    assert paths["modx"] == "modx/ellmos-module.v2.json"

@@ -76,7 +76,9 @@ def build_reference_artifacts() -> dict[str, Any]:
     http_routes = extract_http_routes()
     stack = ocean_stack_status()
     modules = [
-        {"id": k, "module": v["module"], "bound": bool(v["bound"])}
+        # declared binding (the contract), not the runtime state: the committed reference must not change with the
+        # sibling checkouts installed on a runner. The runtime state is `ocean stack-status`.
+        {"id": k, "module": v["module"], "bound": True}
         for k, v in sorted(stack["modules"].items())
     ]
 

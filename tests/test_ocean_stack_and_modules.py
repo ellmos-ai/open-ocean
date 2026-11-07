@@ -67,9 +67,10 @@ def test_ocean_stack_bridge_binds_all_11_canonical_modules() -> None:
         "ellmos-homecontrol",
         "ellmos-robotics",
         "ellmos-universal-gui",
+        "llm-note",
     }
     assert set(report["capability_extensions"].keys()) == expected_ext
-    assert report["capability_extensions_bound_count"] == 6
+    assert report["capability_extensions_bound_count"] == 7
     for name, info in report["capability_extensions"].items():
         assert info["bound"] is True, f"Capability extension {name} failed to bind: {info}"
 

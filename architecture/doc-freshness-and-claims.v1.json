@@ -1,0 +1,275 @@
+{
+  "schema": "open-ocean.doc-freshness-and-claims.v1",
+  "id": "open-ocean-doc-freshness-and-claims",
+  "version": "1.0.0",
+  "default_source_language": "de",
+  "required_languages": [
+    "de",
+    "en"
+  ],
+  "world_set_languages": [
+    "de",
+    "en",
+    "es",
+    "ja",
+    "ru",
+    "zh"
+  ],
+  "module_doc_schema": {
+    "required_manifest_fields": [
+      "languages",
+      "docs"
+    ],
+    "minimum_languages": [
+      "de",
+      "en"
+    ],
+    "docs_contract": {
+      "readme": "README.md",
+      "doc_de": "README_de.md"
+    },
+    "core_bundles_count": 13,
+    "core_bundles": [
+      "ellmos-agents-bundle",
+      "ellmos-coordination-choice-bundle",
+      "ellmos-knowledge-bundle",
+      "ellmos-memory-human-context-bundle",
+      "ellmos-working-memory-bundle",
+      "ellmos-briefing-bundle",
+      "ellmos-daily-life-bundle",
+      "ellmos-doc-handler-bundle",
+      "ellmos-finance-assist-bundle",
+      "ellmos-health-assist-bundle",
+      "ellmos-knowledge-search-choice-bundle",
+      "ellmos-media-production-bundle",
+      "ellmos-voice-media-assist-bundle"
+    ]
+  },
+  "documents": [
+    {
+      "document_id": "ocean:readme",
+      "title": "Open-Ocean Root README",
+      "source_path": "README_de.md",
+      "source_language": "de",
+      "source_sha256": "5b06dae553e18c292225230b2f19a855d5c5d252ec9d1e90b3c6f0320494a704",
+      "translations": {
+        "en": {
+          "target_path": "README.md",
+          "target_sha256": "710890ed34fa452b867a38939bc98364daa7b26078d5b27ed301418899c2e89c",
+          "verified_not_older_than_source": true
+        }
+      },
+      "verified_claims": {
+        "cli_commands": [
+          "python ocean.py plan",
+          "python ocean.py up",
+          "python ocean.py start",
+          "python ocean.py status",
+          "python ocean.py inspect",
+          "python ocean.py down"
+        ],
+        "module_imports": [
+          "tools.ocean_dev",
+          "tools.resolve_bundles",
+          "tools.fetch_place"
+        ],
+        "relative_repo_paths": [
+          "README.md",
+          "README_de.md",
+          "CHANGELOG.md",
+          "CHANGELOG_de.md",
+          "SECURITY.md",
+          "llms.txt",
+          "THIRD_PARTY_LICENSES.md",
+          "architecture/INSTALLER-TARGET.md",
+          "architecture/OCEAN-INSPECT.md",
+          "architecture/GUI-CONSUMER.md"
+        ]
+      }
+    },
+    {
+      "document_id": "ocean:changelog",
+      "title": "Open-Ocean Changelog",
+      "source_path": "CHANGELOG_de.md",
+      "source_language": "de",
+      "source_sha256": "1ee75453b288d1efa908fbcfd4b31a4111e23d0250983dc9c8a6f31208e02ce0",
+      "translations": {
+        "en": {
+          "target_path": "CHANGELOG.md",
+          "target_sha256": "e26a66c8b7e5feb2aa74faf3acafaeb529eee711be1a0805ddfce4320614e839",
+          "verified_not_older_than_source": true
+        }
+      },
+      "verified_claims": {
+        "cli_commands": [
+          "python ocean.py up"
+        ],
+        "module_imports": [
+          "tools.resolve_bundles"
+        ],
+        "relative_repo_paths": [
+          "CHANGELOG.md",
+          "CHANGELOG_de.md",
+          "README.md",
+          "README_de.md"
+        ]
+      }
+    },
+    {
+      "document_id": "ocean:docs-index",
+      "title": "Documentation Index (docs/)",
+      "source_path": "docs/README.de.md",
+      "source_language": "de",
+      "source_sha256": "5df176df375b34a96c3a3a359a9f8b16f2bc5bec18318b5b7120ef7418b63a2d",
+      "translations": {
+        "en": {
+          "target_path": "docs/README.en.md",
+          "target_sha256": "6c7b5c2d5b2fcae641ec721dffb3e3f2a9c655445322685a8991b14d1abceef1",
+          "verified_not_older_than_source": true
+        }
+      },
+      "verified_claims": {
+        "cli_commands": [
+          "python ocean.py status"
+        ],
+        "module_imports": [
+          "tools.ocean_dev"
+        ],
+        "relative_repo_paths": [
+          "docs/CORE.md",
+          "docs/GUI-CONSUMER.md",
+          "docs/K9-REMAINING-CI.md",
+          "docs/K9-REMAINING-OPERATIONS-CONTRACT.md",
+          "docs/SKILL.en.md",
+          "docs/DOCUMENT-REGISTER.json",
+          "architecture/doc-freshness-and-claims.v1.json",
+          "architecture/OCEAN-CLI-CONSOLE-PLAN.md",
+          "architecture/component-bindings.v1.json",
+          "architecture/product-branding.v1.json"
+        ]
+      }
+    },
+    {
+      "document_id": "ocean:cli-console-plan",
+      "title": "OCEAN API + CLI Console Architecture Plan",
+      "source_path": "architecture/OCEAN-CLI-CONSOLE-PLAN.md",
+      "source_language": "de",
+      "source_sha256": "30a89b94277bba2d72e3f7b9c2eace0f24cd2b5b63ad3d41e62af67a9448e1e7",
+      "translations": {
+        "en": {
+          "target_path": "architecture/OCEAN-CLI-CONSOLE-PLAN.en.md",
+          "target_sha256": "3da1c3165610015589363aeb97d16b0aeb1d7323fde2f531361440d532b089e2",
+          "verified_not_older_than_source": true
+        }
+      },
+      "verified_claims": {
+        "cli_commands": [
+          "ocean chat",
+          "ocean agents list",
+          "ocean sessions list",
+          "ocean tasks list"
+        ],
+        "module_imports": [
+          "tools.ocean_dev"
+        ],
+        "relative_repo_paths": [
+          "architecture/OCEAN-CLI-CONSOLE-PLAN.md",
+          "architecture/OCEAN-CLI-CONSOLE-PLAN.en.md",
+          "ocean.py"
+        ]
+      }
+    },
+    {
+      "document_id": "ocean:skill-world-set",
+      "title": "Agent Skill Specification with 6-Language World Set",
+      "source_path": "SKILL.md",
+      "source_language": "de",
+      "source_sha256": "89b34e2be723c65710b75f4abf37e0cc61f23d662b14059c93123ef3cc463bfa",
+      "translations": {
+        "en": {
+          "target_path": "docs/SKILL.en.md",
+          "target_sha256": "228fb92116cb70b456d928864ddc3427bbb4f5b215b57b80e4c00d885f230f53",
+          "verified_not_older_than_source": true
+        },
+        "es": {
+          "target_path": "docs/SKILL.es.md",
+          "target_sha256": "a6a30d237a7728dbd0e4e2de8c1577ed99d91f34da70209775441acce945befa",
+          "verified_not_older_than_source": true
+        },
+        "ja": {
+          "target_path": "docs/SKILL.ja.md",
+          "target_sha256": "38a413ca83e75e2d663e6c94c577a30652a2c858734f1d862e98951d9e3e21a7",
+          "verified_not_older_than_source": true
+        },
+        "ru": {
+          "target_path": "docs/SKILL.ru.md",
+          "target_sha256": "3ca39a333c918f65c4f788407953245d27244c8d6d90e721f937d3ed1126dd14",
+          "verified_not_older_than_source": true
+        },
+        "zh": {
+          "target_path": "docs/SKILL.zh.md",
+          "target_sha256": "b8da3fd94ab137f8ef9cbaec119f506f81d47fc9ea24d2db5b3aeb4b493a4cf8",
+          "verified_not_older_than_source": true
+        }
+      },
+      "verified_claims": {
+        "cli_commands": [
+          "python ocean.py status"
+        ],
+        "module_imports": [
+          "tools.ocean_dev"
+        ],
+        "relative_repo_paths": [
+          "SKILL.md",
+          "docs/SKILL.en.md",
+          "docs/SKILL.es.md",
+          "docs/SKILL.ja.md",
+          "docs/SKILL.ru.md",
+          "docs/SKILL.zh.md"
+        ]
+      }
+    },
+    {
+      "document_id": "ocean:llms-txt",
+      "title": "LLM Discovery & Context (llms.txt)",
+      "source_path": "llms.txt",
+      "source_language": "en",
+      "source_sha256": "e608a96a7173c60fb4d43adc69fc989a0c6ebde5d5bee066b38a315970f80e17",
+      "translations": {},
+      "verified_claims": {
+        "cli_commands": [
+          "python ocean.py plan",
+          "python ocean.py up",
+          "python ocean.py start",
+          "python ocean.py status",
+          "python ocean.py inspect",
+          "python ocean.py down",
+          "python tools/ocean_dev.py"
+        ],
+        "module_imports": [
+          "tools.ocean_dev",
+          "tools.resolve_bundles",
+          "tools.fetch_place",
+          "tools.host_adapters",
+          "tools.audit_bach_handlers",
+          "tools.check_k9_data_contract"
+        ],
+        "relative_repo_paths": [
+          "README.md",
+          "README_de.md",
+          "CHANGELOG.md",
+          "CHANGELOG_de.md",
+          "SECURITY.md",
+          "architecture/INSTALLER-TARGET.md",
+          "architecture/OCEAN-INSPECT.md",
+          "architecture/open-ocean.skeleton.v1.json",
+          "architecture/BACH-EXTRACTION-ROADMAP.md",
+          "architecture/bach-parity-baseline.v1.json",
+          "architecture/bach-k9-data-contract.v1.json",
+          "architecture/bach-k9-dbsync-adapter.v1.json",
+          "architecture/session-checkpoint-capability.v1.json"
+        ]
+      }
+    }
+  ]
+}

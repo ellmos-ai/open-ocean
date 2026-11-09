@@ -1,0 +1,362 @@
+{
+  "schema": "ellmos.open-ocean.module-surfaces.v1",
+  "id": "module-surfaces",
+  "version": "1.0.0",
+  "title": "Ocean Module Surfaces & Integration Matrix",
+  "description": "Canonical UI surface mappings, agent-only classifications, and integration readiness states for Open-Ocean modules and component bindings (PB-7 / #3991).",
+  "surfaces_catalog": [
+    "/notizen",
+    "/routinen",
+    "/tasks",
+    "/life",
+    "/financial",
+    "/skills",
+    "/skills/ocean",
+    "/chat",
+    "/system/ocean",
+    "/modules"
+  ],
+  "modules": {
+    "ocean-resources": {
+      "id": "ocean-resources",
+      "name": "Ocean Resources (RAM & Compute Arbiter)",
+      "category": "core",
+      "agent_only": true,
+      "integration_status": "live",
+      "demo_mode": false,
+      "ui": {
+        "surfaces": []
+      }
+    },
+    "task-master": {
+      "id": "task-master",
+      "name": "Task Master (Lease & Worktree Router)",
+      "category": "core",
+      "agent_only": false,
+      "integration_status": "live",
+      "demo_mode": false,
+      "ui": {
+        "surfaces": ["/tasks", "/modules"]
+      }
+    },
+    "ellmos-worker": {
+      "id": "ellmos-worker",
+      "name": "ELLMOS Worker (Sandbox & Worktree Policy)",
+      "category": "core",
+      "agent_only": true,
+      "integration_status": "live",
+      "demo_mode": false,
+      "ui": {
+        "surfaces": []
+      }
+    },
+    "review-policy": {
+      "id": "review-policy",
+      "name": "Task Result Review Policy",
+      "category": "core",
+      "agent_only": true,
+      "integration_status": "live",
+      "demo_mode": false,
+      "ui": {
+        "surfaces": []
+      }
+    },
+    "escalation-ladder": {
+      "id": "escalation-ladder",
+      "name": "Escalation Ladder & Permission Gate",
+      "category": "core",
+      "agent_only": true,
+      "integration_status": "live",
+      "demo_mode": false,
+      "ui": {
+        "surfaces": []
+      }
+    },
+    "persona-routing": {
+      "id": "persona-routing",
+      "name": "Persona Routing & Role Dispatcher",
+      "category": "core",
+      "agent_only": false,
+      "integration_status": "live",
+      "demo_mode": false,
+      "ui": {
+        "surfaces": ["/chat", "/skills", "/system/ocean"]
+      }
+    },
+    "learning-loop": {
+      "id": "learning-loop",
+      "name": "Hermes Learning Loop (Skill Harvester)",
+      "category": "core",
+      "agent_only": false,
+      "integration_status": "live",
+      "demo_mode": false,
+      "ui": {
+        "surfaces": ["/skills", "/modules"]
+      }
+    },
+    "agent-library": {
+      "id": "agent-library",
+      "name": "Agent Library & Automation Registry",
+      "category": "core",
+      "agent_only": false,
+      "integration_status": "live",
+      "demo_mode": false,
+      "ui": {
+        "surfaces": ["/skills", "/chat"]
+      }
+    },
+    "capability-views": {
+      "id": "capability-views",
+      "name": "Capability Views & Ocean Board",
+      "category": "core",
+      "agent_only": false,
+      "integration_status": "live",
+      "demo_mode": false,
+      "ui": {
+        "surfaces": ["/skills/ocean", "/system/ocean", "/modules"]
+      }
+    },
+    "governance-bridge": {
+      "id": "governance-bridge",
+      "name": "Governance Bridge & Policy Inspector",
+      "category": "core",
+      "agent_only": false,
+      "integration_status": "live",
+      "demo_mode": false,
+      "ui": {
+        "surfaces": ["/system/ocean", "/modules"]
+      }
+    },
+    "doc-keeper": {
+      "id": "doc-keeper",
+      "name": "Doc Keeper & Help Extractor",
+      "category": "core",
+      "agent_only": false,
+      "integration_status": "live",
+      "demo_mode": false,
+      "ui": {
+        "surfaces": ["/notizen", "/modules"]
+      }
+    },
+    "ellmos-voice-io": {
+      "id": "ellmos-voice-io",
+      "name": "ELLMOS Voice I/O (STT / TTS Audio Engine)",
+      "category": "extension",
+      "agent_only": false,
+      "integration_status": "adapter",
+      "demo_mode": false,
+      "ui": {
+        "surfaces": ["/chat"]
+      }
+    },
+    "ellmos-talk": {
+      "id": "ellmos-talk",
+      "name": "ELLMOS Talk (Duplex Voice Radio)",
+      "category": "extension",
+      "agent_only": false,
+      "integration_status": "adapter",
+      "demo_mode": false,
+      "ui": {
+        "surfaces": ["/chat"]
+      }
+    },
+    "ellmos-sensation": {
+      "id": "ellmos-sensation",
+      "name": "ELLMOS Sensation (Multimodal Sensory Bus)",
+      "category": "extension",
+      "agent_only": false,
+      "integration_status": "adapter",
+      "demo_mode": false,
+      "ui": {
+        "surfaces": ["/system/ocean"]
+      }
+    },
+    "ellmos-homecontrol": {
+      "id": "ellmos-homecontrol",
+      "name": "ELLMOS Homecontrol (Matter / Zigbee / Smart Home Hub)",
+      "category": "extension",
+      "agent_only": false,
+      "integration_status": "demo",
+      "demo_mode": true,
+      "ui": {
+        "surfaces": ["/system/ocean"]
+      }
+    },
+    "ellmos-robotics": {
+      "id": "ellmos-robotics",
+      "name": "ELLMOS Robotics (Embodied Actor & MCP Telemetry)",
+      "category": "extension",
+      "agent_only": false,
+      "integration_status": "demo",
+      "demo_mode": true,
+      "ui": {
+        "surfaces": ["/system/ocean"]
+      }
+    },
+    "ellmos-universal-gui": {
+      "id": "ellmos-universal-gui",
+      "name": "ELLMOS Universal GUI (Desktop & Web Shell)",
+      "category": "extension",
+      "agent_only": false,
+      "integration_status": "live",
+      "demo_mode": false,
+      "ui": {
+        "surfaces": ["/modules", "/system/ocean", "/life", "/tasks", "/skills", "/chat", "/notizen", "/routinen"]
+      }
+    },
+    "llm-note": {
+      "id": "llm-note",
+      "name": "LLM Note Store (Note & Thought Carrier)",
+      "category": "extension",
+      "agent_only": false,
+      "integration_status": "live",
+      "demo_mode": false,
+      "ui": {
+        "surfaces": ["/notizen"]
+      }
+    },
+    "ellmos-agents-bundle": {
+      "id": "ellmos-agents-bundle",
+      "name": "Agents Bundle",
+      "category": "bundle",
+      "agent_only": false,
+      "integration_status": "live",
+      "demo_mode": false,
+      "ui": {
+        "surfaces": ["/skills", "/chat"]
+      }
+    },
+    "ellmos-coordination-choice-bundle": {
+      "id": "ellmos-coordination-choice-bundle",
+      "name": "Coordination Choice Bundle",
+      "category": "bundle",
+      "agent_only": false,
+      "integration_status": "live",
+      "demo_mode": false,
+      "ui": {
+        "surfaces": ["/system/ocean", "/modules"]
+      }
+    },
+    "ellmos-knowledge-bundle": {
+      "id": "ellmos-knowledge-bundle",
+      "name": "Knowledge Bundle",
+      "category": "bundle",
+      "agent_only": false,
+      "integration_status": "live",
+      "demo_mode": false,
+      "ui": {
+        "surfaces": ["/skills", "/notizen"]
+      }
+    },
+    "ellmos-memory-human-context-bundle": {
+      "id": "ellmos-memory-human-context-bundle",
+      "name": "Memory Human Context Bundle",
+      "category": "bundle",
+      "agent_only": false,
+      "integration_status": "live",
+      "demo_mode": false,
+      "ui": {
+        "surfaces": ["/life", "/chat"]
+      }
+    },
+    "ellmos-working-memory-bundle": {
+      "id": "ellmos-working-memory-bundle",
+      "name": "Working Memory Bundle",
+      "category": "bundle",
+      "agent_only": true,
+      "integration_status": "live",
+      "demo_mode": false,
+      "ui": {
+        "surfaces": []
+      }
+    },
+    "ellmos-briefing-bundle": {
+      "id": "ellmos-briefing-bundle",
+      "name": "Briefing Bundle",
+      "category": "bundle",
+      "agent_only": false,
+      "integration_status": "live",
+      "demo_mode": false,
+      "ui": {
+        "surfaces": ["/chat", "/life"]
+      }
+    },
+    "ellmos-daily-life-bundle": {
+      "id": "ellmos-daily-life-bundle",
+      "name": "Daily Life Bundle",
+      "category": "bundle",
+      "agent_only": false,
+      "integration_status": "live",
+      "demo_mode": false,
+      "ui": {
+        "surfaces": ["/life", "/routinen"]
+      }
+    },
+    "ellmos-doc-handler-bundle": {
+      "id": "ellmos-doc-handler-bundle",
+      "name": "Doc Handler Bundle",
+      "category": "bundle",
+      "agent_only": false,
+      "integration_status": "live",
+      "demo_mode": false,
+      "ui": {
+        "surfaces": ["/notizen"]
+      }
+    },
+    "ellmos-finance-assist-bundle": {
+      "id": "ellmos-finance-assist-bundle",
+      "name": "Finance Assist Bundle",
+      "category": "bundle",
+      "agent_only": false,
+      "integration_status": "live",
+      "demo_mode": false,
+      "ui": {
+        "surfaces": ["/life", "/financial"]
+      }
+    },
+    "ellmos-health-assist-bundle": {
+      "id": "ellmos-health-assist-bundle",
+      "name": "Health Assist Bundle",
+      "category": "bundle",
+      "agent_only": false,
+      "integration_status": "adapter",
+      "demo_mode": false,
+      "ui": {
+        "surfaces": ["/life"]
+      }
+    },
+    "ellmos-knowledge-search-choice-bundle": {
+      "id": "ellmos-knowledge-search-choice-bundle",
+      "name": "Knowledge Search Choice Bundle",
+      "category": "bundle",
+      "agent_only": false,
+      "integration_status": "live",
+      "demo_mode": false,
+      "ui": {
+        "surfaces": ["/skills"]
+      }
+    },
+    "ellmos-media-production-bundle": {
+      "id": "ellmos-media-production-bundle",
+      "name": "Media Production Bundle",
+      "category": "bundle",
+      "agent_only": false,
+      "integration_status": "live",
+      "demo_mode": false,
+      "ui": {
+        "surfaces": ["/chat"]
+      }
+    },
+    "ellmos-voice-media-assist-bundle": {
+      "id": "ellmos-voice-media-assist-bundle",
+      "name": "Voice Media Assist Bundle",
+      "category": "bundle",
+      "agent_only": false,
+      "integration_status": "adapter",
+      "demo_mode": false,
+      "ui": {
+        "surfaces": ["/chat"]
+      }
+    }
+  }
+}

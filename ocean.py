@@ -261,6 +261,109 @@ def build_parser() -> argparse.ArgumentParser:
         help="Status aller 11 kanonischen Ocean-Module im Plattformkern anzeigen",
     )
     stack_cmd.add_argument("--json", action="store_true")
+
+    # =========================================================================
+    # OCEAN CLI Console Subcommands (Dual API + CLI Contract)
+    # =========================================================================
+
+    def _add_common_api_args(p: argparse.ArgumentParser) -> None:
+        p.add_argument("--url", help="Basis-URL der Laufzeit-API (Standard: automatische Erkennung)")
+        p.add_argument("--token", help="Auth-Token / Geräteschlüssel für die Laufzeit-API")
+        p.add_argument("--workspace", type=Path, help="Arbeitsverzeichnis für automatische Runtime-Auflösung")
+
+    # 1. ocean chat / ocean console
+    for chat_alias, chat_help in (
+        ("chat", "Interaktive Terminal-Konsole oder Single-Shot-Chat mit einem Agenten"),
+        ("console", "Alias für 'ocean chat'"),
+    ):
+        chat_parser = commands.add_parser(chat_alias, help=chat_help)
+        chat_parser.add_argument("--agent", default="buddha_chat", help="Agenten- oder Hintergrundworker-ID (Standard: buddha_chat)")
+        chat_parser.add_argument("--session", help="Session-Snapshot-ID zum Laden oder Forken")
+        chat_parser.add_argument("--once", help="Single-Shot-Prompt ohne interaktive Konsole")
+        chat_parser.add_argument("--tools", action="store_true", help="Werkzeugaufrufe anzeigen")
+        chat_parser.add_argument("--stream", action="store_true", help="Token-/Event-Streaming aktivieren")
+        chat_parser.add_argument("--json", action="store_true", help="JSON-Ausgabe")
+        _add_common_api_args(chat_parser)
+
+    # 2. ocean agents
+    agents_parser = commands.add_parser("agents", help="Agenten und Hintergrundworker steuern")
+    agents_sub = agents_parser.add_subparsers(dest="agents_subcommand", metavar="ACTION")
+
+    ag_list = agents_sub.add_parser("list", help="Agenten und Hintergrundworker auflisten")
+    ag_list.add_argument("--status", choices=["ready", "running", "paused", "error"], help="Filter nach Statusgruppe")
+    ag_list.add_argument("--json", action="store_true")
+    _add_common_api_args(ag_list)
+
+    ag_show = agents_sub.add_parser("show", help="Detailstatus eines Agenten oder Workers")
+    ag_show.add_argument("agent_id", help="Agenten- oder Worker-ID")
+    ag_show.add_argument("--json", action="store_true")
+    _add_common_api_args(ag_show)
+
+    for action_name, action_help in (
+        ("start", "Agenten oder Worker starten"),
+        ("resume", "Agenten oder Worker fortsetzen"),
+        ("pause", "Agenten oder Worker pausieren"),
+        ("stop", "Agenten oder Worker stoppen"),
+    ):
+        ag_act = agents_sub.add_parser(action_name, help=action_help)
+        ag_act.add_argument("agent_id", help="Agenten- oder Worker-ID")
+        ag_act.add_argument("--json", action="store_true")
+        _add_common_api_args(ag_act)
+
+    # 3. ocean sessions
+    sessions_parser = commands.add_parser("sessions", help="Session-Snapshots und Transkripte einsehen und übergeben")
+    sessions_sub = sessions_parser.add_subparsers(dest="sessions_subcommand", metavar="ACTION")
+
+    sess_list = sessions_sub.add_parser("list", help="Session-Snapshots auflisten")
+    sess_list.add_argument("--agent", help="Filter nach Agenten- oder Worker-ID")
+    sess_list.add_argument("--source", choices=["user", "buddha", "worker", "system"], help="Filter nach Quelle")
+    sess_list.add_argument("--problems", action="store_true", help="Nur problematische Sessions anzeigen")
+    sess_list.add_argument("--limit", type=int, default=25, help="Maximale Anzahl (Standard: 25)")
+    sess_list.add_argument("--json", action="store_true")
+    _add_common_api_args(sess_list)
+
+    sess_show = sessions_sub.add_parser("show", help="Session-Transkript ausgeben")
+    sess_show.add_argument("snapshot_id", help="Snapshot-ID")
+    sess_show.add_argument("--tools", action="store_true", help="Werkzeugaufrufe mit ausgeben")
+    sess_show.add_argument("--json", action="store_true")
+    _add_common_api_args(sess_show)
+
+    sess_res = sessions_sub.add_parser("resume", help="Session an Hintergrundworker übergeben")
+    sess_res.add_argument("snapshot_id", help="Snapshot-ID")
+    sess_res.add_argument("--worker", required=True, help="Worker-ID für die Fortsetzung")
+    sess_res.add_argument("--prompt", help="Zusätzlicher Hinweis für den Worker")
+    sess_res.add_argument("--json", action="store_true")
+    _add_common_api_args(sess_res)
+
+    # 4. ocean tasks (Dual Runtime API Tasks)
+    tasks_parser = commands.add_parser("tasks", help="Tasks über die Runtime-API verwalten und zuweisen")
+    tasks_sub = tasks_parser.add_subparsers(dest="tasks_subcommand", metavar="ACTION")
+
+    t_list = tasks_sub.add_parser("list", help="Tasks auflisten")
+    t_list.add_argument("--status", help="Status-Filter")
+    t_list.add_argument("--assigned", help="Filter nach zugewiesenem Agenten")
+    t_list.add_argument("--limit", type=int, default=50, help="Maximale Anzahl")
+    t_list.add_argument("--json", action="store_true")
+    _add_common_api_args(t_list)
+
+    t_show = tasks_sub.add_parser("show", help="Task-Details anzeigen")
+    t_show.add_argument("task_id", help="Task-ID")
+    t_show.add_argument("--history", action="store_true", help="Historie mit anzeigen")
+    t_show.add_argument("--json", action="store_true")
+    _add_common_api_args(t_show)
+
+    t_assign = tasks_sub.add_parser("assign", help="Task einem Agenten zuweisen")
+    t_assign.add_argument("task_id", help="Task-ID")
+    t_assign.add_argument("--agent", required=True, help="Agenten- oder Worker-ID")
+    t_assign.add_argument("--json", action="store_true")
+    _add_common_api_args(t_assign)
+
+    t_returns = tasks_sub.add_parser("returns", help="Task-Rückgaben anzeigen")
+    t_returns.add_argument("--hours", type=int, default=24, help="Zeitfenster in Stunden (Standard: 24)")
+    t_returns.add_argument("--worker", help="Filter nach Worker-ID")
+    t_returns.add_argument("--json", action="store_true")
+    _add_common_api_args(t_returns)
+
     return parser
 
 
@@ -618,6 +721,46 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print(f"OCEAN Stack-Bindungen: {report['bound_count']}/{report['total_modules']} Module aktiv.")
         return 0 if report["bound_count"] == report["total_modules"] else 1
+    if args.command in ("chat", "console"):
+        from tools.ocean_api_client import OceanApiClient
+        from tools.ocean_console import handle_chat
+
+        client = OceanApiClient(
+            base_url=getattr(args, "url", None),
+            token=getattr(args, "token", None),
+            workspace=getattr(args, "workspace", None),
+        )
+        return handle_chat(client, args)
+    if args.command == "agents":
+        from tools.ocean_api_client import OceanApiClient
+        from tools.ocean_console import handle_agents
+
+        client = OceanApiClient(
+            base_url=getattr(args, "url", None),
+            token=getattr(args, "token", None),
+            workspace=getattr(args, "workspace", None),
+        )
+        return handle_agents(client, args)
+    if args.command == "sessions":
+        from tools.ocean_api_client import OceanApiClient
+        from tools.ocean_console import handle_sessions
+
+        client = OceanApiClient(
+            base_url=getattr(args, "url", None),
+            token=getattr(args, "token", None),
+            workspace=getattr(args, "workspace", None),
+        )
+        return handle_sessions(client, args)
+    if args.command == "tasks":
+        from tools.ocean_api_client import OceanApiClient
+        from tools.ocean_console import handle_tasks
+
+        client = OceanApiClient(
+            base_url=getattr(args, "url", None),
+            token=getattr(args, "token", None),
+            workspace=getattr(args, "workspace", None),
+        )
+        return handle_tasks(client, args)
     print(f"Der Befehl '{args.command}' wird in diesem Build noch nicht ausgeführt.", file=sys.stderr)
     return 3
 

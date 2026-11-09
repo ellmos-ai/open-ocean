@@ -1,10 +1,48 @@
 {
   "schema": "ellmos.api-cli-reference.v1",
   "product": "open-ocean",
-  "cli_command_count": 10,
+  "cli_command_count": 15,
   "http_route_count": 3,
   "module_binding_count": 11,
   "cli_commands": [
+    {
+      "command": "agents",
+      "prog": "ocean agents",
+      "help": "Agenten und Hintergrundworker steuern",
+      "options": []
+    },
+    {
+      "command": "chat",
+      "prog": "ocean chat",
+      "help": "Interaktive Terminal-Konsole oder Single-Shot-Chat mit einem Agenten",
+      "options": [
+        "--agent",
+        "--session",
+        "--once",
+        "--tools",
+        "--stream",
+        "--json",
+        "--url",
+        "--token",
+        "--workspace"
+      ]
+    },
+    {
+      "command": "console",
+      "prog": "ocean console",
+      "help": "Alias für 'ocean chat'",
+      "options": [
+        "--agent",
+        "--session",
+        "--once",
+        "--tools",
+        "--stream",
+        "--json",
+        "--url",
+        "--token",
+        "--workspace"
+      ]
+    },
     {
       "command": "down",
       "prog": "ocean down",
@@ -68,6 +106,12 @@
       ]
     },
     {
+      "command": "sessions",
+      "prog": "ocean sessions",
+      "help": "Session-Snapshots und Transkripte einsehen und übergeben",
+      "options": []
+    },
+    {
       "command": "stack-status",
       "prog": "ocean stack-status",
       "help": "Status aller 11 kanonischen Ocean-Module im Plattformkern anzeigen",
@@ -108,6 +152,12 @@
       "command": "task",
       "prog": "ocean task",
       "help": "Einheitliches Task-Lifecycle-Werkzeug über den Taskkern taskplan (list|take|renew|submit|return|block|reclaim)",
+      "options": []
+    },
+    {
+      "command": "tasks",
+      "prog": "ocean tasks",
+      "help": "Tasks über die Runtime-API verwalten und zuweisen",
       "options": []
     },
     {
@@ -215,5 +265,5 @@
       "bound": true
     }
   ],
-  "sha256": "c87842d6cafe3c536a96c9166bd0b8105a2503de580c0b9e96f5237d4966e108"
+  "sha256": "24f0977ee283006b448f9b77f8e2220ddc254ea3756a56a03629989a1eb07e41"
 }

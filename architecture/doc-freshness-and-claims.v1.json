@@ -3,11 +3,27 @@
   "id": "open-ocean-doc-freshness-and-claims",
   "version": "1.0.0",
   "default_source_language": "de",
-  "required_languages": ["de", "en"],
-  "world_set_languages": ["de", "en", "es", "ja", "ru", "zh"],
+  "required_languages": [
+    "de",
+    "en"
+  ],
+  "world_set_languages": [
+    "de",
+    "en",
+    "es",
+    "ja",
+    "ru",
+    "zh"
+  ],
   "module_doc_schema": {
-    "required_manifest_fields": ["languages", "docs"],
-    "minimum_languages": ["de", "en"],
+    "required_manifest_fields": [
+      "languages",
+      "docs"
+    ],
+    "minimum_languages": [
+      "de",
+      "en"
+    ],
     "docs_contract": {
       "readme": "README.md",
       "doc_de": "README_de.md"
@@ -35,11 +51,11 @@
       "title": "Open-Ocean Root README",
       "source_path": "README_de.md",
       "source_language": "de",
-      "source_sha256": "40a6f406809d1679686722b04eb71a4805d174cc125491c2de2b132853e53da7",
+      "source_sha256": "5b06dae553e18c292225230b2f19a855d5c5d252ec9d1e90b3c6f0320494a704",
       "translations": {
         "en": {
           "target_path": "README.md",
-          "target_sha256": "c173b7136032b880ec2054d3a4518c40dd2263d450ebe26ab2aa5a637f29e5a8",
+          "target_sha256": "710890ed34fa452b867a38939bc98364daa7b26078d5b27ed301418899c2e89c",
           "verified_not_older_than_source": true
         }
       },
@@ -76,11 +92,11 @@
       "title": "Open-Ocean Changelog",
       "source_path": "CHANGELOG_de.md",
       "source_language": "de",
-      "source_sha256": "ce2733b4bfd6a2a1e587847a1f71362de96f9562c55dafe7968d5594fd61ed98",
+      "source_sha256": "1ee75453b288d1efa908fbcfd4b31a4111e23d0250983dc9c8a6f31208e02ce0",
       "translations": {
         "en": {
           "target_path": "CHANGELOG.md",
-          "target_sha256": "561943d6206ec07e884546562afdebeb46880c4a6e31c34f1014d2ec94c84248",
+          "target_sha256": "e26a66c8b7e5feb2aa74faf3acafaeb529eee711be1a0805ddfce4320614e839",
           "verified_not_older_than_source": true
         }
       },
@@ -138,7 +154,7 @@
       "title": "OCEAN API + CLI Console Architecture Plan",
       "source_path": "architecture/OCEAN-CLI-CONSOLE-PLAN.md",
       "source_language": "de",
-      "source_sha256": "68bae4257f6caa85367f739fc1475cf46ed990e891c1c556548641f747876724",
+      "source_sha256": "30a89b94277bba2d72e3f7b9c2eace0f24cd2b5b63ad3d41e62af67a9448e1e7",
       "translations": {
         "en": {
           "target_path": "architecture/OCEAN-CLI-CONSOLE-PLAN.en.md",
@@ -168,31 +184,31 @@
       "title": "Agent Skill Specification with 6-Language World Set",
       "source_path": "SKILL.md",
       "source_language": "de",
-      "source_sha256": "441a265624dea5728462a2e8febafd64398db18997f2210930f5d39ce7f38801",
+      "source_sha256": "89b34e2be723c65710b75f4abf37e0cc61f23d662b14059c93123ef3cc463bfa",
       "translations": {
         "en": {
           "target_path": "docs/SKILL.en.md",
-          "target_sha256": "70a21c482e83eeb7de16f69f5d091feecdcb862ce43399fa1fb6c02421e43ac3",
+          "target_sha256": "228fb92116cb70b456d928864ddc3427bbb4f5b215b57b80e4c00d885f230f53",
           "verified_not_older_than_source": true
         },
         "es": {
           "target_path": "docs/SKILL.es.md",
-          "target_sha256": "f97451969d6ecee8c68f9b8503ac17413ee3dbcf6dc941a1632f259c7b7f74dc",
+          "target_sha256": "a6a30d237a7728dbd0e4e2de8c1577ed99d91f34da70209775441acce945befa",
           "verified_not_older_than_source": true
         },
         "ja": {
           "target_path": "docs/SKILL.ja.md",
-          "target_sha256": "d5943c768e3f68339e63f13943d3a8c3da2bf4d905cb8e760c926789e8a2be2d",
+          "target_sha256": "38a413ca83e75e2d663e6c94c577a30652a2c858734f1d862e98951d9e3e21a7",
           "verified_not_older_than_source": true
         },
         "ru": {
           "target_path": "docs/SKILL.ru.md",
-          "target_sha256": "20970945c6247748154228541ea71a01973853a4b3bf2739015312ff2863d533",
+          "target_sha256": "3ca39a333c918f65c4f788407953245d27244c8d6d90e721f937d3ed1126dd14",
           "verified_not_older_than_source": true
         },
         "zh": {
           "target_path": "docs/SKILL.zh.md",
-          "target_sha256": "a6a31e555de8a1c61da7b1a6e76d2a2f4863bcbdad7ce765fdac9bc0d47ef059",
+          "target_sha256": "b8da3fd94ab137f8ef9cbaec119f506f81d47fc9ea24d2db5b3aeb4b493a4cf8",
           "verified_not_older_than_source": true
         }
       },
@@ -218,7 +234,7 @@
       "title": "LLM Discovery & Context (llms.txt)",
       "source_path": "llms.txt",
       "source_language": "en",
-      "source_sha256": "b30d6dbe9329379917a3e4a7eadf26f20ddc940281659209307ff89753c5096e",
+      "source_sha256": "e608a96a7173c60fb4d43adc69fc989a0c6ebde5d5bee066b38a315970f80e17",
       "translations": {},
       "verified_claims": {
         "cli_commands": [

@@ -24,8 +24,8 @@ COMPONENT_BINDINGS_PATH = ROOT / "architecture" / "component-bindings.v1.json"
 
 
 def sha256_file(path: Path) -> str:
-    """Compute sha256 hex digest for a file."""
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    """Compute LF-normalized sha256 hex digest for a file."""
+    return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
 
 
 # ---------------------------------------------------------------------------

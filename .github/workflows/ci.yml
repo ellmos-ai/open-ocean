@@ -46,7 +46,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[test,gui]"
-          python -m pip install git+https://github.com/ellmos-ai/task-master.git git+https://github.com/ellmos-ai/ellmos-universal-gui.git
+          python -m pip install git+https://github.com/ellmos-ai/task-master.git
 
       - name: Lint with ruff
         if: matrix.shard == 0
@@ -92,7 +92,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[test,gui]"
-          python -m pip install git+https://github.com/ellmos-ai/task-master.git git+https://github.com/ellmos-ai/ellmos-universal-gui.git
+          python -m pip install git+https://github.com/ellmos-ai/task-master.git
 
       - name: Collect complete package test plan
         env:
@@ -137,7 +137,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[test,gui]"
-          python -m pip install git+https://github.com/ellmos-ai/task-master.git git+https://github.com/ellmos-ai/ellmos-universal-gui.git
+          python -m pip install git+https://github.com/ellmos-ai/task-master.git
 
       - name: Download cell-specific package test plan
         uses: actions/download-artifact@v4
@@ -173,7 +173,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[test,gui]"
-          python -m pip install git+https://github.com/ellmos-ai/task-master.git git+https://github.com/ellmos-ai/ellmos-universal-gui.git
+          python -m pip install git+https://github.com/ellmos-ai/task-master.git
 
       - name: Run slow integration tests
         env:

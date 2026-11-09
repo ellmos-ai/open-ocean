@@ -18,156 +18,330 @@
       "bundle_ref": "ellmos-agents-bundle",
       "version": "1.0.0",
       "component": "agents",
-      "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
+      "source_tools": [
+        "system/tools/exporter.py",
+        "system/tools/skill_generator.py"
+      ],
       "ring": 1,
       "agent_only": false,
       "integration_status": "live",
       "ui": {
-        "surfaces": ["/skills", "/chat"]
+        "surfaces": [
+          "/skills",
+          "/chat"
+        ]
+      },
+      "languages": [
+        "de",
+        "en"
+      ],
+      "docs": {
+        "readme": "README.md",
+        "doc_de": "README_de.md"
       }
     },
     {
       "bundle_ref": "ellmos-coordination-choice-bundle",
       "version": "1.0.0",
       "component": "coordination",
-      "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
+      "source_tools": [
+        "system/tools/exporter.py",
+        "system/tools/skill_generator.py"
+      ],
       "ring": 1,
       "agent_only": false,
       "integration_status": "live",
       "ui": {
-        "surfaces": ["/system/ocean", "/modules"]
+        "surfaces": [
+          "/system/ocean",
+          "/modules"
+        ]
+      },
+      "languages": [
+        "de",
+        "en"
+      ],
+      "docs": {
+        "readme": "README.md",
+        "doc_de": "README_de.md"
       }
     },
     {
       "bundle_ref": "ellmos-knowledge-bundle",
       "version": "1.0.0",
       "component": "knowledge",
-      "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
+      "source_tools": [
+        "system/tools/exporter.py",
+        "system/tools/skill_generator.py"
+      ],
       "ring": 1,
       "agent_only": false,
       "integration_status": "live",
       "ui": {
-        "surfaces": ["/skills", "/notizen"]
+        "surfaces": [
+          "/skills",
+          "/notizen"
+        ]
+      },
+      "languages": [
+        "de",
+        "en"
+      ],
+      "docs": {
+        "readme": "README.md",
+        "doc_de": "README_de.md"
       }
     },
     {
       "bundle_ref": "ellmos-memory-human-context-bundle",
       "version": "1.0.0",
       "component": "memory_human_context",
-      "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
+      "source_tools": [
+        "system/tools/exporter.py",
+        "system/tools/skill_generator.py"
+      ],
       "ring": 1,
       "agent_only": false,
       "integration_status": "live",
       "ui": {
-        "surfaces": ["/life", "/chat"]
+        "surfaces": [
+          "/life",
+          "/chat"
+        ]
+      },
+      "languages": [
+        "de",
+        "en"
+      ],
+      "docs": {
+        "readme": "README.md",
+        "doc_de": "README_de.md"
       }
     },
     {
       "bundle_ref": "ellmos-working-memory-bundle",
       "version": "1.0.0",
       "component": "working_memory",
-      "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
+      "source_tools": [
+        "system/tools/exporter.py",
+        "system/tools/skill_generator.py"
+      ],
       "ring": 1,
       "agent_only": true,
       "integration_status": "live",
       "ui": {
         "surfaces": []
+      },
+      "languages": [
+        "de",
+        "en"
+      ],
+      "docs": {
+        "readme": "README.md",
+        "doc_de": "README_de.md"
       }
     },
     {
       "bundle_ref": "ellmos-briefing-bundle",
       "version": "1.0.0",
       "component": "briefing",
-      "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
+      "source_tools": [
+        "system/tools/exporter.py",
+        "system/tools/skill_generator.py"
+      ],
       "ring": 2,
       "agent_only": false,
       "integration_status": "live",
       "ui": {
-        "surfaces": ["/chat", "/life"]
+        "surfaces": [
+          "/chat",
+          "/life"
+        ]
+      },
+      "languages": [
+        "de",
+        "en"
+      ],
+      "docs": {
+        "readme": "README.md",
+        "doc_de": "README_de.md"
       }
     },
     {
       "bundle_ref": "ellmos-daily-life-bundle",
       "version": "1.0.0",
       "component": "daily_life",
-      "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
+      "source_tools": [
+        "system/tools/exporter.py",
+        "system/tools/skill_generator.py"
+      ],
       "ring": 2,
       "agent_only": false,
       "integration_status": "live",
       "ui": {
-        "surfaces": ["/life", "/routinen"]
+        "surfaces": [
+          "/life",
+          "/routinen"
+        ]
+      },
+      "languages": [
+        "de",
+        "en"
+      ],
+      "docs": {
+        "readme": "README.md",
+        "doc_de": "README_de.md"
       }
     },
     {
       "bundle_ref": "ellmos-doc-handler-bundle",
       "version": "1.0.0",
       "component": "doc_handler",
-      "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
+      "source_tools": [
+        "system/tools/exporter.py",
+        "system/tools/skill_generator.py"
+      ],
       "ring": 2,
       "agent_only": false,
       "integration_status": "live",
       "ui": {
-        "surfaces": ["/notizen"]
+        "surfaces": [
+          "/notizen"
+        ]
+      },
+      "languages": [
+        "de",
+        "en"
+      ],
+      "docs": {
+        "readme": "README.md",
+        "doc_de": "README_de.md"
       }
     },
     {
       "bundle_ref": "ellmos-finance-assist-bundle",
       "version": "1.0.0",
       "component": "finance_assist",
-      "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
+      "source_tools": [
+        "system/tools/exporter.py",
+        "system/tools/skill_generator.py"
+      ],
       "ring": 2,
       "agent_only": false,
       "integration_status": "live",
       "ui": {
-        "surfaces": ["/life", "/financial"]
+        "surfaces": [
+          "/life",
+          "/financial"
+        ]
+      },
+      "languages": [
+        "de",
+        "en"
+      ],
+      "docs": {
+        "readme": "README.md",
+        "doc_de": "README_de.md"
       }
     },
     {
       "bundle_ref": "ellmos-health-assist-bundle",
       "version": "1.0.0",
       "component": "health_assist",
-      "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
+      "source_tools": [
+        "system/tools/exporter.py",
+        "system/tools/skill_generator.py"
+      ],
       "ring": 2,
       "agent_only": false,
       "integration_status": "adapter",
       "ui": {
-        "surfaces": ["/life"]
+        "surfaces": [
+          "/life"
+        ]
+      },
+      "languages": [
+        "de",
+        "en"
+      ],
+      "docs": {
+        "readme": "README.md",
+        "doc_de": "README_de.md"
       }
     },
     {
       "bundle_ref": "ellmos-knowledge-search-choice-bundle",
       "version": "1.0.0",
       "component": "knowledge_search_choice",
-      "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
+      "source_tools": [
+        "system/tools/exporter.py",
+        "system/tools/skill_generator.py"
+      ],
       "ring": 2,
       "agent_only": false,
       "integration_status": "live",
       "ui": {
-        "surfaces": ["/skills"]
+        "surfaces": [
+          "/skills"
+        ]
+      },
+      "languages": [
+        "de",
+        "en"
+      ],
+      "docs": {
+        "readme": "README.md",
+        "doc_de": "README_de.md"
       }
     },
     {
       "bundle_ref": "ellmos-media-production-bundle",
       "version": "1.0.0",
       "component": "media_production",
-      "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
+      "source_tools": [
+        "system/tools/exporter.py",
+        "system/tools/skill_generator.py"
+      ],
       "ring": 2,
       "agent_only": false,
       "integration_status": "live",
       "ui": {
-        "surfaces": ["/chat"]
+        "surfaces": [
+          "/chat"
+        ]
+      },
+      "languages": [
+        "de",
+        "en"
+      ],
+      "docs": {
+        "readme": "README.md",
+        "doc_de": "README_de.md"
       }
     },
     {
       "bundle_ref": "ellmos-voice-media-assist-bundle",
       "version": "1.0.0",
       "component": "voice_media_assist",
-      "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
+      "source_tools": [
+        "system/tools/exporter.py",
+        "system/tools/skill_generator.py"
+      ],
       "ring": 2,
       "agent_only": false,
       "integration_status": "adapter",
       "ui": {
-        "surfaces": ["/chat"]
+        "surfaces": [
+          "/chat"
+        ]
+      },
+      "languages": [
+        "de",
+        "en"
+      ],
+      "docs": {
+        "readme": "README.md",
+        "doc_de": "README_de.md"
       }
     }
   ],

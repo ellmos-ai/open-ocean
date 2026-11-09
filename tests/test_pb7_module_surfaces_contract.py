@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-import pytest
 
 from tools.ocean_stack_bridge import load_module_surfaces, ocean_stack_status
 

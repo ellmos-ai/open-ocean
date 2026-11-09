@@ -97,11 +97,16 @@ def test_gux_040_and_nemo_01_learning_loop_and_nemofold_reuse():
 
 def test_stack_status_includes_universal_gui_extension():
     import importlib.util
+    from tools.ocean_stack_bridge import _candidate_repo_roots
 
     status = ocean_stack_status()
     assert status["total_modules"] == 11
     unbound = [name for name, item in status["modules"].items() if not item["bound"]]
     assert status["bound_count"] == 11 - len(unbound)
     assert "ellmos-universal-gui" in status["capability_extensions"]
-    if not unbound or importlib.util.find_spec("ellmos_universal_gui") is not None:
+    has_universal_gui = importlib.util.find_spec("ellmos_universal_gui") is not None or any(
+        (root / "ellmos-universal-gui" / "src" / "ellmos_universal_gui" / "app.py").is_file()
+        for root in _candidate_repo_roots()
+    )
+    if has_universal_gui:
         assert status["capability_extensions"]["ellmos-universal-gui"]["bound"] is True

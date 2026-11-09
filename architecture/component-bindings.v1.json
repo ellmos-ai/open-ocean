@@ -6,6 +6,7 @@
   "authority": {
     "kind": "documentation",
     "runtime_authority": false,
+    "module_surfaces_ref": "architecture/module-surfaces.v1.json",
     "note": "Public skeleton/documentation only. This file intentionally carries no runtime authority. Active component bindings for bach live in the private .ocean-work repository (BACH_ROOT/.ocean-work/architecture/component-bindings.v1.json) or may be supplied via the BACH_OCEAN_PRIVATE_ARCH environment variable. Derived from open-ocean.skeleton.v1.json. Scope: This file documents skeleton-level bundle-to-component mappings for the open-ocean product stack; it is not consumed as a runtime manifest."
   },
   "recipe_source": {
@@ -18,91 +19,156 @@
       "version": "1.0.0",
       "component": "agents",
       "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
-      "ring": 1
+      "ring": 1,
+      "agent_only": false,
+      "integration_status": "live",
+      "ui": {
+        "surfaces": ["/skills", "/chat"]
+      }
     },
     {
       "bundle_ref": "ellmos-coordination-choice-bundle",
       "version": "1.0.0",
       "component": "coordination",
       "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
-      "ring": 1
+      "ring": 1,
+      "agent_only": false,
+      "integration_status": "live",
+      "ui": {
+        "surfaces": ["/system/ocean", "/modules"]
+      }
     },
     {
       "bundle_ref": "ellmos-knowledge-bundle",
       "version": "1.0.0",
       "component": "knowledge",
       "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
-      "ring": 1
+      "ring": 1,
+      "agent_only": false,
+      "integration_status": "live",
+      "ui": {
+        "surfaces": ["/skills", "/notizen"]
+      }
     },
     {
       "bundle_ref": "ellmos-memory-human-context-bundle",
       "version": "1.0.0",
       "component": "memory_human_context",
       "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
-      "ring": 1
+      "ring": 1,
+      "agent_only": false,
+      "integration_status": "live",
+      "ui": {
+        "surfaces": ["/life", "/chat"]
+      }
     },
     {
       "bundle_ref": "ellmos-working-memory-bundle",
       "version": "1.0.0",
       "component": "working_memory",
       "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
-      "ring": 1
+      "ring": 1,
+      "agent_only": true,
+      "integration_status": "live",
+      "ui": {
+        "surfaces": []
+      }
     },
     {
       "bundle_ref": "ellmos-briefing-bundle",
       "version": "1.0.0",
       "component": "briefing",
       "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
-      "ring": 2
+      "ring": 2,
+      "agent_only": false,
+      "integration_status": "live",
+      "ui": {
+        "surfaces": ["/chat", "/life"]
+      }
     },
     {
       "bundle_ref": "ellmos-daily-life-bundle",
       "version": "1.0.0",
       "component": "daily_life",
       "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
-      "ring": 2
+      "ring": 2,
+      "agent_only": false,
+      "integration_status": "live",
+      "ui": {
+        "surfaces": ["/life", "/routinen"]
+      }
     },
     {
       "bundle_ref": "ellmos-doc-handler-bundle",
       "version": "1.0.0",
       "component": "doc_handler",
       "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
-      "ring": 2
+      "ring": 2,
+      "agent_only": false,
+      "integration_status": "live",
+      "ui": {
+        "surfaces": ["/notizen"]
+      }
     },
     {
       "bundle_ref": "ellmos-finance-assist-bundle",
       "version": "1.0.0",
       "component": "finance_assist",
       "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
-      "ring": 2
+      "ring": 2,
+      "agent_only": false,
+      "integration_status": "live",
+      "ui": {
+        "surfaces": ["/life", "/financial"]
+      }
     },
     {
       "bundle_ref": "ellmos-health-assist-bundle",
       "version": "1.0.0",
       "component": "health_assist",
       "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
-      "ring": 2
+      "ring": 2,
+      "agent_only": false,
+      "integration_status": "adapter",
+      "ui": {
+        "surfaces": ["/life"]
+      }
     },
     {
       "bundle_ref": "ellmos-knowledge-search-choice-bundle",
       "version": "1.0.0",
       "component": "knowledge_search_choice",
       "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
-      "ring": 2
+      "ring": 2,
+      "agent_only": false,
+      "integration_status": "live",
+      "ui": {
+        "surfaces": ["/skills"]
+      }
     },
     {
       "bundle_ref": "ellmos-media-production-bundle",
       "version": "1.0.0",
       "component": "media_production",
       "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
-      "ring": 2
+      "ring": 2,
+      "agent_only": false,
+      "integration_status": "live",
+      "ui": {
+        "surfaces": ["/chat"]
+      }
     },
     {
       "bundle_ref": "ellmos-voice-media-assist-bundle",
       "version": "1.0.0",
       "component": "voice_media_assist",
       "source_tools": ["system/tools/exporter.py", "system/tools/skill_generator.py"],
-      "ring": 2
+      "ring": 2,
+      "agent_only": false,
+      "integration_status": "adapter",
+      "ui": {
+        "surfaces": ["/chat"]
+      }
     }
   ],
   "notes": [

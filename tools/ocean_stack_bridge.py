@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import importlib
 import importlib.util
+import json
 import os
 import sys
 from pathlib import Path
@@ -324,6 +325,28 @@ def ocean_stack_status() -> dict[str, Any]:
                 "error": str(exc),
             }
     extensions = ocean_capability_extensions_status()
+    surfaces_info: dict[str, Any] = {}
+    try:
+        surfaces_info = load_module_surfaces().get("modules", {})
+    except Exception:
+        surfaces_info = {}
+
+    for name, item in bound.items():
+        surf = surfaces_info.get(name, {})
+        item["ui"] = surf.get("ui", {"surfaces": []})
+        item["agent_only"] = surf.get("agent_only", False)
+        item["integration_status"] = surf.get("integration_status", "live")
+        if "demo_mode" in surf:
+            item["demo_mode"] = surf["demo_mode"]
+
+    for name, item in extensions.items():
+        surf = surfaces_info.get(name, {})
+        item["ui"] = surf.get("ui", {"surfaces": []})
+        item["agent_only"] = surf.get("agent_only", False)
+        item["integration_status"] = surf.get("integration_status", "adapter")
+        if "demo_mode" in surf:
+            item["demo_mode"] = surf["demo_mode"]
+
     return {
         "schema": "ocean.stack-bindings.v1",
         "stack_role": "canonical-ocean-platform-core",
@@ -333,3 +356,13 @@ def ocean_stack_status() -> dict[str, Any]:
         "capability_extensions": extensions,
         "capability_extensions_bound_count": sum(1 for item in extensions.values() if item["bound"]),
     }
+
+
+def load_module_surfaces() -> dict[str, Any]:
+    """Load canonical module surfaces and integration status matrix (PB-7 / #3991)."""
+    ocean_root = Path(__file__).resolve().parents[1]
+    surfaces_path = ocean_root / "architecture" / "module-surfaces.v1.json"
+    if not surfaces_path.is_file():
+        raise FileNotFoundError(f"module-surfaces.v1.json not found at {surfaces_path}")
+    return json.loads(surfaces_path.read_text(encoding="utf-8"))
+

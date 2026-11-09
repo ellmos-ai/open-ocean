@@ -40,6 +40,8 @@ from tools.persona_routing import (
 
 
 def test_ocean_stack_bridge_binds_all_11_canonical_modules() -> None:
+    import importlib.util
+
     report = ocean_stack_status()
     assert report["schema"] == "ocean.stack-bindings.v1"
     expected_modules = {
@@ -57,11 +59,12 @@ def test_ocean_stack_bridge_binds_all_11_canonical_modules() -> None:
     }
     assert set(report["modules"].keys()) == expected_modules
     assert report["total_modules"] == 11
-    # sibling checkouts (task-master/taskplan, ...) are not installed on every runner: assert the bookkeeping,
-    # and that every module binds where the full stack is present
     unbound = [name for name, info in report["modules"].items() if not info["bound"]]
     assert report["bound_count"] == 11 - len(unbound)
-    assert set(unbound) <= {"task-master"}, f"unexpected unbound canonical modules: {unbound}"
+    if importlib.util.find_spec("taskplan") is not None:
+        assert unbound == [], f"taskplan is installed; all 11 canonical modules must bind: {unbound}"
+    else:
+        assert set(unbound) <= {"task-master"}, f"unexpected unbound canonical modules: {unbound}"
     expected_ext = {
         "ellmos-voice-io",
         "ellmos-talk",
@@ -72,7 +75,6 @@ def test_ocean_stack_bridge_binds_all_11_canonical_modules() -> None:
         "llm-note",
     }
     assert set(report["capability_extensions"].keys()) == expected_ext
-    # extensions are sibling checkouts: count what is bound instead of requiring all of them (CI has none)
     ext_bound = [name for name, info in report["capability_extensions"].items() if info["bound"]]
     assert report["capability_extensions_bound_count"] == len(ext_bound)
 
@@ -86,13 +88,17 @@ def test_ocean_stack_bridge_binds_all_11_canonical_modules() -> None:
     assert unknown_cap["allowed"] is False
 
 
-
 def test_ocean_cli_stack_status_returns_zero(capsys) -> None:
+    import importlib.util
+
     rc = ocean_main(["stack-status", "--json"])
     payload = json.loads(capsys.readouterr().out)
     assert payload["total_modules"] == 11
-    # the exit code reports a complete stack; sibling checkouts (task-master, ...) are not installed on every runner
-    assert rc == (0 if payload["bound_count"] == payload["total_modules"] else 1)
+    if importlib.util.find_spec("taskplan") is not None:
+        assert payload["bound_count"] == 11
+        assert rc == 0
+    else:
+        assert rc == (0 if payload["bound_count"] == payload["total_modules"] else 1)
 
 
 def test_persona_routing_and_module_delivery_projection() -> None:

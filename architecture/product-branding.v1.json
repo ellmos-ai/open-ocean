@@ -1,0 +1,13 @@
+{
+  "schema": "ellmos.product-branding.v1",
+  "id": "ocean-product-line-branding",
+  "version": "1.0.0",
+  "product_name": "Ocean",
+  "subtitle": "BACH",
+  "repository_slug": "open-ocean",
+  "store_display_name": "Ocean",
+  "store_subtitle": "BACH — Local AI Agent & Module Studio",
+  "gui_carrier": "ellmos-system-gui",
+  "pwa_short_name": "OCEAN",
+  "installer_product_name": "Ocean"
+}

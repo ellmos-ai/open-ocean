@@ -10,7 +10,7 @@
     Version="0.2.30.0"
     ProcessorArchitecture="x64" />
   <Properties>
-    <DisplayName>Open-Ocean Desktop</DisplayName>
+    <DisplayName>Ocean</DisplayName>
     <PublisherDisplayName>ellmos-ai</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
@@ -24,8 +24,8 @@
   <Applications>
     <Application Id="OpenOceanDesktop" Executable="open-ocean-desktop.exe" EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
-        DisplayName="Open-Ocean Desktop"
-        Description="Lokales KI-Agenten-Studio, Modul-Plattform &amp; Governance-Workbench"
+        DisplayName="Ocean"
+        Description="Ocean (BACH Core) — Lokales KI-Agenten-Studio, Modul-Plattform &amp; Governance-Workbench"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png" />

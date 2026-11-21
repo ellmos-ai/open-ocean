@@ -1,0 +1,41 @@
+{
+  "schema": "ellmos.module.v2",
+  "id": "open-ocean",
+  "display_name": "Open Ocean",
+  "version": "0.1.2",
+  "category": "runtime",
+  "kind": "runtime",
+  "status": "development",
+  "visibility": "public",
+  "description": "Composes pinned bundle recipes, previews and applies installations in a local workspace, and rolls them back using activation receipts.",
+  "provides": [
+    "ocean.bundle.plan",
+    "ocean.bundle.activate",
+    "ocean.bundle.rollback"
+  ],
+  "requires": [],
+  "optional": [],
+  "conflicts": [],
+  "surfaces": [
+    "cli",
+    "library"
+  ],
+  "state": {
+    "ownership": "module",
+    "location": "project"
+  },
+  "boundaries": {
+    "network": "listed",
+    "data": "user-local",
+    "platforms": [
+      "windows",
+      "macos",
+      "linux"
+    ]
+  },
+  "source_of_truth": {
+    "type": "git-repository",
+    "path": ".",
+    "repository": "https://github.com/ellmos-ai/open-ocean"
+  }
+}

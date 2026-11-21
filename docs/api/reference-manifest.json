@@ -2,6 +2,7 @@
   "schema": "ellmos.api-cli-reference.v1",
   "product": "open-ocean",
   "cli_command_count": 15,
+  "cli_subcommand_count": 14,
   "http_route_count": 3,
   "module_binding_count": 11,
   "cli_commands": [
@@ -191,6 +192,233 @@
       "options": []
     }
   ],
+  "cli_subcommands": [
+    {
+      "command": "agents list",
+      "prog": "ocean agents list",
+      "help": "Agenten und Hintergrundworker auflisten",
+      "options": [
+        "--status",
+        "--json",
+        "--url",
+        "--token",
+        "--workspace"
+      ],
+      "arguments": [],
+      "required_options": []
+    },
+    {
+      "command": "agents pause",
+      "prog": "ocean agents pause",
+      "help": "Agenten oder Worker pausieren",
+      "options": [
+        "--json",
+        "--url",
+        "--token",
+        "--workspace"
+      ],
+      "arguments": [
+        "agent_id"
+      ],
+      "required_options": []
+    },
+    {
+      "command": "agents resume",
+      "prog": "ocean agents resume",
+      "help": "Agenten oder Worker fortsetzen",
+      "options": [
+        "--json",
+        "--url",
+        "--token",
+        "--workspace"
+      ],
+      "arguments": [
+        "agent_id"
+      ],
+      "required_options": []
+    },
+    {
+      "command": "agents show",
+      "prog": "ocean agents show",
+      "help": "Detailstatus eines Agenten oder Workers",
+      "options": [
+        "--json",
+        "--url",
+        "--token",
+        "--workspace"
+      ],
+      "arguments": [
+        "agent_id"
+      ],
+      "required_options": []
+    },
+    {
+      "command": "agents start",
+      "prog": "ocean agents start",
+      "help": "Agenten oder Worker starten",
+      "options": [
+        "--json",
+        "--url",
+        "--token",
+        "--workspace"
+      ],
+      "arguments": [
+        "agent_id"
+      ],
+      "required_options": []
+    },
+    {
+      "command": "agents stop",
+      "prog": "ocean agents stop",
+      "help": "Agenten oder Worker stoppen",
+      "options": [
+        "--json",
+        "--url",
+        "--token",
+        "--workspace"
+      ],
+      "arguments": [
+        "agent_id"
+      ],
+      "required_options": []
+    },
+    {
+      "command": "sessions list",
+      "prog": "ocean sessions list",
+      "help": "Session-Snapshots auflisten",
+      "options": [
+        "--agent",
+        "--source",
+        "--problems",
+        "--limit",
+        "--json",
+        "--url",
+        "--token",
+        "--workspace"
+      ],
+      "arguments": [],
+      "required_options": []
+    },
+    {
+      "command": "sessions resume",
+      "prog": "ocean sessions resume",
+      "help": "Session an Hintergrundworker übergeben",
+      "options": [
+        "--worker",
+        "--prompt",
+        "--json",
+        "--url",
+        "--token",
+        "--workspace"
+      ],
+      "arguments": [
+        "snapshot_id"
+      ],
+      "required_options": [
+        "--worker"
+      ]
+    },
+    {
+      "command": "sessions show",
+      "prog": "ocean sessions show",
+      "help": "Session-Transkript ausgeben",
+      "options": [
+        "--tools",
+        "--json",
+        "--url",
+        "--token",
+        "--workspace"
+      ],
+      "arguments": [
+        "snapshot_id"
+      ],
+      "required_options": []
+    },
+    {
+      "command": "tasks assign",
+      "prog": "ocean tasks assign",
+      "help": "Task einem Agenten zuweisen",
+      "options": [
+        "--agent",
+        "--json",
+        "--url",
+        "--token",
+        "--workspace"
+      ],
+      "arguments": [
+        "task_id"
+      ],
+      "required_options": [
+        "--agent"
+      ]
+    },
+    {
+      "command": "tasks list",
+      "prog": "ocean tasks list",
+      "help": "Tasks auflisten",
+      "options": [
+        "--status",
+        "--assigned",
+        "--limit",
+        "--json",
+        "--url",
+        "--token",
+        "--workspace"
+      ],
+      "arguments": [],
+      "required_options": []
+    },
+    {
+      "command": "tasks returns",
+      "prog": "ocean tasks returns",
+      "help": "Task-Rückgaben anzeigen",
+      "options": [
+        "--hours",
+        "--worker",
+        "--json",
+        "--url",
+        "--token",
+        "--workspace"
+      ],
+      "arguments": [],
+      "required_options": []
+    },
+    {
+      "command": "tasks show",
+      "prog": "ocean tasks show",
+      "help": "Task-Details anzeigen",
+      "options": [
+        "--history",
+        "--json",
+        "--url",
+        "--token",
+        "--workspace"
+      ],
+      "arguments": [
+        "task_id"
+      ],
+      "required_options": []
+    },
+    {
+      "command": "user add",
+      "prog": "ocean user add",
+      "help": "Benutzer mit verdeckter Passworteingabe anlegen",
+      "options": [
+        "--workspace",
+        "--username",
+        "--email",
+        "--role",
+        "--password-stdin",
+        "--json"
+      ],
+      "arguments": [],
+      "required_options": [
+        "--workspace",
+        "--username",
+        "--email"
+      ]
+    }
+  ],
   "http_routes": [
     {
       "method": "GET",
@@ -265,5 +493,5 @@
       "bound": true
     }
   ],
-  "sha256": "24f0977ee283006b448f9b77f8e2220ddc254ea3756a56a03629989a1eb07e41"
+  "sha256": "06b1c66ed59ca3fb7e2dbc5e3d27ff4b2ea4747f10583c4015520df9f6e2a1e3"
 }

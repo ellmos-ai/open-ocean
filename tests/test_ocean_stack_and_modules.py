@@ -5,6 +5,8 @@ persona_routing, learning_loop, agent_library modules, and API/CLI reference (#2
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 from ocean import main as ocean_main
@@ -295,8 +297,34 @@ def test_api_cli_reference_generator_has_zero_drift(tmp_path: Path) -> None:
     assert (repo_docs / "README.md").read_text(encoding="utf-8") == expected["api_markdown"]
     assert (repo_docs / "cli-reference.md").read_text(encoding="utf-8") == expected["cli_markdown"]
     saved_manifest = json.loads((repo_docs / "reference-manifest.json").read_text(encoding="utf-8"))
-    assert saved_manifest["sha256"] == expected["manifest"]["sha256"]
+    assert saved_manifest == expected["manifest"]
     assert saved_manifest["module_binding_count"] == 11
+
+
+def test_cli_reference_subcommands_match_running_cli_help() -> None:
+    repo = Path(__file__).resolve().parents[1]
+    manifest = json.loads((repo / "docs" / "api" / "reference-manifest.json").read_text(encoding="utf-8"))
+    entries = {entry["command"]: entry for entry in manifest["cli_subcommands"]}
+    assert set(entries) >= {
+        "agents list", "agents pause", "agents resume", "agents show", "agents start", "agents stop",
+        "sessions list", "sessions resume", "sessions show",
+        "tasks assign", "tasks list", "tasks returns", "tasks show", "user add",
+    }
+    assert entries["sessions resume"]["arguments"] == ["snapshot_id"]
+    assert entries["sessions resume"]["required_options"] == ["--worker"]
+    assert entries["tasks assign"]["required_options"] == ["--agent"]
+    assert manifest["cli_subcommand_count"] == len(entries) == len(manifest["cli_subcommands"])
+    for command, entry in entries.items():
+        result = subprocess.run(
+            [sys.executable, "-B", str(repo / "ocean.py"), *command.split(), "--help"],
+            check=True, capture_output=True, text=True, encoding="utf-8", timeout=15,
+        )
+        assert entry["prog"] in result.stdout.splitlines()[0]
+        for argument in entry["arguments"]:
+            assert argument in result.stdout
+        for group in entry["options"]:
+            for flag in group.split("/"):
+                assert flag in result.stdout
 
 
 def test_api_cli_reference_does_not_depend_on_the_runtime_binding(monkeypatch) -> None:

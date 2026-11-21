@@ -1,7 +1,8 @@
 # Open-Ocean — CLI-Referenz (`ocean.py`, automatisch generiert, #2556)
 
-- **Befehle gesamt:** `15`
-- **Manifest-SHA256:** `24f0977ee283006b448f9b77f8e2220ddc254ea3756a56a03629989a1eb07e41`
+- **Hauptbefehle:** `15`
+- **Unterbefehle:** `14`
+- **Manifest-SHA256:** `06b1c66ed59ca3fb7e2dbc5e3d27ff4b2ea4747f10583c4015520df9f6e2a1e3`
 
 | Befehl | Aufruf | Beschreibung | Optionen |
 |---|---|---|---|
@@ -16,7 +17,26 @@
 | `stack-status` | `ocean stack-status` | Status aller 11 kanonischen Ocean-Module im Plattformkern anzeigen | `--json` |
 | `start` | `ocean start` | installierten OCEAN-Stand oder eine deklarierte Modulrolle starten | `--workspace`, `--host`, `--port`, `--health-timeout`, `--json`, `--manifest`, `--provider`, `--model`, `--effort`, `--request`, `--cwd`, `--name`, `--dry-run` |
 | `status` | `ocean status` | Installations- und Laufzeitstatus live prüfen | `--workspace`, `--json` |
-| `task` | `ocean task` | Einheitliches Task-Lifecycle-Werkzeug über den Taskkern taskplan (list|take|renew|submit|return|block|reclaim) | — |
+| `task` | `ocean task` | Einheitliches Task-Lifecycle-Werkzeug über den Taskkern taskplan (list\|take\|renew\|submit\|return\|block\|reclaim) | — |
 | `tasks` | `ocean tasks` | Tasks über die Runtime-API verwalten und zuweisen | — |
 | `up` | `ocean up` | OCEAN in einer lokalen Sandbox installieren und starten | `--bundles-root`, `--system-manifest`, `--modules-catalog`, `--skills-registry`, `--component-bindings`, `--source-pins`, `--workspace`, `--gui-archive`, `--gui-source-commit`, `--gui-archive-sha256`, `--json`, `--host`, `--port`, `--apply`, `--policy-registry`, `--lock-cache`, `--health-timeout` |
 | `user` | `ocean user` | Benutzer der aktiven OCEAN-Laufzeit verwalten | — |
+
+## Unterbefehle
+
+| Aufruf | Beschreibung | Positionsargumente | Pflichtoptionen | Weitere Optionen |
+|---|---|---|---|---|
+| `ocean agents list` | Agenten und Hintergrundworker auflisten | — | — | `--status`, `--json`, `--url`, `--token`, `--workspace` |
+| `ocean agents pause` | Agenten oder Worker pausieren | `agent_id` | — | `--json`, `--url`, `--token`, `--workspace` |
+| `ocean agents resume` | Agenten oder Worker fortsetzen | `agent_id` | — | `--json`, `--url`, `--token`, `--workspace` |
+| `ocean agents show` | Detailstatus eines Agenten oder Workers | `agent_id` | — | `--json`, `--url`, `--token`, `--workspace` |
+| `ocean agents start` | Agenten oder Worker starten | `agent_id` | — | `--json`, `--url`, `--token`, `--workspace` |
+| `ocean agents stop` | Agenten oder Worker stoppen | `agent_id` | — | `--json`, `--url`, `--token`, `--workspace` |
+| `ocean sessions list` | Session-Snapshots auflisten | — | — | `--agent`, `--source`, `--problems`, `--limit`, `--json`, `--url`, `--token`, `--workspace` |
+| `ocean sessions resume` | Session an Hintergrundworker übergeben | `snapshot_id` | `--worker` | `--prompt`, `--json`, `--url`, `--token`, `--workspace` |
+| `ocean sessions show` | Session-Transkript ausgeben | `snapshot_id` | — | `--tools`, `--json`, `--url`, `--token`, `--workspace` |
+| `ocean tasks assign` | Task einem Agenten zuweisen | `task_id` | `--agent` | `--json`, `--url`, `--token`, `--workspace` |
+| `ocean tasks list` | Tasks auflisten | — | — | `--status`, `--assigned`, `--limit`, `--json`, `--url`, `--token`, `--workspace` |
+| `ocean tasks returns` | Task-Rückgaben anzeigen | — | — | `--hours`, `--worker`, `--json`, `--url`, `--token`, `--workspace` |
+| `ocean tasks show` | Task-Details anzeigen | `task_id` | — | `--history`, `--json`, `--url`, `--token`, `--workspace` |
+| `ocean user add` | Benutzer mit verdeckter Passworteingabe anlegen | — | `--workspace`, `--username`, `--email` | `--role`, `--password-stdin`, `--json` |

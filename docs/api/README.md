@@ -3,7 +3,7 @@
 - **Schema:** `ellmos.api-cli-reference.v1`
 - **HTTP-Routen:** `3`
 - **Gebundene Ocean-Module:** `11`
-- **Manifest-SHA256:** `24f0977ee283006b448f9b77f8e2220ddc254ea3756a56a03629989a1eb07e41`
+- **Manifest-SHA256:** `06b1c66ed59ca3fb7e2dbc5e3d27ff4b2ea4747f10583c4015520df9f6e2a1e3`
 
 ## 1. HTTP-API-Routen (`tools/gui_bridge.py` & `tools/gui_server.py`)
 

@@ -59,6 +59,7 @@ where = ["."]
 include = ["tools*", "ocean_resources*"]
 
 [tool.setuptools.package-data]
+tools = ["agent_library_expected_roles.json"]
 ocean_resources = ["manifest.json", "pipeline-catalog.json"]
 
 [tool.setuptools.data-files]

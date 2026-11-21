@@ -8,9 +8,11 @@ import json
 import tempfile
 import unittest
 import zipfile
+
+import pytest
 from pathlib import Path
 
-from tools.gui_consumer import inspect_archive, inspect_installation
+from tools.gui_consumer import InspectionError, inspect_archive, inspect_installation, verify_gui_archive
 from tools.gui_server import OceanGuiApp
 
 COMMIT = "a" * 40
@@ -18,9 +20,9 @@ COMMIT = "a" * 40
 
 def test_shipped_pin_is_the_published_gui_release():
     pin = json.loads((Path(__file__).parents[1] / "architecture/gui-consumer.v1.json").read_text(encoding="utf-8"))
-    assert pin["version"] == "0.2.30"
-    assert pin["source"]["commit"] == "294889dda579af59003740eb506daa763987232d"
-    assert pin["source"]["archive_sha256"] == "1f820f06361a34e00c7cadb6a0c951c20d7a749e2312c802b9ab867a2e078a9e"
+    assert pin["version"] == "0.2.40"
+    assert pin["source"]["commit"] == "49c05e3e982b91e9da93e482f236bf2696de22aa"
+    assert pin["source"]["archive_sha256"] == "78670e09bffd5a5e827a3901ed6e258f5e9a03042d51db4faa7a58f4e3eaf1da"
     assert pin["activation_ready"] is False
 
 
@@ -58,6 +60,19 @@ def fixture(root: Path, *, malicious_name: str | None = None):
     pin_path = root / "pin.json"
     pin_path.write_text(json.dumps(pin), encoding="utf-8")
     return archive, pin_path, files, manifest_bytes
+
+
+def test_archive_preserves_third_party_notices(tmp_path):
+    archive, _, _, _ = fixture(tmp_path)
+    notice = b"Third-party notices"
+    with zipfile.ZipFile(archive, "a") as handle:
+        handle.writestr("THIRD_PARTY_LICENSES.md", notice)
+    release = verify_gui_archive(archive, COMMIT, digest(archive.read_bytes()))
+    assert release.payload["THIRD_PARTY_LICENSES.md"] == notice
+    with zipfile.ZipFile(archive, "a") as handle:
+        handle.writestr("unexpected.txt", b"not part of the release contract")
+    with pytest.raises(InspectionError, match="archive_file_set_mismatch"):
+        verify_gui_archive(archive, COMMIT, digest(archive.read_bytes()))
 
 
 async def request(app, path: str, method: str = "GET"):

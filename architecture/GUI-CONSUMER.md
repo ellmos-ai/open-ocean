@@ -1,15 +1,15 @@
 # Gemeinsame GUI: Ocean-Verbrauchervertrag
 
-Stand: 2026-10-22. Implementierter Kandidat, keine Produktionsinstallation und
+Stand: 2026-11-21. Implementierter Kandidat, keine Produktionsinstallation und
 kein Laufzeit-, Browser- oder Geräteabnahmebeleg. Open Ocean bleibt Version 0.1.2.
 
 ## Release und Herkunft
 
 `architecture/gui-consumer.v1.json` bindet den veröffentlichten
-[GUI-Release 0.2.28](https://github.com/ellmos-ai/ellmos-system-gui/releases/tag/v0.2.28)
-an Quellencommit `1d6c0f985834f10ae9e5e051205a33b83efaaa54` und Archiv-SHA-256
-`5b79f083ed58cdbc59b09a250efa715780e7c8074f45bca93b16682af18072f4`.
-Das Originalarchiv enthält 26 HTML-Seiten und 360 im Distmanifest deklarierte
+[GUI-Release 0.2.40](https://github.com/ellmos-ai/ellmos-system-gui/releases/tag/v0.2.40)
+an Quellencommit `49c05e3e982b91e9da93e482f236bf2696de22aa` und Archiv-SHA-256
+`78670e09bffd5a5e827a3901ed6e258f5e9a03042d51db4faa7a58f4e3eaf1da`.
+Das Originalarchiv enthält 51 HTML-Seiten und 413 im Distmanifest deklarierte
 Dateien. Der Pin behält `status=pinned_artifact_only` und `activation_ready=false`:
 Archivprüfung, Platzierung, Backendadapter und Geräteabnahme benötigen jeweils
 ihren eigenen Beleg. Die vorhandenen Consumer prüfen das veröffentlichte Artefakt;
@@ -18,7 +18,9 @@ hier wird keine zweite GUI-Quelle angelegt.
 Die gemeinsame Astro-GUI wird aus einem veröffentlichten, sauberen Quellencommit
 als ZIP konsumiert. Der Verbraucher benötigt den vollständigen 40-stelligen
 Quellencommit und den SHA-256 des vollständigen Archivs. Das ZIP enthält
-`dist/`, `dist/dist-manifest.json` und `LICENSE`. Das Manifest verwendet
+`dist/`, `dist/dist-manifest.json` und `LICENSE`. Veröffentlichungen können zusätzlich
+`THIRD_PARTY_LICENSES.md` im Archivstamm enthalten. Diese Datei ist durch den
+Archivhash gebunden und wird bei Installation und Readback mit geprüft. Das Manifest verwendet
 `ellmos-system-gui.dist.v1`, `source_commit` und `files` als Zuordnung von
 Dateinamen relativ zu `dist/` zu SHA-256. Es enthält sich nicht selbst.
 

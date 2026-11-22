@@ -1,15 +1,15 @@
 # Gemeinsame GUI: Ocean-Verbrauchervertrag
 
-Stand: 2026-11-21. Implementierter Kandidat, keine Produktionsinstallation und
+Stand: 2026-11-22. Implementierter Kandidat, keine Produktionsinstallation und
 kein Laufzeit-, Browser- oder Geräteabnahmebeleg. Open Ocean bleibt Version 0.1.2.
 
 ## Release und Herkunft
 
 `architecture/gui-consumer.v1.json` bindet den veröffentlichten
-[GUI-Release 0.2.40](https://github.com/ellmos-ai/ellmos-system-gui/releases/tag/v0.2.40)
-an Quellencommit `49c05e3e982b91e9da93e482f236bf2696de22aa` und Archiv-SHA-256
-`78670e09bffd5a5e827a3901ed6e258f5e9a03042d51db4faa7a58f4e3eaf1da`.
-Das Originalarchiv enthält 51 HTML-Seiten und 413 im Distmanifest deklarierte
+[GUI-Release 0.2.41](https://github.com/ellmos-ai/ellmos-system-gui/releases/tag/v0.2.41)
+an Quellencommit `2ac523c9cc8c09c0509345c71ced8c55bfb47806` und Archiv-SHA-256
+`8d31420046a9b5dcfc57bcf28fbfaa454dde91cfa7655891c7f60d9f8e67bd47`.
+Das Originalarchiv enthält 51 HTML-Seiten und 414 im Distmanifest deklarierte
 Dateien. Der Pin behält `status=pinned_artifact_only` und `activation_ready=false`:
 Archivprüfung, Platzierung, Backendadapter und Geräteabnahme benötigen jeweils
 ihren eigenen Beleg. Die vorhandenen Consumer prüfen das veröffentlichte Artefakt;

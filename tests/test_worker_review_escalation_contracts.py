@@ -503,6 +503,18 @@ def test_authority_internal_delivery_followup_validation_and_cli(tmp_path: Path,
     assert incomplete_strict["allowed"] is False
     assert incomplete_strict["reason_code"] == "followup_verification_incomplete"
 
+    strict_missing_quote = evaluate_cognitive_action_authority(
+        action_class="internal_delivery",
+        reversible=True,
+        active_goal_or_plan_id="GOAL-LEASE",
+        follows_from_goal=True,
+        introduces_new_tradeoff=False,
+        strict_followup=True,
+    )
+    assert strict_missing_quote["allowed"] is False
+    assert strict_missing_quote["reason_code"] == "followup_verification_incomplete"
+    assert strict_missing_quote["followup_check"]["goal_quote"] is None
+
     # CLI end-to-end: `ocean authority check` and `ocean authority feedback`
     rc_ok = ocean.main([
         "authority",
@@ -560,6 +572,20 @@ def test_authority_internal_delivery_followup_validation_and_cli(tmp_path: Path,
     assert rc_fb == 0
     fb_payload = json.loads(capsys.readouterr().out)
     assert fb_payload["classification"] == "error_authority_desert"
+
+    bad_utf8 = tmp_path / "binary.bin"
+    bad_utf8.write_bytes(b"\x89PNG\r\n\x1a\n\xff\xfe")
+    rc_bad_utf8 = ocean.main([
+        "authority",
+        "check",
+        "--action-class", "protected_branch_merge",
+        "--irreversible",
+        "--source-id", "DECISIONS.md#D-1",
+        "--quote", "least ueber bach",
+        "--source-text-file", str(bad_utf8),
+    ])
+    assert rc_bad_utf8 == 2
+    assert "Quelldatei nicht lesbar" in capsys.readouterr().err
 
 
 

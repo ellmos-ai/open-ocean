@@ -828,7 +828,7 @@ def main(argv: list[str] | None = None) -> int:
                 if args.source_text_file is not None:
                     try:
                         text = args.source_text_file.read_text(encoding="utf-8")
-                    except OSError as exc:
+                    except (OSError, UnicodeDecodeError) as exc:
                         print(f"[FEHLER] Quelldatei nicht lesbar: {args.source_text_file}: {exc}", file=sys.stderr)
                         return 2
                     source_texts = {args.source_id: text}

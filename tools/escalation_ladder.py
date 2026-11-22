@@ -654,7 +654,11 @@ def evaluate_cognitive_action_authority(
                 "authority_desert_risk": False,
                 "followup_check": followup_check,
             }
-        if strict_followup and (follows_from_goal is not True or introduces_new_tradeoff is not False):
+        if strict_followup and (
+            follows_from_goal is not True
+            or introduces_new_tradeoff is not False
+            or not followup_check["goal_quote"]
+        ):
             return {
                 "schema": COGNITIVE_AUTHORITY_LOOP_SCHEMA,
                 "allowed": False,

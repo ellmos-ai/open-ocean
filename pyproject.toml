@@ -63,6 +63,20 @@ tools = ["agent_library_expected_roles.json"]
 ocean_resources = ["manifest.json", "pipeline-catalog.json"]
 
 [tool.setuptools.data-files]
+"share/open-ocean" = ["SKILL.md"]
+"share/open-ocean/docs" = [
+    "docs/CORE.md",
+    "docs/SKILL.en.md",
+    "docs/SKILL.es.md",
+    "docs/SKILL.ja.md",
+    "docs/SKILL.ru.md",
+    "docs/SKILL.zh.md",
+]
+"share/open-ocean/docs/api" = [
+    "docs/api/README.md",
+    "docs/api/cli-reference.md",
+    "docs/api/reference-manifest.json",
+]
 "share/open-ocean/starters/windows" = ["starters/windows/*.bat"]
 "share/open-ocean/starters/posix" = ["starters/posix/*.sh"]
 

@@ -159,6 +159,11 @@ def verify_gui_archive(archive: Path, source_commit: str, archive_sha256: str) -
             ):
                 raise InspectionError("dist_manifest_mismatch", 2)
             expected = {"LICENSE", MANIFEST} | {"dist/" + name for name in files}
+            if "THIRD_PARTY_LICENSES.md" in by_name:
+                notice = by_name["THIRD_PARTY_LICENSES.md"]
+                if not 0 < notice.file_size <= 1024 * 1024:
+                    raise InspectionError("third_party_notices_missing_or_large", 2)
+                expected.add("THIRD_PARTY_LICENSES.md")
             if set(names) != expected:
                 raise InspectionError("archive_file_set_mismatch", 2)
             if by_name["LICENSE"].file_size <= 0 or by_name["LICENSE"].file_size > 1024 * 1024:

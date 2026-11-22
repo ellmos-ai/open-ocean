@@ -2,7 +2,7 @@
 
 - **Hauptbefehle:** `15`
 - **Unterbefehle:** `14`
-- **Manifest-SHA256:** `06b1c66ed59ca3fb7e2dbc5e3d27ff4b2ea4747f10583c4015520df9f6e2a1e3`
+- **Manifest-SHA256:** `3452757c7fe05c5fa511caa2b995c4150c811f4daa2ee8c959ef4e56abd6813d`
 
 | Befehl | Aufruf | Beschreibung | Optionen |
 |---|---|---|---|
@@ -10,7 +10,7 @@
 | `chat` | `ocean chat` | Interaktive Terminal-Konsole oder Single-Shot-Chat mit einem Agenten | `--agent`, `--session`, `--once`, `--tools`, `--stream`, `--json`, `--url`, `--token`, `--workspace` |
 | `console` | `ocean console` | Alias für 'ocean chat' | `--agent`, `--session`, `--once`, `--tools`, `--stream`, `--json`, `--url`, `--token`, `--workspace` |
 | `down` | `ocean down` | Nur die zugehörige OCEAN-Laufzeit kontrolliert beenden | `--workspace`, `--json` |
-| `gui` | `ocean gui` | gepinntes System-GUI-Kit prüfen oder lokal bereitstellen | `--archive`, `--dist-root`, `--receipt`, `--brand-config`, `--universal-fallback`, `--host`, `--port`, `--serve`, `--json` |
+| `gui` | `ocean gui` | gepinntes System-GUI-Kit prüfen oder lokal bereitstellen | `--archive`, `--dist-root`, `--receipt`, `--brand-config`, `--workspace`, `--universal-fallback`, `--host`, `--port`, `--serve`, `--json` |
 | `inspect` | `ocean inspect` | installierte Komponenten mit nativer System-Explorer-Evidenz rein lesend prüfen | `--workspace`, `--resolution`, `--receipt`, `--trust-store`, `--trust-store-sha256`, `--expected-instance-id`, `--expected-host-id`, `--root-only-resolution`, `--evaluated-at`, `--expected-provider-version`, `--component-bindings`, `--json` |
 | `plan` | `ocean plan` | Komposition und Laufzeit rein lesend prüfen | `--bundles-root`, `--system-manifest`, `--modules-catalog`, `--skills-registry`, `--component-bindings`, `--source-pins`, `--workspace`, `--gui-archive`, `--gui-source-commit`, `--gui-archive-sha256`, `--json` |
 | `sessions` | `ocean sessions` | Session-Snapshots und Transkripte einsehen und übergeben | — |

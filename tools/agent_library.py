@@ -36,7 +36,7 @@ ALLOWED_SCHEMES = frozenset({"http", "https"})
 
 MODULE_MANIFEST = "ellmos-module.v2.json"
 MODULE_ROOTS_ENV = "OCEAN_MODULE_ROOTS"  # os.pathsep-getrennte Ordner, deren Unterordner Module sind
-EXPECTED_ROLES_PATH = Path(__file__).resolve().parents[1] / "config" / "agent_library_expected_roles.json"
+EXPECTED_ROLES_PATH = Path(__file__).with_name("agent_library_expected_roles.json")
 
 
 _INSTALLED_CACHE: dict[tuple, list[tuple[Path, str]]] = {}
@@ -175,7 +175,7 @@ def discover_module_role_templates(
 
 
 def load_expected_roles(path: str | Path | None = None) -> dict[str, Any]:
-    """Soll-Rollenliste (`config/agent_library_expected_roles.json`): `expected[]` und `exceptions[]`."""
+    """Mitgelieferte Soll-Rollenliste: `expected[]` und `exceptions[]`."""
     return json.loads(Path(path or EXPECTED_ROLES_PATH).read_text(encoding="utf-8"))
 
 
@@ -315,10 +315,7 @@ def build_full_agent_library_catalog(
         prompt_agents=list(extra_prompt_agents or []),
         chains=list(extra_chains if extra_chains is not None else default_chains),
     )
-    try:
-        expected_doc = load_expected_roles()
-    except OSError:  # repo-only Datei (config/ ist nicht im Paket): Katalog trotzdem liefern
-        expected_doc = {"expected": [], "exceptions": []}
+    expected_doc = load_expected_roles()
     report = check_expected_roles(
         catalog["templates"], expected_doc, found_modules={m["module_id"] for m in manifests}
     )

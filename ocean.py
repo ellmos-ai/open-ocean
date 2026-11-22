@@ -229,6 +229,7 @@ def build_parser() -> argparse.ArgumentParser:
     gui.add_argument("--dist-root", type=Path, help="vorhandener lokaler dist-Baum für Installationsprüfung")
     gui.add_argument("--receipt", type=Path, help="zugehöriger Installationsbeleg")
     gui.add_argument("--brand-config", type=Path, help="validierte Verbraucherbeschriftung")
+    gui.add_argument("--workspace", type=Path, help="optionales Ocean-Workspace für dünne Leseadapter (PB-11)")
     gui.add_argument("--universal-fallback", action="store_true", help="Fallback auf ellmos-universal-gui aktivieren (GUX-002)")
     gui.add_argument("--host", choices=["127.0.0.1", "localhost"], default="127.0.0.1")
     gui.add_argument("--port", type=int, default=8811)
@@ -630,12 +631,13 @@ def main(argv: list[str] | None = None) -> int:
                 app = resolve_ocean_gui_app(
                     args.archive, pin_path=pin_path, brand_path=args.brand_config,
                     dist_root=args.dist_root, receipt_path=args.receipt,
-                    fallback_to_universal=True,
+                    fallback_to_universal=True, workspace=getattr(args, "workspace", None),
                 )
             else:
                 app = OceanGuiApp(
                     args.archive, pin_path=pin_path, brand_path=args.brand_config,
                     dist_root=args.dist_root, receipt_path=args.receipt,
+                    workspace=getattr(args, "workspace", None),
                 )
         except (InspectionError, OSError, ValueError, json.JSONDecodeError) as exc:
             reason = exc.reason if isinstance(exc, InspectionError) else "gui_config_unavailable"

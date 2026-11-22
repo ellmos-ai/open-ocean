@@ -242,6 +242,263 @@ def task_history_audit(db_path: Path | None, limit: int = 50) -> dict[str, Any]:
     }
 
 
+def _normalize_task_status(raw: Any) -> str:
+    val = str(raw or "").strip().lower()
+    if val == "open":
+        return "pending"
+    if val == "active":
+        return "in_progress"
+    if val == "canceled":
+        return "cancelled"
+    return val or "pending"
+
+
+def _open_ro_sqlite(db_path: Path):
+    import sqlite3
+    uri = Path(db_path).resolve().as_uri() + "?mode=ro"
+    conn = sqlite3.connect(uri, uri=True, timeout=2)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA query_only = ON")
+    return conn
+
+
+def _detect_task_table(conn) -> tuple[str, set[str]] | None:
+    tables = {
+        row[0]
+        for row in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('tasks', 'rinnsal_tasks')"
+        ).fetchall()
+    }
+    for candidate in ("rinnsal_tasks", "tasks"):
+        if candidate in tables:
+            cols = {r[1] for r in conn.execute(f"PRAGMA table_info({candidate})").fetchall()}
+            return candidate, cols
+    return None
+
+
+def _project_task_row(row, cols: set[str], table_name: str) -> dict[str, Any]:
+    status = _normalize_task_status(row["status"] if "status" in cols else "pending")
+    completed_at = (
+        row["completed_at"] if "completed_at" in cols else (row["done_at"] if "done_at" in cols else None)
+    )
+    assigned_to = (row["assigned_to"] if "assigned_to" in cols else None) or ""
+    if not assigned_to and "agent_id" in cols and row["agent_id"] not in (None, "", "default"):
+        assigned_to = str(row["agent_id"])
+    return {
+        "id": int(row["id"]),
+        "title": str(row["title"] or ""),
+        "description": str(row["description"] or "") if "description" in cols else "",
+        "status": status,
+        "priority": str(row["priority"] or "P3") if "priority" in cols else "P3",
+        "assigned_to": str(assigned_to),
+        "assigned_slot": str(row["assigned_slot"] or "") if "assigned_slot" in cols else "",
+        "tags": str(row["tags"] or "") if "tags" in cols else "",
+        "created_at": row["created_at"] if "created_at" in cols else None,
+        "updated_at": row["updated_at"] if "updated_at" in cols else None,
+        "completed_at": completed_at,
+        "source_table": table_name,
+    }
+
+
+def tasks_list_view(
+    db_path: Path | None,
+    *,
+    status: str = "nonterminal",
+    assignment_group: str = "all",
+    priority: str = "",
+    q: str = "",
+    assigned_to: str = "",
+    limit: int = 100,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """Read-only task list adapter supporting both taskplan.db (rinnsal_tasks) and bach.db (tasks) (PB-11)."""
+    import sqlite3
+    from contextlib import closing
+
+    if db_path is None:
+        raise GovernanceUnavailable("source-not-in-composition")
+    try:
+        with closing(_open_ro_sqlite(db_path)) as conn:
+            found = _detect_task_table(conn)
+            if found is None:
+                raise GovernanceUnavailable("tasks_table_missing")
+            table_name, cols = found
+            raw_rows = conn.execute(f"SELECT * FROM {table_name} ORDER BY id DESC LIMIT 5000").fetchall()
+    except GovernanceUnavailable:
+        raise
+    except (OSError, sqlite3.Error, ValueError) as exc:
+        raise GovernanceUnavailable("tasks_unavailable") from exc
+
+    projected = [_project_task_row(r, cols, table_name) for r in raw_rows]
+    req_status = (status or "nonterminal").strip()
+    terminal = {"done", "completed", "closed", "cancelled", "archived", "duplicate"}
+    if "," in req_status:
+        wanted = {_normalize_task_status(part) for part in req_status.split(",") if part.strip()}
+        filtered = [t for t in projected if t["status"] in wanted]
+    elif req_status == "all":
+        filtered = projected
+    elif req_status in {"nonterminal", "open"}:
+        filtered = [t for t in projected if t["status"] not in terminal]
+    elif req_status == "done":
+        filtered = [t for t in projected if t["status"] in {"done", "completed", "closed"}]
+    else:
+        norm = _normalize_task_status(req_status)
+        filtered = [t for t in projected if t["status"] == norm]
+
+    grp = (assignment_group or "all").strip().lower()
+    if grp == "user":
+        filtered = [t for t in filtered if t["assigned_to"].lower() == "user"]
+    elif grp == "unassigned":
+        filtered = [t for t in filtered if not t["assigned_to"].strip() and not t["assigned_slot"].strip()]
+    elif grp == "auto":
+        filtered = [
+            t for t in filtered
+            if (t["assigned_to"].strip() or t["assigned_slot"].strip()) and t["assigned_to"].lower() != "user"
+        ]
+
+    if priority:
+        filtered = [t for t in filtered if t["priority"].upper() == priority.strip().upper()]
+    if assigned_to and not (grp == "user" and assigned_to.strip().lower() == "user"):
+        target_assignee = assigned_to.strip().lower()
+        filtered = [
+            t for t in filtered
+            if t["assigned_to"].lower() == target_assignee or t["assigned_slot"].lower() == target_assignee
+        ]
+    query_clean = (q or "").strip()
+    if query_clean:
+        needle = query_clean.casefold()
+        filtered = [
+            t for t in filtered
+            if needle in t["title"].casefold()
+            or needle in t["description"].casefold()
+            or needle in t["tags"].casefold()
+        ]
+
+    total = len(filtered)
+    page = filtered[offset: offset + limit]
+    applied: dict[str, Any] = {
+        "status": req_status,
+        "assignment_group": grp,
+    }
+    if priority:
+        applied["priority"] = priority.strip().upper()
+    if query_clean:
+        applied["q"] = query_clean
+    if assigned_to:
+        applied["assigned_to"] = assigned_to.strip()
+    return {
+        "success": True,
+        "tasks": page,
+        "total": total,
+        "has_more": (offset + len(page)) < total,
+        "applied_filters": applied,
+        "source": {"table": table_name, "read_only": True},
+    }
+
+
+def task_detail_view(db_path: Path | None, task_id: int) -> dict[str, Any]:
+    """Read-only single task view supporting both taskplan.db and bach.db (PB-11)."""
+    import sqlite3
+    from contextlib import closing
+
+    if db_path is None:
+        raise GovernanceUnavailable("source-not-in-composition")
+    try:
+        with closing(_open_ro_sqlite(db_path)) as conn:
+            found = _detect_task_table(conn)
+            if found is None:
+                raise GovernanceUnavailable("tasks_table_missing")
+            table_name, cols = found
+            row = conn.execute(f"SELECT * FROM {table_name} WHERE id = ?", (int(task_id),)).fetchone()
+    except GovernanceUnavailable:
+        raise
+    except (OSError, sqlite3.Error, ValueError) as exc:
+        raise GovernanceUnavailable("tasks_unavailable") from exc
+    if row is None:
+        return {"success": False, "error": "Nicht gefunden"}
+    return {"success": True, "task": _project_task_row(row, cols, table_name)}
+
+
+def notes_list_view(
+    db_path: Path | None,
+    *,
+    entry_type: str | None = None,
+    q: str = "",
+    limit: int = 100,
+) -> dict[str, Any]:
+    """Read-only adapter onto llm-note SQLite store (note_entries / denkarium_entries) (PB-11)."""
+    import sqlite3
+    from contextlib import closing
+
+    if db_path is None:
+        raise GovernanceUnavailable("notes_source_unavailable")
+    try:
+        with closing(_open_ro_sqlite(db_path)) as conn:
+            tables = {
+                r[0]
+                for r in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('note_entries', 'denkarium_entries')"
+                ).fetchall()
+            }
+            table_name = "note_entries" if "note_entries" in tables else ("denkarium_entries" if "denkarium_entries" in tables else None)
+            if table_name is None:
+                raise GovernanceUnavailable("notes_table_missing")
+            cols = {r[1] for r in conn.execute(f"PRAGMA table_info({table_name})").fetchall()}
+            where = "WHERE COALESCE(is_archived, 0) = 0" if "is_archived" in cols else ""
+            raw_rows = conn.execute(
+                f"SELECT * FROM {table_name} {where} ORDER BY created_at DESC, id DESC LIMIT 1000"
+            ).fetchall()
+    except GovernanceUnavailable:
+        raise
+    except (OSError, sqlite3.Error, ValueError) as exc:
+        raise GovernanceUnavailable("notes_source_unavailable") from exc
+
+    kind_filter = (entry_type or "").strip().lower()
+    needle = (q or "").strip().casefold()
+    items = []
+    for row in raw_rows:
+        raw_type = str(row["entry_type"] or "note").strip().lower() if "entry_type" in cols else "note"
+        kind = "logbuch" if raw_type in {"logbook", "logbuch"} else "gedanken"
+        if kind_filter and kind_filter not in {"all", raw_type, kind}:
+            continue
+        content = str(row["content"] or "") if "content" in cols else ""
+        title = str(row["title"] or "").strip() if "title" in cols else ""
+        if not title:
+            title = (content.splitlines()[0][:80] if content.strip() else f"Notiz #{row['id']}")
+        tags = str(row["tags"] or "") if "tags" in cols else ""
+        category = str(row["category"] or "note") if "category" in cols else "note"
+        if needle and not (
+            needle in title.casefold() or needle in content.casefold() or needle in tags.casefold()
+        ):
+            continue
+        created_at = str(row["created_at"] or "") if "created_at" in cols else ""
+        items.append({
+            "id": int(row["id"]),
+            "kind": kind,
+            "entry_type": raw_type,
+            "tag": tags.split(",")[0].strip() if tags.strip() else category,
+            "tags": tags,
+            "category": category,
+            "title": title,
+            "body": content,
+            "content": content,
+            "createdAt": created_at,
+            "created_at": created_at,
+        })
+        if len(items) >= limit:
+            break
+
+    return {
+        "success": True,
+        "schema": "ellmos.notes-read.v1",
+        "read_only": True,
+        "source": "llm-note",
+        "notes": items,
+        "entries": items,
+        "count": len(items),
+    }
+
+
 def task_result_view(db_path: Path | None, task_id: int) -> dict[str, Any]:
     """Read-only task result & lease submission view (#2098)."""
     import json
@@ -250,12 +507,15 @@ def task_result_view(db_path: Path | None, task_id: int) -> dict[str, Any]:
     if db_path is None:
         raise GovernanceUnavailable("source-not-in-composition")
     try:
-        uri = Path(db_path).resolve().as_uri() + "?mode=ro"
-        with closing(sqlite3.connect(uri, uri=True, timeout=2)) as conn:
-            conn.row_factory = sqlite3.Row
-            conn.execute("PRAGMA query_only = ON")
+        with closing(_open_ro_sqlite(db_path)) as conn:
+            found = _detect_task_table(conn)
+            if found is None:
+                raise GovernanceUnavailable("task_result_unavailable")
+            table_name, cols = found
+            done_col = "completed_at" if "completed_at" in cols else ("done_at" if "done_at" in cols else "NULL AS completed_at")
+            upd_col = "updated_at" if "updated_at" in cols else "NULL AS updated_at"
             row = conn.execute(
-                "SELECT id, title, status, completed_at, updated_at FROM tasks WHERE id = ?",
+                f"SELECT id, title, status, {done_col}, {upd_col} FROM {table_name} WHERE id = ?",
                 (int(task_id),),
             ).fetchone()
             if row is None:
@@ -270,6 +530,8 @@ def task_result_view(db_path: Path | None, task_id: int) -> dict[str, Any]:
                 ).fetchone()
             except sqlite3.Error:
                 lease_row = None
+    except GovernanceUnavailable:
+        raise
     except (OSError, sqlite3.Error, ValueError) as exc:
         raise GovernanceUnavailable("task_result_unavailable") from exc
 
@@ -293,15 +555,17 @@ def task_result_view(db_path: Path | None, task_id: int) -> dict[str, Any]:
             "changed_files": [str(f) for f in changed[:200]],
             "updated_at": lease_row["updated_at"],
         }
+    completed_val = row["completed_at"] if "completed_at" in row.keys() else row[3]
+    updated_val = row["updated_at"] if "updated_at" in row.keys() else row[4]
     return {
         "schema": "ellmos.task-result.v1",
         "available": True,
         "found": True,
         "task_id": int(row["id"]),
         "title": row["title"],
-        "status": row["status"],
-        "completed_at": row["completed_at"],
-        "updated_at": row["updated_at"],
+        "status": _normalize_task_status(row["status"]),
+        "completed_at": completed_val,
+        "updated_at": updated_val,
         "lease_submission": lease_data,
     }
 

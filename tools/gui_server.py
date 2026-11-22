@@ -99,10 +99,11 @@ async def _reply(send, status: int, body: bytes, content_type: str, method: str,
 
 
 class OceanGuiApp:
-    """Serve only dist-manifest-listed files from one verified archive."""
+    """Serve only dist-manifest-listed files from one verified archive, with optional thin GuiBridge read adapters."""
 
     def __init__(self, archive_path: Path, *, pin_path: Path = DEFAULT_PIN, brand_path: Path | None = None,
-                 dist_root: Path | None = None, receipt_path: Path | None = None) -> None:
+                 dist_root: Path | None = None, receipt_path: Path | None = None,
+                 bridge=None, workspace: Path | None = None) -> None:
         self.archive_path = Path(archive_path)
         self.pin = _read_pin(pin_path)
         self.release = verify_gui_archive(self.archive_path, self.pin["source"]["commit"], self.pin["source"]["archive_sha256"])
@@ -110,6 +111,18 @@ class OceanGuiApp:
         self.brand = _brand_from_file(brand_path)
         self.installation = inspect_installation(dist_root, receipt_path, self.archive_path, pin_path)
         self._configure_static()
+        if bridge is not None:
+            self.bridge = bridge
+        elif workspace is not None:
+            from tools.gui_bridge import bridge_from_workspace
+            self.bridge = bridge_from_workspace(
+                Path(workspace),
+                gui_pins=(self.release.source_commit, self.archive_sha256),
+            )
+            if self.bridge.gui is None:
+                self.bridge.gui = self.release
+        else:
+            self.bridge = None
 
     def _configure_static(self) -> None:
         manifest = json.loads(self.release.payload[MANIFEST])
@@ -118,7 +131,7 @@ class OceanGuiApp:
         self.observed_at = _utc_now()
 
     @classmethod
-    def from_verified_release(cls, release: VerifiedGuiRelease) -> "OceanGuiApp":
+    def from_verified_release(cls, release: VerifiedGuiRelease, *, bridge=None) -> "OceanGuiApp":
         """Reuse the native static consumer inside a provider-authorized origin."""
         instance = cls.__new__(cls)
         instance.release = release
@@ -126,26 +139,34 @@ class OceanGuiApp:
         instance.brand = dict(DEFAULT_BRAND)
         instance.pin = {"source": {"commit": release.source_commit}, "version": None}
         instance.installation = {"installed": False, "files_verified": 0, "reason_code": "install_receipt_unavailable"}
+        instance.bridge = bridge
         instance._configure_static()
         return instance
 
     def _capabilities(self, *, served: bool = False) -> dict:
         from tools.gui_bridge import GuiBridge
-        # Standalone shell metadata is public. Provider session/auth and native
-        # adapters are not mounted by this command; no route is inferred live.
-        report = GuiBridge().capabilities()
-        for endpoint in report["endpoints"]:
-            endpoint.update(available=False, provider=None, auth="none",
-                            reason="ocean_api_adapter_unbound")
+        if self.bridge is None:
+            # Standalone shell metadata is public. Provider session/auth and native
+            # adapters are not mounted by this command; no route is inferred live.
+            report = GuiBridge().capabilities()
+            for endpoint in report["endpoints"]:
+                endpoint.update(available=False, provider=None, auth="none",
+                                reason="ocean_api_adapter_unbound")
+            for item in report["modules"].values():
+                item.update(adapter_registered=False, available=False, runtime_verified=None,
+                            reason_code="ocean_api_adapter_unbound")
+            missing_adapters = ["Ocean API route mapping", "device authorization", "module capability probes"]
+        else:
+            report = self.bridge.capabilities()
+            for endpoint in report["endpoints"]:
+                endpoint["auth"] = "loopback"
+            missing_adapters = ["write/action adapters", "device authorization"]
         for path in ("/api/gui/brand", "/api/gui/backend-origin", "/api/gui/capabilities"):
             report["endpoints"] = [item for item in report["endpoints"] if item["path"] != path]
             report["endpoints"].append({"method": "GET", "path": path, "kind": "read",
                 "available": True, "provider": {"id": "open-ocean", "adapter_version": "1"},
                 "auth": "none", "public_metadata": True, "runtime_verified": False,
                 "verification_scope": "adapter", "reason": None})
-        for item in report["modules"].values():
-            item.update(adapter_registered=False, available=False, runtime_verified=None,
-                        reason_code="ocean_api_adapter_unbound")
         report["modules"]["ellmos-system-gui"] = {
             "adapter_registered": True, "runtime_verified": None, "available": True,
             "verification_scope": "adapter", "reason_code": "verified_static_shell",
@@ -159,12 +180,16 @@ class OceanGuiApp:
             gui={"status": "installed" if self.installation["installed"] else "unavailable",
                 "reason_code": self.installation["reason_code"],
                 "source_commit": self.release.source_commit, "archive_sha256": self.archive_sha256},
-            missing_adapters=["Ocean API route mapping", "device authorization", "module capability probes"],
+            missing_adapters=missing_adapters,
             observed_at=self.observed_at)
         for page in report["pages"]:
             safe = _safe_url_path(page["path"])
             declared = safe is not None and any(name in self.files for name in _asset_candidates(safe))
-            page["missing"] = [item for item in page["missing"] if item != "verified-gui-release"]
+            page["missing"] = [
+                item for item in page["missing"]
+                if item not in {"verified-gui-release", "gui-release-not-installed-verified"}
+                or (item == "gui-release-not-installed-verified" and not self.installation["installed"] and self.bridge is None)
+            ]
             if not declared:
                 page["missing"].append("declared-static-page")
             page["status"] = "configured" if not page["missing"] else "unavailable"
@@ -204,7 +229,14 @@ class OceanGuiApp:
         elif path == "/api/gui/capabilities":
             payload = self._capabilities(served=True)
         elif path.startswith("/api/"):
-            await _reply(send, 503, b'{"reason_code":"ocean_api_adapter_unbound","status":"unavailable"}', "application/json; charset=utf-8", method)
+            if self.bridge is None:
+                await _reply(send, 503, b'{"reason_code":"ocean_api_adapter_unbound","status":"unavailable"}', "application/json; charset=utf-8", method)
+                return
+            from tools.gui_bridge import dispatch_bridge_get
+            raw_qs = bytes(scope.get("query_string") or b"").decode("latin-1")
+            status_code, bridge_payload = dispatch_bridge_get(self.bridge, path, raw_qs)
+            body = (json.dumps(bridge_payload, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
+            await _reply(send, status_code, body, "application/json; charset=utf-8", method)
             return
         else:
             payload = None
@@ -226,6 +258,8 @@ def resolve_ocean_gui_app(
     receipt_path: Path | None = None,
     fallback_to_universal: bool = False,
     manifest: dict | Path | None = None,
+    bridge=None,
+    workspace: Path | None = None,
 ):
     """Resolve `OceanGuiApp` when a verified archive is provided, or fall back to `ellmos-universal-gui` (`GUX-001`, `GUX-002`)."""
     if archive_path is not None and not fallback_to_universal:
@@ -235,6 +269,8 @@ def resolve_ocean_gui_app(
             brand_path=brand_path,
             dist_root=dist_root,
             receipt_path=receipt_path,
+            bridge=bridge,
+            workspace=workspace,
         )
     if archive_path is not None and fallback_to_universal:
         try:
@@ -244,6 +280,8 @@ def resolve_ocean_gui_app(
                 brand_path=brand_path,
                 dist_root=dist_root,
                 receipt_path=receipt_path,
+                bridge=bridge,
+                workspace=workspace,
             )
         except (InspectionError, OSError, ValueError, json.JSONDecodeError):
             pass

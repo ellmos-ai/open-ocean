@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Deterministic API & CLI Reference Generator for Open-Ocean (Task #2556).
 
-Extracts all CLI subcommands from `ocean.py::build_parser()`, all HTTP API routes
+Extracts CLI commands and nested subcommands from `ocean.py::build_parser()`, all HTTP API routes
 mounted by `tools/gui_bridge.py` & `tools/gui_server.py`, and all 11 canonical
 Ocean module bindings (`tools/ocean_stack_bridge.py`) into:
   - `docs/api/README.md`
@@ -14,6 +14,7 @@ import argparse
 import hashlib
 import json
 import re
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -24,30 +25,45 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 ROUTE_RE = re.compile(r'@\w+\.(get|post|put|delete|patch)\(\s*["\']([^"\']+)["\']')
 
 
-def extract_cli_commands() -> list[dict[str, Any]]:
-    parser = build_parser()
+def _iter_cli_commands(
+    parser: argparse.ArgumentParser, parent: str = ""
+) -> Iterator[dict[str, Any]]:
     subparsers_actions = [
         action for action in parser._actions
         if isinstance(action, argparse._SubParsersAction)
     ]
-    commands: list[dict[str, Any]] = []
     for sub in subparsers_actions:
         help_map = {
             choice_action.dest: (choice_action.help or "")
             for choice_action in getattr(sub, "_choices_actions", [])
         }
         for name, subparser in sorted(sub.choices.items()):
-            flags: list[str] = []
-            for act in subparser._actions:
-                if act.option_strings and act.option_strings != ["-h", "--help"]:
-                    flags.append("/".join(act.option_strings))
-            commands.append({
-                "command": name,
+            options = [
+                act for act in subparser._actions
+                if act.option_strings and not isinstance(act, argparse._HelpAction)
+            ]
+            command = f"{parent} {name}" if parent else name
+            entry = {
+                "command": command,
                 "prog": subparser.prog,
                 "help": help_map.get(name, ""),
-                "options": flags,
-            })
-    return commands
+                "options": ["/".join(act.option_strings) for act in options],
+            }
+            if parent:
+                entry["arguments"] = [
+                    act.dest for act in subparser._actions
+                    if not act.option_strings and not isinstance(act, argparse._SubParsersAction)
+                ]
+                entry["required_options"] = [
+                    "/".join(act.option_strings) for act in options if act.required
+                ]
+            yield entry
+            yield from _iter_cli_commands(subparser, command)
+
+
+def extract_cli_commands(*, include_subcommands: bool = False) -> list[dict[str, Any]]:
+    entries = _iter_cli_commands(build_parser())
+    return [entry for entry in entries if include_subcommands or " " not in entry["command"]]
 
 
 def extract_http_routes() -> list[dict[str, str]]:
@@ -72,7 +88,9 @@ def extract_http_routes() -> list[dict[str, str]]:
 
 
 def build_reference_artifacts() -> dict[str, Any]:
-    cli_commands = extract_cli_commands()
+    commands = extract_cli_commands(include_subcommands=True)
+    cli_commands = [entry for entry in commands if " " not in entry["command"]]
+    cli_subcommands = [entry for entry in commands if " " in entry["command"]]
     http_routes = extract_http_routes()
     stack = ocean_stack_status()
     modules = [
@@ -86,9 +104,11 @@ def build_reference_artifacts() -> dict[str, Any]:
         "schema": "ellmos.api-cli-reference.v1",
         "product": "open-ocean",
         "cli_command_count": len(cli_commands),
+        "cli_subcommand_count": len(cli_subcommands),
         "http_route_count": len(http_routes),
         "module_binding_count": len(modules),
         "cli_commands": cli_commands,
+        "cli_subcommands": cli_subcommands,
         "http_routes": http_routes,
         "module_bindings": modules,
     }
@@ -127,7 +147,8 @@ def build_reference_artifacts() -> dict[str, Any]:
     cli_lines = [
         "# Open-Ocean — CLI-Referenz (`ocean.py`, automatisch generiert, #2556)",
         "",
-        f"- **Befehle gesamt:** `{len(cli_commands)}`",
+        f"- **Hauptbefehle:** `{len(cli_commands)}`",
+        f"- **Unterbefehle:** `{len(cli_subcommands)}`",
         f"- **Manifest-SHA256:** `{digest}`",
         "",
         "| Befehl | Aufruf | Beschreibung | Optionen |",
@@ -135,7 +156,24 @@ def build_reference_artifacts() -> dict[str, Any]:
     ]
     for c in cli_commands:
         opts = ", ".join(f"`{o}`" for o in c["options"]) if c["options"] else "—"
-        cli_lines.append(f"| `{c['command']}` | `{c['prog']}` | {c['help']} | {opts} |")
+        description = c["help"].replace("|", r"\|")
+        cli_lines.append(f"| `{c['command']}` | `{c['prog']}` | {description} | {opts} |")
+
+    cli_lines.extend([
+        "",
+        "## Unterbefehle",
+        "",
+        "| Aufruf | Beschreibung | Positionsargumente | Pflichtoptionen | Weitere Optionen |",
+        "|---|---|---|---|---|",
+    ])
+    for c in cli_subcommands:
+        arguments = ", ".join(f"`{arg}`" for arg in c["arguments"]) or "—"
+        required = ", ".join(f"`{opt}`" for opt in c["required_options"]) or "—"
+        optional = ", ".join(
+            f"`{opt}`" for opt in c["options"] if opt not in c["required_options"]
+        ) or "—"
+        description = c["help"].replace("|", r"\|")
+        cli_lines.append(f"| `{c['prog']}` | {description} | {arguments} | {required} | {optional} |")
     cli_md = "\n".join(cli_lines) + "\n"
 
     return {

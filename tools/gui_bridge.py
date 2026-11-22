@@ -284,6 +284,56 @@ def usecases_reader(component: dict[str, Any], modules_root: Path) -> Callable[.
     return read
 
 
+def agent_library_reader(workspace: Path | None = None) -> Callable[[], dict]:
+    """Thin read-only adapter onto tools.agent_library (PB-11)."""
+    def read() -> dict:
+        try:
+            from .agent_library import build_full_agent_library_catalog
+            from .persona_routing import PROVIDER_SOCKET_PROFILES
+        except ImportError:
+            from agent_library import build_full_agent_library_catalog
+            from persona_routing import PROVIDER_SOCKET_PROFILES
+        repos_root = (workspace / "modules") if workspace is not None and (workspace / "modules").is_dir() else None
+        catalog = build_full_agent_library_catalog(
+            repos_root=repos_root,
+            include_installed=repos_root is None,
+        )
+        catalog["role_socket_catalog"] = {"provider_sockets": PROVIDER_SOCKET_PROFILES}
+        return catalog
+    return read
+
+
+def blueprints_reader(library_fn: Callable[[], dict]) -> Callable[[], dict]:
+    """Project tools.agent_library templates into GET /api/agent-studio/blueprints shape (PB-11)."""
+    def read() -> dict:
+        catalog = library_fn()
+        templates = []
+        for idx, tpl in enumerate(catalog.get("templates") or [], start=1):
+            role_id = str(tpl.get("role_id") or tpl.get("id") or f"role-{idx}")
+            socket_id = str(tpl.get("socket_id") or "domain_specialist")
+            templates.append({
+                "id": idx,
+                "name": str(tpl.get("id") or role_id),
+                "title": str(tpl.get("label") or role_id),
+                "kind": "role",
+                "description": str(tpl.get("semantic_route") or tpl.get("prompt") or tpl.get("module_id") or ""),
+                "persona_role": role_id,
+                "persona_prompt": str(tpl.get("prompt") or ""),
+                "version": 1,
+                "is_template": True,
+                "contractus": {"execution": {"socket_id": socket_id, "backend": "ollama", "model": ""}},
+            })
+        return {
+            "success": True,
+            "schema": "ellmos.open-ocean.blueprints-read.v1",
+            "read_only": True,
+            "source": "open-ocean.agent_library",
+            "templates": templates,
+            "blueprints": [],
+        }
+    return read
+
+
 class GuiBridge:
     def __init__(self, *, gui: VerifiedGuiRelease | None = None,
                  plan: Callable[[], dict] | None = None, status: Callable[[], dict] | None = None,
@@ -292,18 +342,25 @@ class GuiBridge:
                  skills: Callable[[], dict] | None = None, registry: Callable[..., dict] | None = None,
                  locks: Callable[[], dict] | None = None, usecases: Callable[..., dict] | None = None,
                  software: Callable[[], dict] | None = None, audit: Callable[..., dict] | None = None,
-                 task_assignees: Callable[[], dict] | None = None, task_result: Callable[..., dict] | None = None):
+                 task_assignees: Callable[[], dict] | None = None, task_result: Callable[..., dict] | None = None,
+                 tasks: Callable[..., dict] | None = None, task_detail: Callable[..., dict] | None = None,
+                 blueprints: Callable[[], dict] | None = None, agent_library: Callable[[], dict] | None = None,
+                 notes: Callable[..., dict] | None = None):
         self.gui = gui
         self.providers = {"detect": self.detect, "plan": plan, "status": status, "policies": policies, "catalog": catalog,
                           "ocean": ocean, "skills": skills, "registry": registry, "locks": locks, "usecases": usecases,
-                          "software": software, "audit": audit, "task_assignees": task_assignees, "task_result": task_result}
+                          "software": software, "audit": audit, "task_assignees": task_assignees,
+                          "task_result": task_result, "tasks": tasks, "task_detail": task_detail,
+                          "blueprints": blueprints, "agent_library": agent_library, "notes": notes}
         self.modules = modules or []
 
     def detect(self) -> dict:
         return {"schema": "ellmos.open-ocean.installer-detect.v1", "read_only": True,
                 "provider": {"id": "open-ocean", "version": "0.1.2"},
                 "native": {name: provider is not None for name, provider in self.providers.items()
-                           if name not in {"detect", "registry", "locks", "usecases", "software", "audit", "task_assignees", "task_result"}},
+                           if name not in {"detect", "registry", "locks", "usecases", "software", "audit",
+                                           "task_assignees", "task_result", "tasks", "task_detail",
+                                           "blueprints", "agent_library", "notes"}},
                 "apply": {"available": False, "reason": "Nur die externe Installer-Approval-/Grant-Kette darf Änderungen ausführen."},
                 "runtime_verified": False, "verification_scope": "adapter"}
 
@@ -384,22 +441,43 @@ class GuiBridge:
                               "verification_scope": "adapter", "reason": reason})
         # A rendered page and a native executable service are different evidence.
         ta_ok = self.providers["task_assignees"] is not None
+        tasks_ok = self.providers["tasks"] is not None
         for method, path, kind in [("GET", "/api/tasks", "read"), ("POST", "/api/tasks", "write"),
                                    ("GET", "/api/task-assignees", "read"),
                                    ("GET", "/api/agents/native/slots", "read"),
                                    ("GET", "/api/agents/native/tasks", "read"),
                                    ("POST", "/api/agents/native/tasks", "action"),
                                    ("POST", "/api/installer/apply", "action")]:
-            is_avail = ta_ok if (method == "GET" and path == "/api/task-assignees") else False
+            is_avail = (
+                tasks_ok if (method == "GET" and path == "/api/tasks")
+                else ta_ok if (method == "GET" and path == "/api/task-assignees")
+                else False
+            )
             endpoints.append({"method": method, "path": path, "kind": kind, "available": is_avail,
                               "provider": {"id": "open-ocean", "version": "0.1.2"} if is_avail else None,
                               "auth": "provider-session", "runtime_verified": False,
                               "verification_scope": "adapter",
                               "reason": None if is_avail else "Kein freigegebener nativer GUI-Adapter vorhanden."})
+        if self.providers["task_detail"] is not None:
+            endpoints.append({"method": "GET", "path": "/api/tasks/{id}", "kind": "read", "available": True,
+                              "provider": {"id": "task-master", "version": None}, "auth": "provider-session",
+                              "runtime_verified": False, "verification_scope": "adapter", "reason": None})
         if self.providers["task_result"] is not None:
             endpoints.append({"method": "GET", "path": "/api/tasks/{id}/result", "kind": "read", "available": True,
                               "provider": {"id": "task-master", "version": None}, "auth": "provider-session",
                               "runtime_verified": False, "verification_scope": "adapter", "reason": None})
+        for path, key in (("/api/agent-studio/blueprints", "blueprints"), ("/api/agenten/library", "agent_library")):
+            avail = self.providers[key] is not None
+            endpoints.append({"method": "GET", "path": path, "kind": "read", "available": avail,
+                              "provider": {"id": "open-ocean", "version": "0.1.2"} if avail else None,
+                              "auth": "provider-session", "runtime_verified": False, "verification_scope": "adapter",
+                              "reason": None if avail else "Kein nativer Anbieter konfiguriert."})
+        notes_ok = self.providers["notes"] is not None
+        for path in ("/api/notes", "/api/denkarium"):
+            endpoints.append({"method": "GET", "path": path, "kind": "read", "available": notes_ok,
+                              "provider": {"id": "llm-note", "version": None} if notes_ok else None,
+                              "auth": "provider-session", "runtime_verified": False, "verification_scope": "adapter",
+                              "reason": None if notes_ok else "notes_source_unavailable"})
         # The page-to-endpoint table is the GUI's own manifest from the verified release, never a hand table here.
         page_reads = load_page_reads(self.gui)
         served = {f"{e['method']} {page_reads_normalize(e['path'])}": e["available"] for e in endpoints}
@@ -408,10 +486,13 @@ class GuiBridge:
         module_states = {"policy-registry": {"adapter_registered": True,
                          "available": self.providers["policies"] is not None, "runtime_verified": False,
                          "reason_code": None if self.providers["policies"] else "provider-not-configured"},
-                         "native-agents": {"adapter_registered": False, "available": False,
-                                           "runtime_verified": False, "reason_code": "adapter-missing"},
-                         "tasks": {"adapter_registered": False, "available": False,
-                                   "runtime_verified": False, "reason_code": "adapter-missing"}}
+                         "native-agents": {"adapter_registered": self.providers["agent_library"] is not None,
+                                           "available": self.providers["agent_library"] is not None,
+                                           "runtime_verified": False,
+                                           "reason_code": None if self.providers["agent_library"] else "adapter-missing"},
+                         "tasks": {"adapter_registered": tasks_ok, "available": tasks_ok,
+                                   "runtime_verified": False,
+                                   "reason_code": None if tasks_ok else "adapter-missing"}}
         installed = bool(self.gui and self.gui.installed_verified)
         module_states["ellmos-system-gui"] = {"adapter_registered": True,
             "available": self.gui is not None, "runtime_verified": False,
@@ -440,6 +521,18 @@ def bridge_from_workspace(workspace: Path, *, gui_pins: tuple[str, str] | None =
         bridge.providers["ocean"] = lambda: ocean_inventory(workspace=workspace)
     if (workspace / "skills").is_dir():
         bridge.providers["skills"] = lambda: skill_library(workspace=workspace)
+    if bridge.providers["agent_library"] is None:
+        lib_reader = agent_library_reader(workspace)
+        bridge.providers["agent_library"] = lib_reader
+        bridge.providers["blueprints"] = blueprints_reader(lib_reader)
+    if bridge.providers["tasks"] is None and (workspace / "taskplan.db").is_file():
+        db_p = workspace / "taskplan.db"
+        bridge.providers["tasks"] = lambda **kw: gov.tasks_list_view(db_p, **kw)
+        bridge.providers["task_detail"] = lambda tid: gov.task_detail_view(db_p, int(tid))
+        bridge.providers["task_result"] = lambda tid: gov.task_result_view(db_p, int(tid))
+    if bridge.providers["notes"] is None and (workspace / "notes.db").is_file():
+        notes_p = workspace / "notes.db"
+        bridge.providers["notes"] = lambda **kw: gov.notes_list_view(notes_p, **kw)
     return bridge
 
 
@@ -503,11 +596,20 @@ def _bridge_core(workspace: Path, *, gui_pins: tuple[str, str] | None = None) ->
         software = lambda: software_inventory(releases_path=sw_path)  # noqa: E731
     audit = None
     task_result = None
+    tasks = None
+    task_detail = None
     task_db = config.get("task_db")
     if isinstance(task_db, str) and task_db.strip() and Path(task_db).is_file():
         db_p = Path(task_db)
         audit = lambda limit=50: gov.task_history_audit(db_p, limit=limit)  # noqa: E731
         task_result = lambda task_id: gov.task_result_view(db_p, int(task_id))  # noqa: E731
+        tasks = lambda **kw: gov.tasks_list_view(db_p, **kw)  # noqa: E731
+        task_detail = lambda task_id: gov.task_detail_view(db_p, int(task_id))  # noqa: E731
+    notes = None
+    notes_db = config.get("notes_db")
+    if isinstance(notes_db, str) and notes_db.strip() and Path(notes_db).is_file():
+        notes_p = Path(notes_db)
+        notes = lambda **kw: gov.notes_list_view(notes_p, **kw)  # noqa: E731
     task_assignees = None
     ta_cfg = config.get("task_assignees_config")
     if isinstance(ta_cfg, str) and ta_cfg.strip() and Path(ta_cfg).is_file():
@@ -515,7 +617,8 @@ def _bridge_core(workspace: Path, *, gui_pins: tuple[str, str] | None = None) ->
         task_assignees = lambda: gov.task_assignees_view(ta_p)  # noqa: E731
     return GuiBridge(gui=gui, plan=plan, status=status, policies=policies, modules=modules,
                      registry=registry_reader, locks=locks, usecases=usecases,
-                     software=software, audit=audit, task_assignees=task_assignees, task_result=task_result)
+                     software=software, audit=audit, task_assignees=task_assignees,
+                     task_result=task_result, tasks=tasks, task_detail=task_detail, notes=notes)
 
 
 def mount_gui_bridge(app: Any, bridge: GuiBridge, require_auth: Callable, require_admin: Callable) -> None:
@@ -629,10 +732,78 @@ def mount_gui_bridge(app: Any, bridge: GuiBridge, require_auth: Callable, requir
         app.add_api_route(path, make_route(name), methods=["GET"])
     app.add_api_route("/api/decisions", make_route("policies", kind="decision"), methods=["GET"])
     _mount_governance(app, bridge, add_guarded, require_admin, JSONResponse)
-    # Native launch/task adapters have no configured provider in this package.
+
+    def tasks_list_route(request):
+        provider = bridge.providers["tasks"]
+        if provider is None:
+            return JSONResponse({"available": False, "reason": "Kein nativer Anbieter konfiguriert.",
+                                 "runtime_verified": False}, status_code=503, headers={"Cache-Control": "no-store"})
+        params = request.query_params
+        raw_limit = params.get("limit", "100")
+        raw_offset = params.get("offset", "0")
+        if not raw_limit.isdigit() or not 1 <= int(raw_limit) <= 500 or not raw_offset.isdigit():
+            return JSONResponse({"detail": "invalid_pagination"}, status_code=422, headers={"Cache-Control": "no-store"})
+        try:
+            return JSONResponse(
+                provider(
+                    status=params.get("status", "nonterminal"),
+                    assignment_group=params.get("assignment_group", "all"),
+                    priority=params.get("priority", ""),
+                    q=params.get("q", ""),
+                    assigned_to=params.get("assigned_to", ""),
+                    limit=int(raw_limit),
+                    offset=int(raw_offset),
+                ),
+                headers={"Cache-Control": "no-store"},
+            )
+        except gov.GovernanceUnavailable as exc:
+            return JSONResponse({"available": False, "reason": str(exc)}, status_code=503,
+                                headers={"Cache-Control": "no-store"})
+
+    def task_detail_route(request):
+        raw = request.path_params.get("task_id", "")
+        if not re.fullmatch(r"[+-]?\d{1,%d}" % USECASE_MAX_ID_DIGITS, raw) or int(raw) < 1:
+            return JSONResponse({"detail": "invalid_task_id"}, status_code=422, headers={"Cache-Control": "no-store"})
+        provider = bridge.providers["task_detail"]
+        if provider is None:
+            return JSONResponse({"available": False, "reason": "source-not-in-composition"},
+                                status_code=503, headers={"Cache-Control": "no-store"})
+        try:
+            return JSONResponse(provider(int(raw)), headers={"Cache-Control": "no-store"})
+        except gov.GovernanceUnavailable as exc:
+            return JSONResponse({"available": False, "reason": str(exc)}, status_code=503,
+                                headers={"Cache-Control": "no-store"})
+
+    add_guarded("/api/tasks/{task_id}", task_detail_route)
+    add_guarded("/api/agent-studio/blueprints", inventory_route("blueprints", "Blueprints nicht lesbar"))
+    add_guarded("/api/agenten/library", inventory_route("agent_library", "Agenten-Bibliothek nicht lesbar"))
+
+    def notes_route(request):
+        provider = bridge.providers["notes"]
+        if provider is None:
+            return JSONResponse({"available": False, "reason": "notes_source_unavailable"},
+                                status_code=503, headers={"Cache-Control": "no-store"})
+        params = request.query_params
+        raw_limit = params.get("limit", "100")
+        if not raw_limit.isdigit() or not 1 <= int(raw_limit) <= 500:
+            return JSONResponse({"detail": "invalid_limit"}, status_code=422, headers={"Cache-Control": "no-store"})
+        try:
+            return JSONResponse(
+                provider(entry_type=params.get("kind") or params.get("type"), q=params.get("q", ""), limit=int(raw_limit)),
+                headers={"Cache-Control": "no-store"},
+            )
+        except gov.GovernanceUnavailable as exc:
+            return JSONResponse({"available": False, "reason": str(exc)}, status_code=503,
+                                headers={"Cache-Control": "no-store"})
+
+    add_guarded("/api/notes", notes_route)
+    add_guarded("/api/denkarium", notes_route)
+    add_guarded("/api/tasks", tasks_list_route)
+
+    # Native launch/task write adapters have no configured provider in this package.
     # Auth still runs before 503; no action or write can reach an engine.
     for method, path in (("GET", "/api/agents/native/slots"), ("GET", "/api/agents/native/tasks"),
-                         ("POST", "/api/agents/native/tasks"), ("GET", "/api/tasks"), ("POST", "/api/tasks")):
+                         ("POST", "/api/agents/native/tasks"), ("POST", "/api/tasks")):
         app.add_api_route(path, make_route("unconfigured-native"), methods=[method])
 
 
@@ -762,3 +933,188 @@ def _mount_governance(app: Any, bridge: GuiBridge, add_guarded: Callable, requir
         return json_response({"available": False, "reason": reason}, status_code=503, headers=headers)
     add_guarded("/api/usecases", usecases_route)
     add_guarded("/api/usecases/{usecase_id}", usecases_route)
+
+
+def dispatch_bridge_get(bridge: GuiBridge, raw_path: str, raw_query: str = "") -> tuple[int, dict[str, Any]]:
+    """Pure-ASGI GET dispatcher for OceanGuiApp delegating thin read routes to GuiBridge (PB-11)."""
+    from urllib.parse import parse_qs
+
+    path = raw_path.rstrip("/") if raw_path != "/" else "/"
+    qs = {k: v[-1] for k, v in parse_qs(raw_query, keep_blank_values=True).items()}
+
+    def _unavail(reason: str, status: int = 503) -> tuple[int, dict[str, Any]]:
+        return status, {"available": False, "reason": reason, "reason_code": reason, "status": "unavailable"}
+
+    if path in {"/api/installer/detect", "/api/installer/plan", "/api/installer/status"}:
+        name = path.rsplit("/", 1)[1]
+        try:
+            return 200, bridge.invoke(name)
+        except BridgeUnavailable as exc:
+            return 503, {"available": False, "reason": str(exc), "runtime_verified": False}
+
+    if path in {"/api/policies", "/api/decisions"}:
+        kwargs = {k: v for k, v in qs.items() if k in {"scope", "query", "consumer", "kind"}}
+        if any(len(v) > 512 for v in kwargs.values()):
+            return 422, {"reason": "Suchparameter ist zu lang."}
+        if path == "/api/decisions":
+            kwargs["kind"] = "decision"
+        try:
+            return 200, bridge.invoke("policies", **kwargs)
+        except BridgeUnavailable as exc:
+            return 503, {"available": False, "reason": str(exc), "runtime_verified": False}
+
+    if path == "/api/capabilities/catalog":
+        kind = qs.get("kind")
+        host = qs.get("host")
+        if kind is not None and kind not in CATALOG_KINDS:
+            return 422, {"detail": "invalid_kind"}
+        if host is not None and not 1 <= len(host) <= 80:
+            return 422, {"detail": "invalid_host"}
+        provider = bridge.providers["catalog"]
+        return (200, provider(kind=kind, host=host)) if provider else _unavail("source-not-configured")
+
+    for route_path, key in (
+        ("/api/capabilities/ocean", "ocean"),
+        ("/api/capabilities/skills/library", "skills"),
+        ("/api/capabilities/software", "software"),
+        ("/api/agent-studio/blueprints", "blueprints"),
+        ("/api/agenten/library", "agent_library"),
+        ("/api/task-assignees", "task_assignees"),
+    ):
+        if path == route_path:
+            provider = bridge.providers[key]
+            if provider is None:
+                return _unavail("source-not-in-composition" if key == "software" else "source-not-configured")
+            try:
+                return 200, provider()
+            except Exception:  # noqa: BLE001
+                return _unavail("source-unreadable")
+
+    if path == "/api/governance/locks":
+        snap = bridge.providers["locks"]() if bridge.providers["locks"] else gov.lock_cache_snapshot(None)
+        return 200, gov.locks_view(snap)
+
+    if path == "/api/governance/status":
+        snap = bridge.providers["locks"]() if bridge.providers["locks"] else gov.lock_cache_snapshot(None)
+        return 200, gov.status_view(snap, bridge.providers["registry"])
+
+    if path == "/api/governance/audit":
+        raw_lim = qs.get("limit", "50")
+        if not raw_lim.isdigit() or not 1 <= int(raw_lim) <= 100:
+            return 422, {"detail": "invalid_limit"}
+        provider = bridge.providers["audit"]
+        if provider is None:
+            return 200, dict(gov.AUDIT_UNAVAILABLE)
+        try:
+            return 200, provider(int(raw_lim))
+        except Exception:  # noqa: BLE001
+            return 200, dict(gov.AUDIT_UNAVAILABLE)
+
+    if path in {
+        "/api/governance/policy-registry",
+        "/api/governance/decisions",
+        "/api/governance/policies",
+        "/api/governance/effective-policy",
+    }:
+        effective = path.endswith("/effective-policy")
+        if effective and not qs.get("scope"):
+            return 422, {"detail": "scope_required"}
+        reader = bridge.providers["registry"]
+        if reader is None:
+            return 503, {"detail": "policy_provider_not_configured"}
+        kwargs = {"scope": qs.get("scope"), "consumer": qs.get("consumer"), "query": qs.get("query", "")}
+        if path.endswith("/decisions"):
+            kwargs["kind"] = "decision"
+        elif path.endswith("/policy-registry") and "kind" in qs:
+            if qs["kind"] not in {"policy", "rule", "decision", "evidence", "decision-candidate"}:
+                return 422, {"detail": "invalid_kind"}
+            kwargs["kind"] = qs["kind"]
+        try:
+            res = reader(**kwargs, **({"effective": True} if effective else {}))
+        except gov.GovernanceUnavailable as exc:
+            return 503, {"detail": str(exc)}
+        except gov.GovernanceChanged as exc:
+            return 409, {"detail": str(exc)}
+        if path.endswith("/decisions"):
+            return 200, gov.decisions_view(res)
+        if path.endswith("/policies"):
+            return 200, gov.policies_view(res)
+        return 200, res
+
+    if path == "/api/usecases" or path.startswith("/api/usecases/"):
+        provider = bridge.providers["usecases"]
+        uc_id = None
+        if path != "/api/usecases":
+            tail = path[len("/api/usecases/"):]
+            if "/" in tail or not re.fullmatch(r"[+-]?\d{1,%d}" % USECASE_MAX_ID_DIGITS, tail):
+                return 422, {"detail": "invalid_usecase_id"}
+            uc_id = int(tail)
+        if provider is None:
+            return _unavail("source-not-in-composition")
+        try:
+            return 200, (provider() if uc_id is None else provider(uc_id))
+        except UsecasesUnavailable as exc:
+            return _unavail(exc.reason)
+        except Exception:  # noqa: BLE001
+            return _unavail("source-unreadable")
+
+    if path == "/api/tasks":
+        provider = bridge.providers["tasks"]
+        if provider is None:
+            return _unavail("ocean_api_adapter_unbound")
+        raw_lim = qs.get("limit", "100")
+        raw_off = qs.get("offset", "0")
+        if not raw_lim.isdigit() or not 1 <= int(raw_lim) <= 500 or not raw_off.isdigit():
+            return 422, {"detail": "invalid_pagination"}
+        try:
+            return 200, provider(
+                status=qs.get("status", "nonterminal"),
+                assignment_group=qs.get("assignment_group", "all"),
+                priority=qs.get("priority", ""),
+                q=qs.get("q", ""),
+                assigned_to=qs.get("assigned_to", ""),
+                limit=int(raw_lim),
+                offset=int(raw_off),
+            )
+        except gov.GovernanceUnavailable as exc:
+            return _unavail(str(exc))
+
+    m_res = re.fullmatch(r"/api/tasks/([+-]?\d{1,%d})/result" % USECASE_MAX_ID_DIGITS, path)
+    if m_res:
+        tid = int(m_res.group(1))
+        if tid < 1:
+            return 422, {"detail": "invalid_task_id"}
+        provider = bridge.providers["task_result"]
+        if provider is None:
+            return _unavail("source-not-in-composition")
+        try:
+            return 200, provider(tid)
+        except gov.GovernanceUnavailable as exc:
+            return _unavail(str(exc))
+
+    m_detail = re.fullmatch(r"/api/tasks/([+-]?\d{1,%d})" % USECASE_MAX_ID_DIGITS, path)
+    if m_detail:
+        tid = int(m_detail.group(1))
+        if tid < 1:
+            return 422, {"detail": "invalid_task_id"}
+        provider = bridge.providers["task_detail"]
+        if provider is None:
+            return _unavail("source-not-in-composition")
+        try:
+            return 200, provider(tid)
+        except gov.GovernanceUnavailable as exc:
+            return _unavail(str(exc))
+
+    if path in {"/api/notes", "/api/denkarium"}:
+        provider = bridge.providers["notes"]
+        if provider is None:
+            return _unavail("notes_source_unavailable")
+        raw_lim = qs.get("limit", "100")
+        if not raw_lim.isdigit() or not 1 <= int(raw_lim) <= 500:
+            return 422, {"detail": "invalid_limit"}
+        try:
+            return 200, provider(entry_type=qs.get("kind") or qs.get("type"), q=qs.get("q", ""), limit=int(raw_lim))
+        except gov.GovernanceUnavailable as exc:
+            return _unavail(str(exc))
+
+    return _unavail("ocean_api_adapter_unbound")

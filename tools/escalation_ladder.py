@@ -206,6 +206,7 @@ AUTHORITY_LEVELS = ("worker", "reviewer", "boss", "operator", "user_gate")
 ACTION_MIN_AUTHORITY = {
     "task_execute": "worker",
     "branch_commit": "worker",
+    "internal_delivery": "worker",
     "task_review": "reviewer",
     "result_accept": "reviewer",
     "role_dispatch": "boss",
@@ -570,14 +571,25 @@ def evaluate_cognitive_action_authority(
     quote_evidence: dict[str, Any] | None = None,
     source_texts: dict[str, str] | None = None,
     has_hard_gate: bool = False,
+    follows_from_goal: bool | None = None,
+    introduces_new_tradeoff: bool | None = None,
+    goal_quote: str | None = None,
+    strict_followup: bool = False,
 ) -> dict[str, Any]:
     """Evaluate the cognitive action loop (`Want to act -> Authority Checker -> Do it / Ask there to get`).
 
     Implements the 3-tier hybrid (`semantic_tunneling` -> `quote_evidence_tunnel` -> `hard_gate`)
-    and explicitly prevents the `authority_desert` error class where clear, context-secured user intent
-    would otherwise be blocked by static borders.
+    with Stage-1 follow-up / no-new-tradeoff validation (`Folgeschritt-Regel`) and explicitly prevents
+    the `authority_desert` error class where clear, context-secured user intent would otherwise be
+    blocked by static borders.
     """
     required_level = ACTION_MIN_AUTHORITY.get(action_class, "operator")
+    followup_check = {
+        "follows_from_goal": follows_from_goal,
+        "introduces_new_tradeoff": introduces_new_tradeoff,
+        "goal_quote": goal_quote.strip() if isinstance(goal_quote, str) and goal_quote.strip() else None,
+        "strict_followup": bool(strict_followup),
+    }
 
     # Tier 3: Hard Gate required for locked targets or irreversible user_gate actions
     if target_locked or required_level == "user_gate":
@@ -590,6 +602,7 @@ def evaluate_cognitive_action_authority(
                 "reason_code": "hard_gate_verified",
                 "ask_where_to_get": (),
                 "authority_desert_risk": False,
+                "followup_check": followup_check,
             }
         return {
             "schema": COGNITIVE_AUTHORITY_LOOP_SCHEMA,
@@ -599,6 +612,7 @@ def evaluate_cognitive_action_authority(
             "reason_code": "locked_or_irreversible_requires_hard_gate",
             "ask_where_to_get": ("user_gate",),
             "authority_desert_risk": False,
+            "followup_check": followup_check,
         }
 
     # Tier 2: Deterministic Quote-Tunnel (`ellmos-authority-evidence`) for threshold / non-reversible actions
@@ -619,14 +633,38 @@ def evaluate_cognitive_action_authority(
                 "reason_code": "quote_tunnel_verified",
                 "ask_where_to_get": (),
                 "authority_desert_risk": False,
+                "followup_check": followup_check,
             }
 
     # Tier 1: Semantic Authority Tunneling for reversible everyday actions backed by goal/plan/authority_ref
     has_semantic_context = bool(
         (authority_ref and authority_ref.strip())
         or (active_goal_or_plan_id and active_goal_or_plan_id.strip())
+        or followup_check["goal_quote"]
     )
     if reversible and has_semantic_context and required_level in {"worker", "reviewer", "boss"}:
+        if follows_from_goal is False or introduces_new_tradeoff is True:
+            return {
+                "schema": COGNITIVE_AUTHORITY_LOOP_SCHEMA,
+                "allowed": False,
+                "decision": "ask_there_to_get",
+                "tier": "semantic_tunneling",
+                "reason_code": "followup_not_covered_or_new_tradeoff",
+                "ask_where_to_get": INWARD_FIRST_AUTHORITY_CASCADE,
+                "authority_desert_risk": False,
+                "followup_check": followup_check,
+            }
+        if strict_followup and (follows_from_goal is not True or introduces_new_tradeoff is not False):
+            return {
+                "schema": COGNITIVE_AUTHORITY_LOOP_SCHEMA,
+                "allowed": False,
+                "decision": "ask_there_to_get",
+                "tier": "semantic_tunneling",
+                "reason_code": "followup_verification_incomplete",
+                "ask_where_to_get": INWARD_FIRST_AUTHORITY_CASCADE,
+                "authority_desert_risk": False,
+                "followup_check": followup_check,
+            }
         return {
             "schema": COGNITIVE_AUTHORITY_LOOP_SCHEMA,
             "allowed": True,
@@ -635,6 +673,7 @@ def evaluate_cognitive_action_authority(
             "reason_code": "semantic_context_secured",
             "ask_where_to_get": (),
             "authority_desert_risk": False,
+            "followup_check": followup_check,
         }
 
     # Authority missing -> cascade inward first before interrupting user
@@ -646,6 +685,7 @@ def evaluate_cognitive_action_authority(
         "reason_code": "authority_missing_cascade_inward_first",
         "ask_where_to_get": INWARD_FIRST_AUTHORITY_CASCADE,
         "authority_desert_risk": has_semantic_context,
+        "followup_check": followup_check,
     }
 
 

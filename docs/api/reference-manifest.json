@@ -1,8 +1,8 @@
 {
   "schema": "ellmos.api-cli-reference.v1",
   "product": "open-ocean",
-  "cli_command_count": 15,
-  "cli_subcommand_count": 14,
+  "cli_command_count": 16,
+  "cli_subcommand_count": 16,
   "http_route_count": 3,
   "module_binding_count": 11,
   "cli_commands": [
@@ -10,6 +10,12 @@
       "command": "agents",
       "prog": "ocean agents",
       "help": "Agenten und Hintergrundworker steuern",
+      "options": []
+    },
+    {
+      "command": "authority",
+      "prog": "ocean authority",
+      "help": "Autoritätsprüfung (Folgeschritt-Regel / 3-Stufen-Tunneling) und Feedback auswerten",
       "options": []
     },
     {
@@ -284,6 +290,48 @@
       "required_options": []
     },
     {
+      "command": "authority check",
+      "prog": "ocean authority check",
+      "help": "Prüft ob eine Aktion durch Auftrag, Zitat oder Hard-Gate gedeckt ist",
+      "options": [
+        "--action-class",
+        "--irreversible",
+        "--target-locked",
+        "--authority-ref",
+        "--goal-id",
+        "--goal-quote",
+        "--follows-from-goal/--no-follows-from-goal",
+        "--new-tradeoff/--no-new-tradeoff",
+        "--strict-followup",
+        "--source-id",
+        "--quote",
+        "--source-text-file",
+        "--decision-id",
+        "--has-hard-gate",
+        "--json"
+      ],
+      "arguments": [],
+      "required_options": [
+        "--action-class"
+      ]
+    },
+    {
+      "command": "authority feedback",
+      "prog": "ocean authority feedback",
+      "help": "Nachbetrachtung einer Rückfrage oder Aktion klassifizieren (error_authority_desert / error_overreach)",
+      "options": [
+        "--action-class",
+        "--prompted-user",
+        "--intent-in-context",
+        "--exceeded-intent",
+        "--json"
+      ],
+      "arguments": [],
+      "required_options": [
+        "--action-class"
+      ]
+    },
+    {
       "command": "sessions list",
       "prog": "ocean sessions list",
       "help": "Session-Snapshots auflisten",
@@ -494,5 +542,5 @@
       "bound": true
     }
   ],
-  "sha256": "3452757c7fe05c5fa511caa2b995c4150c811f4daa2ee8c959ef4e56abd6813d"
+  "sha256": "9d3ec2cd9c310fa598fdef0e8e9deab7d31797a3c37ec63bca694cd7bd488ed9"
 }

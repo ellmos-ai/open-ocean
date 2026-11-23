@@ -365,6 +365,53 @@ def build_parser() -> argparse.ArgumentParser:
     t_returns.add_argument("--json", action="store_true")
     _add_common_api_args(t_returns)
 
+    # 5. ocean authority (Cognitive Authority & Folgeschritt-Regel Checker)
+    auth_parser = commands.add_parser(
+        "authority",
+        help="Autoritätsprüfung (Folgeschritt-Regel / 3-Stufen-Tunneling) und Feedback auswerten",
+    )
+    auth_sub = auth_parser.add_subparsers(dest="authority_subcommand", metavar="ACTION")
+
+    auth_check = auth_sub.add_parser(
+        "check",
+        help="Prüft ob eine Aktion durch Auftrag, Zitat oder Hard-Gate gedeckt ist",
+    )
+    auth_check.add_argument("--action-class", required=True, help="Aktionsklasse (z. B. internal_delivery, branch_commit)")
+    auth_check.add_argument("--irreversible", action="store_true", help="Aktion als nicht umkehrbar markieren")
+    auth_check.add_argument("--target-locked", action="store_true", help="Ziel trägt aktiven Lock")
+    auth_check.add_argument("--authority-ref", help="Autoritäts-/Ticket-/Entscheidungsreferenz")
+    auth_check.add_argument("--goal-id", help="Aktive Goal- oder Plan-ID")
+    auth_check.add_argument("--goal-quote", help="Wörtliches Ziel-Zitat mit Datum")
+    auth_check.add_argument(
+        "--follows-from-goal",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Ob der Schritt zwingend aus dem Ziel folgt",
+    )
+    auth_check.add_argument(
+        "--new-tradeoff",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Ob der Schritt eine neue Abwägung mitbringt",
+    )
+    auth_check.add_argument("--strict-followup", action="store_true", help="Explizite Folgeschritt-Prüfung erzwingen")
+    auth_check.add_argument("--source-id", help="Quell-ID für Tier-2-Zitatprüfung")
+    auth_check.add_argument("--quote", help="Wörtliches Zitat für Tier-2-Prüfung")
+    auth_check.add_argument("--source-text-file", type=Path, help="Pfad zur Quelldatei für Tier-2-Zitatprüfung")
+    auth_check.add_argument("--decision-id", help="Entscheidungs-ID für Tier-2-Prüfung")
+    auth_check.add_argument("--has-hard-gate", action="store_true", help="Bestätigtes Tier-3-Hard-Gate liegt vor")
+    auth_check.add_argument("--json", action="store_true", help="JSON-Ausgabe")
+
+    auth_fb = auth_sub.add_parser(
+        "feedback",
+        help="Nachbetrachtung einer Rückfrage oder Aktion klassifizieren (error_authority_desert / error_overreach)",
+    )
+    auth_fb.add_argument("--action-class", required=True, help="Aktionsklasse")
+    auth_fb.add_argument("--prompted-user", action="store_true", help="Nutzer wurde gefragt")
+    auth_fb.add_argument("--intent-in-context", action="store_true", help="Absicht stand bereits im Kontext")
+    auth_fb.add_argument("--exceeded-intent", action="store_true", help="Aktion ging über Absicht hinaus")
+    auth_fb.add_argument("--json", action="store_true", help="JSON-Ausgabe")
+
     return parser
 
 
@@ -763,6 +810,61 @@ def main(argv: list[str] | None = None) -> int:
             workspace=getattr(args, "workspace", None),
         )
         return handle_tasks(client, args)
+    if args.command == "authority":
+        from tools.escalation_ladder import (
+            evaluate_cognitive_action_authority,
+            record_post_action_authority_feedback,
+        )
+
+        if args.authority_subcommand == "check":
+            quote_evidence = None
+            source_texts = None
+            if args.source_id and args.quote:
+                quote_evidence = {
+                    "source_id": args.source_id,
+                    "quote": args.quote,
+                    "decision_id": args.decision_id,
+                }
+                if args.source_text_file is not None:
+                    try:
+                        text = args.source_text_file.read_text(encoding="utf-8")
+                    except (OSError, UnicodeDecodeError) as exc:
+                        print(f"[FEHLER] Quelldatei nicht lesbar: {args.source_text_file}: {exc}", file=sys.stderr)
+                        return 2
+                    source_texts = {args.source_id: text}
+            report = evaluate_cognitive_action_authority(
+                action_class=args.action_class,
+                reversible=not args.irreversible,
+                target_locked=args.target_locked,
+                authority_ref=args.authority_ref,
+                active_goal_or_plan_id=args.goal_id,
+                quote_evidence=quote_evidence,
+                source_texts=source_texts,
+                has_hard_gate=args.has_hard_gate,
+                follows_from_goal=args.follows_from_goal,
+                introduces_new_tradeoff=args.new_tradeoff,
+                goal_quote=args.goal_quote,
+                strict_followup=args.strict_followup,
+            )
+            if args.json:
+                print(json.dumps(report, indent=2, ensure_ascii=False))
+            else:
+                print(f"OCEAN-Authority: {report['decision']} ({report['tier']}: {report['reason_code']})")
+            return 0 if report["allowed"] else 2
+        if args.authority_subcommand == "feedback":
+            report = record_post_action_authority_feedback(
+                action_class=args.action_class,
+                prompted_user=args.prompted_user,
+                user_intent_was_already_in_context=args.intent_in_context,
+                action_exceeded_intent=args.exceeded_intent,
+            )
+            if args.json:
+                print(json.dumps(report, indent=2, ensure_ascii=False))
+            else:
+                print(f"OCEAN-Authority-Feedback: {report['classification']} ({report['lesson']})")
+            return 0
+        print("Verwendung: ocean authority {check|feedback} ...", file=sys.stderr)
+        return 2
     print(f"Der Befehl '{args.command}' wird in diesem Build noch nicht ausgeführt.", file=sys.stderr)
     return 3
 

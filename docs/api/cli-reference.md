@@ -1,12 +1,13 @@
 # Open-Ocean — CLI-Referenz (`ocean.py`, automatisch generiert, #2556)
 
-- **Hauptbefehle:** `15`
-- **Unterbefehle:** `14`
-- **Manifest-SHA256:** `3452757c7fe05c5fa511caa2b995c4150c811f4daa2ee8c959ef4e56abd6813d`
+- **Hauptbefehle:** `16`
+- **Unterbefehle:** `16`
+- **Manifest-SHA256:** `9d3ec2cd9c310fa598fdef0e8e9deab7d31797a3c37ec63bca694cd7bd488ed9`
 
 | Befehl | Aufruf | Beschreibung | Optionen |
 |---|---|---|---|
 | `agents` | `ocean agents` | Agenten und Hintergrundworker steuern | — |
+| `authority` | `ocean authority` | Autoritätsprüfung (Folgeschritt-Regel / 3-Stufen-Tunneling) und Feedback auswerten | — |
 | `chat` | `ocean chat` | Interaktive Terminal-Konsole oder Single-Shot-Chat mit einem Agenten | `--agent`, `--session`, `--once`, `--tools`, `--stream`, `--json`, `--url`, `--token`, `--workspace` |
 | `console` | `ocean console` | Alias für 'ocean chat' | `--agent`, `--session`, `--once`, `--tools`, `--stream`, `--json`, `--url`, `--token`, `--workspace` |
 | `down` | `ocean down` | Nur die zugehörige OCEAN-Laufzeit kontrolliert beenden | `--workspace`, `--json` |
@@ -32,6 +33,8 @@
 | `ocean agents show` | Detailstatus eines Agenten oder Workers | `agent_id` | — | `--json`, `--url`, `--token`, `--workspace` |
 | `ocean agents start` | Agenten oder Worker starten | `agent_id` | — | `--json`, `--url`, `--token`, `--workspace` |
 | `ocean agents stop` | Agenten oder Worker stoppen | `agent_id` | — | `--json`, `--url`, `--token`, `--workspace` |
+| `ocean authority check` | Prüft ob eine Aktion durch Auftrag, Zitat oder Hard-Gate gedeckt ist | — | `--action-class` | `--irreversible`, `--target-locked`, `--authority-ref`, `--goal-id`, `--goal-quote`, `--follows-from-goal/--no-follows-from-goal`, `--new-tradeoff/--no-new-tradeoff`, `--strict-followup`, `--source-id`, `--quote`, `--source-text-file`, `--decision-id`, `--has-hard-gate`, `--json` |
+| `ocean authority feedback` | Nachbetrachtung einer Rückfrage oder Aktion klassifizieren (error_authority_desert / error_overreach) | — | `--action-class` | `--prompted-user`, `--intent-in-context`, `--exceeded-intent`, `--json` |
 | `ocean sessions list` | Session-Snapshots auflisten | — | — | `--agent`, `--source`, `--problems`, `--limit`, `--json`, `--url`, `--token`, `--workspace` |
 | `ocean sessions resume` | Session an Hintergrundworker übergeben | `snapshot_id` | `--worker` | `--prompt`, `--json`, `--url`, `--token`, `--workspace` |
 | `ocean sessions show` | Session-Transkript ausgeben | `snapshot_id` | — | `--tools`, `--json`, `--url`, `--token`, `--workspace` |

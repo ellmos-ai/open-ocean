@@ -11,7 +11,9 @@
   "provides": [
     "ocean.bundle.plan",
     "ocean.bundle.activate",
-    "ocean.bundle.rollback"
+    "ocean.bundle.rollback",
+    "ocean.authority.check",
+    "ocean.authority.feedback"
   ],
   "requires": [],
   "optional": [],

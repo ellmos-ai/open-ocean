@@ -464,5 +464,129 @@ def test_ocean_role_routing_sockets_and_module_template_discovery(tmp_path: Path
     assert "marblerun:marble-controller" in template_ids
 
 
+def test_authority_internal_delivery_followup_validation_and_cli(tmp_path: Path, capsys):
+    import json
+    import ocean
+
+    # System-internal delivery (e.g. token/config delivery within own system) is Stage-1 eligible
+    ok_res = evaluate_cognitive_action_authority(
+        action_class="internal_delivery",
+        reversible=True,
+        authority_ref="T-20261115-774992728",
+        goal_quote="ausser ihr least ueber bach (2026-11-14)",
+        follows_from_goal=True,
+        introduces_new_tradeoff=False,
+        strict_followup=True,
+    )
+    assert ok_res["allowed"] is True
+    assert ok_res["decision"] == "do_it"
+    assert ok_res["tier"] == "semantic_tunneling"
+
+    # Stage 1 rejects actions that introduce a new trade-off or do not follow from the goal
+    blocked_tradeoff = evaluate_cognitive_action_authority(
+        action_class="internal_delivery",
+        reversible=True,
+        authority_ref="T-20261115-774992728",
+        follows_from_goal=True,
+        introduces_new_tradeoff=True,
+    )
+    assert blocked_tradeoff["allowed"] is False
+    assert blocked_tradeoff["decision"] == "ask_there_to_get"
+    assert blocked_tradeoff["reason_code"] == "followup_not_covered_or_new_tradeoff"
+
+    incomplete_strict = evaluate_cognitive_action_authority(
+        action_class="internal_delivery",
+        reversible=True,
+        active_goal_or_plan_id="GOAL-LEASE",
+        strict_followup=True,
+    )
+    assert incomplete_strict["allowed"] is False
+    assert incomplete_strict["reason_code"] == "followup_verification_incomplete"
+
+    strict_missing_quote = evaluate_cognitive_action_authority(
+        action_class="internal_delivery",
+        reversible=True,
+        active_goal_or_plan_id="GOAL-LEASE",
+        follows_from_goal=True,
+        introduces_new_tradeoff=False,
+        strict_followup=True,
+    )
+    assert strict_missing_quote["allowed"] is False
+    assert strict_missing_quote["reason_code"] == "followup_verification_incomplete"
+    assert strict_missing_quote["followup_check"]["goal_quote"] is None
+
+    # CLI end-to-end: `ocean authority check` and `ocean authority feedback`
+    rc_ok = ocean.main([
+        "authority",
+        "check",
+        "--action-class", "internal_delivery",
+        "--goal-id", "GOAL-LEASE",
+        "--goal-quote", "least ueber bach (2026-11-14)",
+        "--follows-from-goal",
+        "--no-new-tradeoff",
+        "--strict-followup",
+        "--json",
+    ])
+    assert rc_ok == 0
+    cli_payload = json.loads(capsys.readouterr().out)
+    assert cli_payload["allowed"] is True
+    assert cli_payload["tier"] == "semantic_tunneling"
+
+    rc_denied = ocean.main([
+        "authority",
+        "check",
+        "--action-class", "internal_delivery",
+        "--goal-id", "GOAL-LEASE",
+        "--follows-from-goal",
+        "--new-tradeoff",
+        "--json",
+    ])
+    assert rc_denied == 2
+    denied_payload = json.loads(capsys.readouterr().out)
+    assert denied_payload["allowed"] is False
+
+    src_file = tmp_path / "decisions.txt"
+    src_file.write_text("Ja, least ueber bach und gebt WS den Token.", encoding="utf-8")
+    rc_quote = ocean.main([
+        "authority",
+        "check",
+        "--action-class", "protected_branch_merge",
+        "--irreversible",
+        "--source-id", "DECISIONS.md#D-1",
+        "--quote", "least ueber bach",
+        "--source-text-file", str(src_file),
+        "--json",
+    ])
+    assert rc_quote == 0
+    quote_payload = json.loads(capsys.readouterr().out)
+    assert quote_payload["tier"] == "quote_evidence_tunnel"
+
+    rc_fb = ocean.main([
+        "authority",
+        "feedback",
+        "--action-class", "internal_delivery",
+        "--prompted-user",
+        "--intent-in-context",
+        "--json",
+    ])
+    assert rc_fb == 0
+    fb_payload = json.loads(capsys.readouterr().out)
+    assert fb_payload["classification"] == "error_authority_desert"
+
+    bad_utf8 = tmp_path / "binary.bin"
+    bad_utf8.write_bytes(b"\x89PNG\r\n\x1a\n\xff\xfe")
+    rc_bad_utf8 = ocean.main([
+        "authority",
+        "check",
+        "--action-class", "protected_branch_merge",
+        "--irreversible",
+        "--source-id", "DECISIONS.md#D-1",
+        "--quote", "least ueber bach",
+        "--source-text-file", str(bad_utf8),
+    ])
+    assert rc_bad_utf8 == 2
+    assert "Quelldatei nicht lesbar" in capsys.readouterr().err
+
+
 
 

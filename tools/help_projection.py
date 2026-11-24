@@ -60,18 +60,37 @@ def project_installed_module_help(workspace_root: Path) -> Dict[str, Any]:
     }
 
 
-SUPPORTED_HELP_LOCALES = ("de", "en", "es", "ja", "ru", "zh")
+SUPPORTED_HELP_LOCALES = (
+    "de",
+    "en",
+    "es",
+    "fr",
+    "pt",
+    "ru",
+    "zh",
+    "ja",
+    "ar",
+    "hi",
+    "bn",
+)
 
 EXPECTED_CLI_SUBCOMMANDS = (
-    "plan",
-    "up",
-    "inspect",
-    "start",
-    "status",
-    "user",
+    "agents",
+    "authority",
+    "chat",
+    "console",
     "down",
     "gui",
+    "inspect",
+    "plan",
+    "sessions",
+    "stack-status",
+    "start",
+    "status",
     "task",
+    "tasks",
+    "up",
+    "user",
 )
 
 
@@ -578,7 +597,7 @@ def audit_repository_with_doc_keeper(
     candidates = [
         root_path.parent / "doc-keeper" / "src",
         Path("C:/_Local_DEV/repos/doc-keeper/src"),
-        Path("C:/Users/User/OneDrive/.TOPICS/.AI/.MODULES/.CONTROL/doc-keeper/src"),
+        Path.home() / "OneDrive" / ".TOPICS" / ".AI" / ".MODULES" / ".CONTROL" / "doc-keeper" / "src",
     ]
     for cand in candidates:
         if cand.is_dir() and str(cand) not in sys.path:

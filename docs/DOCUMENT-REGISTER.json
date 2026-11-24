@@ -4,8 +4,8 @@
   "owner_repo": "ellmos-ai/open-ocean",
   "authority": "repo-local-register-no-cutover",
   "cutover_performed": false,
-  "observed_at": "2026-10-11T04:26:32Z",
-  "source_revision": "ca54e89",
+  "observed_at": "2026-11-24T00:01:04Z",
+  "source_revision": "e943015",
   "documents": [
     {
       "document_id": "ocean:changelog",
@@ -22,9 +22,9 @@
       "source": {
         "repo": "ellmos-ai/open-ocean",
         "path": "CHANGELOG.md",
-        "revision": "ac7c9d6",
-        "sha256": "4dd99d48b0a2aa5bfcaca8ed19700e92ea27d3c9f77f6df4d3db83263a2c8a04",
-        "observed_at": "2026-10-11T03:59:59Z"
+        "revision": "e943015",
+        "sha256": "db95b4e98101ccea4bdf0e1b7a0839216a214dbd3eaec1aefe6ad176a0c852aa",
+        "observed_at": "2026-11-24T00:01:04Z"
       },
       "language": "en",
       "generator": {
@@ -79,7 +79,7 @@
         }
       ],
       "authority_claim": "none",
-      "review_date": "2026-10-11",
+      "review_date": "2026-11-24",
       "evidence": [
         {
           "type": "commit",
@@ -94,12 +94,12 @@
         {
           "path": "CHANGELOG.md",
           "language": "en",
-          "sha256": "4dd99d48b0a2aa5bfcaca8ed19700e92ea27d3c9f77f6df4d3db83263a2c8a04"
+          "sha256": "db95b4e98101ccea4bdf0e1b7a0839216a214dbd3eaec1aefe6ad176a0c852aa"
         },
         {
           "path": "CHANGELOG_de.md",
           "language": "de",
-          "sha256": "b3d485b6c2f456ceb991ebb7c484d1eb9a060c480cafd34c491e78c415494bc5"
+          "sha256": "5d3fe00ee05d13c1410a103966a769101206446bc823cb3fa7a03a16a69bc597"
         }
       ],
       "family": {
@@ -293,9 +293,9 @@
       "source": {
         "repo": "ellmos-ai/open-ocean",
         "path": "llms.txt",
-        "revision": "c613506",
-        "sha256": "4ab8e1d912c4d38216385574889b462f70aed9df3428cc575964ab0fe8a4fea2",
-        "observed_at": "2026-10-11T03:59:59Z"
+        "revision": "e943015",
+        "sha256": "61160ac322fff58739f9940b0b0e9b58ef2ca3cfa533e5218b6d15fe05a01455",
+        "observed_at": "2026-11-24T00:01:04Z"
       },
       "language": "en",
       "generator": {
@@ -343,7 +343,7 @@
         }
       ],
       "authority_claim": "none",
-      "review_date": "2026-10-11",
+      "review_date": "2026-11-24",
       "evidence": [
         {
           "type": "commit",
@@ -440,9 +440,9 @@
       "source": {
         "repo": "ellmos-ai/open-ocean",
         "path": "architecture/GUI-CONSUMER.md",
-        "revision": "15c06b6",
-        "sha256": "962f55fcc6a46c22903528bb950f2baf7b00e51629738fcb11cd670f8c8f0092",
-        "observed_at": "2026-10-11T03:59:59Z"
+        "revision": "e943015",
+        "sha256": "f0390de4271293cd8ccb60338ae70250def7bd1abfcbd1b3371a0e0d253299bc",
+        "observed_at": "2026-11-24T00:01:04Z"
       },
       "language": "de",
       "generator": {
@@ -476,7 +476,7 @@
         }
       ],
       "authority_claim": "repo-local",
-      "review_date": "2026-10-11",
+      "review_date": "2026-11-24",
       "evidence": [
         {
           "type": "commit",
@@ -725,9 +725,9 @@
       "source": {
         "repo": "ellmos-ai/open-ocean",
         "path": "docs/GUI-CONSUMER.md",
-        "revision": "5c3239a",
-        "sha256": "a55fdbc6bdbfa011b2f6ec216bc932817c66a321d4261fca1d970e489de55f58",
-        "observed_at": "2026-10-11T03:59:59Z"
+        "revision": "e943015",
+        "sha256": "ed4790205a16ef1b659e6859aab0cb8da9f9b164e19f1a52b2aa07551612d119",
+        "observed_at": "2026-11-24T00:01:04Z"
       },
       "language": "de",
       "generator": {
@@ -739,7 +739,7 @@
       "replacement_ref": null,
       "readers": [],
       "authority_claim": "repo-local",
-      "review_date": "2026-10-11",
+      "review_date": "2026-11-24",
       "evidence": [
         {
           "type": "commit",

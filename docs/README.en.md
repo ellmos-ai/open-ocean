@@ -8,11 +8,13 @@ Welcome to the documentation directory of `open-ocean`. This directory collects 
 
 | Document | Language | Description |
 |---|---|---|
-| [`CORE.md`](CORE.md) | German | Core documentation covering system concepts, installation, rollback guarantees, and lifecycle operations. |
+| [`CORE.md`](CORE.md) | German | Core documentation covering system concepts, installation, rollback guarantees, and 16-command lifecycle operations. |
 | [`GUI-CONSUMER.md`](GUI-CONSUMER.md) | German | Consumer contract for the system GUI (`ellmos-system-gui`). |
+| [`api/cli-reference.md`](api/cli-reference.md) | German | Auto-generated CLI reference extracted directly from `ocean.py` (`16` top-level commands, `16` subcommands). |
+| [`api/README.md`](api/README.md) | German | Auto-generated HTTP API and 11-module binding reference. |
 | [`K9-REMAINING-CI.md`](K9-REMAINING-CI.md) | German | Continuous CI verification and evidence for remaining K9 operations. |
 | [`K9-REMAINING-OPERATIONS-CONTRACT.md`](K9-REMAINING-OPERATIONS-CONTRACT.md) | German | Comparison matrix and parity contract for the six K9 operations. |
-| [`SKILL.en.md`](SKILL.en.md) | English | Agent skill specification in English (additional translations: `SKILL.es.md`, `SKILL.ja.md`, `SKILL.ru.md`, `SKILL.zh.md`). |
+| [`SKILL.en.md`](SKILL.en.md) | Multilingual (11) | Agent skill specification (`../SKILL.md` DE + World Set: `SKILL.en.md`, `SKILL.es.md`, `SKILL.fr.md`, `SKILL.pt.md`, `SKILL.ru.md`, `SKILL.zh.md`, `SKILL.ja.md`, `SKILL.ar.md`, `SKILL.hi.md`, `SKILL.bn.md`). |
 | [`DOCUMENT-REGISTER.json`](DOCUMENT-REGISTER.json) | JSON | Central register of all tracked documents with SHA-256 hashes and reader relations. |
 
 ## Architecture Plans (`../architecture/`)
@@ -24,4 +26,4 @@ Welcome to the documentation directory of `open-ocean`. This directory collects 
 
 ## Language Policy
 
-`open-ocean` adheres to a strict bilingual minimum standard (`de` as default source language, `en` as required international language) and the 6-language world set (`de`, `en`, `es`, `ja`, `ru`, `zh`) for agent skill specifications.
+`open-ocean` adheres to a strict bilingual minimum standard (`de` as default source language, `en` as required international language) and the complete **11-language World Set** (`de`, `en`, `es`, `fr`, `pt`, `ru`, `zh`, `ja`, `ar`, `hi`, `bn`) for universal agent skill specifications and `ellmos-module.v2.json`.

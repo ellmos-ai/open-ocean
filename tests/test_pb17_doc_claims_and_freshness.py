@@ -186,12 +186,13 @@ def test_pb17_manifest_sprachfeld_contract() -> None:
 
 
 def test_pb17_doc_freshness_languages_and_world_set_schema() -> None:
-    """Verify doc-freshness-and-claims.v1.json enforces required and world set languages."""
+    """Verify doc-freshness-and-claims.v1.json and ellmos-module.v2.json enforce required and 11-language world set languages."""
     manifest = json.loads(DOC_CLAIMS_PATH.read_text(encoding="utf-8"))
+    expected_world_set = ["de", "en", "es", "fr", "pt", "ru", "zh", "ja", "ar", "hi", "bn"]
 
     assert manifest.get("default_source_language") == "de"
     assert manifest.get("required_languages") == ["de", "en"]
-    assert manifest.get("world_set_languages") == ["de", "en", "es", "ja", "ru", "zh"]
+    assert manifest.get("world_set_languages") == expected_world_set
 
     module_schema = manifest.get("module_doc_schema", {})
     assert "required_manifest_fields" in module_schema
@@ -199,3 +200,10 @@ def test_pb17_doc_freshness_languages_and_world_set_schema() -> None:
     assert "docs" in module_schema["required_manifest_fields"]
     assert module_schema.get("minimum_languages") == ["de", "en"]
     assert len(module_schema.get("core_bundles", [])) == 13
+
+    root_mod = json.loads((ROOT / "ellmos-module.v2.json").read_text(encoding="utf-8"))
+    assert root_mod.get("languages") == expected_world_set
+    assert isinstance(root_mod.get("docs"), dict)
+    assert root_mod["docs"].get("readme") == "README.md"
+    assert root_mod["docs"].get("doc_de") == "README_de.md"
+    assert root_mod["docs"].get("languages") == expected_world_set

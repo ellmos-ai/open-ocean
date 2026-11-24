@@ -302,7 +302,7 @@ Stellt die automatisierte Dokumentationsprüfung (`ellmos-doc-keeper` + NemoFold
 |---|---|---|
 | **1. `unintended_erosion`** *(Ungewollte Erosion / Drift)* | Doku beschreibt das richtige Verhalten, aber Code/Dienst ist ungewollt kaputtgegangen oder abgedriftet. | **SOLL in Doku bewahren** + IST-Warnhinweis setzen + Standard-Kombination **`["local_taskplan", "user_notification"]`** (stellt P1-Reparatur-Task für Hintergrund-Worker ein und benachrichtigt Nutzer; optional kombinierbar mit `local_genie_marblerun` oder `gitlab_wishes_come_true`). |
 | **2. `planned_terraforming_pending`** *(Fehlendes / geplantes Terraforming)* | Vorauseilende Doku: beschreibt gewolltes SOLL aus Plan/`DECISIONS.md`, das im Code noch nicht fertig ist. | Taskstatus in `taskplan` prüfen/anpassen bzw. P2-Umsetzungs-Task über **`["local_taskplan"]`** anlegen + in der Doku sauber als **SOLL (mit Task-ID)** vs. **IST** trennen. |
-| **3. `completed_terraforming_doc_lag`** *(Erfolgtes Terraforming mit lückenhafter Doku)* | Vorauseilender Code: wurde gewollt weiterentwickelt (Commit/PR/`task_status=done`), Doku hinkt hinterher. | Zweig **`["local_doc_update"]`**: zieht `.txt`-CLI-Help, `.md`-Doku, CLI/API-Referenzen und Übersetzungen (`de/en/es/ja/ru/zh`) automatisch lokal nach. |
+| **3. `completed_terraforming_doc_lag`** *(Erfolgtes Terraforming mit lückenhafter Doku)* | Vorauseilender Code: wurde gewollt weiterentwickelt (Commit/PR/`task_status=done`), Doku hinkt hinterher. | Zweig **`["local_doc_update"]`**: zieht `.txt`-CLI-Help, `.md`-Doku, CLI/API-Referenzen und Übersetzungen (`de/en/es/fr/pt/ru/zh/ja/ar/hi/bn`) automatisch lokal nach. |
 
 ```mermaid
 flowchart TD
@@ -413,14 +413,19 @@ python tools/ocean_dev.py --rollback <workspace>/ocean-dev.activation-log.json
 Das Skelett verweist auf 13 Bundles in zwei Ringen — den funktionalen Kern (`--ring 1`) und die
 Breite drumherum (`--ring 2` oder `all`).
 
-Für ein laufendes System fasst `ocean.py` dieselben Schritte in einen Produkt-Lebenszyklus:
+Für ein laufendes System fasst `ocean.py` dieselben Schritte in einen 16-Befehls-Produkt-Lebenszyklus (vollständige Referenz: [`docs/api/cli-reference.md`](docs/api/cli-reference.md)):
 
 ```text
 python ocean.py plan <kompositions-argumente>
 python ocean.py up <kompositions-argumente> --apply
 python ocean.py start --workspace <lokale-sandbox>
 python ocean.py status --workspace <lokale-sandbox>
+python ocean.py stack-status --json
 python ocean.py inspect --workspace <lokale-sandbox> ...   # nur lesend, siehe architecture/OCEAN-INSPEKTION.md
+python ocean.py gui --archive <system-gui-release.zip> --workspace <lokale-sandbox> --json
+python ocean.py authority check --action-class internal_delivery --strict-followup ...
+python ocean.py task list                                 # Taskkern taskplan (list|take|renew|submit|return|block|reclaim)
+python ocean.py agents list --workspace <lokale-sandbox>   # sowie sessions, tasks, chat / console
 python ocean.py user add --workspace <lokale-sandbox> --username <name> --email <adresse>
 python ocean.py down --workspace <lokale-sandbox>
 ```
@@ -433,7 +438,7 @@ Echo abgefragt und nie als Prozessargument übergeben (`--password-stdin` für A
 ## Was im Repository liegt
 
 ```
-ocean.py                        Lebenszyklus-CLI (plan/up/start/status/inspect/user/down)
+ocean.py                        Lebenszyklus-CLI (16 Befehle: plan/up/start/status/stack-status/inspect/gui/authority/task/tasks/agents/sessions/chat/console/user/down)
 tools/
   ocean_dev.py                  ein Einstiegspunkt: Resolve -> Verify -> Fetch/Place -> Activate,
                                 standardmäßig Probelauf, --apply für echte Schreibzugriffe, --rollback

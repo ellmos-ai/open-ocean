@@ -66,9 +66,14 @@ ocean_resources = ["manifest.json", "pipeline-catalog.json"]
 "share/open-ocean" = ["SKILL.md"]
 "share/open-ocean/docs" = [
     "docs/CORE.md",
+    "docs/SKILL.ar.md",
+    "docs/SKILL.bn.md",
     "docs/SKILL.en.md",
     "docs/SKILL.es.md",
+    "docs/SKILL.fr.md",
+    "docs/SKILL.hi.md",
     "docs/SKILL.ja.md",
+    "docs/SKILL.pt.md",
     "docs/SKILL.ru.md",
     "docs/SKILL.zh.md",
 ]

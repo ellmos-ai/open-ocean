@@ -1,6 +1,6 @@
 {
   "schema": "ellmos.doc-keeper-audit-report.v1",
-  "generated_at": "2026-11-01T02:12:48.119636+00:00",
+  "generated_at": "2026-11-23T23:51:55.863961+00:00",
   "chain_id": "doc-keeper-machine",
   "role_id": "marblerun:doc-keeper",
   "parity_check": {
@@ -11,17 +11,27 @@
       "de",
       "en",
       "es",
-      "ja",
+      "fr",
+      "pt",
       "ru",
-      "zh"
+      "zh",
+      "ja",
+      "ar",
+      "hi",
+      "bn"
     ],
     "locale_files": {
       "de": "SKILL.md",
       "en": "docs/SKILL.en.md",
       "es": "docs/SKILL.es.md",
-      "ja": "docs/SKILL.ja.md",
+      "fr": "docs/SKILL.fr.md",
+      "pt": "docs/SKILL.pt.md",
       "ru": "docs/SKILL.ru.md",
-      "zh": "docs/SKILL.zh.md"
+      "zh": "docs/SKILL.zh.md",
+      "ja": "docs/SKILL.ja.md",
+      "ar": "docs/SKILL.ar.md",
+      "hi": "docs/SKILL.hi.md",
+      "bn": "docs/SKILL.bn.md"
     },
     "missing_locales": []
   },

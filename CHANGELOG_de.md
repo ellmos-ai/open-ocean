@@ -1,5 +1,12 @@
 # Änderungsprotokoll
 
+## Unveröffentlicht — 2026-11-24
+
+### Dokumentation & World-Set-Parität (A16, A18)
+
+- `README.md`, `README_de.md`, `docs/CORE.md`, `docs/README.{de,en}.md`, `llms.txt`, `SKILL.md` und `tools/help_projection.py` (`EXPECTED_CLI_SUBCOMMANDS`) empirisch auf alle 16 Hauptbefehle von `ocean.py` (`plan`, `up`, `start`, `status`, `stack-status`, `inspect`, `gui`, `authority`, `task`, `tasks`, `agents`, `sessions`, `chat`, `console`, `user`, `down`) abgeglichen sowie einen hostgebundenen `doc-keeper`-Fallbackpfad auf `Path.home()` umgestellt.
+- `languages`- und `docs`-Metadaten in `ellmos-module.v2.json` ergänzt und die Agentenskill-Spezifikation (`SKILL.md` + `docs/SKILL.{en,es,fr,pt,ru,zh,ja,ar,hi,bn}.md`, `pyproject.toml` Wheel-`data-files`, `SUPPORTED_HELP_LOCALES` und `architecture/doc-freshness-and-claims.v1.json`) auf das vollständige 11-Sprachen-World-Set (`de, en, es, fr, pt, ru, zh, ja, ar, hi, bn`) ausgebaut.
+
 ## Unveröffentlicht — 2026-11-07
 
 ### Ergänzt (PB-10, #3993)

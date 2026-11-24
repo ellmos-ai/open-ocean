@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased — 2026-11-24
+
+### Documentation & World-Set Parity (A16, A18)
+
+- Empirically aligned `README.md`, `README_de.md`, `docs/CORE.md`, `docs/README.{de,en}.md`, `llms.txt`, `SKILL.md`, and `tools/help_projection.py` (`EXPECTED_CLI_SUBCOMMANDS`) with all 16 top-level `ocean.py` CLI commands (`plan`, `up`, `start`, `status`, `stack-status`, `inspect`, `gui`, `authority`, `task`, `tasks`, `agents`, `sessions`, `chat`, `console`, `user`, `down`) and replaced a host-specific `doc-keeper` fallback path with `Path.home()`.
+- Added explicit `languages` and `docs` metadata to `ellmos-module.v2.json` and expanded the agent skill specification (`SKILL.md` + `docs/SKILL.{en,es,fr,pt,ru,zh,ja,ar,hi,bn}.md`, `pyproject.toml` wheel `data-files`, `SUPPORTED_HELP_LOCALES`, and `architecture/doc-freshness-and-claims.v1.json`) to the full 11-language World Set (`de, en, es, fr, pt, ru, zh, ja, ar, hi, bn`).
+
 ## Unreleased — 2026-11-07
 
 ### Added (PB-10, #3993)

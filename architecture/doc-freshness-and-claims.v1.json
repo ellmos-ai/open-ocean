@@ -1,7 +1,7 @@
 {
   "schema": "open-ocean.doc-freshness-and-claims.v1",
   "id": "open-ocean-doc-freshness-and-claims",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "default_source_language": "de",
   "required_languages": [
     "de",
@@ -11,9 +11,14 @@
     "de",
     "en",
     "es",
-    "ja",
+    "fr",
+    "pt",
     "ru",
-    "zh"
+    "zh",
+    "ja",
+    "ar",
+    "hi",
+    "bn"
   ],
   "module_doc_schema": {
     "required_manifest_fields": [
@@ -51,11 +56,11 @@
       "title": "Open-Ocean Root README",
       "source_path": "README_de.md",
       "source_language": "de",
-      "source_sha256": "5b06dae553e18c292225230b2f19a855d5c5d252ec9d1e90b3c6f0320494a704",
+      "source_sha256": "29a5b878bca74c45d27f918c984b83163704164fd158abff1b2a26c4ed9d2093",
       "translations": {
         "en": {
           "target_path": "README.md",
-          "target_sha256": "710890ed34fa452b867a38939bc98364daa7b26078d5b27ed301418899c2e89c",
+          "target_sha256": "289c85a38b0c22d727203a6450c22aaeb4f619cd0043c306b084f3c71330f98a",
           "verified_not_older_than_source": true
         }
       },
@@ -65,7 +70,13 @@
           "python ocean.py up",
           "python ocean.py start",
           "python ocean.py status",
+          "python ocean.py stack-status",
           "python ocean.py inspect",
+          "python ocean.py gui",
+          "python ocean.py authority check",
+          "python ocean.py task list",
+          "python ocean.py agents list",
+          "python ocean.py user add",
           "python ocean.py down"
         ],
         "module_imports": [
@@ -81,6 +92,8 @@
           "SECURITY.md",
           "llms.txt",
           "THIRD_PARTY_LICENSES.md",
+          "ellmos-module.v2.json",
+          "docs/api/cli-reference.md",
           "architecture/INSTALLER-TARGET.md",
           "architecture/OCEAN-INSPECT.md",
           "architecture/GUI-CONSUMER.md"
@@ -92,11 +105,11 @@
       "title": "Open-Ocean Changelog",
       "source_path": "CHANGELOG_de.md",
       "source_language": "de",
-      "source_sha256": "1ee75453b288d1efa908fbcfd4b31a4111e23d0250983dc9c8a6f31208e02ce0",
+      "source_sha256": "5d3fe00ee05d13c1410a103966a769101206446bc823cb3fa7a03a16a69bc597",
       "translations": {
         "en": {
           "target_path": "CHANGELOG.md",
-          "target_sha256": "e26a66c8b7e5feb2aa74faf3acafaeb529eee711be1a0805ddfce4320614e839",
+          "target_sha256": "db95b4e98101ccea4bdf0e1b7a0839216a214dbd3eaec1aefe6ad176a0c852aa",
           "verified_not_older_than_source": true
         }
       },
@@ -120,11 +133,11 @@
       "title": "Documentation Index (docs/)",
       "source_path": "docs/README.de.md",
       "source_language": "de",
-      "source_sha256": "5df176df375b34a96c3a3a359a9f8b16f2bc5bec18318b5b7120ef7418b63a2d",
+      "source_sha256": "5d40de6c089b4dbd80d5176f19a3a35f4ab808d9927795be0ee86903e24fd643",
       "translations": {
         "en": {
           "target_path": "docs/README.en.md",
-          "target_sha256": "6c7b5c2d5b2fcae641ec721dffb3e3f2a9c655445322685a8991b14d1abceef1",
+          "target_sha256": "d224ce8319901bec90e50adfdc0808339770f9bf2f51760600d919c0380b0d73",
           "verified_not_older_than_source": true
         }
       },
@@ -138,6 +151,8 @@
         "relative_repo_paths": [
           "docs/CORE.md",
           "docs/GUI-CONSUMER.md",
+          "docs/api/cli-reference.md",
+          "docs/api/README.md",
           "docs/K9-REMAINING-CI.md",
           "docs/K9-REMAINING-OPERATIONS-CONTRACT.md",
           "docs/SKILL.en.md",
@@ -181,51 +196,88 @@
     },
     {
       "document_id": "ocean:skill-world-set",
-      "title": "Agent Skill Specification with 6-Language World Set",
+      "title": "Agent Skill Specification with 11-Language World Set",
       "source_path": "SKILL.md",
       "source_language": "de",
-      "source_sha256": "89b34e2be723c65710b75f4abf37e0cc61f23d662b14059c93123ef3cc463bfa",
+      "source_sha256": "8c77f2643482dbd5b5c7eaf8a795dbc83fab21634190c61b61468da8f4059bc6",
       "translations": {
         "en": {
           "target_path": "docs/SKILL.en.md",
-          "target_sha256": "228fb92116cb70b456d928864ddc3427bbb4f5b215b57b80e4c00d885f230f53",
+          "target_sha256": "f2a9be4b85e95330ab091a9d8315a2976da740c1c101a1f2fb1f790358d88c1c",
           "verified_not_older_than_source": true
         },
         "es": {
           "target_path": "docs/SKILL.es.md",
-          "target_sha256": "a6a30d237a7728dbd0e4e2de8c1577ed99d91f34da70209775441acce945befa",
+          "target_sha256": "2717994f384a28bc8248f47717b4a9bdfc8bd79fb48891492e451500a1cd72db",
           "verified_not_older_than_source": true
         },
-        "ja": {
-          "target_path": "docs/SKILL.ja.md",
-          "target_sha256": "38a413ca83e75e2d663e6c94c577a30652a2c858734f1d862e98951d9e3e21a7",
+        "fr": {
+          "target_path": "docs/SKILL.fr.md",
+          "target_sha256": "8043ca6fa962f2ed40fe3b0f17995dcf7048ba382b3e854e8ac1c85e2a33c179",
+          "verified_not_older_than_source": true
+        },
+        "pt": {
+          "target_path": "docs/SKILL.pt.md",
+          "target_sha256": "d0fdd6cd41d48429b69e1a964787d8f37f978d0bd61d1cba17b08c4a4b810feb",
           "verified_not_older_than_source": true
         },
         "ru": {
           "target_path": "docs/SKILL.ru.md",
-          "target_sha256": "3ca39a333c918f65c4f788407953245d27244c8d6d90e721f937d3ed1126dd14",
+          "target_sha256": "6eeb2e76b478f93f998fcf618418bac2825b2d2fa73ae5f9f9b8ce6ae4089416",
           "verified_not_older_than_source": true
         },
         "zh": {
           "target_path": "docs/SKILL.zh.md",
-          "target_sha256": "b8da3fd94ab137f8ef9cbaec119f506f81d47fc9ea24d2db5b3aeb4b493a4cf8",
+          "target_sha256": "07a2132ce01487eb628dfee7e827d2d8d599c78a834f8924092224a99acf0ff7",
+          "verified_not_older_than_source": true
+        },
+        "ja": {
+          "target_path": "docs/SKILL.ja.md",
+          "target_sha256": "6bdc43d10894548206754697f28ec4f59bfcdd79050d2656e51eee6fbc1dab09",
+          "verified_not_older_than_source": true
+        },
+        "ar": {
+          "target_path": "docs/SKILL.ar.md",
+          "target_sha256": "00c94f25feaed5a15e3ad2ed20dfb2b195091b053685f799c715267e1d48a3fc",
+          "verified_not_older_than_source": true
+        },
+        "hi": {
+          "target_path": "docs/SKILL.hi.md",
+          "target_sha256": "586c90f427b4767bcee8a82e78e4592e42a4abeeefb4a0a6476dee334ffc6e65",
+          "verified_not_older_than_source": true
+        },
+        "bn": {
+          "target_path": "docs/SKILL.bn.md",
+          "target_sha256": "11c2f8231b7a5fca869dbcf14ace268150976be2e69d2c3cc4bed6f78f1128e6",
           "verified_not_older_than_source": true
         }
       },
       "verified_claims": {
         "cli_commands": [
-          "python ocean.py status"
+          "python ocean.py status",
+          "python ocean.py stack-status",
+          "python ocean.py authority check",
+          "python ocean.py gui",
+          "python ocean.py task list"
         ],
         "module_imports": [
-          "tools.ocean_dev"
+          "tools.ocean_dev",
+          "tools.governance_bridge",
+          "tools.help_projection"
         ],
         "relative_repo_paths": [
           "SKILL.md",
           "docs/SKILL.en.md",
           "docs/SKILL.es.md",
-          "docs/SKILL.ja.md",
+          "docs/SKILL.fr.md",
+          "docs/SKILL.pt.md",
           "docs/SKILL.ru.md",
-          "docs/SKILL.zh.md"
+          "docs/SKILL.zh.md",
+          "docs/SKILL.ja.md",
+          "docs/SKILL.ar.md",
+          "docs/SKILL.hi.md",
+          "docs/SKILL.bn.md",
+          "docs/api/cli-reference.md"
         ]
       }
     },
@@ -234,7 +286,7 @@
       "title": "LLM Discovery & Context (llms.txt)",
       "source_path": "llms.txt",
       "source_language": "en",
-      "source_sha256": "e608a96a7173c60fb4d43adc69fc989a0c6ebde5d5bee066b38a315970f80e17",
+      "source_sha256": "61160ac322fff58739f9940b0b0e9b58ef2ca3cfa533e5218b6d15fe05a01455",
       "translations": {},
       "verified_claims": {
         "cli_commands": [
@@ -242,7 +294,17 @@
           "python ocean.py up",
           "python ocean.py start",
           "python ocean.py status",
+          "python ocean.py stack-status",
           "python ocean.py inspect",
+          "python ocean.py gui",
+          "python ocean.py authority check",
+          "python ocean.py authority feedback",
+          "python ocean.py task list",
+          "python ocean.py agents list",
+          "python ocean.py sessions list",
+          "python ocean.py tasks list",
+          "python ocean.py chat",
+          "python ocean.py user add",
           "python ocean.py down",
           "python tools/ocean_dev.py"
         ],

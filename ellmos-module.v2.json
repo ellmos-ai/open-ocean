@@ -22,6 +22,40 @@
     "cli",
     "library"
   ],
+  "languages": [
+    "de",
+    "en",
+    "es",
+    "fr",
+    "pt",
+    "ru",
+    "zh",
+    "ja",
+    "ar",
+    "hi",
+    "bn"
+  ],
+  "docs": {
+    "entry": "README.md",
+    "readme": "README.md",
+    "doc_de": "README_de.md",
+    "core": "docs/CORE.md",
+    "skill_entry": "SKILL.md",
+    "cli_reference": "docs/api/cli-reference.md",
+    "languages": [
+      "de",
+      "en",
+      "es",
+      "fr",
+      "pt",
+      "ru",
+      "zh",
+      "ja",
+      "ar",
+      "hi",
+      "bn"
+    ]
+  },
   "state": {
     "ownership": "module",
     "location": "project"

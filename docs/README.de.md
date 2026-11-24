@@ -8,11 +8,13 @@ Willkommen im Dokumentationsverzeichnis von `open-ocean`. Dieses Verzeichnis bü
 
 | Dokument | Sprache | Beschreibung |
 |---|---|---|
-| [`CORE.md`](CORE.md) | Deutsch | Kerndokumentation zu Konzept, Installation, Rollback-Garantien und Lebenszyklus. |
+| [`CORE.md`](CORE.md) | Deutsch | Kerndokumentation zu Konzept, Installation, Rollback-Garantien und 16-Befehls-Lebenszyklus. |
 | [`GUI-CONSUMER.md`](GUI-CONSUMER.md) | Deutsch | Vertrag über den Verbrauch der System-GUI (`ellmos-system-gui`). |
+| [`api/cli-reference.md`](api/cli-reference.md) | Deutsch | Automatisch aus `ocean.py` generierte CLI-Referenz (`16` Hauptbefehle, `16` Unterbefehle). |
+| [`api/README.md`](api/README.md) | Deutsch | Automatisch generierte HTTP-API- & 11-Modul-Bindungsreferenz. |
 | [`K9-REMAINING-CI.md`](K9-REMAINING-CI.md) | Deutsch | Permanenter CI-Nachweis der verbleibenden K9-Operationen. |
 | [`K9-REMAINING-OPERATIONS-CONTRACT.md`](K9-REMAINING-OPERATIONS-CONTRACT.md) | Deutsch | Gegenüberstellung und Paritätsvertrag der sechs K9-Operationen. |
-| [`SKILL.en.md`](SKILL.en.md) | Englisch | Agenten-Fertigkeitsprofil (`SKILL.md`) in englischer Übersetzung (weitere: `SKILL.es.md`, `SKILL.ja.md`, `SKILL.ru.md`, `SKILL.zh.md`). |
+| [`SKILL.en.md`](SKILL.en.md) | Mehrsprachig (11) | Agenten-Fertigkeitsprofil (`../SKILL.md` DE + World-Set: `SKILL.en.md`, `SKILL.es.md`, `SKILL.fr.md`, `SKILL.pt.md`, `SKILL.ru.md`, `SKILL.zh.md`, `SKILL.ja.md`, `SKILL.ar.md`, `SKILL.hi.md`, `SKILL.bn.md`). |
 | [`DOCUMENT-REGISTER.json`](DOCUMENT-REGISTER.json) | JSON | Zentrales Register aller Dokumente mit Prüfsummen und Leser-Verbindungen. |
 
 ## Architekturpläne (`../architecture/`)
@@ -24,4 +26,4 @@ Willkommen im Dokumentationsverzeichnis von `open-ocean`. Dieses Verzeichnis bü
 
 ## Sprachpolitik
 
-`open-ocean` folgt der zweisprachigen Mindest-Norm (`de` als Quellsprache, `en` als internationale Pflichtsprache) sowie dem 6-Sprachen-Weltsatz (`de`, `en`, `es`, `ja`, `ru`, `zh`) für universelle Agentenskills.
+`open-ocean` folgt der zweisprachigen Mindest-Norm (`de` als Quellsprache, `en` als internationale Pflichtsprache) sowie dem vollständigen **11-Sprachen-World-Set** (`de`, `en`, `es`, `fr`, `pt`, `ru`, `zh`, `ja`, `ar`, `hi`, `bn`) für universelle Agentenskills und das Modulmanifest `ellmos-module.v2.json`.

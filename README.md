@@ -301,7 +301,7 @@ When automated documentation verification (`ellmos-doc-keeper` + NemoFold claim 
 |---|---|---|
 | **1. `unintended_erosion`** *(Unintended Erosion / Drift)* | Documentation states the intended behavior, but code/runtime broke or drifted unintentionally. | **Keep SOLL in doc** + set IST warning + dispatch **`["local_taskplan", "user_notification"]`** (creates P1 repair task for background worker + notifies user; optionally combinable with `local_genie_marblerun` or `gitlab_wishes_come_true`). |
 | **2. `planned_terraforming_pending`** *(Planned Terraforming Pending)* | Documentation describes planned target architecture (SOLL) from Roadmap/`DECISIONS.md` not yet finished in code. | Check/adjust existing task or create P2 implementation task via **`["local_taskplan"]`** + cleanly separate **SOLL (with Task ID)** vs. **IST** in documentation. |
-| **3. `completed_terraforming_doc_lag`** *(Completed Terraforming, Doc Lag)* | Code was intentionally advanced (verified by commit/PR/`task_status=done`), documentation lags behind. | Execute **`["local_doc_update"]`**: automatically update `.txt` CLI help, `.md` docs, CLI/API references, and translations (`de/en/es/ja/ru/zh`). |
+| **3. `completed_terraforming_doc_lag`** *(Completed Terraforming, Doc Lag)* | Code was intentionally advanced (verified by commit/PR/`task_status=done`), documentation lags behind. | Execute **`["local_doc_update"]`**: automatically update `.txt` CLI help, `.md` docs, CLI/API references, and translations (`de/en/es/fr/pt/ru/zh/ja/ar/hi/bn`). |
 
 ```mermaid
 flowchart TD
@@ -419,14 +419,19 @@ python tools/project_workflows.py --skills-registry <path-to-components.json> \
 The skeleton references 13 bundles in two rings — the functional core (`--ring 1`) and the breadth
 around it (`--ring 2`, or `all`).
 
-For a running system, `ocean.py` wraps the same steps in a product lifecycle:
+For a running system, `ocean.py` wraps the same steps in a 16-command product lifecycle (full reference: [`docs/api/cli-reference.md`](docs/api/cli-reference.md)):
 
 ```text
 python ocean.py plan <composition arguments>
 python ocean.py up <composition arguments> --apply
 python ocean.py start --workspace <local-sandbox>
 python ocean.py status --workspace <local-sandbox>
+python ocean.py stack-status --json
 python ocean.py inspect --workspace <local-sandbox> ...   # read-only, see architecture/OCEAN-INSPECT.md
+python ocean.py gui --archive <system-gui-release.zip> --workspace <local-sandbox> --json
+python ocean.py authority check --action-class internal_delivery --strict-followup ...
+python ocean.py task list                                 # taskplan kernel lifecycle (list|take|renew|submit|return|block|reclaim)
+python ocean.py agents list --workspace <local-sandbox>   # plus sessions, tasks, chat / console
 python ocean.py user add --workspace <local-sandbox> --username <name> --email <address>
 python ocean.py down --workspace <local-sandbox>
 ```
@@ -439,7 +444,7 @@ without echo and never passed as process arguments (`--password-stdin` for autom
 ## What is in the repository
 
 ```
-ocean.py                        user-facing lifecycle CLI (plan/up/start/status/inspect/user/down)
+ocean.py                        user-facing lifecycle CLI (16 commands: plan/up/start/status/stack-status/inspect/gui/authority/task/tasks/agents/sessions/chat/console/user/down)
 tools/
   ocean_dev.py                  single entry point: Resolve -> Verify -> Fetch/Place -> Activate,
                                 dry-run by default, --apply for real writes, --rollback

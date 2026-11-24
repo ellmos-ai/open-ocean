@@ -23,14 +23,24 @@ python ocean.py up <composition arguments> --apply
 python ocean.py start --workspace <local-sandbox>
 python ocean.py start <role> --manifest <ellmos-module.v2.json> [--provider <name>]
 python ocean.py status --workspace <local-sandbox>
+python ocean.py stack-status --json
 python ocean.py inspect --workspace <local-sandbox> --resolution <resolution.json> \
   --receipt <actual-self.json> --trust-store <receipt-trust.json> \
   --trust-store-sha256 <sha256> --expected-instance-id <instance> --expected-host-id <host> --json
+python ocean.py gui --archive <system-gui-release.zip> --workspace <local-sandbox> --json
+python ocean.py authority check --action-class internal_delivery --strict-followup \
+  --goal-id <id> --goal-quote <quote> --follows-from-goal --no-new-tradeoff --json
+python ocean.py authority feedback --action-class internal_delivery --json
+python ocean.py task list
+python ocean.py agents list --workspace <local-sandbox> --json
+python ocean.py sessions list --workspace <local-sandbox> --json
+python ocean.py tasks list --workspace <local-sandbox> --json
+python ocean.py chat --workspace <local-sandbox> --once <prompt>   # alias: ocean console
 python ocean.py user add --workspace <local-sandbox> --username <name> --email <address>
 python ocean.py down --workspace <local-sandbox>
 ```
 
-Use `python ocean.py --help` and subcommand help for the complete argument surface.
+Use `python ocean.py --help` and subcommand help (or [`docs/api/cli-reference.md`](docs/api/cli-reference.md)) for all 16 commands and 16 subcommands.
 `inspect` verifies the installed `module:software-endpoint-registry` binding as the pinned
 `system-explorer` provider, then delegates resolution, signed Actual-Self receipt, trust and
 coverage semantics to its native APIs in a temporary store. It never scans or mutates the target.
@@ -42,6 +52,8 @@ task-master, [COMA](https://github.com/ellmos-ai/coma) via `python -m coma sessi
 
 - English overview: `README.md`
 - German overview: `README_de.md`
+- Agent skill & 11-language World Set: `SKILL.md` (`docs/SKILL.{en,es,fr,pt,ru,zh,ja,ar,hi,bn}.md`)
+- Generated CLI & HTTP API reference: `docs/api/cli-reference.md`, `docs/api/README.md`
 - English changes: `CHANGELOG.md`
 - German changes: `CHANGELOG_de.md`
 - Installer contract: `architecture/INSTALLER-TARGET.md`
@@ -52,7 +64,7 @@ task-master, [COMA](https://github.com/ellmos-ai/coma) via `python -m coma sessi
 - **Repository**: https://github.com/ellmos-ai/open-ocean
 - **Organization**: ellmos-ai
 - **License**: MIT
-- **Last Checked**: 2026-09-29
+- **Last Checked**: 2026-11-24 (baseline audit 2026-09-29)
 - **Language**: Python 3.10+
 - **Package / CLI**: `open-ocean` (v0.1.2)
 - **Security & Privacy**: Local-first, zero egress, fail-closed verification, transactional rollback, unprivileged user mode. Full policy in [`SECURITY.md`](SECURITY.md).

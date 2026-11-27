@@ -5,8 +5,8 @@
   "status": "pinned_artifact_only",
   "source": {
     "repository": "ellmos-ai/ellmos-system-gui",
-    "commit": "7abe3a91dbdbf7265d1a679e8fb7eae577065f3d",
-    "archive_sha256": "27a6be58bc2480a06c6143883e90b8c2f24cdc1cc9a18d221541664f2fe50dda",
+    "commit": "7fb721a540960e8de279672b0af5d8ce238c7d53",
+    "archive_sha256": "b74fd335e2d6d81f958c5273df853838b151ffef669b06c12ae02a70e1d88054",
     "dist_manifest_schema": "ellmos-system-gui.dist.v1"
   },
   "required_backend_routes": [

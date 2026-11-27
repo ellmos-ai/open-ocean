@@ -1,0 +1,178 @@
+{
+  "schema": "ellmos.ocean-terminology-congruence.v1",
+  "schema_version": 1,
+  "decided_at": "2026-11-27",
+  "reference_ticket": "T-20261127-020900001",
+  "reference_bach_task": 4447,
+  "related_model_catalog_task": 4445,
+  "policy": {
+    "one_term_per_concept": true,
+    "preserve_legacy_wire_compatibility": true,
+    "forbidden_in_new_ui_and_docs": [
+      "Aktueller Fackelhalter",
+      "Hardware-Fackel",
+      "Hauptfackel",
+      "Fackelspeicher",
+      "Fackelbesitz",
+      "Fackel-Priorität",
+      "Steckplatz einrichten",
+      "Steckplatz aktualisieren",
+      "Als Steckplatz",
+      "Steckplatzkonfiguration",
+      "Systemplatz",
+      "Anbieter-Sockel",
+      "Modell-Sockel",
+      "Agenten-Fabrik"
+    ]
+  },
+  "concepts": [
+    {
+      "id": "stage1_ram_allocation",
+      "stage": 1,
+      "canonical_de": "RAM-Zuteilung",
+      "ui_companion_terms_de": [
+        "RAM-Belegung",
+        "Compute-Vorrang",
+        "Speicher-Claim"
+      ],
+      "meaning_de": "Stufe 1: Physischer RAM-/VRAM-Claim für geladene Modelle und Compute-Verbraucher.",
+      "code_symbols": [
+        "RAMDistributor",
+        "ConsumerCapability",
+        "ResourceSocket",
+        "RunCooldownGate",
+        "local_resource_reserve"
+      ],
+      "legacy_wire_compat": [
+        "/api/fackel",
+        "/api/system/fackel",
+        "fackel"
+      ],
+      "deprecated_ui_terms": [
+        "Fackel",
+        "Hauptfackel",
+        "Fackelhalter",
+        "Fackelspeicher",
+        "Fackelbesitz",
+        "Hardware-Fackel",
+        "Primary Torch"
+      ]
+    },
+    {
+      "id": "stage2_model_time_allocation",
+      "stage": 2,
+      "canonical_de": "Modellzeit-Zuteilung",
+      "ui_companion_terms_de": [
+        "Inferenz-Turn",
+        "Nutzernähe-Klassen 1–4"
+      ],
+      "meaning_de": "Stufe 2: Nutzungszeit-Claim (Inferenz-Turns) auf einem geladenen Modell nach Nutzernähe-Klassen 1–4.",
+      "code_symbols": [
+        "HostInferenceGate",
+        "UserProximity",
+        "inference_queue_policy",
+        "SlotRequest"
+      ],
+      "legacy_wire_compat": [
+        "compute_turn"
+      ],
+      "deprecated_ui_terms": [
+        "Model Torch",
+        "Modell-Fackel",
+        "Slots"
+      ]
+    },
+    {
+      "id": "local_model",
+      "stage": null,
+      "canonical_de": "Lokales Modell",
+      "ui_companion_terms_de": [
+        "Hardware-Default-Profil",
+        "Modellangebote"
+      ],
+      "meaning_de": "Lokal auf dem Host installiertes Modell inkl. hardware-/RAM-gekoppelter Standardparameter.",
+      "code_symbols": [
+        "local_model_catalog",
+        "model-tuning-catalog.v1"
+      ],
+      "legacy_wire_compat": [
+        "ollama_config.json",
+        "resource-reserve.json"
+      ],
+      "deprecated_ui_terms": [
+        "Modell-Sockel",
+        "Modellsteckplatz",
+        "Slot"
+      ]
+    },
+    {
+      "id": "model_binding",
+      "stage": null,
+      "canonical_de": "Modellbindung",
+      "ui_companion_terms_de": [
+        "Primärmodell",
+        "Fallbacks",
+        "Modellzuordnung"
+      ],
+      "meaning_de": "Direkte Zuordnung eines Agenten zu Primärmodell und Fallbacks ohne starre Modell-Slots.",
+      "code_symbols": [
+        "model",
+        "model_fallbacks",
+        "model_sockets"
+      ],
+      "legacy_wire_compat": [
+        "bach.model-sockets.v1"
+      ],
+      "deprecated_ui_terms": [
+        "Steckplatzkonfiguration",
+        "Anbieter-Sockel",
+        "Modell-Sockel"
+      ]
+    },
+    {
+      "id": "configured_agent",
+      "stage": null,
+      "canonical_de": "Agent",
+      "ui_companion_terms_de": [
+        "System-Agent",
+        "Living-Agent",
+        "Agentenprofil"
+      ],
+      "meaning_de": "Konfiguriertes Agentenprofil (Assistent, Dauerläufer, Connector, Schnittstelle).",
+      "code_symbols": [
+        "slots_config"
+      ],
+      "legacy_wire_compat": [
+        "/api/slots",
+        "slots_config.json",
+        "bound_slot"
+      ],
+      "deprecated_ui_terms": [
+        "Steckplatz",
+        "Slot",
+        "Systemplatz"
+      ]
+    },
+    {
+      "id": "library_role_template",
+      "stage": null,
+      "canonical_de": "Rollenvorlage",
+      "ui_companion_terms_de": [
+        "Modell-Profil",
+        "Agenten-Bibliothek"
+      ],
+      "meaning_de": "Wiederverwendbare Rollenbeschreibung mit zugeordnetem Leistungs-/Modell-Profil in der Agenten-Bibliothek.",
+      "code_symbols": [
+        "role_socket_catalog"
+      ],
+      "legacy_wire_compat": [
+        "ellmos.role-socket-catalog.v1"
+      ],
+      "deprecated_ui_terms": [
+        "Agenten-Fabrik",
+        "Rollen-Sockel",
+        "Modell-Sockel"
+      ]
+    }
+  ]
+}

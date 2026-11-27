@@ -285,13 +285,19 @@ def usecases_reader(component: dict[str, Any], modules_root: Path) -> Callable[.
 
 
 def agent_library_reader(workspace: Path | None = None) -> Callable[[], dict]:
-    """Thin read-only adapter onto tools.agent_library (PB-11)."""
+    """Thin read-only adapter onto tools.agent_library (PB-11 / #2329)."""
     def read() -> dict:
         try:
-            from .agent_library import build_full_agent_library_catalog
+            from .agent_library import (
+                build_full_agent_library_catalog,
+                read_workspace_automation_lifecycle,
+            )
             from .persona_routing import PROVIDER_SOCKET_PROFILES
         except ImportError:
-            from agent_library import build_full_agent_library_catalog
+            from agent_library import (
+                build_full_agent_library_catalog,
+                read_workspace_automation_lifecycle,
+            )
             from persona_routing import PROVIDER_SOCKET_PROFILES
         repos_root = (workspace / "modules") if workspace is not None and (workspace / "modules").is_dir() else None
         catalog = build_full_agent_library_catalog(
@@ -299,6 +305,8 @@ def agent_library_reader(workspace: Path | None = None) -> Callable[[], dict]:
             include_installed=repos_root is None,
         )
         catalog["role_socket_catalog"] = {"provider_sockets": PROVIDER_SOCKET_PROFILES}
+        if workspace is not None:
+            catalog["automation_lifecycle"] = read_workspace_automation_lifecycle(workspace)
         return catalog
     return read
 

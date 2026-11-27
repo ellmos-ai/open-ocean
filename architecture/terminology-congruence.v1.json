@@ -22,7 +22,12 @@
       "Systemplatz",
       "Anbieter-Sockel",
       "Modell-Sockel",
-      "Agenten-Fabrik"
+      "Agenten-Fabrik",
+      "Besetzt von:",
+      "Besetzung ändern",
+      "Nicht besetzt",
+      "Boss-Koordinator",
+      "ehem. Bosse"
     ]
   },
   "concepts": [
@@ -126,7 +131,10 @@
       "deprecated_ui_terms": [
         "Steckplatzkonfiguration",
         "Anbieter-Sockel",
-        "Modell-Sockel"
+        "Modell-Sockel",
+        "Besetzt von:",
+        "Besetzung ändern",
+        "Nicht besetzt"
       ]
     },
     {
@@ -171,7 +179,9 @@
       "deprecated_ui_terms": [
         "Agenten-Fabrik",
         "Rollen-Sockel",
-        "Modell-Sockel"
+        "Modell-Sockel",
+        "Boss-Koordinator",
+        "ehem. Bosse"
       ]
     }
   ]

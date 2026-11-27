@@ -21,8 +21,8 @@ COMMIT = "a" * 40
 def test_shipped_pin_is_the_published_gui_release():
     pin = json.loads((Path(__file__).parents[1] / "architecture/gui-consumer.v1.json").read_text(encoding="utf-8"))
     assert pin["version"] == "0.2.42"
-    assert pin["source"]["commit"] == "c9e49104a4f69a8e26252bf30f638e29c85fc53b"
-    assert pin["source"]["archive_sha256"] == "64bc3fe93ed7802a8212a6024046b47f0e09834602487c4f1ff3c63e8165cf85"
+    assert pin["source"]["commit"] == "7abe3a91dbdbf7265d1a679e8fb7eae577065f3d"
+    assert pin["source"]["archive_sha256"] == "27a6be58bc2480a06c6143883e90b8c2f24cdc1cc9a18d221541664f2fe50dda"
     assert pin["activation_ready"] is False
 
 
